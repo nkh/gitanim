@@ -51,11 +51,16 @@ fi
 OLD="$(cd "$(dirname "$OLD")" && pwd)/$(basename "$OLD")"
 NEW="$(cd "$(dirname "$NEW")" && pwd)/$(basename "$NEW")"
 
-[[ -f "$OLD" ]] || { echo "Error: '$OLD' not found" >&2; exit 1; }
-[[ -f "$NEW" ]] || { echo "Error: '$NEW' not found" >&2; exit 1; }
+[[ -f "$OLD" ]] || { echo "diffvim-tmux: Error: '$OLD' not found"; exit 1; }
+[[ -f "$NEW" ]] || { echo "diffvim-tmux: Error: '$NEW' not found"; exit 1; }
 
 for cmd in tmux vim diff sed awk; do
-    command -v "$cmd" >/dev/null 2>&1 || { echo "Error: '$cmd' not found" >&2; exit 1; }
+    command -v "$cmd" >/dev/null 2>&1 || {
+        echo "diffvim-tmux: Error: '$cmd' not found in PATH. Please install it."
+        echo "  tmux: apt install tmux  (or: brew install tmux)"
+        echo "  vim:  apt install vim   (or: brew install vim)"
+        exit 1
+    }
 done
 
 # Use C locale for byte-level text handling (consistent diff/sed behavior)

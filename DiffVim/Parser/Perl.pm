@@ -1,8 +1,7 @@
 package DiffVim::Parser::Perl;
 # Pure-Perl diff parser. Computes line-level and char-level diffs using
 # the classic LCS dynamic-programming algorithm. No external dependencies
-# beyond Perl core (uses Algorithm::Diff if available, falls back to a
-# built-in LCS implementation).
+# beyond Perl core.
 
 use strict;
 use warnings;
@@ -10,17 +9,6 @@ use utf8;
 
 use Exporter qw(import);
 our @EXPORT_OK = qw(parse_diff);
-
-# Try to use Algorithm::Diff for better performance; fall back to built-in.
-my $HAVE_ALG_DIFF;
-BEGIN {
-    eval {
-        require Algorithm::Diff;
-        Algorithm::Diff->import(qw(LCS diff traverse_sequences));
-        $HAVE_ALG_DIFF = 1;
-    };
-    $HAVE_ALG_DIFF //= 0;
-}
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -99,52 +87,6 @@ sub parse_diff {
 
 sub _line_diff {
     my ($a, $b) = @_;
-
-    if ($HAVE_ALG_DIFF) {
-        # Algorithm::Diff::diff returns hunks of [op, a_idx, b_idx]
-        my $diffs = Algorithm::Diff::diff($a, $b);
-        my @ops;
-        # Algorithm::Diff doesn't give us 'keep' ops directly; we need to
-        # reconstruct them. Easier to use traverse_sequences.
-        my $ai = 0;
-        my $bi = 0;
-        my @result;
-        for my $hunk (@$diffs) {
-            for my $change (@$hunk) {
-                my ($op, $i, $j) = @$change;
-                if ($op eq '-') {
-                    # Emit keeps for anything before this
-                    while ($ai < $i || $bi < $j) {
-                        push @result, ['keep', $ai, $bi];
-                        $ai++; $bi++;
-                    }
-                    push @result, ['delete', $i, $bi];
-                    $ai = $i + 1;
-                } elsif ($op eq '+') {
-                    push @result, ['insert', $ai, $j];
-                    $bi = $j + 1;
-                }
-            }
-        }
-        # Emit remaining keeps
-        while ($ai < @$a && $bi < @$b) {
-            push @result, ['keep', $ai, $bi];
-            $ai++; $bi++;
-        }
-        # Emit remaining deletes
-        while ($ai < @$a) {
-            push @result, ['delete', $ai, $bi];
-            $ai++;
-        }
-        # Emit remaining inserts
-        while ($bi < @$b) {
-            push @result, ['insert', $ai, $bi];
-            $bi++;
-        }
-        return \@result;
-    }
-
-    # Fallback: classic LCS DP.
     return _lcs_diff($a, $b);
 }
 
@@ -318,7 +260,7 @@ regions, then a char-level LCS diff within each changed region. This
 produces the minimal set of character insert/delete/keep operations needed
 to transform the old file into the new file.
 
-If L<Algorithm::Diff> is installed, it is used for the line-level diff
-(faster C implementation). Otherwise a pure-Perl LCS fallback is used.
+Uses a pure-Perl LCS dynamic-programming implementation with no external
+dependencies.
 
 =cut
