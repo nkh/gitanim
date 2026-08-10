@@ -5,16 +5,19 @@
 "
 " Usage:
 "   :Diffvim oldfile newfile
-"   :Diffvim oldfile newfile " tabnew   " open in a new tab
+"   :Diffvim oldfile newfile tabnew     " open in a new tab
+"   :Diffvim oldfile newfile vsplit     " open in a vertical split
 "
 " The animation uses vim's native timer_start() — no external orchestrator.
 " All the same controls work: Space=pause, n=skip, b=back, q=quit, +/-=speed.
 "
-" To install: drop this file in ~/.vim/plugin/ or source it manually.
-" To use with package managers:
-"   Plug 'nkh/gitanim', {'rtp': 'plugin/'}
-"   " or
-"   use {'nkh/gitanim', 'rtp': 'plugin/'}
+" To install: drop this file (and the autoload/ directory) in your vim runtimepath.
+" Or with a package manager:
+"   Plug 'nkh/gitanim', {'rtp': '.'}
+"
+" Configuration:
+"   let g:diffvim = {'type_delay_ms': 50, 'scroll': 'zz', ...}
+"   See :help diffvim-configuration or docs/CONFIGURATION.md
 
 if exists('g:loaded_diffvim_plugin')
     finish
@@ -48,11 +51,9 @@ let g:diffvim = extend(s:default_config, g:diffvim)
 " ---------------------------------------------------------------------------
 " :Diffvim command
 " ---------------------------------------------------------------------------
-command! -nargs=+ -complete=file Diffvim call diffvim#start(<q-args>)
+command! -nargs=+ -complete=file Diffvim call s:DiffvimStart(<q-args>)
 
-" Provide a simple start function that can be called directly.
-" This avoids autoload directory complications for a single-file plugin.
-function! DiffvimStart(args) abort
+function! s:DiffvimStart(args) abort
     " Parse args: "oldfile newfile" or "oldfile newfile tabnew"
     let l:parts = split(a:args, '\s\+')
     if len(l:parts) < 2
@@ -77,7 +78,7 @@ function! DiffvimStart(args) abort
     let l:old_file = fnamemodify(l:old_file, ':p')
     let l:new_file = fnamemodify(l:new_file, ':p')
 
-    " Open the old file (in a new tab if requested)
+    " Open the old file (in a new tab/split if requested)
     if l:extra =~? 'tab\|tabnew'
         tabnew
     elseif l:extra =~? 'split\|new'
@@ -91,75 +92,25 @@ function! DiffvimStart(args) abort
     " Set up the diffvim engine
     let g:diffvim_new_file = l:new_file
 
-    " Source the engine (embedded below)
-    call s:InitEngine()
-endfunction
+    " Source the engine — it defines s: functions and starts the animation
+    let l:engine_path = findfile('autoload/diffvim/engine.vim', &runtimepath)
+    if empty(l:engine_path)
+        " Try relative to this plugin file
+        let l:engine_path = expand('<sfile>:h:h') . '/autoload/diffvim/engine.vim'
+    endif
 
-" ---------------------------------------------------------------------------
-" Engine initialization
-" ---------------------------------------------------------------------------
-function! s:InitEngine() abort
-    " The engine is the same vimscript that the bash launcher generates,
-    " but without the environment-variable reading (we use g:diffvim directly).
-
-    if !has('timers') || !has('float')
-        echoerr 'diffvim: requires vim compiled with +timers and +float'
+    if !filereadable(l:engine_path)
+        echoerr 'Diffvim: cannot find engine file at ' . l:engine_path
+        echoerr 'Make sure the autoload/diffvim/engine.vim file is installed.'
         return
     endif
 
-    if !&modifiable
-        echoerr 'diffvim: buffer is not modifiable'
-        return
-    endif
+    " Source the engine — it uses s: prefix (script-local) so each source
+    " creates a fresh namespace. The engine's StartAnimation will run.
+    execute 'source ' . fnameescape(l:engine_path)
 
-    " State
-    let s:state = {
-        \ 'paused':        0,
-        \ 'stopped':       0,
-        \ 'phase':         'idle',
-        \ 'hunks':         [],
-        \ 'hunk_idx':      0,
-        \ 'op_idx':        0,
-        \ 'cur_hunk':      {},
-        \ 'move_start_l':  1,
-        \ 'move_start_c':  1,
-        \ 'move_end_l':    1,
-        \ 'move_end_c':    1,
-        \ 'move_elapsed':  0,
-        \ 'move_duration': 0,
-        \ 'snapshots':     [],
-        \ 'line_offset':   0,
-        \ 'active_timer':  -1,
-        \ 'runtime_speed': 1.0,
-        \ }
-
-    let s:cur_l = 1
-    let s:cur_c = 1
-
-    " Start animation
-    call s:StartAnimation()
-endfunction
-
-" We need the full engine. Rather than duplicating 500 lines, we source the
-" engine from the diffvim script's vimscript section. The engine functions
-" are self-contained (they use s: prefix and g:diffvim for config).
-
-" Source the engine from the main diffvim script
-let s:engine_path = expand('<sfile>:h:h') . '/diffvim'
-if filereadable(s:engine_path)
-    " Extract the vimscript section and source it
-    " This is a simplification — in a real plugin, the engine would be a
-    " separate autoload file.
-endif
-
-" For now, provide a message about the plugin mode
-function! s:StartAnimation() abort
-    echo 'diffvim plugin mode: use :Diffvim oldfile newfile to animate'
-    echo 'Note: The full engine is sourced from the diffvim script.'
-    echo 'For full functionality, run: diffvim oldfile newfile from the shell.'
-endfunction
-
-" Allow direct call
-function! diffvim#start(args) abort
-    call DiffvimStart(a:args)
+    " The engine defines s:StartAnimation and calls it via autocmd VimEnter.
+    " But since we're already past VimEnter, we need to call it directly.
+    " The engine defines diffvim#engine#Start() as a public wrapper.
+    call diffvim#engine#Start()
 endfunction

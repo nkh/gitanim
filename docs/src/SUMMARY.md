@@ -1,0 +1,27 @@
+# Summary
+
+[Introduction](./introduction.md)
+
+# Getting Started
+
+- [Installation](./installation.md)
+- [Quick Start](./quick-start.md)
+
+# Usage
+
+- [Command-Line Options](./options.md)
+- [Controls](./controls.md)
+- [Configuration](./configuration.md)
+- [Examples](./examples.md)
+
+# Architecture
+
+- [Overview](./architecture.md)
+- [Diff Parsers](./parsers.md)
+- [Plugin Mode](./plugin.md)
+
+# Advanced
+
+- [Git Integration](./git-integration.md)
+- [Testing](./testing.md)
+- [Shell Completion](./completion.md)

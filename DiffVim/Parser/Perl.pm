@@ -14,7 +14,9 @@ our @EXPORT_OK = qw(parse_diff);
 # Public API
 # ---------------------------------------------------------------------------
 
-# parse_diff($old_file, $new_file)
+# parse_diff($old_file, $new_file, \%options)
+# Options:
+#   word_diff => 1   Use word-level diff (#19) instead of char-level
 # Returns a hash:
 #   {
 #     hunks => [
@@ -38,7 +40,9 @@ our @EXPORT_OK = qw(parse_diff);
 #     parser => 'perl',
 #   }
 sub parse_diff {
-    my ($old_file, $new_file) = @_;
+    my ($old_file, $new_file, $options) = @_;
+    $options //= {};
+    my $use_word_diff = $options->{word_diff} // 0;
 
     my $old_lines = _read_lines($old_file);
     my $new_lines = _read_lines($new_file);
@@ -58,7 +62,7 @@ sub parse_diff {
         if ($op eq 'keep') {
             if ($has_hunk) {
                 push @hunks, _flush_hunk(\@cur_old, \@cur_new,
-                    $cur_target, scalar(@$old_lines));
+                    $cur_target, scalar(@$old_lines), $use_word_diff);
                 @cur_old = ();
                 @cur_new = ();
                 $has_hunk = 0;
@@ -75,7 +79,7 @@ sub parse_diff {
     }
     if ($has_hunk) {
         push @hunks, _flush_hunk(\@cur_old, \@cur_new,
-            $cur_target, scalar(@$old_lines));
+            $cur_target, scalar(@$old_lines), $use_word_diff);
     }
 
     return { hunks => \@hunks, parser => 'perl' };
@@ -161,11 +165,54 @@ sub _char_diff {
 }
 
 # ---------------------------------------------------------------------------
+# Word-level diff (#19) — intermediate between line and char level
+# Splits text into words (non-space sequences) and spaces, then runs LCS.
+# Returns char_ops but groups consecutive insert/delete within a word.
+# ---------------------------------------------------------------------------
+
+sub _word_diff {
+    my ($old_text, $new_text) = @_;
+
+    # Split into tokens: words (non-space) and whitespace
+    my @a = _split_words($old_text);
+    my @b = _split_words($new_text);
+
+    my $ops = _lcs_diff(\@a, \@b);
+
+    # Convert word-level ops to char-level ops
+    my @char_ops;
+    for my $entry (@$ops) {
+        my ($op, $ai, $bi) = @$entry;
+        my $token;
+        if ($op eq 'keep' || $op eq 'delete') {
+            $token = $a[$ai];
+        } else {
+            $token = $b[$bi];
+        }
+        # Expand token into individual char ops
+        for my $ch (split //, $token) {
+            push @char_ops, { op => $op, code => ord($ch) };
+        }
+    }
+    return \@char_ops;
+}
+
+# Split text into words and whitespace tokens
+sub _split_words {
+    my ($text) = @_;
+    my @tokens;
+    while ($text =~ /(\S+|\s+)/g) {
+        push @tokens, $1;
+    }
+    return @tokens;
+}
+
+# ---------------------------------------------------------------------------
 # Hunk construction
 # ---------------------------------------------------------------------------
 
 sub _flush_hunk {
-    my ($cur_old, $cur_new, $target, $old_line_count) = @_;
+    my ($cur_old, $cur_new, $target, $old_line_count, $use_word_diff) = @_;
 
     my $del_count = scalar(@$cur_old);
     my $ins_count = scalar(@$cur_new);
@@ -201,7 +248,8 @@ sub _flush_hunk {
         }
     }
 
-    my $char_ops = _char_diff($old_text, $new_text);
+    my $char_ops = $use_word_diff ? _word_diff($old_text, $new_text)
+                                  : _char_diff($old_text, $new_text);
 
     return {
         target_line   => $target,

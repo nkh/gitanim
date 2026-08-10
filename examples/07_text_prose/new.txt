@@ -1,0 +1,36 @@
+The Project
+
+This document describes the architecture of the system and its design
+decisions.
+
+The system consists of three main components:
+
+1. Frontend — a single-page application built with React 18 and TypeScript,
+   using Vite as the build tool. State management is handled by Zustand.
+
+2. Backend — a REST API built with Node.js 20, Express 5, and TypeScript.
+   It uses Prisma as the ORM and Zod for schema validation.
+
+3. Database — PostgreSQL 16, managed via Prisma migrations.
+
+The frontend communicates with the backend via HTTP. The backend
+communicates with the database via Prisma.
+
+Authentication is handled via JWT tokens with refresh-token rotation.
+When a user logs in, the backend generates an access token (15-minute
+expiry) and a refresh token (7-day expiry). The frontend stores the
+access token in memory and the refresh token in an http-only cookie.
+
+The system supports the following features:
+- User registration and login with email verification
+- CRUD operations on user profiles
+- File upload and download (S3-compatible storage)
+- Real-time notifications via WebSocket (Socket.IO)
+- Role-based access control (RBAC)
+- Audit logging for all mutations
+
+Future plans include:
+- Adding OAuth 2.0 support (Google, GitHub, Microsoft)
+- Full-text search with PostgreSQL tsvector
+- Migration to a modular monolith architecture (not microservices)
+- GraphQL API alongside the REST API

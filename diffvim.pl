@@ -89,6 +89,7 @@ my %config = (
 # ---------------------------------------------------------------------------
 my $parser_name    = 'perl';
 my $help           = 0;
+my $version_flag   = 0;
 my $speed_mult     = _env_or('DIFFVIM_SPEED', 1.0);
 my $output_file    = '';
 my $context_lines  = 0;
@@ -99,21 +100,40 @@ my $multi_mode     = 0;
 my $replay_mode    = 0;
 my $replay_from    = 'HEAD~5';
 my $replay_to      = 'HEAD';
+my $no_tmux        = 0;
+my $dry_run        = 0;
+my $sign_column    = 0;
+my $git_blame      = 0;
+my $step_mode      = 0;
+my $git_rev        = '';
+my $max_line_len   = _env_or('DIFFVIM_MAX_LINE_LEN', 10000);
+my $adaptive_timing= 0;
+my $word_diff_mode = 0;
 
 GetOptions(
-    'parser=s'        => \$parser_name,
-    'speed=f'         => \$speed_mult,
-    'output=s'        => \$output_file,
-    'context=i'       => \$context_lines,
-    'max-hunk-chars=i'=> \$max_hunk_chars,
-    'max-word-chars=i'=> \$max_word_chars,
-    'word-pause-ms=i' => sub { $config{word_pause_ms} = $_[1]; },
-    'scroll=s'        => \$scroll_mode,
-    'multi'           => \$multi_mode,
-    'replay'          => \$replay_mode,
-    'from=s'          => \$replay_from,
-    'to=s'            => \$replay_to,
-    'help|h'          => \$help,
+    'parser=s'         => \$parser_name,
+    'speed=f'          => \$speed_mult,
+    'output=s'         => \$output_file,
+    'context=i'        => \$context_lines,
+    'max-hunk-chars=i' => \$max_hunk_chars,
+    'max-word-chars=i' => \$max_word_chars,
+    'word-pause-ms=i'  => sub { $config{word_pause_ms} = $_[1]; },
+    'scroll=s'         => \$scroll_mode,
+    'multi'            => \$multi_mode,
+    'replay'           => \$replay_mode,
+    'from=s'           => \$replay_from,
+    'to=s'             => \$replay_to,
+    'no-tmux'          => \$no_tmux,
+    'dry-run'          => \$dry_run,
+    'sign-column'      => \$sign_column,
+    'git-blame'        => \$git_blame,
+    'step-mode'        => \$step_mode,
+    'git-rev=s'        => \$git_rev,
+    'max-line-len=i'   => \$max_line_len,
+    'adaptive-timing'  => \$adaptive_timing,
+    'word-diff'        => \$word_diff_mode,
+    'version|V'        => \$version_flag,
+    'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
 
 # Apply speed multiplier to all timing values
@@ -133,11 +153,32 @@ sub apply_speed {
 }
 apply_speed();
 
+# --version flag: print version and dependency info
+if ($version_flag) {
+    my $version = '1.2.0';
+    print "diffvim.pl version $version\n";
+    print "  parser: $parser_name\n";
+    print "  perl: $]\n";
+    for my $cmd (qw(vim tmux diff git diff2html)) {
+        if (_which($cmd)) {
+            my $v = `$cmd --version 2>&1 | head -1`;
+            chomp $v;
+            print "  $cmd: $v\n";
+        } else {
+            print "  $cmd: not found\n";
+        }
+    }
+    exit 0;
+}
+
 if ($help) {
     print STDERR <<USAGE;
 Usage: $0 [options] <oldfile> <newfile>
        $0 [options] --multi <old1:new1> <old2:new2> ...
        $0 [options] --replay <file> [--from REV] [--to REV]
+       $0 [options] --git-rev REV..REV <file> [<file> ...]
+       $0 --dry-run [options] <oldfile> <newfile>
+       $0 --version
 
 Animate a code diff in vim (inside a tmux pane), as if a human were typing it.
 
@@ -154,21 +195,35 @@ Options:
   --replay                 Animate git history for given file(s)
   --from REV               Git rev to start replay from (default: HEAD~5)
   --to REV                 Git rev to end replay at (default: HEAD)
+  --git-rev REV..REV       Animate a git commit range (e.g. HEAD~3..HEAD)
+  --no-tmux                Run vim directly in terminal (no tmux wrapper)
+  --dry-run                Compute and print diff ops without launching vim
+  --sign-column            Show +/- signs in vim's sign column
+  --git-blame              Show git blame for changed lines
+  --step-mode              Space advances one char op at a time
+  --max-line-len N         Skip char-level diff for lines >N chars (default: 10000)
+  --adaptive-timing        Auto-slow for complex hunks, speed up for simple ones
+  --word-diff              Use word-level diff (groups changes by word)
+  --version, -V            Print version and dependency info
   --help, -h               Show this help
 
 Controls (during animation, in vim normal mode):
-  <Space>  pause / resume
+  <Space>  pause / resume (or advance one op in --step-mode)
   n        skip current hunk (apply instantly)
   b        back to previous hunk (revert and restart)
   q        stop animation (leave buffer for editing)
   +        speed up (x1.5)
   -        slow down (x0.67)
   =        reset speed to 1.0
+  u        undo last hunk
+  Ctrl-r   redo hunk
+  ?        show full-screen help overlay
 
 Environment variables:
   DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
   DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
-  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED
+  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED,
+  DIFFVIM_MAX_LINE_LEN
 USAGE
     exit 0;
 }
@@ -177,6 +232,18 @@ USAGE
 # File-pair resolution
 # ---------------------------------------------------------------------------
 my @file_pairs;  # list of [old_file, new_file]
+
+# --git-rev: parse REV..REV syntax and animate each file's history
+if ($git_rev ne '') {
+    _which('git') or die "Error: 'git' not found in PATH\n";
+    if ($git_rev =~ /^(\S+)\.\.(\S+)$/) {
+        $replay_from = $1;
+        $replay_to = $2;
+        $replay_mode = 1;
+    } else {
+        die "Error: --git-rev requires REV..REV syntax (e.g. HEAD~3..HEAD)\n";
+    }
+}
 
 if ($replay_mode) {
     # --replay: each arg is a file path; animate git history for each
@@ -213,20 +280,98 @@ if ($replay_mode) {
     @file_pairs = ([_abs_path($ARGV[0]), _abs_path($ARGV[1])]);
 }
 
-# Validate all files exist
+# Validate all files exist and are readable (#66)
 for my $pair (@file_pairs) {
-    -f $pair->[0] or die "Error: '$pair->[0]' not found\n";
-    -f $pair->[1] or die "Error: '$pair->[1]' not found\n";
+    for my $f (@$pair) {
+        -f $f or die "Error: '$f' not found\n";
+        -r $f or die "Error: '$f' is not readable\n";
+    }
 }
 
-for my $cmd (qw(tmux vim diff)) {
+# Binary file detection (#23) — refuse to animate binary files
+sub _is_binary {
+    my ($file) = @_;
+    open my $fh, '<:raw', $file or return 0;
+    my $buf;
+    read($fh, $buf, 8192);
+    close $fh;
+    # Check for null bytes (common binary indicator)
+    return $buf =~ /\0/ ? 1 : 0;
+}
+
+for my $pair (@file_pairs) {
+    for my $f (@$pair) {
+        if (_is_binary($f)) {
+            die "Error: '$f' appears to be a binary file. diffvim cannot animate binary files.\n";
+        }
+    }
+}
+
+# Check for very long lines (#69) — warn if any line exceeds max_line_len
+sub _has_long_lines {
+    my ($file, $max_len) = @_;
+    open my $fh, '<:raw', $file or return 0;
+    while (my $line = <$fh>) {
+        if (length($line) > $max_len) {
+            close $fh;
+            return 1;
+        }
+    }
+    close $fh;
+    return 0;
+}
+
+for my $pair (@file_pairs) {
+    for my $f (@$pair) {
+        if (_has_long_lines($f, $max_line_len)) {
+            warn "Warning: '$f' has lines longer than $max_line_len chars. Char-level diff may be slow.\n";
+        }
+    }
+}
+
+# Forward-declare variables used by compute_diff and the dry-run block
+my @hunks;
+my $parser_used = '';
+
+# --dry-run: compute and print diff ops without launching vim (#9)
+if ($dry_run) {
+    for my $pair (@file_pairs) {
+        my ($old, $new) = @$pair;
+        print "=== Dry run: $old -> $new ===\n";
+        compute_diff($old, $new);
+        print "Parser: $parser_used\n";
+        print "Hunks: " . scalar(@hunks) . "\n";
+        for my $i (0 .. $#hunks) {
+            my $h = $hunks[$i];
+            print "  Hunk " . ($i + 1) . ": target_line=$h->{target_line} " .
+                  "del=$h->{deleted_count} ins=$h->{inserted_count} " .
+                  "end_ins=$h->{is_end_insert} end_del=$h->{is_end_delete}\n";
+            print "    old_text: \"$h->{old_text}\"\n";
+            print "    new_text: \"$h->{new_text}\"\n";
+            print "    char_ops (" . scalar(@{$h->{char_ops}}) . "):\n";
+            for my $j (0 .. $#{$h->{char_ops}}) {
+                my $op = $h->{char_ops}[$j];
+                my $ch = $op->{code} == 10 ? "\\n" : chr($op->{code});
+                printf "      [%d] %s %d (%s)\n", $j, $op->{op}, $op->{code}, $ch;
+            }
+        }
+    }
+    exit 0;
+}
+
+# Dependency check — skip tmux if --no-tmux
+my @required = qw(vim diff);
+push @required, 'git' if ($replay_mode || $git_rev ne '');
+push @required, 'tmux' unless $no_tmux;
+for my $cmd (@required) {
     _which($cmd) or die "Error: '$cmd' not found in PATH\n";
 }
 
 # ---------------------------------------------------------------------------
 # Workspace setup
 # ---------------------------------------------------------------------------
-my $workdir = tempdir(CLEANUP => 0);
+# Use CLEANUP => 1 for automatic temp directory cleanup on exit (#62)
+my $workdir = tempdir(CLEANUP => 1);
 my $ctrl_fifo = "$workdir/ctrl.fifo";
 my $engine_vim = "$workdir/engine.vim";
 my $snap_dir = "$workdir/snaps";
@@ -262,9 +407,6 @@ my @move_l;
 my @move_c;
 my $move_idx = 0;
 
-my @hunks;
-my $parser_used = '';
-
 # Dynamic speed (adjustable via +/- keys at runtime)
 my $runtime_speed = 1.0;
 
@@ -277,6 +419,8 @@ sub write_engine {
 " diffvim engine - buffer manipulation helpers driven by perl via tmux.
 let g:dv_ctrl = 'CTRL_FIFO_PLACEHOLDER'
 let g:dv_scroll = 'SCROLL_PLACEHOLDER'
+let g:dv_sign_column = SIGN_COLUMN_PLACEHOLDER
+let g:dv_git_blame = GIT_BLAME_PLACEHOLDER
 
 let s:dv_l = 1
 let s:dv_c = 1
@@ -331,6 +475,13 @@ endfunction
 function! DvInsertBatch(codes) abort
     for code in a:codes
         call DvInsert(code)
+    endfor
+endfunction
+
+" Batch keep — advance cursor for multiple chars at once (#4)
+function! DvKeepBatch(codes) abort
+    for code in a:codes
+        call DvKeep(code)
     endfor
 endfunction
 
@@ -389,6 +540,127 @@ function! DvFoldContext(hunks_str, context) abort
     " For now, we use a simpler approach: just scroll to show context.
 endfunction
 
+" Sign column support (#57) — show +/- signs for deleted/added lines
+let g:dv_sign_id = 5000
+
+function! DvSignSetup() abort
+    if !g:dv_sign_column | return | endif
+    sign define dv_add text=+ texthl=DiffAdd linehl=DiffAdd
+    sign define dv_del text=- texthl=DiffDelete linehl=DiffDelete
+    sign define dv_chg text=~ texthl=DiffChange linehl=DiffChange
+endfunction
+
+function! DvSignPlace(line, type) abort
+    if !g:dv_sign_column | return | endif
+    let g:dv_sign_id += 1
+    if a:type ==# 'add'
+        execute 'sign place' g:dv_sign_id 'line=' . a:line 'name=dv_add buffer=' . bufnr('')
+    elseif a:type ==# 'del'
+        execute 'sign place' g:dv_sign_id 'line=' . a:line 'name=dv_del buffer=' . bufnr('')
+    elseif a:type ==# 'chg'
+        execute 'sign place' g:dv_sign_id 'line=' . a:line 'name=dv_chg buffer=' . bufnr('')
+    endif
+endfunction
+
+function! DvSignClear() abort
+    if !g:dv_sign_column | return | endif
+    sign unplace * buffer=bufnr('')
+    let g:dv_sign_id = 5000
+endfunction
+
+" Git blame integration (#94) — show blame for a line
+
+function! DvGitBlame(line) abort
+    if !g:dv_git_blame | return '' | endif
+    let l:file = expand('%:p')
+    if empty(l:file) | return '' | endif
+    let l:blame = systemlist('git blame -L ' . a:line . ',' . a:line . ' --porcelain ' . shellescape(l:file) . ' 2>/dev/null')
+    if empty(l:blame) | return '' | endif
+    let l:parts = split(l:blame[0], ' ')
+    if len(l:parts) < 2 | return '' | endif
+    let l:commit = l:parts[0]
+    let l:author = ''
+    for l:line in l:blame
+        if l:line =~ '^author '
+            let l:author = substitute(l:line, '^author ', '', '')
+            break
+        endif
+    endfor
+    return l:commit[:7] . ' ' . l:author
+endfunction
+
+" Help overlay (#46) — full-screen help page
+let g:dv_help_visible = 0
+
+function! DvToggleHelp() abort
+    if g:dv_help_visible
+        " Close help buffer
+        let l:win = bufwinnr('__DiffvimHelp__')
+        if l:win != -1
+            execute l:win . 'wincmd c'
+        endif
+        let g:dv_help_visible = 0
+    else
+        " Open help in a new buffer
+        topleft new __DiffvimHelp__
+        setlocal buftype=nofile bufhidden=delete noswapfile
+        setlocal nowrap
+        call setline(1, [
+            \ 'diffvim — Help',
+            \ '',
+            \ 'Animation Controls:',
+            \ '  <Space>  Pause / resume (or advance one op in --step-mode)',
+            \ '  n        Skip current hunk (apply instantly)',
+            \ '  b        Back to previous hunk (revert and restart)',
+            \  '  q        Stop animation (leave buffer for editing)',
+            \ '  +        Speed up (x1.5)',
+            \ '  -        Slow down (x0.67)',
+            \ '  =        Reset speed to 1.0x',
+            \ '  u        Undo last hunk',
+            \ '  Ctrl-r   Redo hunk',
+            \ '  ?        Toggle this help overlay',
+            \ '',
+            \ 'Press ? to close this help.',
+            \ ])
+        normal! gg
+        let g:dv_help_visible = 1
+    endif
+endfunction
+
+" Undo/redo support (#93)
+let g:dv_undo_stack = []
+let g:dv_redo_stack = []
+
+function! DvPushUndo(snap_path) abort
+    call add(g:dv_undo_stack, a:snap_path)
+    let g:dv_redo_stack = []  " Clear redo stack on new action
+endfunction
+
+function! DvUndo() abort
+    if empty(g:dv_undo_stack)
+        echo 'diffvim: nothing to undo'
+        return
+    endif
+    " Move current state to redo stack
+    call add(g:dv_redo_stack, remove(g:dv_undo_stack, -1))
+    if !empty(g:dv_undo_stack)
+        let l:snap = g:dv_undo_stack[-1]
+        call DvLoadSnap(l:snap)
+        echo 'diffvim: undo'
+    endif
+endfunction
+
+function! DvRedo() abort
+    if empty(g:dv_redo_stack)
+        echo 'diffvim: nothing to redo'
+        return
+    endif
+    let l:snap = remove(g:dv_redo_stack, -1)
+    call add(g:dv_undo_stack, l:snap)
+    call DvLoadSnap(l:snap)
+    echo 'diffvim: redo'
+endfunction
+
 nnoremap <buffer> <silent> <Space> :call writefile(['p'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> n       :call writefile(['n'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> b       :call writefile(['b'], g:dv_ctrl, 'a')<CR>
@@ -396,6 +668,13 @@ nnoremap <buffer> <silent> q       :call writefile(['q'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> +       :call writefile(['+'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> -       :call writefile(['-'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> =       :call writefile(['='], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> u       :call writefile(['u'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> <C-R>   :call writefile(['r'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> ?       :call writefile(['?'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> B       :call writefile(['B'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> N       :call writefile(['N'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> <C-B>   :call writefile(['\x02'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> <C-N>   :call writefile(['\x0e'], g:dv_ctrl, 'a')<CR>
 
 autocmd VimLeave * call writefile(['vimleft'], g:dv_ctrl, 'a')
 VIMEOF
@@ -411,6 +690,8 @@ VIMEOF
     }
     $content =~ s/CTRL_FIFO_PLACEHOLDER/$ctrl_fifo/g;
     $content =~ s/SCROLL_PLACEHOLDER/$scroll_mode/g;
+    $content =~ s/SIGN_COLUMN_PLACEHOLDER/$sign_column/g;
+    $content =~ s/GIT_BLAME_PLACEHOLDER/$git_blame/g;
     open my $wfh, '>', $engine_vim or die;
     print $wfh $content;
     close $wfh;
@@ -424,7 +705,7 @@ sub setup_tmux {
     $old_file_arg //= $file_pairs[0][0];
     write_engine();
 
-    my $vim_cmd = "vim -N -u NONE -c 'source $engine_vim' '$old_file_arg'";
+    my $vim_cmd = "vim -N -n -u NONE -c 'source $engine_vim' '$old_file_arg'";
 
     if ($ENV{TMUX}) {
         $attached = 1;
@@ -446,6 +727,35 @@ sub setup_tmux {
         $target = _tmux_capture_first("list-panes -t '$session' -F '\#{pane_id}'");
         chomp $target;
     }
+}
+
+# --no-tmux mode (#8): run vim directly in terminal, no tmux wrapper
+# Uses IPC::Open3 (#10) for bidirectional communication with vim
+sub setup_no_tmux {
+    my ($old_file_arg) = @_;
+    $old_file_arg //= $file_pairs[0][0];
+    write_engine();
+
+    # In no-tmux mode, we can't send keys to vim easily.
+    # Instead, we launch vim with a startup command that runs the animation
+    # entirely inside vim (like the diffvim bash script does).
+    # This is simpler but doesn't support the FIFO-based user input.
+    # The animation runs autonomously inside vim.
+
+    my $extra_cmd = '';
+    if ($output_file ne '') {
+        $extra_cmd .= " | let g:diffvim.output_file = '$output_file'";
+    }
+    if ($sign_column) {
+        $extra_cmd .= " | let g:dv_sign_column = 1 | call DvSignSetup()";
+    }
+
+    print "diffvim: launching vim directly (no tmux)...\n";
+    print "Controls: Space=pause n=skip b=back q=quit +/-=speed u=undo Ctrl-r=redo ?=help\n";
+    exec("vim", "-N", "-n", "-u", "NONE",
+         "-c", "source $engine_vim",
+         "-c", "let g:diffvim_new_file = '$file_pairs[0][1]'$extra_cmd",
+         $old_file_arg);
 }
 
 sub _tmux {
@@ -544,12 +854,13 @@ sub query_vim {
 sub compute_diff {
     my ($old, $new) = @_;
     my $result;
+    my $options = { word_diff => $word_diff_mode };
     if ($parser_name eq 'diff2html') {
         _which('diff2html') or die "Error: 'diff2html' not found in PATH\n" .
             "Install with: npm install -g diff2html-cli\n";
         $result = DiffVim::Parser::Diff2Html::parse_diff($old, $new);
     } else {
-        $result = DiffVim::Parser::Perl::parse_diff($old, $new);
+        $result = DiffVim::Parser::Perl::parse_diff($old, $new, $options);
     }
     @hunks = @{$result->{hunks}};
     $parser_used = $result->{parser};
@@ -761,17 +1072,87 @@ sub type_step {
         }
     }
 
+    # Batch consecutive keep ops (#4) — send them all in one Ex command
+    # to reduce tmux round-trips by 10-50x
     if ($type eq 'keep') {
-        send_ex("call DvKeep($code)");
-        sleep 0.001;
+        my @batch;
+        my $count = 0;
+        while ($op_idx + $count < scalar(@$ops)
+               && $ops->[$op_idx + $count]{op} eq 'keep'
+               && $count < 100) {
+            push @batch, $ops->[$op_idx + $count]{code};
+            $count++;
+        }
+        if ($count > 1) {
+            # Batch: send all keep codes at once
+            my $codes_str = join(',', @batch);
+            send_ex("call DvKeepBatch([$codes_str])");
+            $op_idx += $count;
+            sleep 0.001;
+        } else {
+            send_ex("call DvKeep($code)");
+            $op_idx++;
+            sleep 0.001;
+        }
     } elsif ($type eq 'delete') {
+        # Adaptive timing (#44): slow down for complex regions
+        my $delay = $config{delete_delay_ms};
+        if ($adaptive_timing) {
+            my $complexity = _measure_complexity($ops, $op_idx);
+            $delay = int($delay * (1.0 + $complexity * 0.5));
+        }
         send_ex_redraw("call DvDelete()");
-        sleep $config{delete_delay_ms} / 1000 / $runtime_speed;
+        sleep $delay / 1000 / $runtime_speed;
+        $op_idx++;
     } elsif ($type eq 'insert') {
-        send_ex_redraw("call DvInsert($code)");
-        sleep $config{type_delay_ms} / 1000 / $runtime_speed;
+        # Batch consecutive insert ops if there are many (#4)
+        my @batch;
+        my $count = 0;
+        while ($op_idx + $count < scalar(@$ops)
+               && $ops->[$op_idx + $count]{op} eq 'insert'
+               && $ops->[$op_idx + $count]{code} != 10  # Don't batch newlines
+               && $count < 20) {
+            push @batch, $ops->[$op_idx + $count]{code};
+            $count++;
+        }
+        if ($count > 3) {
+            # Batch: send all insert codes at once
+            my $codes_str = join(',', @batch);
+            send_ex_redraw("call DvInsertBatch([$codes_str])");
+            $op_idx += $count;
+            my $delay = $config{type_delay_ms} * $count;
+            if ($adaptive_timing) {
+                my $complexity = _measure_complexity($ops, $op_idx);
+                $delay = int($delay * (1.0 + $complexity * 0.5));
+            }
+            sleep $delay / 1000 / $runtime_speed;
+        } else {
+            my $delay = $config{type_delay_ms};
+            if ($adaptive_timing) {
+                my $complexity = _measure_complexity($ops, $op_idx);
+                $delay = int($delay * (1.0 + $complexity * 0.5));
+            }
+            send_ex_redraw("call DvInsert($code)");
+            sleep $delay / 1000 / $runtime_speed;
+            $op_idx++;
+        }
     }
-    $op_idx++;
+}
+
+# Measure complexity of surrounding ops for adaptive timing (#44)
+# Returns a value 0.0-1.0 where higher means more complex
+sub _measure_complexity {
+    my ($ops, $idx) = @_;
+    my $window = 10;
+    my $changes = 0;
+    my $start = $idx - $window;
+    $start = 0 if $start < 0;
+    my $end = $idx + $window;
+    $end = $#$ops if $end > $#$ops;
+    for my $i ($start .. $end) {
+        $changes++ if $ops->[$i]{op} ne 'keep';
+    }
+    return $changes / ($end - $start + 1);
 }
 
 # Look ahead from $op_idx to find a "word": contiguous insert or delete ops
@@ -839,8 +1220,13 @@ sub handle_user_input {
         my $cmd = substr($line, 0, 1);  # First char is the command
 
         if ($cmd eq 'p') {
-            $paused = !$paused;
-            update_progress();
+            if ($step_mode) {
+                # Step mode: advance one char op instead of pausing (#42)
+                advance_one_op();
+            } else {
+                $paused = !$paused;
+                update_progress();
+            }
         } elsif ($cmd eq 'n') {
             skip_current();
         } elsif ($cmd eq 'b') {
@@ -857,10 +1243,126 @@ sub handle_user_input {
         } elsif ($cmd eq '=') {
             $runtime_speed = 1.0;
             send_ex("echo 'diffvim: speed reset to 1.0x'");
+        } elsif ($cmd eq 'u') {
+            # Undo (#93)
+            send_ex("call DvUndo()");
+        } elsif ($cmd eq 'r') {
+            # Redo (Ctrl-r) (#93)
+            send_ex("call DvRedo()");
+        } elsif ($cmd eq '?') {
+            # Help overlay (#46)
+            send_ex("call DvToggleHelp()");
+        } elsif ($cmd eq 'B') {
+            # Shift-B: go back one char op (#40)
+            go_back_one_op();
+        } elsif ($cmd eq 'N') {
+            # Shift-N: skip to next file (#41)
+            skip_to_next_file();
+        } elsif ($cmd eq "\x02") {
+            # Ctrl-B: go back to beginning (#40)
+            go_to_beginning();
+        } elsif ($cmd eq "\x0e") {
+            # Ctrl-N: skip to end (#41)
+            skip_to_end();
         } elsif ($line eq 'vimleft') {
             $stopped = 1;
         }
     }
+}
+
+# Advance one char op (for --step-mode, #42)
+sub advance_one_op {
+    return if $phase eq 'done';
+    $paused = 0;
+    if ($phase eq 'idle') {
+        start_next_hunk();
+    } elsif ($phase eq 'moving') {
+        # Jump to end of move
+        $cur_l = $move_l[-1];
+        $cur_c = $move_c[-1];
+        send_ex("call DvSetPos($cur_l, $cur_c)");
+        $phase = 'typing';
+        $op_idx = 0;
+    } elsif ($phase eq 'typing') {
+        # Process exactly one op, then pause
+        type_step_single();
+        $paused = 1;
+    }
+}
+
+# Process a single char op without advancing further (for step mode)
+sub type_step_single {
+    my $hunk = $hunks[$hunk_idx];
+    my $ops = $hunk->{char_ops};
+    return if $op_idx >= scalar(@$ops);
+
+    my $op = $ops->[$op_idx];
+    my $type = $op->{op};
+    my $code = $op->{code};
+    if ($type eq 'keep') {
+        send_ex("call DvKeep($code)");
+    } elsif ($type eq 'delete') {
+        send_ex_redraw("call DvDelete()");
+    } elsif ($type eq 'insert') {
+        send_ex_redraw("call DvInsert($code)");
+    }
+    $op_idx++;
+
+    # Check if hunk is done
+    if ($op_idx >= scalar(@$ops)) {
+        $line_offset += $hunk->{inserted_count} - $hunk->{deleted_count};
+        $buf_lines += $hunk->{inserted_count} - $hunk->{deleted_count};
+        $hunk_idx++;
+        $phase = 'idle';
+    }
+}
+
+# Go back one char op (#40, Shift-B)
+sub go_back_one_op {
+    return if $hunk_idx == 0 && $op_idx == 0;
+    if ($op_idx > 0) {
+        $op_idx--;
+    } elsif ($hunk_idx > 0) {
+        $hunk_idx--;
+        $op_idx = scalar(@{$hunks[$hunk_idx]->{char_ops}}) - 1;
+    }
+    # Restore to the snapshot before this op
+    my $target_snap = $hunk_idx;
+    $target_snap = $snap_count - 1 if $target_snap >= $snap_count;
+    $target_snap = 0 if $target_snap < 0;
+    restore_snapshot($target_snap);
+    $phase = 'idle';
+    $paused = 1;
+    update_progress();
+}
+
+# Skip to next file (#41, Shift-N)
+sub skip_to_next_file {
+    # Stop current animation and jump to next pair
+    $stopped = 1;
+    send_ex("echo 'diffvim: skipping to next file...'");
+}
+
+# Go to beginning (#40, Ctrl-B)
+sub go_to_beginning {
+    $hunk_idx = 0;
+    $op_idx = 0;
+    $line_offset = 0;
+    $phase = 'idle';
+    if ($snap_count > 0) {
+        restore_snapshot(0);
+    }
+    update_progress();
+    send_ex("echo 'diffvim: rewound to beginning'");
+}
+
+# Skip to end (#41, Ctrl-N)
+sub skip_to_end {
+    while ($hunk_idx < scalar(@hunks)) {
+        apply_hunk_instantly();
+    }
+    $phase = 'done';
+    send_ex("echo 'diffvim: skipped to end'");
 }
 
 sub read_fifo_line {
@@ -1100,6 +1602,15 @@ if (@file_pairs > 1) {
     my ($old, $new) = @{$file_pairs[0]};
     compute_diff($old, $new);
     init_buffer_lines($old);
+
+    # Handle --no-tmux mode (#8): run vim directly
+    if ($no_tmux) {
+        if (@hunks == 0) {
+            print "diffvim: files are identical, nothing to animate.\n";
+        }
+        setup_no_tmux($old);
+        exit 0;
+    }
 
     if (@hunks == 0) {
         print "diffvim: files are identical, nothing to animate.\n";

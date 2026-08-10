@@ -1,0 +1,26 @@
+{
+  "name": "myapp",
+  "version": "2.0.0",
+  "description": "A sample application with enhanced features",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "vitest",
+    "lint": "eslint .",
+    "build": "esbuild index.js --bundle --outfile=dist/bundle.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "lodash": "^4.17.21",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "eslint": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

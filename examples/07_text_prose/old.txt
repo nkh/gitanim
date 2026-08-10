@@ -1,0 +1,24 @@
+The Project
+
+This document describes the architecture of the system.
+
+The system consists of three main components: the frontend, the backend,
+and the database. The frontend is a web application built with React.
+The backend is a REST API built with Node.js and Express. The database
+is PostgreSQL.
+
+The frontend communicates with the backend via HTTP requests. The
+backend communicates with the database via SQL queries.
+
+Authentication is handled via JWT tokens. When a user logs in, the
+backend generates a token and sends it to the frontend. The frontend
+stores the token in localStorage and includes it in subsequent requests.
+
+The system supports the following features:
+- User registration and login
+- CRUD operations on user profiles
+- File upload and download
+- Real-time notifications via WebSocket
+
+Future plans include adding support for OAuth, improving the search
+functionality, and migrating to a microservices architecture.
