@@ -760,6 +760,9 @@ animate() {
     # Wait for vim to be ready
     sleep 0.5
 
+    # Show active config so the user can verify env vars are read
+    tmux send-keys -l -t "$TARGET" ":echo 'diffvim config: tick=${TICK_MS}ms type=${TYPE_DELAY_MS}ms del=${DELETE_DELAY_MS}ms move=${MOVE_MIN_MS}-${MOVE_MAX_MS}ms hunk_pause=${HUNK_PAUSE_MS}ms'" Enter
+
     # Show help
     tmux send-keys -l -t "$TARGET" ":echo 'diffvim: Space=pause n=skip b=back q=quit | hunk 1/$HUNK_COUNT'" Enter
 

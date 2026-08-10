@@ -1,0 +1,7 @@
+export DIFFVIM_TICK_MS=200        # Animation frame interval (~60fps)
+export DIFFVIM_TYPE_DELAY_MS=80   # Delay between typed characters (ms)
+export DIFFVIM_DELETE_DELAY_MS=80 # Delay between deleted characters (ms)
+export DIFFVIM_MOVE_MIN_MS=100    # Minimum cursor-glide duration (ms)
+export DIFFVIM_MOVE_MAX_MS=1500   # Maximum cursor-glide duration (ms)
+export DIFFVIM_MOVE_MS_PER_UNIT=6 # Milliseconds per unit of glide distance
+export DIFFVIM_HUNK_PAUSE_MS=200  # Pause between hunks (ms)OLD="${1:-}"

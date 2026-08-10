@@ -46,14 +46,23 @@ binmode(STDERR, ':utf8');
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+# Read timing config from environment variables.  Use length() check instead
+# of // so that empty-string env vars fall back to the default (// would keep
+# "" because "" is "defined" in Perl, then "" / 1000 would be 0).
+sub _env_or {
+    my ($name, $default) = @_;
+    my $val = $ENV{$name};
+    return (defined($val) && length($val) > 0) ? $val : $default;
+}
+
 my %config = (
-    tick_ms        => $ENV{DIFFVIM_TICK_MS}        // 16,
-    type_delay_ms  => $ENV{DIFFVIM_TYPE_DELAY_MS}  // 35,
-    delete_delay_ms=> $ENV{DIFFVIM_DELETE_DELAY_MS}// 25,
-    move_min_ms    => $ENV{DIFFVIM_MOVE_MIN_MS}    // 200,
-    move_max_ms    => $ENV{DIFFVIM_MOVE_MAX_MS}    // 1400,
-    move_ms_per_unit => $ENV{DIFFVIM_MOVE_MS_PER_UNIT} // 6,
-    hunk_pause_ms  => $ENV{DIFFVIM_HUNK_PAUSE_MS}  // 180,
+    tick_ms          => _env_or('DIFFVIM_TICK_MS',          16),
+    type_delay_ms    => _env_or('DIFFVIM_TYPE_DELAY_MS',    35),
+    delete_delay_ms  => _env_or('DIFFVIM_DELETE_DELAY_MS',  25),
+    move_min_ms      => _env_or('DIFFVIM_MOVE_MIN_MS',      200),
+    move_max_ms      => _env_or('DIFFVIM_MOVE_MAX_MS',      1400),
+    move_ms_per_unit => _env_or('DIFFVIM_MOVE_MS_PER_UNIT', 6),
+    hunk_pause_ms    => _env_or('DIFFVIM_HUNK_PAUSE_MS',    180),
 );
 
 my $parser_name = 'perl';
@@ -695,6 +704,9 @@ sub go_back {
 sub animate {
     # Wait for vim to be ready
     sleep 0.5;
+
+    # Show active config so the user can verify env vars are read
+    send_ex("echo 'diffvim config: tick=$config{tick_ms}ms type=$config{type_delay_ms}ms del=$config{delete_delay_ms}ms move=$config{move_min_ms}-$config{move_max_ms}ms hunk_pause=$config{hunk_pause_ms}ms'");
 
     send_ex("echo 'diffvim: Space=pause n=skip b=back q=quit | hunk 1/" . scalar(@hunks) . " | parser: $parser_used'");
 
