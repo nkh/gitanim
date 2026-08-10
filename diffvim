@@ -2,7 +2,23 @@
 # diffvim - Animate a code diff as if a human were typing it.
 #
 # Usage:
-#   diffvim <oldfile> <newfile>
+#   diffvim [options] <oldfile> <newfile>
+#   diffvim [options] --multi <old1:new1> <old2:new2> ...
+#   diffvim [options] --replay <file> [--from REV] [--to REV]
+#
+# Options:
+#   --speed N                Speed multiplier (0.5=half, 2=double, 5=5x)
+#   --output FILE            Write result to FILE after animation, then quit
+#   --context N              Fold unchanged regions >2N lines, keep N context
+#   --max-hunk-chars N       Skip char-by-char for hunks > N changed chars
+#   --max-word-chars N       Type words <= N chars instantly, pause after
+#   --word-pause-ms N        Pause after instant word (default: 150)
+#   --scroll zz|zt|zb|none   Cursor scroll position (default: none)
+#   --multi                  Treat args as old:new pairs for multi-file
+#   --replay                 Animate git history for given file(s)
+#   --from REV               Git rev to start replay from (default: HEAD~5)
+#   --to REV                 Git rev to end replay at (default: HEAD)
+#   --help, -h               Show help
 #
 # Opens <oldfile> in vim and animates the transformation into <newfile>.
 # The cursor glides between change locations with ease-in-out acceleration
@@ -14,50 +30,211 @@
 #   n         skip current hunk (apply instantly, move to next)
 #   b         back to previous hunk (revert and restart it)
 #   q         stop animation (leave buffer in current state)
+#   +         speed up (x1.5)
+#   -         slow down (x0.67)
+#   =         reset speed to 1.0
 #   ?         show help
 #
-# After animation ends (or you press q), the buffer is a normal vim buffer:
-# you can edit, :w, :wq, etc.
-#
-# Requires: vim 8+ with +timers and +float. No Python.
+# Requires: vim 8+ with +timers and +float. No Python, no tmux.
 
 set -euo pipefail
 
-export DIFFVIM_TICK_MS=100        # Animation frame interval (~60fps)
-export DIFFVIM_TYPE_DELAY_MS=80   # Delay between typed characters (ms)
-export DIFFVIM_DELETE_DELAY_MS=80 # Delay between deleted characters (ms)
-export DIFFVIM_MOVE_MIN_MS=100    # Minimum cursor-glide duration (ms)
-export DIFFVIM_MOVE_MAX_MS=1500   # Maximum cursor-glide duration (ms)
-export DIFFVIM_MOVE_MS_PER_UNIT=6 # Milliseconds per unit of glide distance
-export DIFFVIM_HUNK_PAUSE_MS=40   # Pause between hunks (ms)OLD="${1:-}"
+# ---------------------------------------------------------------------------
+# Defaults (can be overridden by env vars or --speed)
+# ---------------------------------------------------------------------------
+export DIFFVIM_TICK_MS=${DIFFVIM_TICK_MS:-16}
+export DIFFVIM_TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-35}
+export DIFFVIM_DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-25}
+export DIFFVIM_MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-200}
+export DIFFVIM_MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-1400}
+export DIFFVIM_MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-6}
+export DIFFVIM_HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-180}
+export DIFFVIM_WORD_PAUSE_MS=${DIFFVIM_WORD_PAUSE_MS:-150}
 
-OLD="${1:-}"
-NEW="${2:-}"
+# ---------------------------------------------------------------------------
+# Parse CLI options
+# ---------------------------------------------------------------------------
+SPEED_MULT=${DIFFVIM_SPEED:-1.0}
+OUTPUT_FILE=""
+CONTEXT_LINES=0
+MAX_HUNK_CHARS=0
+MAX_WORD_CHARS=0
+SCROLL_MODE="none"
+MULTI_MODE=0
+REPLAY_MODE=0
+REPLAY_FROM="HEAD~5"
+REPLAY_TO="HEAD"
+HELP=0
 
-if [[ -z "$OLD" || -z "$NEW" ]]; then
+show_help() {
     cat >&2 <<USAGE
-Usage: $(basename "$0") <oldfile> <newfile>
+Usage: $(basename "$0") [options] <oldfile> <newfile>
+       $(basename "$0") [options] --multi <old1:new1> <old2:new2> ...
+       $(basename "$0") [options] --replay <file> [--from REV] [--to REV]
 
-Opens <oldfile> in vim and animates the diff transforming it into <newfile>.
+Animate a code diff in vim, as if a human were typing it.
+
+Options:
+  --speed N                Speed multiplier: 0.5=half speed, 2=double, 5=5x
+  --output FILE            Write result to FILE after animation, then quit
+  --context N              Fold unchanged regions >2N lines, keep N context
+  --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
+  --max-word-chars N       Type words <=N chars instantly, pause after
+  --word-pause-ms N        Pause after instant word (default: 150)
+  --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: none)
+  --multi                  Treat args as old:new pairs for multi-file animation
+  --replay                 Animate git history for given file(s)
+  --from REV               Git rev to start replay from (default: HEAD~5)
+  --to REV                 Git rev to end replay at (default: HEAD)
+  --help, -h               Show this help
+
+Controls (during animation, in vim normal mode):
+  <Space>  pause / resume
+  n        skip current hunk (apply instantly)
+  b        back to previous hunk (revert and restart)
+  q        stop animation (leave buffer for editing)
+  +        speed up (x1.5)
+  -        slow down (x0.67)
+  =        reset speed to 1.0
+  ?        show help
+
+Environment variables:
+  DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
+  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
+  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED
 USAGE
-    exit 1
+}
+
+# Parse options
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --speed)         SPEED_MULT="$2"; shift 2 ;;
+        --output)        OUTPUT_FILE="$2"; shift 2 ;;
+        --context)       CONTEXT_LINES="$2"; shift 2 ;;
+        --max-hunk-chars) MAX_HUNK_CHARS="$2"; shift 2 ;;
+        --max-word-chars) MAX_WORD_CHARS="$2"; shift 2 ;;
+        --word-pause-ms) export DIFFVIM_WORD_PAUSE_MS="$2"; shift 2 ;;
+        --scroll)        SCROLL_MODE="$2"; shift 2 ;;
+        --multi)         MULTI_MODE=1; shift ;;
+        --replay)        REPLAY_MODE=1; shift ;;
+        --from)          REPLAY_FROM="$2"; shift 2 ;;
+        --to)            REPLAY_TO="$2"; shift 2 ;;
+        --help|-h)       HELP=1; shift ;;
+        --)              shift; while [[ $# -gt 0 ]]; do POSITIONAL+=("$1"); shift; done ;;
+        -*)              echo "Unknown option: $1" >&2; show_help; exit 1 ;;
+        *)               POSITIONAL+=("$1"); shift ;;
+    esac
+done
+
+if [[ $HELP -eq 1 ]]; then
+    show_help
+    exit 0
 fi
 
-if [[ ! -f "$OLD" ]]; then
-    echo "Error: oldfile '$OLD' not found" >&2
-    exit 1
+# Apply speed multiplier
+if [[ "$SPEED_MULT" != "1.0" && "$SPEED_MULT" != "1" ]]; then
+    DIV=$(awk "BEGIN { printf \"%.6f\", 1.0 / $SPEED_MULT }")
+    DIFFVIM_TICK_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_TICK_MS * $DIV }")
+    DIFFVIM_TYPE_DELAY_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_TYPE_DELAY_MS * $DIV }")
+    DIFFVIM_DELETE_DELAY_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_DELETE_DELAY_MS * $DIV }")
+    DIFFVIM_MOVE_MIN_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_MOVE_MIN_MS * $DIV }")
+    DIFFVIM_MOVE_MAX_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_MOVE_MAX_MS * $DIV }")
+    DIFFVIM_HUNK_PAUSE_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_HUNK_PAUSE_MS * $DIV }")
+    DIFFVIM_WORD_PAUSE_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_WORD_PAUSE_MS * $DIV }")
+    export DIFFVIM_TICK_MS DIFFVIM_TYPE_DELAY_MS DIFFVIM_DELETE_DELAY_MS \
+           DIFFVIM_MOVE_MIN_MS DIFFVIM_MOVE_MAX_MS DIFFVIM_HUNK_PAUSE_MS DIFFVIM_WORD_PAUSE_MS
 fi
-if [[ ! -f "$NEW" ]]; then
-    echo "Error: newfile '$NEW' not found" >&2
-    exit 1
+# Ensure minimums
+[[ $DIFFVIM_TICK_MS -lt 1 ]] && DIFFVIM_TICK_MS=1 && export DIFFVIM_TICK_MS
+[[ $DIFFVIM_TYPE_DELAY_MS -lt 1 ]] && DIFFVIM_TYPE_DELAY_MS=1 && export DIFFVIM_TYPE_DELAY_MS
+[[ $DIFFVIM_DELETE_DELAY_MS -lt 1 ]] && DIFFVIM_DELETE_DELAY_MS=1 && export DIFFVIM_DELETE_DELAY_MS
+
+# Export config for vimscript to read
+export DIFFVIM_SCROLL="$SCROLL_MODE"
+export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
+export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
+export DIFFVIM_OUTPUT="$OUTPUT_FILE"
+export DIFFVIM_CONTEXT="$CONTEXT_LINES"
+
+# ---------------------------------------------------------------------------
+# Resolve file pairs
+# ---------------------------------------------------------------------------
+declare -a FILE_PAIRS
+
+resolve_abs() {
+    local f="$1"
+    if [[ "$f" != /* ]]; then
+        f="$(cd "$(dirname "$f")" 2>/dev/null && pwd)/$(basename "$f")"
+    fi
+    echo "$f"
+}
+
+if [[ $REPLAY_MODE -eq 1 ]]; then
+    command -v git >/dev/null 2>&1 || { echo "Error: 'git' not found in PATH" >&2; exit 1; }
+    [[ ${#POSITIONAL[@]} -eq 0 ]] && { echo "Error: --replay requires at least one file" >&2; exit 1; }
+
+    WORKDIR=$(mktemp -d)
+    for file in "${POSITIONAL[@]}"; do
+        abs=$(resolve_abs "$file")
+        [[ -f "$abs" ]] || { echo "Error: '$abs' not found" >&2; exit 1; }
+
+        # Get commit list
+        mapfile -t COMMITS < <(git log --reverse --format=%H "$REPLAY_FROM..$REPLAY_TO" -- "$abs" 2>/dev/null || true)
+        FROM_COMMIT=$(git rev-parse "$REPLAY_FROM" 2>/dev/null || true)
+
+        if [[ -n "$FROM_COMMIT" ]]; then
+            COMMITS=("$FROM_COMMIT" "${COMMITS[@]}")
+        fi
+
+        [[ ${#COMMITS[@]} -lt 2 ]] && { echo "Error: not enough commits for '$file' in $REPLAY_FROM..$REPLAY_TO" >&2; exit 1; }
+
+        for ((i=0; i<${#COMMITS[@]}-1; i++)); do
+            old_tmp="$WORKDIR/replay_${i}_${file//\//_}"
+            new_tmp="$WORKDIR/replay_$((i+1))_${file//\//_}"
+            git show "${COMMITS[$i]}:$file" > "$old_tmp" 2>/dev/null || { echo "Error: cannot get '$file' at ${COMMITS[$i]}" >&2; exit 1; }
+            git show "${COMMITS[$((i+1))]}:$file" > "$new_tmp" 2>/dev/null || { echo "Error: cannot get '$file' at ${COMMITS[$((i+1))]}" >&2; exit 1; }
+            FILE_PAIRS+=("$old_tmp:$new_tmp")
+        done
+        # Final: last commit to working copy
+        old_tmp="$WORKDIR/replay_final_${file//\//_}"
+        git show "${COMMITS[-1]}:$file" > "$old_tmp" 2>/dev/null
+        FILE_PAIRS+=("$old_tmp:$abs")
+    done
+elif [[ $MULTI_MODE -eq 1 ]]; then
+    [[ ${#POSITIONAL[@]} -eq 0 ]] && { echo "Error: --multi requires at least one old:new pair" >&2; exit 1; }
+    for arg in "${POSITIONAL[@]}"; do
+        if [[ "$arg" != *:* ]]; then
+            echo "Error: '$arg' is not in old:new format" >&2; exit 1
+        fi
+        old=$(resolve_abs "${arg%%:*}")
+        new=$(resolve_abs "${arg##*:}")
+        [[ -f "$old" ]] || { echo "Error: '$old' not found" >&2; exit 1; }
+        [[ -f "$new" ]] || { echo "Error: '$new' not found" >&2; exit 1; }
+        FILE_PAIRS+=("$old:$new")
+    done
+else
+    [[ ${#POSITIONAL[@]} -eq 2 ]] || { show_help; exit 1; }
+    OLD=$(resolve_abs "${POSITIONAL[0]}")
+    NEW=$(resolve_abs "${POSITIONAL[1]}")
+    [[ -f "$OLD" ]] || { echo "Error: '$OLD' not found" >&2; exit 1; }
+    [[ -f "$NEW" ]] || { echo "Error: '$NEW' not found" >&2; exit 1; }
+    FILE_PAIRS+=("$OLD:$NEW")
 fi
 
-# Resolve absolute paths so vim can find them regardless of cwd.
-OLD="$(cd "$(dirname "$OLD")" && pwd)/$(basename "$OLD")"
-NEW="$(cd "$(dirname "$NEW")" && pwd)/$(basename "$NEW")"
+# For single pair, set OLD/NEW for the existing vimscript
+if [[ ${#FILE_PAIRS[@]} -eq 1 ]]; then
+    OLD="${FILE_PAIRS[0]%%:*}"
+    NEW="${FILE_PAIRS[0]##*:}"
+fi
 
+# Export the file pairs for multi-file mode
+export DIFFVIM_FILE_PAIRS="${FILE_PAIRS[*]}"
+
+# ---------------------------------------------------------------------------
 # Workspace for the embedded vimscript.
-WORKDIR="$(mktemp -d)"
+# ---------------------------------------------------------------------------
+WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
 
@@ -101,6 +278,11 @@ let g:diffvim = extend({
     \ 'move_ms_per_unit':   !empty($DIFFVIM_MOVE_MS_PER_UNIT) ? str2nr($DIFFVIM_MOVE_MS_PER_UNIT) : 6,
     \ 'hunk_pause_ms':      !empty($DIFFVIM_HUNK_PAUSE_MS)    ? str2nr($DIFFVIM_HUNK_PAUSE_MS)    : 180,
     \ 'tick_ms':            !empty($DIFFVIM_TICK_MS)          ? str2nr($DIFFVIM_TICK_MS)          : 16,
+    \ 'word_pause_ms':      !empty($DIFFVIM_WORD_PAUSE_MS)    ? str2nr($DIFFVIM_WORD_PAUSE_MS)    : 150,
+    \ 'scroll':             !empty($DIFFVIM_SCROLL)           ? $DIFFVIM_SCROLL                   : 'none',
+    \ 'max_hunk_chars':     !empty($DIFFVIM_MAX_HUNK_CHARS)   ? str2nr($DIFFVIM_MAX_HUNK_CHARS)   : 0,
+    \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
+    \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -129,6 +311,7 @@ let s:state = {
     \ 'snapshots':     [],
     \ 'line_offset':   0,
     \ 'active_timer':  -1,
+    \ 'runtime_speed': 1.0,
     \ }
 
 " --- Diff: LCS at line level and char level -------------------------------
@@ -391,6 +574,14 @@ function! s:PlaceCursor() abort
     if l:actual > l:len + 1 | let l:actual = l:len + 1 | endif
     if l:actual < 1 | let l:actual = 1 | endif
     call cursor(l:ll, l:actual)
+    " Scroll cursor to center/top/bottom if configured
+    if g:diffvim.scroll ==# 'zz'
+        normal! zz
+    elseif g:diffvim.scroll ==# 'zt'
+        normal! zt
+    elseif g:diffvim.scroll ==# 'zb'
+        normal! zb
+    endif
 endfunction
 
 function! s:InsertCharAtCursor(ch) abort
@@ -514,12 +705,35 @@ endfunction
 function! s:StartNextHunk() abort
     if s:state.hunk_idx >= len(s:state.hunks)
         let s:state.phase = 'done'
+        " If --output was specified, write the buffer and quit
+        if !empty(g:diffvim.output_file)
+            execute 'w! ' . g:diffvim.output_file
+            echo 'diffvim: result written to ' . g:diffvim.output_file
+            qa!
+        endif
         echo 'diffvim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied)'
         return
     endif
     call s:SaveSnapshot()
+    call s:UpdateProgress()
     let l:hunk = s:state.hunks[s:state.hunk_idx]
     let l:target_line = l:hunk.target_line_old + s:state.line_offset
+
+    " Check --max-hunk-chars: if hunk has too many changed chars, apply instantly
+    if g:diffvim.max_hunk_chars > 0
+        let l:changed = 0
+        for l:op in l:hunk.char_ops
+            if l:op[0] !=# 'keep'
+                let l:changed += 1
+            endif
+        endfor
+        if l:changed > g:diffvim.max_hunk_chars
+            echo 'diffvim: hunk ' . (s:state.hunk_idx + 1) . ' has ' . l:changed . ' changed chars (> ' . g:diffvim.max_hunk_chars . '), applying instantly'
+            call s:ApplyHunkInstantly()
+            return
+        endif
+    endif
+
     " For end-of-file insertions, target the end of the last line.
     " For end-of-file deletions, target the end of the previous line so the
     " leading '\n' in old_text can collapse the trailing empty line.
@@ -550,11 +764,47 @@ function! s:StartNextHunk() abort
         \ s:state.move_start_l, s:state.move_start_c,
         \ s:state.move_end_l,   s:state.move_end_c)
     let s:state.phase = 'moving'
-    call s:ScheduleNext(g:diffvim.tick_ms)
+    call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
+endfunction
+
+" Apply all remaining char ops in the current hunk instantly (no animation).
+function! s:ApplyHunkInstantly() abort
+    let l:hunk = s:state.cur_hunk
+    let l:ops = l:hunk.char_ops
+    for l:op in l:ops
+        if l:op[0] ==# 'keep'
+            call s:AdvanceForKeepChar(l:op[1])
+        elseif l:op[0] ==# 'delete'
+            call s:DeleteCharAtCursor()
+        elseif l:op[0] ==# 'insert'
+            call s:InsertCharAtCursor(l:op[1])
+        endif
+    endfor
+    redraw
+    let s:state.line_offset += (l:hunk.inserted_count - l:hunk.deleted_count)
+    let s:state.hunk_idx += 1
+    let s:state.phase = 'idle'
+    call s:ScheduleNext(g:diffvim.hunk_pause_ms)
+endfunction
+
+" Update the status line with progress info.
+function! s:UpdateProgress() abort
+    let l:total = len(s:state.hunks)
+    let l:current = s:state.hunk_idx + 1
+    if l:current > l:total | let l:current = l:total | endif
+    let l:pct = l:total > 0 ? float2nr(l:current * 100 / l:total) : 100
+    let l:msg = 'diffvim: hunk ' . l:current . '/' . l:total . ' (' . l:pct . '%)'
+    if abs(s:state.runtime_speed - 1.0) > 0.01
+        let l:msg .= ' | speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
+    endif
+    if s:state.paused
+        let l:msg .= ' | PAUSED'
+    endif
+    echo l:msg
 endfunction
 
 function! s:MoveStep() abort
-    let s:state.move_elapsed += g:diffvim.tick_ms
+    let s:state.move_elapsed += float2nr(g:diffvim.tick_ms / s:state.runtime_speed)
     let l:t = s:state.move_elapsed * 1.0 / s:state.move_duration
     if l:t >= 1.0
         let s:cur_l = s:state.move_end_l
@@ -562,7 +812,7 @@ function! s:MoveStep() abort
         call s:PlaceCursor()
         let s:state.phase = 'typing'
         let s:state.op_idx = 0
-        call s:ScheduleNext(g:diffvim.hunk_pause_ms)
+        call s:ScheduleNext(float2nr(g:diffvim.hunk_pause_ms / s:state.runtime_speed))
         return
     endif
     let l:eased = s:EaseInOut(l:t)
@@ -576,7 +826,7 @@ function! s:MoveStep() abort
     " During the glide, show the visible cursor at intermediate positions.
     call cursor(l:cur_l, l:cur_c)
     redraw
-    call s:ScheduleNext(g:diffvim.tick_ms)
+    call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
 endfunction
 
 function! s:ProcessCharOp() abort
@@ -586,10 +836,24 @@ function! s:ProcessCharOp() abort
         let s:state.line_offset += (l:hunk.inserted_count - l:hunk.deleted_count)
         let s:state.hunk_idx += 1
         let s:state.phase = 'idle'
-        call s:ScheduleNext(g:diffvim.hunk_pause_ms)
+        call s:ScheduleNext(float2nr(g:diffvim.hunk_pause_ms / s:state.runtime_speed))
         return
     endif
     let l:op = l:hunk.char_ops[s:state.op_idx]
+
+    " Check --max-word-chars: if we're at the start of a word (contiguous
+    " insert or delete, non-space chars, terminated by space/newline/keep/end),
+    " and the word length <= max_word_chars, apply the whole word instantly.
+    if g:diffvim.max_word_chars > 0 && (l:op[0] ==# 'insert' || l:op[0] ==# 'delete')
+        let l:word_len = s:LookaheadWordLength(l:hunk.char_ops, s:state.op_idx)
+        if l:word_len > 0 && l:word_len <= g:diffvim.max_word_chars
+            call s:ApplyWordInstantly(l:hunk.char_ops, s:state.op_idx, l:word_len)
+            let s:state.op_idx += l:word_len
+            call s:ScheduleNext(float2nr(g:diffvim.word_pause_ms / s:state.runtime_speed))
+            return
+        endif
+    endif
+
     let l:delay = 0
     if l:op[0] ==# 'keep'
         call s:AdvanceForKeepChar(l:op[1])
@@ -597,14 +861,60 @@ function! s:ProcessCharOp() abort
     elseif l:op[0] ==# 'delete'
         call s:DeleteCharAtCursor()
         redraw
-        let l:delay = g:diffvim.delete_delay_ms
+        let l:delay = float2nr(g:diffvim.delete_delay_ms / s:state.runtime_speed)
     elseif l:op[0] ==# 'insert'
         call s:InsertCharAtCursor(l:op[1])
         redraw
-        let l:delay = g:diffvim.type_delay_ms
+        let l:delay = float2nr(g:diffvim.type_delay_ms / s:state.runtime_speed)
     endif
     let s:state.op_idx += 1
     call s:ScheduleNext(l:delay)
+endfunction
+
+" Look ahead from op_idx to find a "word": contiguous insert or delete ops
+" (not mixed) where chars are non-space, terminated by a space or op change.
+" Returns the length of the word (0 if not a word boundary).
+function! s:LookaheadWordLength(ops, start) abort
+    let l:first_type = a:ops[a:start][0]
+    if l:first_type ==# 'keep' | return 0 | endif
+    let l:len = 0
+    let l:i = a:start
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] !=# l:first_type | break | endif
+        let l:code = char2nr(l:op[1])
+        " Newline (10) or space (32) terminates a word
+        if l:op[1] ==# "\n" || l:op[1] ==# ' ' | break | endif
+        let l:len += 1
+        let l:i += 1
+    endwhile
+    " Word must be terminated by space/newline/keep/end to be a "word"
+    let l:end_idx = a:start + l:len
+    if l:end_idx < len(a:ops)
+        let l:next_op = a:ops[l:end_idx]
+        if l:next_op[0] ==# 'keep' || l:next_op[1] ==# "\n" || l:next_op[1] ==# ' '
+            return l:len
+        endif
+    else
+        return l:len  " End of ops
+    endif
+    return 0  " Not terminated properly
+endfunction
+
+" Apply a word (contiguous insert or delete) instantly.
+function! s:ApplyWordInstantly(ops, start, len) abort
+    let l:first_type = a:ops[a:start][0]
+    let l:i = a:start
+    while l:i < a:start + a:len
+        let l:op = a:ops[l:i]
+        if l:first_type ==# 'insert'
+            call s:InsertCharAtCursor(l:op[1])
+        elseif l:first_type ==# 'delete'
+            call s:DeleteCharAtCursor()
+        endif
+        let l:i += 1
+    endwhile
+    redraw
 endfunction
 
 " --- User controls ---------------------------------------------------------
@@ -615,11 +925,7 @@ function! s:TogglePause() abort
         return
     endif
     let s:state.paused = !s:state.paused
-    if s:state.paused
-        echo 'diffvim: paused (Space to resume, n=skip, b=back, q=quit)'
-    else
-        echo 'diffvim: resumed'
-    endif
+    call s:UpdateProgress()
 endfunction
 
 function! s:SkipCurrent() abort
@@ -663,7 +969,7 @@ function! s:SkipCurrent() abort
         let s:state.phase = 'idle'
     endif
     redraw
-    echo 'diffvim: skipped to hunk ' . (s:state.hunk_idx + 1) . '/' . len(s:state.hunks)
+    call s:UpdateProgress()
     call s:ScheduleNext(g:diffvim.hunk_pause_ms)
 endfunction
 
@@ -686,7 +992,7 @@ function! s:Back() abort
     let s:state.phase = 'idle'
     let s:state.op_idx = 0
     redraw
-    echo 'diffvim: back to hunk ' . (s:state.hunk_idx + 1) . '/' . len(s:state.hunks)
+    call s:UpdateProgress()
     call s:ScheduleNext(g:diffvim.hunk_pause_ms)
 endfunction
 
@@ -694,17 +1000,43 @@ function! s:Quit() abort
     call s:StopTimer()
     let s:state.stopped = 1
     let s:state.paused = 0
+    " If --output was specified, write the buffer before stopping
+    if !empty(g:diffvim.output_file)
+        execute 'w! ' . g:diffvim.output_file
+        echo 'diffvim: result written to ' . g:diffvim.output_file
+    endif
     silent! nunmap <buffer> <Space>
     silent! nunmap <buffer> n
     silent! nunmap <buffer> b
     silent! nunmap <buffer> q
     silent! nunmap <buffer> ?
+    silent! nunmap <buffer> +
+    silent! nunmap <buffer> -
+    silent! nunmap <buffer> =
     echo 'diffvim: animation stopped. Buffer left in current state.'
 endfunction
 
 function! s:ShowHelp() abort
     echo 'diffvim: hunk ' . (s:state.hunk_idx + 1) . '/' . len(s:state.hunks)
-        \ . '  | Space=pause  n=next  b=back  q=quit  ?=help'
+        \ . '  | Space=pause  n=next  b=back  q=quit  +/-=speed  ?=help'
+endfunction
+
+" Speed up: multiply runtime_speed by 1.5
+function! s:SpeedUp() abort
+    let s:state.runtime_speed = s:state.runtime_speed * 1.5
+    echo 'diffvim: speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
+endfunction
+
+" Slow down: divide runtime_speed by 1.5
+function! s:SlowDown() abort
+    let s:state.runtime_speed = s:state.runtime_speed / 1.5
+    echo 'diffvim: speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
+endfunction
+
+" Reset speed to 1.0
+function! s:ResetSpeed() abort
+    let s:state.runtime_speed = 1.0
+    echo 'diffvim: speed reset to 1.0x'
 endfunction
 
 " --- Mappings --------------------------------------------------------------
@@ -714,6 +1046,9 @@ nnoremap <buffer> <silent> n       :call <SID>SkipCurrent()<CR>
 nnoremap <buffer> <silent> b       :call <SID>Back()<CR>
 nnoremap <buffer> <silent> q       :call <SID>Quit()<CR>
 nnoremap <buffer> <silent> ?       :call <SID>ShowHelp()<CR>
+nnoremap <buffer> <silent> +       :call <SID>SpeedUp()<CR>
+nnoremap <buffer> <silent> -       :call <SID>SlowDown()<CR>
+nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
 
 " --- Autostart -------------------------------------------------------------
 
@@ -737,12 +1072,25 @@ endfunction
 
 " Print the active configuration so the user can verify env vars are read.
 function! s:ShowConfig() abort
-    echo 'diffvim config:'
+    let l:msg = 'diffvim config:'
         \ . '  tick=' . g:diffvim.tick_ms . 'ms'
         \ . '  type=' . g:diffvim.type_delay_ms . 'ms'
         \ . '  del=' . g:diffvim.delete_delay_ms . 'ms'
         \ . '  move=' . g:diffvim.move_min_ms . '-' . g:diffvim.move_max_ms . 'ms'
         \ . '  hunk_pause=' . g:diffvim.hunk_pause_ms . 'ms'
+    if g:diffvim.scroll !=# 'none'
+        let l:msg .= '  scroll=' . g:diffvim.scroll
+    endif
+    if g:diffvim.max_hunk_chars > 0
+        let l:msg .= '  max_hunk=' . g:diffvim.max_hunk_chars
+    endif
+    if g:diffvim.max_word_chars > 0
+        let l:msg .= '  max_word=' . g:diffvim.max_word_chars
+    endif
+    if !empty(g:diffvim.output_file)
+        let l:msg .= '  output=' . g:diffvim.output_file
+    endif
+    echo l:msg
 endfunction
 
 augroup diffvim

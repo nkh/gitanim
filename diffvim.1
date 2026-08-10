@@ -1,0 +1,320 @@
+.TH DIFFVIM 1 "2026-08-10" "diffvim 1.1" "User Commands"
+.SH NAME
+diffvim \- animate a code diff in vim as if a human were typing it
+.SH SYNOPSIS
+.B diffvim
+.RI [ options ]
+.RI <oldfile>
+.RI <newfile>
+
+.br
+.B diffvim
+.RI [ options ]
+.B \-\-multi
+.RI <old1:new1>
+.RI <old2:new2>
+\&...
+
+.br
+.B diffvim
+.RI [ options ]
+.B \-\-replay
+.RI <file>
+.RB [ \-\-from
+.IR REV ]
+.RB [ \-\-to
+.IR REV ]
+
+.SH DESCRIPTION
+.B diffvim
+opens the old version of a file in vim and animates the transformation into
+the new version character by character. The cursor glides between change
+locations with smooth ease-in-out acceleration, and only the actually-changed
+characters are deleted and re-typed \(em surrounding text is never touched.
+
+After the animation completes (or the user stops it), the buffer is a normal
+vim buffer and can be edited, saved, or quit normally.
+
+Three implementations are available:
+.TP
+.B diffvim
+Bash launcher + embedded Vimscript engine. Uses vim's native
+.BR timer_start ()
+for async animation. No external dependencies beyond vim 8+. Best for
+everyday use.
+.TP
+.B diffvim-tmux
+Bash orchestrator + vim in a tmux pane. Bash sends Ex commands to vim via
+.BR tmux\ send-keys .
+Requires bash 4+, tmux 3+, vim 8+, diff, sed, awk.
+.TP
+.B diffvim.pl
+Perl orchestrator + vim in a tmux pane. Same architecture as diffvim-tmux
+but with pluggable diff parser modules. Requires Perl 5.10+, tmux 3+, vim 8+.
+
+.SH OPTIONS
+.TP
+.BR \-\-parser\  perl | diff2html
+(diffvim.pl only) Diff parser to use.
+.B perl
+uses a pure-Perl LCS algorithm (default, no deps).
+.B diff2html
+shells out to the
+.B diff2html
+CLI with
+.B \-f json
+for line-level parsing.
+.TP
+.BI \-\-speed\  N
+Speed multiplier. 0.5 = half speed, 2 = double speed, 5 = 5x speed. All
+timing delays are divided by this value. Can also be set via the
+.B DIFFVIM_SPEED
+environment variable.
+.TP
+.BI \-\-output\  FILE
+After the animation completes, write the buffer to
+.I FILE
+and quit vim. Useful for scripted use where you want the result saved
+without manual intervention.
+.TP
+.BI \-\-context\  N
+Fold unchanged regions longer than 2*N lines, keeping N lines of context
+around each hunk. This makes large-file diffs easier to follow by hiding
+unchanged regions. Default: 0 (no folding).
+.TP
+.BI \-\-max-hunk-chars\  N
+If a hunk has more than N changed characters, skip the char-by-char
+animation and apply the entire hunk instantly. Useful for large changes
+that would take too long to animate character by character. Default: 0
+(no limit).
+.TP
+.BI \-\-max-word-chars\  N
+If a contiguous sequence of changed characters forms a word (non-space
+characters terminated by a space or newline) and the word length is <= N,
+type the entire word instantly, then pause. This makes the animation
+feel more natural \(em short words are typed as units rather than
+character by character. Default: 0 (disabled).
+.TP
+.BI \-\-word-pause-ms\  N
+Pause in milliseconds after an instant word is applied (only relevant
+with
+.BR \-\-max-word-chars ).
+Default: 150. Can also be set via
+.BR DIFFVIM_WORD_PAUSE_MS .
+.TP
+.BR \-\-scroll\  zz | zt | zb | none
+Scroll the cursor to the specified position during animation:
+.RS
+.TP
+.B zz
+Center the cursor on screen
+.TP
+.B zt
+Position the cursor at the top of the screen
+.TP
+.B zb
+Position the cursor at the bottom of the screen
+.TP
+.B none
+Don't force scroll (default)
+.RE
+.TP
+.B \-\-multi
+Treat arguments as
+.I old:new
+pairs for multi-file animation. After finishing one file, the animation
+transitions to the next with a brief "next file" message.
+.TP
+.B \-\-replay
+Animate git history for the given file(s). Requires
+.B git
+in PATH. For each file, extracts the old version at each commit in the
+range and animates the transformation to the next commit, ending with
+the working copy.
+.TP
+.BI \-\-from\  REV
+(diffvim-tmux and diffvim.pl only) Git revision to start replay from.
+Default: HEAD~5. Only used with
+.BR \-\-replay .
+.TP
+.BI \-\-to\  REV
+(diffvim-tmux and diffvim.pl only) Git revision to end replay at.
+Default: HEAD. Only used with
+.BR \-\-replay .
+.TP
+.BR \-h ,\  \-\-help
+Show help message and exit.
+
+.SH CONTROLS
+During animation, the following keys are active in vim normal mode:
+.TP
+.B <Space>
+Pause / resume the animation. While paused, a "PAUSED" indicator is shown.
+.TP
+.B n
+Skip the current hunk: apply all remaining character operations instantly
+and move to the next hunk.
+.TP
+.B b
+Back to the previous hunk: revert the buffer to the state before the
+current hunk started and replay it from the beginning.
+.TP
+.B q
+Stop the animation. The buffer is left in its current state for normal
+editing. If
+.B \-\-output
+was specified, the buffer is written to the output file before stopping.
+.TP
+.B +
+Speed up: multiply the current speed by 1.5. The new speed is shown in
+the status message.
+.TP
+.B \-
+Slow down: divide the current speed by 1.5.
+.TP
+.B =
+Reset speed to 1.0x.
+.TP
+.B ?
+(diffvim only) Show help: current hunk index and keymap reminder.
+
+.SH ENVIRONMENT VARIABLES
+All timing values can be set via environment variables. Command-line options
+override environment variables, which override built-in defaults.
+.TP
+.B DIFFVIM_TICK_MS
+Animation frame interval in milliseconds (default: 16, ~60fps).
+.TP
+.B DIFFVIM_TYPE_DELAY_MS
+Delay between typed characters in milliseconds (default: 35).
+.TP
+.B DIFFVIM_DELETE_DELAY_MS
+Delay between deleted characters in milliseconds (default: 25).
+.TP
+.B DIFFVIM_MOVE_MIN_MS
+Minimum cursor glide duration in milliseconds (default: 200).
+.TP
+.B DIFFVIM_MOVE_MAX_MS
+Maximum cursor glide duration in milliseconds (default: 1400).
+.TP
+.B DIFFVIM_MOVE_MS_PER_UNIT
+Milliseconds per unit of glide distance (default: 6). Lines are weighted
+80x more than columns.
+.TP
+.B DIFFVIM_HUNK_PAUSE_MS
+Pause between hunks in milliseconds (default: 180).
+.TP
+.B DIFFVIM_WORD_PAUSE_MS
+Pause after instant word in milliseconds (default: 150). Only relevant
+with
+.BR \-\-max-word-chars .
+.TP
+.B DIFFVIM_SPEED
+Speed multiplier (default: 1.0). Same as
+.BR \-\-speed .
+
+.SH EXAMPLES
+.TP
+Basic usage:
+.B diffvim old.py new.py
+.TP
+Slow down for a presentation:
+.B diffvim \-\-speed 0.5 old.py new.py
+.TP
+Speed up for a quick review:
+.B diffvim \-\-speed 3 old.py new.py
+.TP
+Write result to a file and quit:
+.B diffvim \-\-output result.py old.py new.py
+.TP
+Center cursor during animation:
+.B diffvim \-\-scroll zz old.py new.py
+.TP
+Skip large hunks, type short words instantly:
+.B diffvim \-\-max-hunk-chars 200 \-\-max-word-chars 5 old.py new.py
+.TP
+Multi-file animation:
+.B diffvim \-\-multi old1.py:new1.py old2.py:new2.py
+.TP
+Replay git history (last 5 commits):
+.B diffvim \-\-replay src/main.py
+.TP
+Replay a specific commit range:
+.B diffvim \-\-replay src/main.py \-\-from v1.0 \-\-to HEAD
+.TP
+Animate a git diff:
+.B git\ show\ HEAD:file.py\ >\ /tmp/old.py && diffvim /tmp/old.py file.py
+
+.SH ARCHITECTURE
+The animation uses a two-level diff:
+.IP 1. 3
+Line-level LCS diff identifies changed regions (hunks).
+.IP 2. 3
+Within each hunk, char-level LCS diff produces minimal character
+operations (keep / delete / insert).
+.PP
+The cursor glides between change locations using an ease-in-out cubic
+curve. Glide duration is proportional to distance (lines weighted 80x
+more than columns), clamped to [MOVE_MIN_MS, MOVE_MAX_MS].
+
+In the
+.B diffvim
+implementation, vim's
+.BR timer_start ()
+drives the animation asynchronously. In
+.B diffvim-tmux
+and
+.BR diffvim.pl ,
+the orchestrator sends Ex commands to vim via
+.B tmux\ send-keys
+and sleeps between steps.
+
+User input is handled via vim normal-mode mappings. In
+.BR diffvim ,
+mappings call vimscript functions directly. In the tmux-based
+implementations, mappings write single-character commands to a named
+pipe (FIFO) that the orchestrator reads non-blocking.
+
+.SH FILES
+.TP
+.I DiffVim/Parser/Perl.pm
+Pure-Perl LCS diff parser module (used by diffvim.pl).
+.TP
+.I DiffVim/Parser/Diff2Html.pm
+diff2html CLI-based parser module (used by diffvim.pl).
+.TP
+.I plugin/diffvim.vim
+Vim plugin providing the
+.B :Diffvim
+command for running inside an existing vim session.
+
+.SH SEE ALSO
+.BR vim (1),
+.BR tmux (1),
+.BR diff (1),
+.BR git (1)
+
+.SH BUGS
+.TP
+Trailing newline changes
+If the only difference between old and new is a trailing newline, the
+animation may not handle it correctly.
+.TP
+tmux send-keys race conditions
+.B diffvim-tmux
+and
+.B diffvim.pl
+can experience race conditions where Ex command text leaks into normal
+mode when commands are sent faster than vim processes them. The
+.B diffvim
+implementation does not have this issue.
+.TP
+Large files
+The LCS dynamic programming table is O(N\(muM) in memory. For files with
+more than 10,000 lines, memory usage may be significant.
+
+.SH AUTHOR
+Written by the diffvim contributors.
+
+.SH COPYRIGHT
+MIT License. See the LICENSE file for details.

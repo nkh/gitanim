@@ -6,53 +6,211 @@
 #     handles user input, controls timing.
 #   - Vim runs in a tmux pane and displays the buffer + cursor.
 #   - Bash sends Ex commands to vim via `tmux send-keys`.
-#   - Vim normal-mode mappings write user commands (p/n/b/q) to a FIFO.
+#   - Vim normal-mode mappings write user commands (p/n/b/q/+/=) to a FIFO.
 #   - Bash reads the FIFO (non-blocking) between animation steps.
 #
 # The cursor glides between change locations with ease-in-out acceleration.
 # Only the actually-changed characters are deleted and re-typed; surrounding
 # text is left untouched (no whole-line rewrites).
 #
-# Usage: diffvim-tmux <oldfile> <newfile>
+# Usage:
+#   diffvim-tmux [options] <oldfile> <newfile>
+#   diffvim-tmux [options] --multi <old1:new1> <old2:new2> ...
+#   diffvim-tmux [options] --replay <file> [--from REV] [--to REV]
+#
+# Options:
+#   --speed N                Speed multiplier (0.5=half, 1=normal, 2=double)
+#   --output FILE            Write result to FILE after animation
+#   --context N              Fold unchanged regions >2N lines, keep N context
+#   --max-hunk-chars N       Skip char-by-char for hunks > N changed chars
+#   --max-word-chars N       Type short words (<= N chars) instantly
+#   --word-pause-ms N        Pause after instant word (default: 150)
+#   --scroll zz|zt|zb|none   Cursor scroll position (default: none)
+#   --multi                  Treat args as old:new pairs for multi-file
+#   --replay                 Animate git history for given file(s)
+#   --from REV               Git rev to start replay from (default: HEAD~5)
+#   --to REV                 Git rev to end replay at (default: HEAD)
+#   --help, -h               Show help
 #
 # Controls (in vim, during animation):
 #   <Space>  pause / resume
 #   n        skip current hunk (apply instantly, move to next)
 #   b        back to previous hunk (revert and restart)
 #   q        stop animation (leave buffer for editing)
+#   +        speed up (multiply speed by 1.5)
+#   -        slow down (divide speed by 1.5)
+#   =        reset speed to 1.0
 #
 # Requires: bash 4+, tmux 3+, vim 8+, diff, sed, awk. No Python.
 
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# Arguments
+# Helpers
 # ---------------------------------------------------------------------------
-OLD="${1:-}"
-NEW="${2:-}"
+abs_path() {
+    local path="$1"
+    local dir base
+    dir="$(dirname "$path")"
+    base="$(basename "$path")"
+    [[ -z "$dir" ]] && dir="."
+    local abs_dir
+    if [[ "$dir" == /* ]]; then
+        abs_dir="$dir"
+    else
+        abs_dir="$(pwd)/$dir"
+    fi
+    printf '%s/%s' "$abs_dir" "$base"
+}
 
-if [[ -z "$OLD" || -z "$NEW" ]]; then
+show_help() {
     cat >&2 <<USAGE
-Usage: $(basename "$0") <oldfile> <newfile>
+Usage: $(basename "$0") [options] <oldfile> <newfile>
+       $(basename "$0") [options] --multi <old1:new1> <old2:new2> ...
+       $(basename "$0") [options] --replay <file> [--from REV] [--to REV]
 
-Opens <oldfile> in vim (inside a tmux pane) and animates the diff
-transforming it into <newfile>.
+Animate a code diff in vim (inside a tmux pane), as if a human were typing it.
+
+Options:
+  --speed N                Speed multiplier: 0.5=half speed, 2=double, 5=5x
+  --output FILE            Write result to FILE after animation, then quit
+  --context N              Fold unchanged regions >2N lines, keep N context lines
+  --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
+  --max-word-chars N       Type words <=N chars instantly, pause after
+  --word-pause-ms N        Pause after instant word (default: 150)
+  --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: none)
+  --multi                  Treat args as old:new pairs for multi-file animation
+  --replay                 Animate git history for given file(s)
+  --from REV               Git rev to start replay from (default: HEAD~5)
+  --to REV                 Git rev to end replay at (default: HEAD)
+  --help, -h               Show this help
 
 Controls (during animation, in vim normal mode):
   <Space>  pause / resume
-  n        skip current hunk
-  b        back to previous hunk
-  q        stop animation
+  n        skip current hunk (apply instantly)
+  b        back to previous hunk (revert and restart)
+  q        stop animation (leave buffer for editing)
+  +        speed up (x1.5)
+  -        slow down (x0.67)
+  =        reset speed to 1.0
+
+Environment variables:
+  DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
+  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
+  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED
 USAGE
+}
+
+# ---------------------------------------------------------------------------
+# CLI options (default values; env vars may override)
+# ---------------------------------------------------------------------------
+SPEED_MULT="${DIFFVIM_SPEED:-1.0}"
+OUTPUT_FILE=""
+CONTEXT_LINES=0
+MAX_HUNK_CHARS=0
+MAX_WORD_CHARS=0
+SCROLL_MODE="none"
+MULTI_MODE=0
+REPLAY_MODE=0
+REPLAY_FROM="HEAD~5"
+REPLAY_TO="HEAD"
+HELP_FLAG=0
+
+# Parse options with getopt (util-linux enhanced getopt supports long options).
+PARSED=$(getopt -o h \
+    --long help,speed:,output:,context:,max-hunk-chars:,max-word-chars:,word-pause-ms:,scroll:,multi,replay,from:,to: \
+    -n "$(basename "$0")" -- "$@") || {
+    echo "Run '$(basename "$0") --help' for details." >&2
     exit 1
+}
+eval set -- "$PARSED"
+
+while true; do
+    case "$1" in
+        --help|-h)        HELP_FLAG=1; shift ;;
+        --speed)          SPEED_MULT="$2"; shift 2 ;;
+        --output)         OUTPUT_FILE="$2"; shift 2 ;;
+        --context)        CONTEXT_LINES="$2"; shift 2 ;;
+        --max-hunk-chars) MAX_HUNK_CHARS="$2"; shift 2 ;;
+        --max-word-chars) MAX_WORD_CHARS="$2"; shift 2 ;;
+        --word-pause-ms)  DIFFVIM_WORD_PAUSE_MS="$2"; shift 2 ;;
+        --scroll)         SCROLL_MODE="$2"; shift 2 ;;
+        --multi)          MULTI_MODE=1; shift ;;
+        --replay)         REPLAY_MODE=1; shift ;;
+        --from)           REPLAY_FROM="$2"; shift 2 ;;
+        --to)             REPLAY_TO="$2"; shift 2 ;;
+        --)               shift; break ;;
+        *) echo "Internal error: $1" >&2; exit 1 ;;
+    esac
+done
+
+if [[ $HELP_FLAG -eq 1 ]]; then
+    show_help
+    exit 0
 fi
 
-# Resolve absolute paths
-OLD="$(cd "$(dirname "$OLD")" && pwd)/$(basename "$OLD")"
-NEW="$(cd "$(dirname "$NEW")" && pwd)/$(basename "$NEW")"
+# Remaining positional args
+POSITIONAL_ARGS=("$@")
 
-[[ -f "$OLD" ]] || { echo "diffvim-tmux: Error: '$OLD' not found"; exit 1; }
-[[ -f "$NEW" ]] || { echo "diffvim-tmux: Error: '$NEW' not found"; exit 1; }
+# Validate scroll mode
+case "$SCROLL_MODE" in
+    zz|zt|zb|none) ;;
+    *) echo "diffvim-tmux: Error: invalid --scroll value '$SCROLL_MODE' (use zz|zt|zb|none)" >&2; exit 1 ;;
+esac
+
+# Resolve file pairs based on mode
+FILE_PAIRS=()   # array of "oldfile:newfile" strings
+
+if [[ $REPLAY_MODE -eq 1 ]]; then
+    [[ ${#POSITIONAL_ARGS[@]} -ge 1 ]] || { echo "Error: --replay requires at least one file path" >&2; exit 1; }
+    command -v git >/dev/null 2>&1 || { echo "Error: 'git' not found in PATH" >&2; exit 1; }
+    for file in "${POSITIONAL_ARGS[@]}"; do
+        abs="$(abs_path "$file")"
+        [[ -f "$abs" ]] || { echo "Error: '$abs' not found" >&2; exit 1; }
+        # Get commits in range
+        commits=()
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && commits+=("$line")
+        done < <(git log --reverse --format=%H "$REPLAY_FROM..$REPLAY_TO" -- "$abs" 2>/dev/null || true)
+        # Prepend the "from" commit itself
+        from_commit="$(git rev-parse "$REPLAY_FROM" 2>/dev/null || true)"
+        if [[ -n "$from_commit" && ${#commits[@]} -gt 0 ]]; then
+            commits=("$from_commit" "${commits[@]}")
+        fi
+        [[ ${#commits[@]} -gt 0 ]] || { echo "Error: no commits found for '$file' in range $REPLAY_FROM..$REPLAY_TO" >&2; exit 1; }
+        for (( i=0; i<${#commits[@]}-1; i++ )); do
+            old_tmp="${WORKDIR_REPLAY_PRE:-/tmp}/dv_replay_${commits[$i]}_$(basename "$abs")"
+            old_tmp="$(mktemp /tmp/dv_replay_old.XXXXXX)"
+            new_tmp="$(mktemp /tmp/dv_replay_new.XXXXXX)"
+            git show "${commits[$i]}:$abs" > "$old_tmp" 2>/dev/null || { echo "Error: cannot get '$file' at commit '${commits[$i]}'" >&2; exit 1; }
+            git show "${commits[$((i+1))]}:$abs" > "$new_tmp" 2>/dev/null || { echo "Error: cannot get '$file' at commit '${commits[$((i+1))]}'" >&2; exit 1; }
+            FILE_PAIRS+=("$old_tmp:$new_tmp")
+        done
+    done
+elif [[ $MULTI_MODE -eq 1 ]]; then
+    [[ ${#POSITIONAL_ARGS[@]} -ge 1 ]] || { echo "Error: --multi requires at least one old:new pair" >&2; exit 1; }
+    for arg in "${POSITIONAL_ARGS[@]}"; do
+        if [[ "$arg" == *:* ]]; then
+            old_part="${arg%%:*}"
+            new_part="${arg#*:}"
+            FILE_PAIRS+=("$(abs_path "$old_part"):$(abs_path "$new_part")")
+        else
+            echo "Error: '$arg' is not in old:new format" >&2; exit 1
+        fi
+    done
+else
+    # Single pair: oldfile newfile
+    [[ ${#POSITIONAL_ARGS[@]} -eq 2 ]] || { echo "Usage: $(basename "$0") [options] <oldfile> <newfile>" >&2; echo "  Run '$(basename "$0") --help' for details." >&2; exit 1; }
+    FILE_PAIRS+=("$(abs_path "${POSITIONAL_ARGS[0]}"):$(abs_path "${POSITIONAL_ARGS[1]}")")
+fi
+
+# Validate all files exist
+for pair in "${FILE_PAIRS[@]}"; do
+    old_part="${pair%%:*}"
+    new_part="${pair#*:}"
+    [[ -f "$old_part" ]] || { echo "Error: '$old_part' not found" >&2; exit 1; }
+    [[ -f "$new_part" ]] || { echo "Error: '$new_part' not found" >&2; exit 1; }
+done
 
 for cmd in tmux vim diff sed awk; do
     command -v "$cmd" >/dev/null 2>&1 || {
@@ -76,12 +234,39 @@ MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-200}
 MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-1400}
 MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-6}
 HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-180}
+WORD_PAUSE_MS=${DIFFVIM_WORD_PAUSE_MS:-150}
 
-# Precompute sleep durations (avoid repeated awk calls in the hot loop)
+# ---------------------------------------------------------------------------
+# Apply speed multiplier (divide all *_MS values by SPEED_MULT, min 1ms)
+# ---------------------------------------------------------------------------
+apply_speed_mult() {
+    # awk handles float division
+    local m
+    m=$(awk "BEGIN { printf \"%.6f\", ($SPEED_MULT > 0 ? 1.0 / $SPEED_MULT : 1.0) }")
+    TICK_MS=$(awk "BEGIN { v=int($TICK_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+    TYPE_DELAY_MS=$(awk "BEGIN { v=int($TYPE_DELAY_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+    DELETE_DELAY_MS=$(awk "BEGIN { v=int($DELETE_DELAY_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+    MOVE_MIN_MS=$(awk "BEGIN { v=int($MOVE_MIN_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+    MOVE_MAX_MS=$(awk "BEGIN { v=int($MOVE_MAX_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+    HUNK_PAUSE_MS=$(awk "BEGIN { v=int($HUNK_PAUSE_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+    WORD_PAUSE_MS=$(awk "BEGIN { v=int($WORD_PAUSE_MS * $m); if (v<1) v=1; printf \"%d\", v }")
+}
+apply_speed_mult
+
+# Precompute base sleep durations (avoid repeated awk calls in the hot loop).
+# These are the *base* durations; the animation loop divides by runtime_speed.
 TICK_SEC=$(awk "BEGIN { printf \"%.4f\", $TICK_MS / 1000 }")
 TYPE_SEC=$(awk "BEGIN { printf \"%.4f\", $TYPE_DELAY_MS / 1000 }")
 DELETE_SEC=$(awk "BEGIN { printf \"%.4f\", $DELETE_DELAY_MS / 1000 }")
 HUNK_PAUSE_SEC=$(awk "BEGIN { printf \"%.4f\", $HUNK_PAUSE_MS / 1000 }")
+WORD_PAUSE_SEC=$(awk "BEGIN { printf \"%.4f\", $WORD_PAUSE_MS / 1000 }")
+
+# Sleep helper: divides a base duration (seconds) by runtime_speed.
+sleep_div() {
+    # $1 = base duration in seconds (e.g. 0.035)
+    sleep $(awk -v b="$1" -v s="$runtime_speed" \
+        "BEGIN { r = b / s; if (r < 0.001) r = 0.001; printf \"%.4f\", r }")
+}
 
 # ---------------------------------------------------------------------------
 # Workspace
@@ -114,6 +299,8 @@ line_offset=0
 paused=0
 stopped=0
 snap_count=0
+pair_idx=0
+runtime_speed=1.0
 
 declare -a MOVE_L MOVE_C
 MOVE_IDX=0
@@ -127,6 +314,10 @@ declare -a SNAP_CUR_L SNAP_CUR_C SNAP_OFFSET
 
 # Buffer tracking
 BUF_LINES=0
+
+# OLD/NEW for current pair (set by animate_pair)
+OLD=""
+NEW=""
 
 # ---------------------------------------------------------------------------
 # Cleanup
@@ -156,6 +347,7 @@ write_engine() {
 " diffvim engine - buffer manipulation helpers driven by bash via tmux.
 
 let g:dv_ctrl = '$CTRL_FIFO'
+let g:dv_scroll = '$SCROLL_MODE'
 
 " Logical cursor position (can exceed line length for "past end" state).
 " Vim's real cursor (normal mode) is clamped to len(line); we track the
@@ -172,6 +364,13 @@ function! s:DvPlace() abort
     if c > len + 1 | let c = len + 1 | endif
     if c < 1 | let c = 1 | endif
     call cursor(l, c)
+    if g:dv_scroll ==# 'zz'
+        normal! zz
+    elseif g:dv_scroll ==# 'zt'
+        normal! zt
+    elseif g:dv_scroll ==# 'zb'
+        normal! zb
+    endif
 endfunction
 
 function! DvSetPos(l, c) abort
@@ -205,6 +404,12 @@ function! DvInsert(code) abort
         let s:dv_c += 1
     endif
     call s:DvPlace()
+endfunction
+
+function! DvInsertBatch(codes) abort
+    for code in a:codes
+        call DvInsert(code)
+    endfor
 endfunction
 
 function! DvDelete() abort
@@ -262,6 +467,9 @@ nnoremap <buffer> <silent> <Space> :call writefile(['p'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> n       :call writefile(['n'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> b       :call writefile(['b'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> q       :call writefile(['q'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> +       :call writefile(['+'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> -       :call writefile(['-'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> =       :call writefile(['='], g:dv_ctrl, 'a')<CR>
 
 " Signal bash when vim exits.
 autocmd VimLeave * call writefile(['vimleft'], g:dv_ctrl, 'a')
@@ -272,6 +480,7 @@ VIMEOF
 # tmux setup
 # ---------------------------------------------------------------------------
 setup_tmux() {
+    local old_file="$1"
     write_engine
 
     if [[ -n "${TMUX:-}" ]]; then
@@ -281,7 +490,7 @@ setup_tmux() {
         cur_session=$(tmux display-message -p '#S')
         SESSION="$cur_session"
         tmux new-window -t "$SESSION:" -n diffvim \
-            "vim -N -u NONE -c 'source $ENGINE_VIM' '$OLD'"
+            "vim -N -u NONE -c 'source $ENGINE_VIM' '$old_file'"
         TARGET=$(tmux display-message -p -t "$SESSION:" '#{pane_id}')
     else
         # Outside tmux: create a new detached session
@@ -289,7 +498,7 @@ setup_tmux() {
         SESSION="diffvim-$$"
         tmux new-session -d -s "$SESSION" -n main \
             -x "${COLUMNS:-80}" -y "${LINES:-24}" \
-            "vim -N -u NONE -c 'source $ENGINE_VIM' '$OLD'"
+            "vim -N -u NONE -c 'source $ENGINE_VIM' '$old_file'"
         TARGET=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
     fi
 }
@@ -306,9 +515,8 @@ send_ex() {
 }
 
 send_ex_redraw() {
-    tmux send-keys -l -t "$TARGET" ":$1"
+    tmux send-keys -l -t "$TARGET" ":$1 | redraw"
     tmux send-keys -t "$TARGET" Enter
-    tmux send-keys -t "$TARGET" ":redraw" Enter
 }
 
 # Query vim for a value (writes to a file, bash reads it).
@@ -329,7 +537,13 @@ query_vim() {
         sleep 0.01
         tries=$((tries + 1))
     done
-    cat "$qfile"
+    # Vim's string() wraps string values in single quotes; strip them.
+    local result
+    result=$(cat "$qfile")
+    # Remove surrounding single quotes if present
+    result="${result#\'}"
+    result="${result%\'}"
+    printf '%s' "$result"
 }
 
 # ---------------------------------------------------------------------------
@@ -364,6 +578,14 @@ CUR_TARGET=1
 CUR_HAS_HUNK=0
 
 build_hunks() {
+    HUNK_COUNT=0
+    HUNK_TARGET=()
+    HUNK_OPS=()
+    HUNK_DEL=()
+    HUNK_INS=()
+    HUNK_END_INS=()
+    HUNK_END_DEL=()
+
     local line_num=0
     local old_line_count
     old_line_count=$(wc -l < "$OLD")
@@ -492,7 +714,7 @@ init_buffer_lines() {
     while IFS= read -r line || [[ -n "$line" ]]; do
         BUF_LINES=$((BUF_LINES + 1))
     done < "$OLD"
-    [[ $BUF_LINES -lt 1 ]] && BUF_LINES=1
+    if [[ $BUF_LINES -lt 1 ]]; then BUF_LINES=1; fi
 }
 
 # ---------------------------------------------------------------------------
@@ -503,6 +725,8 @@ precompute_move() {
     local dl=$(( el - sl ))
     local dc=$(( ec - sc ))
     local dist=$(( dl * 80 + dc ))
+    # Use absolute value for dist computation safety
+    [[ $dist -lt 0 ]] && dist=$((-dist))
     local dur=$(( dist * MOVE_MS_PER_UNIT ))
     [[ $dur -lt $MOVE_MIN_MS ]] && dur=$MOVE_MIN_MS
     [[ $dur -gt $MOVE_MAX_MS ]] && dur=$MOVE_MAX_MS
@@ -556,21 +780,90 @@ restore_snapshot() {
 }
 
 # ---------------------------------------------------------------------------
+# Progress display
+# ---------------------------------------------------------------------------
+update_progress() {
+    [[ $HUNK_COUNT -eq 0 ]] && return
+    local total=$HUNK_COUNT
+    local current=$((hunk_idx + 1))
+    [[ $current -gt $total ]] && current=$total
+    local pct
+    pct=$(awk -v c="$current" -v t="$total" 'BEGIN { printf "%d", (t > 0 ? c / t * 100 : 100) }')
+    local msg="diffvim: hunk $current/$total ($pct%)"
+    if [[ ${#FILE_PAIRS[@]} -gt 1 ]]; then
+        msg="$msg | pair $((pair_idx + 1))/${#FILE_PAIRS[@]}"
+    fi
+    local speed_diff
+    speed_diff=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.4f", (s - 1.0) > 0 ? (s - 1.0) : -(s - 1.0) }')
+    if awk -v d="$speed_diff" 'BEGIN { exit !(d > 0.01) }'; then
+        local spd
+        spd=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.1f", s }')
+        msg="$msg | speed ${spd}x"
+    fi
+    [[ $paused -eq 1 ]] && msg="$msg | PAUSED"
+    send_ex "echo '$msg'"
+}
+
+# ---------------------------------------------------------------------------
 # Animation functions
 # ---------------------------------------------------------------------------
+apply_hunk_instantly() {
+    local ops="${HUNK_OPS[$hunk_idx]}"
+    local -a parts
+    IFS=';' read -ra parts <<< "$ops"
+    local i part op code
+    for (( i=op_idx; i<${#parts[@]}; i++ )); do
+        part="${parts[$i]}"
+        [[ -z "$part" ]] && continue
+        op="${part:0:1}"
+        code="${part:1}"
+        case "$op" in
+            K) send_ex "call DvKeep($code)" ;;
+            D) send_ex "call DvDelete()" ;;
+            I) send_ex "call DvInsert($code)" ;;
+        esac
+    done
+    send_ex "redraw"
+    line_offset=$(( line_offset + HUNK_INS[$hunk_idx] - HUNK_DEL[$hunk_idx] ))
+    BUF_LINES=$(( BUF_LINES + HUNK_INS[$hunk_idx] - HUNK_DEL[$hunk_idx] ))
+    hunk_idx=$((hunk_idx + 1))
+    phase="idle"
+}
+
 start_next_hunk() {
     if [[ $hunk_idx -ge $HUNK_COUNT ]]; then
         phase="done"
-        tmux send-keys -l -t "$TARGET" ":echo 'diffvim: animation complete ($HUNK_COUNT hunk(s) applied)'" Enter
         return
     fi
 
     save_snapshot
+    update_progress
 
     local target=${HUNK_TARGET[$hunk_idx]}
     local target_line=$(( target + line_offset ))
     local end_ins=${HUNK_END_INS[$hunk_idx]}
     local end_del=${HUNK_END_DEL[$hunk_idx]}
+
+    # --max-hunk-chars: if hunk has too many changed chars, apply instantly
+    if [[ $MAX_HUNK_CHARS -gt 0 ]]; then
+        local ops="${HUNK_OPS[$hunk_idx]}"
+        local -a parts
+        IFS=';' read -ra parts <<< "$ops"
+        local changed=0
+        local i part op
+        for (( i=0; i<${#parts[@]}; i++ )); do
+            part="${parts[$i]}"
+            [[ -z "$part" ]] && continue
+            op="${part:0:1}"
+            [[ "$op" != "K" ]] && changed=$((changed + 1))
+        done
+        if [[ $changed -gt $MAX_HUNK_CHARS ]]; then
+            send_ex "echo 'diffvim: hunk $((hunk_idx + 1)) has $changed changed chars (> $MAX_HUNK_CHARS), applying instantly'"
+            op_idx=0
+            apply_hunk_instantly
+            return
+        fi
+    fi
 
     local ml mc
 
@@ -610,14 +903,79 @@ move_step() {
         send_ex "call DvSetPos($cur_l, $cur_c)"
         phase="typing"
         op_idx=0
-        sleep "$HUNK_PAUSE_SEC"
+        sleep_div "$HUNK_PAUSE_SEC"
         return
     fi
     cur_l=${MOVE_L[$MOVE_IDX]}
     cur_c=${MOVE_C[$MOVE_IDX]}
     send_ex_redraw "call DvSetPos($cur_l, $cur_c)"
     MOVE_IDX=$((MOVE_IDX + 1))
-    sleep "$TICK_SEC"
+    sleep_div "$TICK_SEC"
+}
+
+# Look ahead from current op_idx to find a "word": contiguous insert or delete ops
+# (not mixed) where chars are non-space (code != 10 newline, code != 32 space),
+# terminated by a space, newline, op change to keep, or end of ops.
+# Returns the length of the word (0 if not a word boundary).
+# Reads globals: HUNK_OPS[$hunk_idx], op_idx. Prints length to stdout.
+lookahead_word_length() {
+    local ops="${HUNK_OPS[$hunk_idx]}"
+    local -a parts
+    IFS=';' read -ra parts <<< "$ops"
+    local n=${#parts[@]}
+    [[ $op_idx -ge $n ]] && { printf '0'; return; }
+    local first="${parts[$op_idx]}"
+    local first_op="${first:0:1}"
+    [[ "$first_op" == "K" ]] && { printf '0'; return; }
+    local len=0
+    local i part op code
+    for (( i=op_idx; i<n; i++ )); do
+        part="${parts[$i]}"
+        [[ -z "$part" ]] && break
+        op="${part:0:1}"
+        code="${part:1}"
+        [[ "$op" != "$first_op" ]] && break
+        # Newline (10) or space (32) terminates a word
+        [[ "$code" == "10" || "$code" == "32" ]] && break
+        len=$((len + 1))
+    done
+    # Word must be terminated by a space/newline/keep/end to be a "word"
+    local end_idx=$((op_idx + len))
+    if [[ $end_idx -lt $n ]]; then
+        local next_part="${parts[$end_idx]}"
+        local next_op="${next_part:0:1}"
+        local next_code="${next_part:1}"
+        if [[ "$next_op" == "K" || "$next_code" == "10" || "$next_code" == "32" ]]; then
+            printf '%d' "$len"
+            return
+        fi
+        printf '0'
+        return
+    else
+        # End of ops
+        printf '%d' "$len"
+        return
+    fi
+}
+
+# Apply a whole word instantly. Args: $1=length.
+apply_word_instantly() {
+    local len=$1
+    local ops="${HUNK_OPS[$hunk_idx]}"
+    local -a parts
+    IFS=';' read -ra parts <<< "$ops"
+    local i part op code
+    for (( i=op_idx; i<op_idx+len; i++ )); do
+        part="${parts[$i]}"
+        [[ -z "$part" ]] && continue
+        op="${part:0:1}"
+        code="${part:1}"
+        case "$op" in
+            I) send_ex "call DvInsert($code)" ;;
+            D) send_ex "call DvDelete()" ;;
+        esac
+    done
+    send_ex "redraw"
 }
 
 type_step() {
@@ -625,26 +983,35 @@ type_step() {
 
     # Parse the op at op_idx from the semicolon-separated list.
     # Format: "K97;D98;I99;..."
-    # Use read -ra to split on semicolons (IFS=';' read -r only splits the first).
-    local found=""
     local -a parts
     IFS=';' read -ra parts <<< "$ops"
-    if [[ $op_idx -lt ${#parts[@]} ]]; then
-        found="${parts[$op_idx]}"
-    fi
-
-    if [[ -z "$found" ]]; then
+    if [[ $op_idx -ge ${#parts[@]} ]]; then
         # Hunk complete
         line_offset=$(( line_offset + HUNK_INS[$hunk_idx] - HUNK_DEL[$hunk_idx] ))
         BUF_LINES=$(( BUF_LINES + HUNK_INS[$hunk_idx] - HUNK_DEL[$hunk_idx] ))
         hunk_idx=$((hunk_idx + 1))
         phase="idle"
-        sleep "$HUNK_PAUSE_SEC"
+        sleep_div "$HUNK_PAUSE_SEC"
         return
     fi
 
+    local found="${parts[$op_idx]}"
     local op="${found:0:1}"
     local code="${found:1}"
+
+    # --max-word-chars: if we're about to insert/delete a word (contiguous
+    # non-space chars followed by space/newline/keep/end), and the word is
+    # <= N chars, apply the whole word instantly, then pause.
+    if [[ $MAX_WORD_CHARS -gt 0 && ( "$op" == "I" || "$op" == "D" ) ]]; then
+        local word_len
+        word_len=$(lookahead_word_length)
+        if [[ $word_len -gt 0 && $word_len -le $MAX_WORD_CHARS ]]; then
+            apply_word_instantly "$word_len"
+            op_idx=$((op_idx + word_len))
+            sleep_div "$WORD_PAUSE_SEC"
+            return
+        fi
+    fi
 
     case "$op" in
         K)
@@ -654,11 +1021,11 @@ type_step() {
             ;;
         D)
             send_ex_redraw "call DvDelete()"
-            sleep "$DELETE_SEC"
+            sleep_div "$DELETE_SEC"
             ;;
         I)
             send_ex_redraw "call DvInsert($code)"
-            sleep "$TYPE_SEC"
+            sleep_div "$TYPE_SEC"
             ;;
     esac
     op_idx=$((op_idx + 1))
@@ -679,6 +1046,7 @@ handle_user_input() {
                 else
                     tmux send-keys -l -t "$TARGET" ":echo 'diffvim: resumed'" Enter
                 fi
+                update_progress
                 ;;
             n)
                 skip_current
@@ -689,6 +1057,22 @@ handle_user_input() {
             q)
                 stopped=1
                 tmux send-keys -l -t "$TARGET" ":echo 'diffvim: animation stopped. Buffer left for editing.'" Enter
+                ;;
+            +)
+                runtime_speed=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.4f", s * 1.5 }')
+                local spd
+                spd=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.1f", s }')
+                tmux send-keys -l -t "$TARGET" ":echo 'diffvim: speed ${spd}x'" Enter
+                ;;
+            -)
+                runtime_speed=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.4f", s / 1.5 }')
+                local spd
+                spd=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.1f", s }')
+                tmux send-keys -l -t "$TARGET" ":echo 'diffvim: speed ${spd}x'" Enter
+                ;;
+            =)
+                runtime_speed=1.0
+                tmux send-keys -l -t "$TARGET" ":echo 'diffvim: speed reset to 1.0x'" Enter
                 ;;
             vimleft)
                 stopped=1
@@ -711,30 +1095,9 @@ skip_current() {
     fi
 
     if [[ $phase == "typing" ]]; then
-        # Apply all remaining char_ops instantly
-        local ops="${HUNK_OPS[$hunk_idx]}"
-        local -a parts
-        IFS=';' read -ra parts <<< "$ops"
-        local i
-        for (( i=op_idx; i<${#parts[@]}; i++ )); do
-            local part="${parts[$i]}"
-            if [[ -n "$part" ]]; then
-                local op="${part:0:1}"
-                local code="${part:1}"
-                case "$op" in
-                    K) send_ex "call DvKeep($code)" ;;
-                    D) send_ex "call DvDelete()" ;;
-                    I) send_ex "call DvInsert($code)" ;;
-                esac
-            fi
-        done
-        send_ex "redraw"
-        line_offset=$(( line_offset + HUNK_INS[$hunk_idx] - HUNK_DEL[$hunk_idx] ))
-        BUF_LINES=$(( BUF_LINES + HUNK_INS[$hunk_idx] - HUNK_DEL[$hunk_idx] ))
-        hunk_idx=$((hunk_idx + 1))
-        phase="idle"
+        apply_hunk_instantly
     fi
-    tmux send-keys -l -t "$TARGET" ":echo 'diffvim: skipped to hunk $((hunk_idx + 1))/$HUNK_COUNT'" Enter
+    update_progress
 }
 
 go_back() {
@@ -755,7 +1118,7 @@ go_back() {
     restore_snapshot "$target_snap"
     phase="idle"
     op_idx=0
-    tmux send-keys -l -t "$TARGET" ":echo 'diffvim: back to hunk $((hunk_idx + 1))/$HUNK_COUNT'" Enter
+    update_progress
 }
 
 # ---------------------------------------------------------------------------
@@ -766,10 +1129,21 @@ animate() {
     sleep 0.5
 
     # Show active config so the user can verify env vars are read
-    tmux send-keys -l -t "$TARGET" ":echo 'diffvim config: tick=${TICK_MS}ms type=${TYPE_DELAY_MS}ms del=${DELETE_DELAY_MS}ms move=${MOVE_MIN_MS}-${MOVE_MAX_MS}ms hunk_pause=${HUNK_PAUSE_MS}ms'" Enter
+    local config_msg="diffvim config: tick=${TICK_MS}ms type=${TYPE_DELAY_MS}ms del=${DELETE_DELAY_MS}ms move=${MOVE_MIN_MS}-${MOVE_MAX_MS}ms hunk_pause=${HUNK_PAUSE_MS}ms"
+    local speed_diff
+    speed_diff=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.4f", (s - 1.0) > 0 ? (s - 1.0) : -(s - 1.0) }')
+    if awk -v d="$speed_diff" 'BEGIN { exit !(d > 0.01) }'; then
+        local spd
+        spd=$(awk -v s="$runtime_speed" 'BEGIN { printf "%.1f", s }')
+        config_msg="$config_msg speed=${spd}x"
+    fi
+    [[ "$SCROLL_MODE" != "none" ]] && config_msg="$config_msg scroll=$SCROLL_MODE"
+    [[ $MAX_HUNK_CHARS -gt 0 ]] && config_msg="$config_msg max_hunk=$MAX_HUNK_CHARS"
+    [[ $MAX_WORD_CHARS -gt 0 ]] && config_msg="$config_msg max_word=$MAX_WORD_CHARS"
+    tmux send-keys -l -t "$TARGET" ":echo '$config_msg'" Enter
 
     # Show help
-    tmux send-keys -l -t "$TARGET" ":echo 'diffvim: Space=pause n=skip b=back q=quit | hunk 1/$HUNK_COUNT'" Enter
+    tmux send-keys -l -t "$TARGET" ":echo 'diffvim: Space=pause n=skip b=back q=quit +/-=speed | hunk 1/$HUNK_COUNT'" Enter
 
     # Brief pause so user can see the original
     sleep 0.3
@@ -788,57 +1162,143 @@ animate() {
         esac
     done
 
+    # If --output was specified, write the buffer to the output file.
+    # In multi-pair mode, only write on the LAST pair; otherwise vim exits
+    # before subsequent pairs can run.
+    local is_last_pair=1
+    [[ ${#FILE_PAIRS[@]} -gt 1 && $((pair_idx + 1)) -lt ${#FILE_PAIRS[@]} ]] && is_last_pair=0
+    if [[ -n "$OUTPUT_FILE" && $stopped -eq 0 && $is_last_pair -eq 1 ]]; then
+        send_ex "w! $OUTPUT_FILE"
+        sleep 0.5
+        send_ex "echo 'diffvim: result written to $OUTPUT_FILE'"
+        sleep 1
+        send_ex "qa!"
+        sleep 0.5
+    fi
+
     # If animation is done but vim is still running, wait for vim exit.
     # (User can continue editing, or :q to exit.)
-    while [[ $stopped -eq 0 ]]; do
-        if IFS= read -t 0.1 -u 3 -r cmd; then
-            case "$cmd" in
-                q)       stopped=1 ;;
-                vimleft) stopped=1 ;;
-                *)       ;;  # ignore other commands
-            esac
-        fi
-    done
+    # In multi-pair mode (not last pair), skip this wait so the next pair
+    # can proceed; the loop above already broke on phase=done.
+    if [[ $is_last_pair -eq 1 ]]; then
+        while [[ $stopped -eq 0 ]]; do
+            if IFS= read -t 0.1 -u 3 -r cmd; then
+                case "$cmd" in
+                    q)       stopped=1 ;;
+                    vimleft) stopped=1 ;;
+                    *)       ;;  # ignore other commands
+                esac
+            fi
+        done
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Animate a single pair (OLD/NEW already set globally)
+# ---------------------------------------------------------------------------
+animate_pair() {
+    # Reset state for this pair
+    phase="idle"
+    hunk_idx=0
+    op_idx=0
+    cur_l=1
+    cur_c=1
+    line_offset=0
+    paused=0
+    stopped=0
+    snap_count=0
+    runtime_speed=1.0
+
+    # Reset snapshot arrays
+    SNAP_CUR_L=()
+    SNAP_CUR_C=()
+    SNAP_OFFSET=()
+
+    build_hunks
+    init_buffer_lines
+
+    if [[ $HUNK_COUNT -eq 0 ]]; then
+        echo "diffvim: pair $((pair_idx + 1))/${#FILE_PAIRS[@]}: files identical, skipping."
+        return
+    fi
+
+    echo "diffvim: pair $((pair_idx + 1))/${#FILE_PAIRS[@]}: $HUNK_COUNT hunk(s) to animate."
+
+    if [[ $pair_idx -eq 0 ]]; then
+        setup_tmux "$OLD"
+    else
+        # Switch buffer to new file
+        send_ex "edit! $OLD"
+        sleep 0.5
+        local obase nbase
+        obase="$(basename "$OLD")"
+        nbase="$(basename "$NEW")"
+        send_ex "echo 'diffvim: next file: $obase -> $nbase'"
+        sleep 1
+    fi
+
+    # Run animation (foreground; main handles attach if needed)
+    animate
 }
 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 main() {
-    # Build diff data
-    build_hunks
-    init_buffer_lines
+    if [[ ${#FILE_PAIRS[@]} -eq 1 ]]; then
+        pair_idx=0
+        pair="${FILE_PAIRS[0]}"
+        OLD="${pair%%:*}"
+        NEW="${pair#*:}"
+        build_hunks
+        init_buffer_lines
 
-    if [[ $HUNK_COUNT -eq 0 ]]; then
-        echo "diffvim: files are identical, nothing to animate."
-        # Still open vim so the user can see the file
-        setup_tmux
-        sleep 0.5
-        tmux send-keys -l -t "$TARGET" ":echo 'diffvim: files are identical.'" Enter
-        if [[ $ATTACHED -eq 0 ]]; then
-            tmux attach-session -t "$SESSION"
-        fi
-        return
-    fi
-
-    echo "diffvim: $HUNK_COUNT hunk(s) to animate. Launching vim in tmux..."
-
-    # Set up tmux and launch vim
-    setup_tmux
-
-    # Start animation in background
-    animate &
-    ANIM_PID=$!
-
-    # Attach to tmux (foreground, blocks until session ends or user detaches)
-    if [[ $ATTACHED -eq 0 ]]; then
-        tmux attach-session -t "$SESSION" 2>/dev/null || true
-    else
-        # Inside tmux: the new window is already focused.
-        # Wait for the animation to finish (or user to switch away).
-        # We detect completion by checking if the window still exists.
-        while kill -0 "$ANIM_PID" 2>/dev/null; do
+        if [[ $HUNK_COUNT -eq 0 ]]; then
+            echo "diffvim: files are identical, nothing to animate."
+            # Still open vim so the user can see the file
+            setup_tmux "$OLD"
             sleep 0.5
+            tmux send-keys -l -t "$TARGET" ":echo 'diffvim: files are identical.'" Enter
+            if [[ $ATTACHED -eq 0 ]]; then
+                tmux attach-session -t "$SESSION"
+            fi
+            return
+        fi
+
+        echo "diffvim: $HUNK_COUNT hunk(s) to animate. Launching vim in tmux..."
+
+        # Set up tmux and launch vim
+        setup_tmux "$OLD"
+
+        # Start animation in background
+        animate &
+        ANIM_PID=$!
+
+        # Attach to tmux (foreground, blocks until session ends or user detaches).
+        # When not attached (or attach fails, e.g. no tty), wait for the
+        # animation subshell to finish so we don't exit immediately and
+        # tear everything down via the EXIT trap.
+        if [[ $ATTACHED -eq 0 ]]; then
+            tmux attach-session -t "$SESSION" 2>/dev/null || true
+            # attach returned (detached or failed); keep the process alive
+            # until the animation finishes or vim exits.
+            while kill -0 "$ANIM_PID" 2>/dev/null; do
+                sleep 0.2
+            done
+        else
+            # Inside tmux: the new window is already focused.
+            # Wait for the animation to finish (or user to switch away).
+            while kill -0 "$ANIM_PID" 2>/dev/null; do
+                sleep 0.5
+            done
+        fi
+    else
+        # Multi-pair animation
+        for (( pair_idx=0; pair_idx<${#FILE_PAIRS[@]}; pair_idx++ )); do
+            pair="${FILE_PAIRS[$pair_idx]}"
+            OLD="${pair%%:*}"
+            NEW="${pair#*:}"
+            animate_pair
         done
     fi
 
