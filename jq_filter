@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+# jq -r '
+#   .[0].blocks[] |
+#     (
+#       .lines[] |
+#         if .type == "delete" then
+#           "DEL \(.oldNumber) \(.content)"
+#         elif .type == "insert" then
+#           "ADD \(.newNumber) \(.content)"
+#         else
+#           "CTX \(.oldNumber) \(.newNumber) \(.content)"
+#         end
+#     )
+# '
+
+jq -r '
+  .[0].blocks[] |
+    "HUNK \(.header)" ,
+    (
+      .lines[] |
+        if .type == "delete" then
+          "DEL \(.oldNumber) \(.content)"
+        elif .type == "insert" then
+          "ADD \(.newNumber) \(.content)"
+        else
+          "CTX \(.oldNumber) \(.newNumber) \(.content)"
+        end
+    )
+'

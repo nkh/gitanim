@@ -1,0 +1,17 @@
+#!/bin/env perl 
+
+use JSON::PP;
+my $json = decode_json(do { local $/; <STDIN> });
+
+my @lcs;
+
+for my $file (@{$json->{files}}) {
+    for my $hunk (@{$file->{hunks}}) {
+        for my $line (@{$hunk->{lines}}) {
+            push @lcs, $line->{old} if $line->{type} eq 'context';
+        }
+    }
+}
+
+print join("", @lcs), "\n";
+
