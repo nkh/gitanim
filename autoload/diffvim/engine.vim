@@ -356,7 +356,7 @@ function! s:InsertCharAtCursor(ch) abort
         let s:cur_c = 1
     else
         call setline(l:l, l:before . a:ch . l:after)
-        let s:cur_c = l:c + 1
+        let s:cur_c = l:c + strlen(a:ch)
     endif
     call s:PlaceCursor()
 endfunction
@@ -392,7 +392,7 @@ function! s:AdvanceForKeepChar(ch) abort
         endif
         let s:cur_c = 1
     else
-        let s:cur_c += 1
+        let s:cur_c += strlen(a:ch)
     endif
     call s:PlaceCursor()
 endfunction

@@ -143,10 +143,34 @@ sub _lcs_diff {
 sub _char_diff {
     my ($old_text, $new_text) = @_;
 
-    # Split into characters. Don't use -1 (it preserves a trailing empty
-    # field after the last char, creating a spurious null-char op).
-    my @a = split //, $old_text;
-    my @b = split //, $new_text;
+    # Decode as UTF-8 so multi-byte characters (e.g. em-dash —) are treated
+    # as single characters, not individual bytes.  This is critical: if we
+    # split on bytes, the vim engine's nr2char() creates wrong characters
+    # (e.g. nr2char(226) creates 'â' instead of the first byte of '—').
+    # Fall back to byte-level split if the text isn't valid UTF-8.
+    my $old_decoded = $old_text;
+    my $new_decoded = $new_text;
+    eval {
+        require Encode;
+        $old_decoded = Encode::decode('UTF-8', $old_text,
+            Encode::FB_CROAK());
+    };
+    if ($@) {
+        $old_decoded = $old_text;  # Not valid UTF-8, use bytes
+    }
+    eval {
+        require Encode;
+        $new_decoded = Encode::decode('UTF-8', $new_text,
+            Encode::FB_CROAK());
+    };
+    if ($@) {
+        $new_decoded = $new_text;
+    }
+
+    # Split into characters (not bytes). For UTF-8 text, multi-byte chars
+    # are treated as single elements.
+    my @a = split //, $old_decoded;
+    my @b = split //, $new_decoded;
 
     my $ops = _lcs_diff(\@a, \@b);
 
@@ -173,9 +197,17 @@ sub _char_diff {
 sub _word_diff {
     my ($old_text, $new_text) = @_;
 
+    # Decode as UTF-8 (same as _char_diff)
+    my $old_decoded = $old_text;
+    my $new_decoded = $new_text;
+    eval { require Encode; $old_decoded = Encode::decode('UTF-8', $old_text, Encode::FB_CROAK()); };
+    $old_decoded = $old_text if $@;
+    eval { require Encode; $new_decoded = Encode::decode('UTF-8', $new_text, Encode::FB_CROAK()); };
+    $new_decoded = $new_text if $@;
+
     # Split into tokens: words (non-space) and whitespace
-    my @a = _split_words($old_text);
-    my @b = _split_words($new_text);
+    my @a = _split_words($old_decoded);
+    my @b = _split_words($new_decoded);
 
     my $ops = _lcs_diff(\@a, \@b);
 

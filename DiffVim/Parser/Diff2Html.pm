@@ -180,10 +180,16 @@ sub _parse_file {
 sub _char_diff {
     my ($old_text, $new_text) = @_;
 
-    # Split into characters. Don't use -1 (it preserves a trailing empty
-    # field after the last char, creating a spurious null-char op).
-    my @a = split //, $old_text;
-    my @b = split //, $new_text;
+    # Decode as UTF-8 so multi-byte characters are treated as single chars
+    my $old_decoded = $old_text;
+    my $new_decoded = $new_text;
+    eval { require Encode; $old_decoded = Encode::decode('UTF-8', $old_text, Encode::FB_CROAK()); };
+    $old_decoded = $old_text if $@;
+    eval { require Encode; $new_decoded = Encode::decode('UTF-8', $new_text, Encode::FB_CROAK()); };
+    $new_decoded = $new_text if $@;
+
+    my @a = split //, $old_decoded;
+    my @b = split //, $new_decoded;
 
     my $ops = _lcs_diff(\@a, \@b);
 
