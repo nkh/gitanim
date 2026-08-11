@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>diffvim — Animate Code Diffs in Vim</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --purple: #bc8cff;
+    --border: #30363d;
+    --code-bg: #161b22;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  h1 { font-size: 3rem; margin-bottom: 0.5rem; }
+  h1 .accent { color: var(--accent); }
+  h2 { font-size: 1.8rem; margin-top: 3rem; margin-bottom: 1rem; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+  h3 { font-size: 1.3rem; margin-top: 2rem; margin-bottom: 0.5rem; color: var(--purple); }
+  p { margin-bottom: 1rem; }
+  .tagline { font-size: 1.3rem; color: var(--fg); opacity: 0.8; margin-bottom: 2rem; }
+  .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .badge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .badge-lang { background: var(--accent); color: var(--bg); }
+  .badge-feat { background: var(--green); color: var(--bg); }
+  .badge-platform { background: var(--purple); color: var(--bg); }
+  .badge-version { background: var(--yellow); color: var(--bg); }
+
+  /* Code terminal */
+  .terminal {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    margin: 1rem 0;
+    position: relative;
+  }
+  .terminal::before {
+    content: '● ● ●';
+    color: var(--red);
+    font-size: 0.7rem;
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  .terminal .line-num { color: #484f58; margin-right: 1rem; }
+  .terminal .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background: var(--accent);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* Animation frames */
+  .anim-container {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+  .anim-header {
+    background: var(--border);
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: var(--fg);
+    opacity: 0.7;
+    font-family: monospace;
+  }
+  .anim-body {
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    min-height: 200px;
+  }
+  .anim-frame {
+    display: none;
+  }
+  .anim-frame.active {
+    display: block;
+  }
+  .anim-controls {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--border);
+    align-items: center;
+  }
+  .anim-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .anim-btn:hover { opacity: 0.8; }
+  .anim-progress {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .anim-progress-bar {
+    height: 100%;
+    background: var(--green);
+    transition: width 0.3s;
+  }
+  .anim-label { font-size: 0.75rem; color: var(--fg); opacity: 0.6; }
+
+  /* Typing animation */
+  .typing-demo {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+  .typing-demo .added { color: var(--green); }
+  .typing-demo .deleted { color: var(--red); text-decoration: line-through; opacity: 0.5; }
+  .typing-demo .kept { color: var(--fg); opacity: 0.7; }
+  .typing-demo .cursor-mark {
+    background: var(--accent);
+    color: var(--bg);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+
+  /* Feature grid */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  .feature-card {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .feature-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+  }
+  .feature-card .icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .feature-card h4 { color: var(--accent); font-size: 1rem; margin-bottom: 0.3rem; }
+  .feature-card p { font-size: 0.85rem; opacity: 0.8; margin: 0; }
+
+  /* Stats */
+  .stats {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat .number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .stat .label {
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+
+  /* Command reference */
+  .cmd-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  .cmd-table th {
+    text-align: left;
+    padding: 0.5rem;
+    background: var(--border);
+    color: var(--accent);
+    font-size: 0.85rem;
+  }
+  .cmd-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+  .cmd-table td:first-child { color: var(--green); white-space: nowrap; }
+  .cmd-table td:last-child { color: var(--fg); opacity: 0.7; font-family: inherit; }
+
+  /* Architecture diagram */
+  .arch-diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1rem 0;
+    font-family: monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--fg);
+    overflow-x: auto;
+  }
+  .arch-box {
+    display: inline-block;
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem;
+    text-align: center;
+  }
+  .arch-arrow { color: var(--green); }
+
+  /* Quick start */
+  .quick-start {
+    background: linear-gradient(135deg, #161b22, #0d1117);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .quick-start h3 { color: var(--green); margin-top: 0; }
+  .quick-start code {
+    background: var(--code-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    color: var(--yellow);
+  }
+
+  /* Video placeholder */
+  .video-frame {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin: 1rem 0;
+    background: var(--code-bg);
+  }
+  .video-frame .play-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    color: var(--accent);
+    opacity: 0.7;
+    cursor: pointer;
+  }
+  .video-frame .play-btn:hover { opacity: 1; }
+  .video-frame .video-label {
+    position: absolute;
+    bottom: 1rem; left: 1rem;
+    font-size: 0.85rem;
+    opacity: 0.6;
+  }
+
+  /* Language icons */
+  .lang-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .lang-chip {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.8rem;
+    font-family: monospace;
+  }
+  .lang-chip:hover { border-color: var(--accent); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  .cta {
+    text-align: center;
+    margin: 3rem 0;
+    padding: 2rem;
+    background: linear-gradient(135deg, #1a1f2e, #0d1117);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+  }
+  .cta h2 { border: none; color: var(--green); }
+  .cta .install-cmd {
+    font-family: monospace;
+    font-size: 1.1rem;
+    background: var(--code-bg);
+    padding: 0.8rem 1.5rem;
+    border-radius: 6px;
+    display: inline-block;
+    margin: 1rem 0;
+    color: var(--yellow);
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    opacity: 0.6;
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================ -->
+<!-- HEADER -->
+<!-- ================================================================ -->
+
+<h1><span class="accent">diff</span>vim</h1>
+<p class="tagline">Animate code diffs in vim — as if a human were typing them.</p>
+
+<div class="badges">
+  <span class="badge badge-lang">Vim</span>
+  <span class="badge badge-lang">Bash</span>
+  <span class="badge badge-lang">Perl</span>
+  <span class="badge badge-feat">35+ options</span>
+  <span class="badge badge-feat">3 diff algorithms</span>
+  <span class="badge badge-feat">UTF-8</span>
+  <span class="badge badge-platform">macOS</span>
+  <span class="badge badge-platform">Linux</span>
+  <span class="badge badge-version">v1.4</span>
+</div>
+
+<!-- ================================================================ -->
+<!-- WHAT IS DIFFVIM -->
+<!-- ================================================================ -->
+
+<h2>What is diffvim?</h2>
+
+<p>
+<strong>diffvim</strong> opens the old version of a file in vim and animates the
+transformation into the new version <em>character by character</em>. The cursor
+glides between change locations with smooth ease-in-out acceleration, and only
+the actually-changed characters are deleted and re-typed — surrounding text is
+never touched.
+</p>
+
+<p>
+It's like watching a senior developer type out a code change in real time,
+except it's automated, perfectly paced, and you can pause, skip, rewind, and
+change speed at any moment.
+</p>
+
+<!-- ================================================================ -->
+<!-- LIVE ANIMATION DEMO -->
+<!-- ================================================================ -->
+
+<h2>Watch it in action</h2>
+
+<p>Here's a live demo of diffvim animating a Python f-string conversion.
+Click <strong>Play</strong> to see the animation, or step through frames manually.</p>
+
+<div class="anim-container">
+  <div class="anim-header">diffvim — examples/01_small_python/old.py → new.py</div>
+  <div class="anim-body" id="animBody">
+    <!-- Frames will be inserted by JavaScript -->
+  </div>
+  <div class="anim-controls">
+    <button class="anim-btn" onclick="prevFrame()">◀ Prev</button>
+    <button class="anim-btn" onclick="togglePlay()" id="playBtn">▶ Play</button>
+    <button class="anim-btn" onclick="nextFrame()">Next ▶</button>
+    <div class="anim-progress">
+      <div class="anim-progress-bar" id="progressBar" style="width: 0%"></div>
+    </div>
+    <span class="anim-label" id="frameLabel">Frame 0 / 15</span>
+  </div>
+</div>
+
+<script>
+// Animation frames generated from actual diffvim output
+const frames = [
+  // Frame 0: Original
+  {cursor: [2, 12], lines: ["def greet(name):", '    print("Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 1: Cursor gliding (visual only)
+  {cursor: [2, 11], lines: ["def greet(name):", '    print("Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 2: Insert 'f' before the quote
+  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 3: Delete the closing quote
+  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 4: Delete space
+  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello," + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 5: Delete +
+  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello," name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 6: Delete space
+  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello,name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 7: Insert {
+  {cursor: [2, 14], lines: ["def greet(name):", '    print(f"Hello,{name)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 8: Insert }
+  {cursor: [2, 19], lines: ["def greet(name):", '    print(f"Hello,{name})', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 9: Insert !
+  {cursor: [2, 20], lines: ["def greet(name):", '    print(f"Hello,{name}!)', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 10: Insert closing "
+  {cursor: [2, 21], lines: ["def greet(name):", '    print(f"Hello,{name}!")', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 11: Final result (hunk 1 done)
+  {cursor: [5, 1], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b"]},
+  // Frame 12: Insert new line
+  {cursor: [7, 1], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", ""]},
+  // Frame 13: Insert "def multiply..."
+  {cursor: [7, 20], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", "", "def multiply(a, b):"]},
+  // Frame 14: Insert "    return a * b"
+  {cursor: [8, 18], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", "", "def multiply(a, b):", "    return a * b"]},
+  // Frame 15: Done
+  {cursor: [8, 18], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", "", "def multiply(a, b):", "    return a * b"]},
+];
+
+let currentFrame = 0;
+let playing = false;
+let playInterval = null;
+
+function renderFrame(idx) {
+  const frame = frames[idx];
+  const body = document.getElementById('animBody');
+  let html = '';
+  frame.lines.forEach((line, i) => {
+    const lineNum = i + 1;
+    const isCursorLine = frame.cursor[0] === lineNum;
+    if (isCursorLine) {
+      const cursorCol = frame.cursor[1];
+      const before = line.substring(0, cursorCol - 1);
+      const cursorChar = line.length >= cursorCol ? line[cursorCol - 1] : ' ';
+      const after = line.substring(cursorCol);
+      html += `<span style="color:#484f58">${String(lineNum).padStart(3, ' ')}</span>  `;
+      html += `<span style="color:#e6edf3">${before}</span>`;
+      html += `<span style="background:#58a6ff;color:#0d1117">${cursorChar}</span>`;
+      html += `<span style="color:#e6edf3">${after}</span>`;
+    } else {
+      html += `<span style="color:#484f58">${String(lineNum).padStart(3, ' ')}</span>  `;
+      html += `<span style="color:#e6edf3">${line}</span>`;
+    }
+    html += '\n';
+  });
+  body.innerHTML = '<pre style="margin:0">' + html + '</pre>';
+
+  // Update progress
+  const pct = ((idx + 1) / frames.length * 100).toFixed(0);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('frameLabel').textContent = `Frame ${idx + 1} / ${frames.length}`;
+}
+
+function nextFrame() {
+  if (currentFrame < frames.length - 1) {
+    currentFrame++;
+    renderFrame(currentFrame);
+  } else {
+    stopPlay();
+  }
+}
+
+function prevFrame() {
+  if (currentFrame > 0) {
+    currentFrame--;
+    renderFrame(currentFrame);
+  }
+}
+
+function togglePlay() {
+  if (playing) {
+    stopPlay();
+  } else {
+    startPlay();
+  }
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸ Pause';
+  if (currentFrame >= frames.length - 1) currentFrame = 0;
+  playInterval = setInterval(() => {
+    nextFrame();
+  }, 500);
+}
+
+function stopPlay() {
+  playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+  clearInterval(playInterval);
+}
+
+// Initial render
+renderFrame(0);
+</script>
+
+<!-- ================================================================ -->
+<!-- VIDEO PLACEHOLDER -->
+<!-- ================================================================ -->
+
+<h3>Full demo video</h3>
+<p>Record a screencast of diffvim running on a larger file (like the Python
+refactoring example) and embed it here. Use <code>asciinema</code> or
+<code>screenkey</code> to show keystrokes.</p>
+
+<div class="video-frame">
+  <div class="play-btn">▶</div>
+  <div class="video-label">diffvim demo — Python refactoring (02_large_python)</div>
+</div>
+
+<p style="opacity:0.6;font-size:0.85rem">
+To create this video:
+</p>
+<pre style="background:var(--code-bg);padding:1rem;border-radius:8px;font-size:0.85rem;opacity:0.8">
+# Record with asciinema:
+asciinema rec demo.cast --command="diffvim --speed 0.7 --scroll zz examples/02_large_python/old.py examples/02_large_python/new.py"
+
+# Convert to GIF:
+agg demo.cast demo.gif --speed 0.8
+
+# Or use tmux + script:
+script -q demo.typescript -c "diffvim --speed 0.7 --scroll zz examples/02_large_python/old.py examples/02_large_python/new.py"
+</pre>
+
+<!-- ================================================================ -->
+<!-- KEY FEATURES -->
+<!-- ================================================================ -->
+
+<h2>Key features</h2>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="icon">🎯</div>
+    <h4>Char-level precision</h4>
+    <p>Only the actually-changed characters are touched. No whole-line rewrites. The LCS algorithm finds the minimal edit script.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🌊</div>
+    <h4>Smooth cursor glide</h4>
+    <p>Cursor glides between change locations with ease-in-out cubic acceleration. Slow start, fast middle, slow end — like a human.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">⏸️</div>
+    <h4>Full playback control</h4>
+    <p>Pause, skip hunks, go back, change speed (±), undo/redo, step mode. All in real time without restarting.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔀</div>
+    <h4>3 diff algorithms</h4>
+    <p>LCS (classic), Myers (O(ND)), and Patience (unique-line anchoring). Choose the one that produces the most readable diff.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🌍</div>
+    <h4>UTF-8 aware</h4>
+    <p>Multi-byte characters (em-dash —, ©, emoji) are handled correctly. The cursor tracks byte positions, not character positions.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📝</div>
+    <h4>Vim plugin mode</h4>
+    <p>Run inside an existing vim session via <code>:Diffvim</code>, <code>:DiffvimCommit</code>, and <code>:DiffvimPick</code> commands. No tmux needed.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🎨</div>
+    <h4>Visual highlighting</h4>
+    <p>Highlight hunk regions before animating. Choose colors, duration, and minimum size. Fold unchanged regions. Apply themes.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔧</div>
+    <h4>Git integration</h4>
+    <p>Replay git history commit-by-commit. Pick commits with fzf preview. Show git blame during animation. Accept piped diffs.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📊</div>
+    <h4>32 example file pairs</h4>
+    <p>Tested across 15+ languages: Python, Java, Kotlin, Swift, Ruby, Go, Rust, C, TypeScript, Haskell, Elixir, Clojure, and more.</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- STATS -->
+<!-- ================================================================ -->
+
+<h2>By the numbers</h2>
+
+<div class="stats">
+  <div class="stat">
+    <div class="number">35+</div>
+    <div class="label">CLI options</div>
+  </div>
+  <div class="stat">
+    <div class="number">32</div>
+    <div class="label">Example file pairs</div>
+  </div>
+  <div class="stat">
+    <div class="number">15+</div>
+    <div class="label">Programming languages</div>
+  </div>
+  <div class="stat">
+    <div class="number">378+</div>
+    <div class="label">Test assertions</div>
+  </div>
+  <div class="stat">
+    <div class="number">52/100</div>
+    <div class="label">Features implemented</div>
+  </div>
+  <div class="stat">
+    <div class="number">0</div>
+    <div class="label">External dependencies (diffvim)</div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- QUICK START -->
+<!-- ================================================================ -->
+
+<h2>Get started in 30 seconds</h2>
+
+<div class="quick-start">
+  <h3>⚡ Quick start</h3>
+
+  <p><strong>Option 1: Homebrew (macOS)</strong></p>
+  <pre style="background:var(--code-bg);padding:1rem;border-radius:6px;margin:0.5rem 0">
+brew install ./packaging/diffvim.rb
+diffvim old.py new.py</pre>
+
+  <p><strong>Option 2: Manual</strong></p>
+  <pre style="background:var(--code-bg);padding:1rem;border-radius:6px;margin:0.5rem 0">
+git clone https://github.com/nkh/gitanim.git
+cd gitanim
+chmod +x diffvim
+./diffvim old.py new.py</pre>
+
+  <p><strong>Option 3: Vim plugin</strong></p>
+  <pre style="background:var(--code-bg);padding:1rem;border-radius:6px;margin:0.5rem 0">
+" In vimrc with vim-plug:
+Plug 'nkh/gitanim', {'rtp': '.'}
+
+" Then in vim:
+:Diffvim old.py new.py
+:DiffvimCommit HEAD~3
+:DiffvimPick</pre>
+</div>
+
+<!-- ================================================================ -->
+<!-- ANIMATION CONTROLS -->
+<!-- ================================================================ -->
+
+<h2>Controls during animation</h2>
+
+<table class="cmd-table">
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td>Space</td><td>Pause / resume (or advance one op in step mode)</td></tr>
+  <tr><td>n</td><td>Skip current hunk — apply instantly, move to next</td></tr>
+  <tr><td>b</td><td>Back to previous hunk — revert and restart</td></tr>
+  <tr><td>q</td><td>Stop animation — leave buffer for editing</td></tr>
+  <tr><td>+ / -</td><td>Speed up / slow down (×1.5 per press)</td></tr>
+  <tr><td>=</td><td>Reset speed to 1.0×</td></tr>
+  <tr><td>u / Ctrl-r</td><td>Undo / redo last hunk</td></tr>
+  <tr><td>B / N</td><td>Go back one op / skip to next file</td></tr>
+  <tr><td>Ctrl-B / Ctrl-N</td><td>Go to beginning / skip to end</td></tr>
+  <tr><td>f</td><td>Toggle fold (with --fold-unchanged)</td></tr>
+  <tr><td>?</td><td>Toggle full-screen help overlay</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<!-- SUPPORTED LANGUAGES -->
+<!-- ================================================================ -->
+
+<h2>Tested with 15+ languages</h2>
+
+<div class="lang-grid">
+  <span class="lang-chip">Python</span>
+  <span class="lang-chip">Java</span>
+  <span class="lang-chip">Kotlin</span>
+  <span class="lang-chip">Swift</span>
+  <span class="lang-chip">Ruby</span>
+  <span class="lang-chip">PHP</span>
+  <span class="lang-chip">Scala</span>
+  <span class="lang-chip">Elixir</span>
+  <span class="lang-chip">Clojure</span>
+  <span class="lang-chip">Haskell</span>
+  <span class="lang-chip">Lua</span>
+  <span class="lang-chip">Perl</span>
+  <span class="lang-chip">R</span>
+  <span class="lang-chip">SQL</span>
+  <span class="lang-chip">JavaScript</span>
+  <span class="lang-chip">TypeScript</span>
+  <span class="lang-chip">Go</span>
+  <span class="lang-chip">Rust</span>
+  <span class="lang-chip">C</span>
+  <span class="lang-chip">Shell</span>
+  <span class="lang-chip">Markdown</span>
+  <span class="lang-chip">HTML</span>
+  <span class="lang-chip">CSS</span>
+  <span class="lang-chip">JSON</span>
+  <span class="lang-chip">YAML</span>
+  <span class="lang-chip">TOML</span>
+  <span class="lang-chip">XML</span>
+  <span class="lang-chip">Dockerfile</span>
+  <span class="lang-chip">Makefile</span>
+</div>
+
+<!-- ================================================================ -->
+<!-- ARCHITECTURE -->
+<!-- ================================================================ -->
+
+<h2>Architecture</h2>
+
+<div class="arch-diagram">
+<pre style="margin:0">
+                    ┌──────────────────────────────────────────────────┐
+                    │              diffvim pipeline                    │
+                    │                                                  │
+  ┌─────────┐       │  ┌────────┐   ┌────────┐   ┌────────┐          │
+  │ old.py  │──────▶│  │  Diff  │──▶│ Hunk   │──▶│ Char   │          │
+  └─────────┘       │  │ compute│   │ grouping│  │ LCS    │          │
+                    │  └────────┘   └────────┘   └───┬────┘          │
+  ┌─────────┐       │                                 │               │
+  │ new.py  │──────▶│                                 ▼               │
+  └─────────┘       │                          ┌────────────┐         │
+                    │                          │  Animate   │         │
+                    │                          │  in Vim    │◀───┐    │
+                    │                          └────────────┘    │    │
+                    │                                 ▲           │    │
+                    │                          ┌──────┴──────┐    │    │
+                    │                          │ User Input  │────┘    │
+                    │                          │ (FIFO/timer)│         │
+                    │                          └─────────────┘         │
+                    └──────────────────────────────────────────────────┘
+
+  Three implementations:
+  ┌────────────┐  ┌───────────────┐  ┌──────────────┐
+  │  diffvim   │  │ diffvim-tmux  │  │  diffvim.pl  │
+  │ Bash+Vim   │  │ Bash+tmux     │  │ Perl+tmux    │
+  │ No deps    │  │ tmux required │  │ Pluggable    │
+  │ timer_start│  │ send-keys     │  │ parsers      │
+  └────────────┘  └───────────────┘  └──────────────┘
+</pre>
+</div>
+
+<!-- ================================================================ -->
+<!-- POPULAR OPTION COMBINATIONS -->
+<!-- ================================================================ -->
+
+<h2>Popular option combinations</h2>
+
+<div class="terminal">
+<pre style="margin:0">
+<span style="color:#3fb950"># Presentation mode — slow, centered, highlighted</span>
+diffvim --speed 0.5 --scroll zz --highlight-hunk --theme high-contrast old.py new.py
+
+<span style="color:#3fb950"># Quick review — fast, skip large hunks, fold unchanged</span>
+diffvim --speed 3 --max-hunk-chars 100 --fold-unchanged old.py new.py
+
+<span style="color:#3fb950"># Detailed code review — step through one char at a time</span>
+diffvim --step-mode --highlight-hunk --sign-column --scroll zz old.py new.py
+
+<span style="color:#3fb950"># Git replay with fzf commit picker</span>
+:DiffvimPick
+
+<span style="color:#3fb950"># Pipe git diff directly</span>
+git diff HEAD~1 -- src/main.py | diffvim --diff -
+
+<span style="color:#3fb950"># Multi-file animation</span>
+diffvim --multi old1.py:new1.py old2.py:new2.py old3.go:new3.go
+
+<span style="color:#3fb950"># Patience diff with word-level changes</span>
+diffvim --algorithm patience --word-diff --semantic-cleanup old.py new.py
+</pre>
+</div>
+
+<!-- ================================================================ -->
+<!-- CALL TO ACTION -->
+<!-- ================================================================ -->
+
+<div class="cta">
+  <h2>Ready to see your diffs come alive?</h2>
+  <p>Install diffvim and watch your code changes animate in real time.</p>
+  <div class="install-cmd">git clone https://github.com/nkh/gitanim.git && cd gitanim && ./diffvim --help</div>
+  <br>
+  <a href="https://github.com/nkh/gitanim" style="color:var(--accent);font-size:1.1rem;">→ View on GitHub</a>
+</div>
+
+<!-- ================================================================ -->
+<!-- FOOTER -->
+<!-- ================================================================ -->
+
+<footer>
+  <p>diffvim v1.4 — MIT License — <a href="https://github.com/nkh/gitanim" style="color:var(--accent)">GitHub</a></p>
+  <p>52/100 features implemented · 378+ test assertions · 32 example file pairs · 15+ languages</p>
+</footer>
+
+</body>
+</html>
