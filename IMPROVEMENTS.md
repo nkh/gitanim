@@ -14,7 +14,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 1. ⬜ **Replace `tmux send-keys` with a file-based command queue** — vim reads commands from a temp file via a `timer_start` callback, eliminating race conditions where Ex command text leaks into normal mode.
 
-2. ⬜ **Use `vim --remote-expr` / `--remote-send`** with `--servername` instead of tmux send-keys for more reliable Ex command delivery when a Vim server is available.
+2. ✅ **Use `vim --remote-expr` / `--remote-send`** with `--servername` instead of tmux send-keys for more reliable Ex command delivery when a Vim server is available.
 
 3. ⬜ **Implement a proper ack/sync protocol** — after each Ex command, vim writes an acknowledgment to a file; the orchestrator waits for the ack before sending the next command. Eliminates all timing-based race conditions.
 
@@ -22,7 +22,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 5. ⬜ **Use `vim --clean` instead of `-N -u NONE`** to get a cleaner vim environment without loading user plugins that might interfere.
 
-6. ⬜ **Add `--not-a-term` flag prevention** — ensure vim doesn't print "input is not from a terminal" warnings that pollute the pane.
+6. ✅ **Add `--not-a-term` flag prevention** — ensure vim doesn't print "input is not from a terminal" warnings that pollute the pane.
 
 7. ⬜ **Support Neovim as an alternative backend** — use `nvim --listen` + `nvim --remote-send` for more robust RPC communication without tmux.
 
@@ -44,9 +44,9 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 ## Diff Parser (16-30)
 
-16. ⬜ **Use Myers diff algorithm** instead of LCS — Myers is O(ND) vs LCS's O(N*M), significantly faster for large files with small diffs.
+16. ✅ **Use Myers diff algorithm** instead of LCS — Myers is O(ND) vs LCS's O(N*M), significantly faster for large files with small diffs.
 
-17. ⬜ **Add patience diff support** — the patience algorithm produces more human-readable diffs by anchoring on unique common lines, reducing "jumping" hunks.
+17. ✅ **Add patience diff support** — the patience algorithm produces more human-readable diffs by anchoring on unique common lines, reducing "jumping" hunks.
 
 18. ⬜ **Implement histogram diff** (like Git's default) — extends patience diff with fallback handling for non-unique lines, producing the most intuitive hunk boundaries.
 
@@ -54,9 +54,9 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 20. ⬜ **Use `diff3` merge algorithm** for three-way diffs — support animating a merge conflict resolution by showing the base, ours, and theirs.
 
-21. ⬜ **Add semantic cleanup** — post-process the char ops to merge adjacent insert/delete pairs that cancel out, reducing unnecessary typing.
+21. ✅ **Add semantic cleanup** — post-process the char ops to merge adjacent insert/delete pairs that cancel out, reducing unnecessary typing.
 
-22. ⬜ **Add indent-aware diffing** — detect indentation changes separately from content changes so indent adjustments are animated as block shifts rather than char-by-char retyping.
+22. ✅ **Add indent-aware diffing** — detect indentation changes separately from content changes so indent adjustments are animated as block shifts rather than char-by-char retyping.
 
 23. ✅ **Support binary file detection** — refuse to animate binary files and show a warning instead of producing garbage char ops.
 
@@ -66,13 +66,13 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 26. ⬜ **Add BOM handling** — strip and re-add UTF-8 BOM if present in the original file.
 
-27. ⬜ **Support unified diff input directly** — accept a `.diff`/`.patch` file as input instead of requiring two files, enabling `git diff | diffvim --diff -`.
+27. ✅ **Support unified diff input directly** — accept a `.diff`/`.patch` file as input instead of requiring two files, enabling `git diff | diffvim --diff -`.
 
 28. ✅ **Add `--git-rev` option** — accept `HEAD~3..HEAD` syntax to animate a git commit range across multiple files.
 
 29. ⬜ **Cache diff2html JSON output** — for repeated runs on the same files, cache the diff2html output to avoid re-running the Node.js CLI.
 
-30. ⬜ **Add a `--parser-compare` flag** — run both parsers and report any differences in the computed hunks, for continuous validation.
+30. ✅ **Add a `--parser-compare` flag** — run both parsers and report any differences in the computed hunks, for continuous validation.
 
 ## Animation & Easing (31-45)
 
@@ -232,8 +232,8 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 | Category | Total | ✅ Implemented | ⬜ Planned |
 |----------|-------|----------------|-----------|
-| Architecture & Communication (1-15) | 15 | 4 | 11 |
-| Diff Parser (16-30) | 15 | 3 | 12 |
+| Architecture & Communication (1-15) | 15 | 6 | 9 |
+| Diff Parser (16-30) | 15 | 7 | 8 |
 | Animation & Easing (31-45) | 15 | 8 | 7 |
 | User Experience (46-60) | 15 | 7 | 8 |
 | Robustness & Error Handling (61-75) | 15 | 7 | 8 |
