@@ -81,6 +81,10 @@ STEP_MODE=0
 ADAPTIVE_TIMING=0
 SIGN_COLUMN=0
 GIT_BLAME=0
+HIGHLIGHT_HUNK=0
+HIGHLIGHT_COLOR="${DIFFVIM_HIGHLIGHT_COLOR:-DiffChange}"
+HIGHLIGHT_DURATION_MS="${DIFFVIM_HIGHLIGHT_DURATION_MS:-1000}"
+HIGHLIGHT_MIN_CHARS="${DIFFVIM_HIGHLIGHT_MIN_CHARS:-10}"
 GIT_REV=""
 MAX_LINE_LEN=0
 
@@ -111,6 +115,10 @@ Options:
   --adaptive-timing        Slow down on complex regions (±10 op window)
   --sign-column            Show +/- signs in the sign column during animation
   --git-blame              Echo git blame for the target line of each hunk
+  --highlight-hunk         Highlight hunk region before animating it
+  --highlight-color COLOR  Highlight group (default: DiffChange, also: DiffAdd, DiffDelete, Search, Visual)
+  --highlight-duration-ms N  Highlight duration in ms (default: 1000)
+  --highlight-min-chars N  Min changed chars to trigger highlight (default: 10)
   --git-rev REV..REV       Shorthand for --replay --from REV1 --to REV2
   --max-line-len N         Warn on lines longer than N characters
   --help, -h               Show this help
@@ -156,6 +164,10 @@ while [[ $# -gt 0 ]]; do
         --adaptive-timing) ADAPTIVE_TIMING=1; shift ;;
         --sign-column)   SIGN_COLUMN=1; shift ;;
         --git-blame)     GIT_BLAME=1; shift ;;
+        --highlight-hunk) HIGHLIGHT_HUNK=1; shift ;;
+        --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
+        --highlight-duration-ms) HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
+        --highlight-min-chars) HIGHLIGHT_MIN_CHARS="$2"; shift 2 ;;
         --git-rev)       GIT_REV="$2"; shift 2 ;;
         --max-line-len)  MAX_LINE_LEN="$2"; shift 2 ;;
         --help|-h)       HELP=1; shift ;;
@@ -216,6 +228,10 @@ export DIFFVIM_STEP_MODE="$STEP_MODE"
 export DIFFVIM_ADAPTIVE_TIMING="$ADAPTIVE_TIMING"
 export DIFFVIM_SIGN_COLUMN="$SIGN_COLUMN"
 export DIFFVIM_GIT_BLAME="$GIT_BLAME"
+export DIFFVIM_HIGHLIGHT_HUNK="$HIGHLIGHT_HUNK"
+export DIFFVIM_HIGHLIGHT_COLOR="$HIGHLIGHT_COLOR"
+export DIFFVIM_HIGHLIGHT_DURATION_MS="$HIGHLIGHT_DURATION_MS"
+export DIFFVIM_HIGHLIGHT_MIN_CHARS="$HIGHLIGHT_MIN_CHARS"
 export DIFFVIM_MAX_LINE_LEN="$MAX_LINE_LEN"
 
 # ---------------------------------------------------------------------------
@@ -392,6 +408,10 @@ let g:diffvim = extend({
     \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
     \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
     \ 'git_blame':          !empty($DIFFVIM_GIT_BLAME)        ? 1 : 0,
+    \ 'highlight_hunk':     !empty($DIFFVIM_HIGHLIGHT_HUNK)   ? 1 : 0,
+    \ 'highlight_color':    !empty($DIFFVIM_HIGHLIGHT_COLOR)  ? $DIFFVIM_HIGHLIGHT_COLOR          : 'DiffChange',
+    \ 'highlight_duration': !empty($DIFFVIM_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_DURATION_MS) : 1000,
+    \ 'highlight_min_chars':!empty($DIFFVIM_HIGHLIGHT_MIN_CHARS)   ? str2nr($DIFFVIM_HIGHLIGHT_MIN_CHARS)  : 10,
     \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
@@ -849,6 +869,28 @@ function! s:StartNextHunk() abort
         call s:ShowGitBlame(l:target_line)
     endif
 
+    " --highlight-hunk: visually highlight the hunk region before animating
+    if g:diffvim.highlight_hunk
+        let l:changed = 0
+        for l:op in l:hunk.char_ops
+            if l:op[0] !=# 'keep'
+                let l:changed += 1
+            endif
+        endfor
+        if l:changed >= g:diffvim.highlight_min_chars
+            let l:start_line = l:target_line
+            let l:end_line = l:target_line + l:hunk.deleted_count - 1
+            if l:hunk.deleted_count == 0
+                let l:end_line = l:start_line
+            endif
+            if l:start_line < 1 | let l:start_line = 1 | endif
+            if l:end_line < 1 | let l:end_line = 1 | endif
+            call s:HighlightHunk(l:start_line, l:end_line)
+            " Schedule highlight clear after the duration
+            call timer_start(g:diffvim.highlight_duration, function('s:ClearHighlight'))
+        endif
+    endif
+
     " For end-of-file insertions, target the end of the last line.
     " For end-of-file deletions, target the end of the previous line so the
     " leading '\n' in old_text can collapse the trailing empty line.
@@ -1088,6 +1130,43 @@ function! s:ShowGitBlame(line) abort
     if !empty(l:result) && v:shell_error == 0
         echo 'diffvim blame: ' . substitute(l:result, '\n\+$', '', '')
     endif
+endfunction
+
+" Hunk highlighting — highlight a line range before animating it.
+let s:highlight_ids = []
+
+function! s:HighlightHunk(start_line, end_line) abort
+    call s:ClearHighlight()
+    let l:positions = []
+    for l:l in range(a:start_line, a:end_line)
+        call add(l:positions, [l:l])
+    endfor
+    " matchaddpos handles up to 8 positions per call; batch if needed
+    let l:batch = []
+    for l:pos in l:positions
+        call add(l:batch, l:pos)
+        if len(l:batch) == 8
+            let l:id = matchaddpos(g:diffvim.highlight_color, l:batch)
+            call add(s:highlight_ids, l:id)
+            let l:batch = []
+        endif
+    endfor
+    if !empty(l:batch)
+        let l:id = matchaddpos(g:diffvim.highlight_color, l:batch)
+        call add(s:highlight_ids, l:id)
+    endif
+    redraw
+endfunction
+
+function! s:ClearHighlight(...) abort
+    for l:id in s:highlight_ids
+        try
+            call matchdelete(l:id)
+        catch
+        endtry
+    endfor
+    let s:highlight_ids = []
+    redraw
 endfunction
 
 " --- User controls ---------------------------------------------------------

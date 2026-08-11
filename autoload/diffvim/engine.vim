@@ -42,6 +42,16 @@ let g:diffvim = extend({
     \ 'max_hunk_chars':     !empty($DIFFVIM_MAX_HUNK_CHARS)   ? str2nr($DIFFVIM_MAX_HUNK_CHARS)   : 0,
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
     \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
+    \ 'word_diff':          !empty($DIFFVIM_WORD_DIFF)        ? 1 : 0,
+    \ 'step_mode':          !empty($DIFFVIM_STEP_MODE)        ? 1 : 0,
+    \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
+    \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
+    \ 'git_blame':          !empty($DIFFVIM_GIT_BLAME)        ? 1 : 0,
+    \ 'highlight_hunk':     !empty($DIFFVIM_HIGHLIGHT_HUNK)   ? 1 : 0,
+    \ 'highlight_color':    !empty($DIFFVIM_HIGHLIGHT_COLOR)  ? $DIFFVIM_HIGHLIGHT_COLOR          : 'DiffChange',
+    \ 'highlight_duration': !empty($DIFFVIM_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_DURATION_MS) : 1000,
+    \ 'highlight_min_chars':!empty($DIFFVIM_HIGHLIGHT_MIN_CHARS)   ? str2nr($DIFFVIM_HIGHLIGHT_MIN_CHARS)  : 10,
+    \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -493,6 +503,33 @@ function! s:StartNextHunk() abort
         endif
     endif
 
+    " --git-blame: echo git blame for the target line of this hunk.
+    if g:diffvim.git_blame
+        call s:ShowGitBlame(l:target_line)
+    endif
+
+    " --highlight-hunk: visually highlight the hunk region before animating
+    if g:diffvim.highlight_hunk
+        let l:changed = 0
+        for l:op in l:hunk.char_ops
+            if l:op[0] !=# 'keep'
+                let l:changed += 1
+            endif
+        endfor
+        if l:changed >= g:diffvim.highlight_min_chars
+            let l:start_line = l:target_line
+            let l:end_line = l:target_line + l:hunk.deleted_count - 1
+            if l:hunk.deleted_count == 0
+                let l:end_line = l:start_line
+            endif
+            if l:start_line < 1 | let l:start_line = 1 | endif
+            if l:end_line < 1 | let l:end_line = 1 | endif
+            call s:HighlightHunk(l:start_line, l:end_line)
+            " Schedule highlight clear after the duration
+            call timer_start(g:diffvim.highlight_duration, function('s:ClearHighlight'))
+        endif
+    endif
+
     " For end-of-file insertions, target the end of the last line.
     " For end-of-file deletions, target the end of the previous line so the
     " leading '\n' in old_text can collapse the trailing empty line.
@@ -622,10 +659,24 @@ function! s:ProcessCharOp() abort
         call s:DeleteCharAtCursor()
         redraw
         let l:delay = float2nr(g:diffvim.delete_delay_ms / s:state.runtime_speed)
+        if g:diffvim.adaptive_timing
+            let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
+            let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
+        endif
+        if g:diffvim.sign_column
+            call s:PlaceSign('dv_del', s:cur_l)
+        endif
     elseif l:op[0] ==# 'insert'
         call s:InsertCharAtCursor(l:op[1])
         redraw
         let l:delay = float2nr(g:diffvim.type_delay_ms / s:state.runtime_speed)
+        if g:diffvim.adaptive_timing
+            let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
+            let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
+        endif
+        if g:diffvim.sign_column
+            call s:PlaceSign('dv_add', s:cur_l)
+        endif
     endif
     let s:state.op_idx += 1
     call s:ScheduleNext(l:delay)
@@ -677,11 +728,109 @@ function! s:ApplyWordInstantly(ops, start, len) abort
     redraw
 endfunction
 
+" --- Adaptive timing and sign-column helpers ------------------------------
+
+" Count non-keep ops in a ±10 window around idx (for --adaptive-timing).
+function! s:ComputeComplexity(ops, idx) abort
+    let l:start = a:idx - 10
+    if l:start < 0 | let l:start = 0 | endif
+    let l:end = a:idx + 10
+    if l:end >= len(a:ops) | let l:end = len(a:ops) - 1 | endif
+    let l:count = 0
+    let l:i = l:start
+    while l:i <= l:end
+        if a:ops[l:i][0] !=# 'keep'
+            let l:count += 1
+        endif
+        let l:i += 1
+    endwhile
+    return l:count
+endfunction
+
+" Sign placement (for --sign-column). Uses an incrementing ID per buffer.
+let s:sign_next_id = 100
+
+function! s:PlaceSign(name, line) abort
+    if a:line < 1 || a:line > line('$') | return | endif
+    execute 'sign place ' . s:sign_next_id . ' line=' . a:line
+        \ . ' name=' . a:name . ' buffer=' . bufnr('')
+    let s:sign_next_id += 1
+    if s:sign_next_id > 99990
+        let s:sign_next_id = 100
+    endif
+endfunction
+
+" Run git blame on a given line and echo the result (for --git-blame).
+function! s:ShowGitBlame(line) abort
+    let l:file = expand('%:p')
+    if empty(l:file) | return | endif
+    let l:cmd = 'git blame -L ' . a:line . ',' . a:line . ' -- ' . shellescape(l:file) . ' 2>/dev/null'
+    let l:result = system(l:cmd)
+    if !empty(l:result) && v:shell_error == 0
+        echo 'diffvim blame: ' . substitute(l:result, '\n\+$', '', '')
+    endif
+endfunction
+
+" Hunk highlighting — highlight a line range before animating it.
+let s:highlight_ids = []
+
+function! s:HighlightHunk(start_line, end_line) abort
+    call s:ClearHighlight()
+    let l:positions = []
+    for l:l in range(a:start_line, a:end_line)
+        call add(l:positions, [l:l])
+    endfor
+    " matchaddpos handles up to 8 positions per call; batch if needed
+    let l:batch = []
+    for l:pos in l:positions
+        call add(l:batch, l:pos)
+        if len(l:batch) == 8
+            let l:id = matchaddpos(g:diffvim.highlight_color, l:batch)
+            call add(s:highlight_ids, l:id)
+            let l:batch = []
+        endif
+    endfor
+    if !empty(l:batch)
+        let l:id = matchaddpos(g:diffvim.highlight_color, l:batch)
+        call add(s:highlight_ids, l:id)
+    endif
+    redraw
+endfunction
+
+function! s:ClearHighlight(...) abort
+    for l:id in s:highlight_ids
+        try
+            call matchdelete(l:id)
+        catch
+        endtry
+    endfor
+    let s:highlight_ids = []
+    redraw
+endfunction
+
 " --- User controls ---------------------------------------------------------
 
 function! s:TogglePause() abort
     if s:state.stopped || s:state.phase ==# 'done'
         echo 'diffvim: nothing to pause'
+        return
+    endif
+    " --step-mode: Space advances one step instead of toggling pause.
+    " The animation starts paused; each Space press advances one op.
+    if g:diffvim.step_mode
+        if s:state.phase ==# 'typing' && !empty(s:state.cur_hunk)
+            call s:ProcessCharOp()
+        elseif s:state.phase ==# 'moving'
+            " Jump to end of move and enter typing phase.
+            let s:cur_l = s:state.move_end_l
+            let s:cur_c = s:state.move_end_c
+            call s:PlaceCursor()
+            let s:state.phase = 'typing'
+            let s:state.op_idx = 0
+            redraw
+        elseif s:state.phase ==# 'idle'
+            call s:StartNextHunk()
+        endif
         return
     endif
     let s:state.paused = !s:state.paused
@@ -818,11 +967,22 @@ function! s:StartAnimation() abort
         echo 'diffvim: files are identical, nothing to animate'
         return
     endif
+    " --sign-column: define signs for add/delete/modify.
+    if g:diffvim.sign_column
+        sign define dv_add text=+ texthl=DiffAdd
+        sign define dv_del text=- texthl=DiffDelete
+        sign define dv_mod text=* texthl=DiffChange
+    endif
+    " --step-mode: start paused so the user can step through with Space.
+    if g:diffvim.step_mode
+        let s:state.paused = 1
+        echo 'diffvim: step mode active — press Space to advance one op'
+    endif
     let s:state.hunk_idx = 0
     let s:state.line_offset = 0
     let s:state.phase = 'idle'
     let s:state.stopped = 0
-    let s:state.paused = 0
+    let s:state.paused = g:diffvim.step_mode ? 1 : 0
     let s:cur_l = line('.')
     let s:cur_c = col('.')
     call s:ShowConfig()
@@ -849,6 +1009,24 @@ function! s:ShowConfig() abort
     endif
     if !empty(g:diffvim.output_file)
         let l:msg .= '  output=' . g:diffvim.output_file
+    endif
+    if g:diffvim.word_diff
+        let l:msg .= '  word_diff=on'
+    endif
+    if g:diffvim.step_mode
+        let l:msg .= '  step_mode=on'
+    endif
+    if g:diffvim.adaptive_timing
+        let l:msg .= '  adaptive_timing=on'
+    endif
+    if g:diffvim.sign_column
+        let l:msg .= '  sign_column=on'
+    endif
+    if g:diffvim.git_blame
+        let l:msg .= '  git_blame=on'
+    endif
+    if g:diffvim.max_line_len > 0
+        let l:msg .= '  max_line_len=' . g:diffvim.max_line_len
     endif
     echo l:msg
 endfunction

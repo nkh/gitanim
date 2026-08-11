@@ -115,6 +115,10 @@ my $parser_compare   = 0;
 my $diff_algorithm   = 'lcs';
 my $use_remote       = 0;
 my $indent_aware     = 0;
+my $highlight_hunk   = 0;
+my $highlight_color  = _env_or('DIFFVIM_HIGHLIGHT_COLOR', 'DiffChange');
+my $highlight_duration_ms = _env_or('DIFFVIM_HIGHLIGHT_DURATION_MS', 1000);
+my $highlight_min_chars = _env_or('DIFFVIM_HIGHLIGHT_MIN_CHARS', 10);
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -144,6 +148,10 @@ GetOptions(
     'algorithm=s'      => \$diff_algorithm,
     'remote'           => \$use_remote,
     'indent-aware'     => \$indent_aware,
+    'highlight-hunk'   => \$highlight_hunk,
+    'highlight-color=s'=> \$highlight_color,
+    'highlight-duration-ms=i' => sub { $highlight_duration_ms = $_[1]; },
+    'highlight-min-chars=i'   => sub { $highlight_min_chars = $_[1]; },
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -222,6 +230,10 @@ Options:
   --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
   --remote                 Use vim --remote-send instead of tmux (#2)
   --indent-aware           Detect indent changes separately (#22)
+  --highlight-hunk         Visually highlight hunk before changing it
+  --highlight-color COLOR  Highlight group/color (default: DiffChange)
+  --highlight-duration-ms N  Highlight duration in ms (default: 1000)
+  --highlight-min-chars N  Min changed chars to trigger highlight (default: 10)
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -735,6 +747,45 @@ function! DvSignClear() abort
     let g:dv_sign_id = 5000
 endfunction
 
+" Hunk highlighting (#45) — highlight a line range before animating it
+let s:dv_highlight_ids = []
+
+function! DvHighlightHunk(start_line, end_line, color) abort
+    " Clear any existing highlights first
+    call DvClearHighlight()
+    " Use matchaddpos to highlight the line range
+    let l:positions = []
+    for l:l in range(a:start_line, a:end_line)
+        call add(l:positions, [l:l])
+    endfor
+    " matchaddpos can handle up to 8 positions at a time; batch if needed
+    let l:batch = []
+    for l:pos in l:positions
+        call add(l:batch, l:pos)
+        if len(l:batch) == 8
+            let l:id = matchaddpos(a:color, l:batch)
+            call add(s:dv_highlight_ids, l:id)
+            let l:batch = []
+        endif
+    endfor
+    if !empty(l:batch)
+        let l:id = matchaddpos(a:color, l:batch)
+        call add(s:dv_highlight_ids, l:id)
+    endif
+    redraw
+endfunction
+
+function! DvClearHighlight() abort
+    for l:id in s:dv_highlight_ids
+        try
+            call matchdelete(l:id)
+        catch
+        endtry
+    endfor
+    let s:dv_highlight_ids = []
+    redraw
+endfunction
+
 " Git blame integration (#94) — show blame for a line
 
 function! DvGitBlame(line) abort
@@ -1176,6 +1227,30 @@ sub start_next_hunk {
             send_ex("echo 'diffvim: hunk $hunk_idx has $changed changed chars (> $max_hunk_chars), applying instantly'");
             apply_hunk_instantly();
             return;
+        }
+    }
+
+    # Highlight the hunk region before animating (--highlight-hunk)
+    if ($highlight_hunk) {
+        my $changed = 0;
+        for my $op (@{$hunk->{char_ops}}) {
+            $changed++ if $op->{op} ne 'keep';
+        }
+        if ($changed >= $highlight_min_chars) {
+            # Calculate the line range to highlight
+            my $start_line = $target_line;
+            my $end_line = $target_line + $hunk->{deleted_count} - 1;
+            if ($hunk->{deleted_count} == 0) {
+                # Pure insertion: highlight the line where insertion happens
+                $end_line = $start_line;
+            }
+            # Clamp to buffer
+            $start_line = 1 if $start_line < 1;
+            $end_line = 1 if $end_line < 1;
+            # Highlight, wait, then clear
+            send_ex("call DvHighlightHunk($start_line, $end_line, '$highlight_color')");
+            sleep $highlight_duration_ms / 1000;
+            send_ex("call DvClearHighlight()");
         }
     }
 
