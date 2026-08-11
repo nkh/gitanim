@@ -43,6 +43,7 @@ sub parse_diff {
     my ($old_file, $new_file, $options) = @_;
     $options //= {};
     my $use_word_diff = $options->{word_diff} // 0;
+    my $use_semantic_cleanup = $options->{semantic_cleanup} // 0;
 
     my $old_lines = _read_lines($old_file);
     my $new_lines = _read_lines($new_file);
@@ -62,7 +63,7 @@ sub parse_diff {
         if ($op eq 'keep') {
             if ($has_hunk) {
                 push @hunks, _flush_hunk(\@cur_old, \@cur_new,
-                    $cur_target, scalar(@$old_lines), $use_word_diff);
+                    $cur_target, scalar(@$old_lines), $use_word_diff, $use_semantic_cleanup);
                 @cur_old = ();
                 @cur_new = ();
                 $has_hunk = 0;
@@ -79,7 +80,7 @@ sub parse_diff {
     }
     if ($has_hunk) {
         push @hunks, _flush_hunk(\@cur_old, \@cur_new,
-            $cur_target, scalar(@$old_lines), $use_word_diff);
+            $cur_target, scalar(@$old_lines), $use_word_diff, $use_semantic_cleanup);
     }
 
     return { hunks => \@hunks, parser => 'perl' };
@@ -244,7 +245,7 @@ sub _split_words {
 # ---------------------------------------------------------------------------
 
 sub _flush_hunk {
-    my ($cur_old, $cur_new, $target, $old_line_count, $use_word_diff) = @_;
+    my ($cur_old, $cur_new, $target, $old_line_count, $use_word_diff, $use_semantic_cleanup) = @_;
 
     my $del_count = scalar(@$cur_old);
     my $ins_count = scalar(@$cur_new);
@@ -283,6 +284,15 @@ sub _flush_hunk {
     my $char_ops = $use_word_diff ? _word_diff($old_text, $new_text)
                                   : _char_diff($old_text, $new_text);
 
+    # Semantic cleanup (#21): merge adjacent insert/delete pairs that cancel
+    # out, reducing unnecessary typing. For example, if the LCS produces:
+    #   delete 'a', insert 'a', delete 'b', insert 'c'
+    # the first delete+insert pair cancels out, so we can simplify to:
+    #   keep 'a', delete 'b', insert 'c'
+    if ($use_semantic_cleanup) {
+        $char_ops = _semantic_cleanup($char_ops);
+    }
+
     return {
         target_line   => $target,
         char_ops      => $char_ops,
@@ -293,6 +303,52 @@ sub _flush_hunk {
         old_text      => $old_text,
         new_text      => $new_text,
     };
+}
+
+# ---------------------------------------------------------------------------
+# Semantic cleanup (#21)
+# ---------------------------------------------------------------------------
+
+# Post-process char ops to merge adjacent insert/delete pairs that cancel out.
+# If a delete is immediately followed by an insert of the same character,
+# replace both with a keep (the character didn't actually change).
+# Also merges adjacent same-type ops for cleaner output.
+sub _semantic_cleanup {
+    my ($char_ops) = @_;
+    return $char_ops unless @$char_ops >= 2;
+
+    my @cleaned;
+    my $i = 0;
+    while ($i < @$char_ops) {
+        my $op = $char_ops->[$i];
+
+        # Check if this is a delete immediately followed by an insert of
+        # the same character — they cancel out, replace with keep
+        if ($i + 1 < @$char_ops
+            && $op->{op} eq 'delete'
+            && $char_ops->[$i + 1]{op} eq 'insert'
+            && $op->{code} == $char_ops->[$i + 1]{code}) {
+            push @cleaned, { op => 'keep', code => $op->{code} };
+            $i += 2;
+            next;
+        }
+
+        # Check if this is an insert immediately followed by a delete of
+        # the same character — they also cancel out
+        if ($i + 1 < @$char_ops
+            && $op->{op} eq 'insert'
+            && $char_ops->[$i + 1]{op} eq 'delete'
+            && $op->{code} == $char_ops->[$i + 1]{code}) {
+            push @cleaned, { op => 'keep', code => $op->{code} };
+            $i += 2;
+            next;
+        }
+
+        push @cleaned, $op;
+        $i++;
+    }
+
+    return \@cleaned;
 }
 
 # ---------------------------------------------------------------------------

@@ -110,6 +110,7 @@ my $max_line_len   = _env_or('DIFFVIM_MAX_LINE_LEN', 10000);
 my $adaptive_timing= 0;
 my $word_diff_mode = 0;
 my $diff_input     = '';
+my $semantic_cleanup = 0;
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -134,6 +135,7 @@ GetOptions(
     'adaptive-timing'  => \$adaptive_timing,
     'word-diff'        => \$word_diff_mode,
     'diff=s'           => \$diff_input,
+    'semantic-cleanup' => \$semantic_cleanup,
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -207,6 +209,7 @@ Options:
   --adaptive-timing        Auto-slow for complex hunks, speed up for simple ones
   --word-diff              Use word-level diff (groups changes by word)
   --diff FILE              Animate a unified diff file (- for stdin)
+  --semantic-cleanup       Merge adjacent insert/delete pairs that cancel out
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -944,7 +947,7 @@ sub query_vim {
 sub compute_diff {
     my ($old, $new) = @_;
     my $result;
-    my $options = { word_diff => $word_diff_mode };
+    my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup };
     if ($parser_name eq 'diff2html') {
         _which('diff2html') or die "Error: 'diff2html' not found in PATH\n" .
             "Install with: npm install -g diff2html-cli\n";
