@@ -18,6 +18,15 @@
 #   --replay                 Animate git history for given file(s)
 #   --from REV               Git rev to start replay from (default: HEAD~5)
 #   --to REV                 Git rev to end replay at (default: HEAD)
+#   --version, -V            Print version and exit
+#   --dry-run                Print diff hunks without launching vim
+#   --word-diff              Enable word-level diff flag in the engine
+#   --step-mode              Space advances one op at a time
+#   --adaptive-timing        Slow down on complex regions (±10 op window)
+#   --sign-column            Show +/- signs in the sign column
+#   --git-blame              Echo git blame for the target line of each hunk
+#   --git-rev REV..REV       Shorthand for --replay --from REV1 --to REV2
+#   --max-line-len N         Warn on lines longer than N characters
 #   --help, -h               Show help
 #
 # Opens <oldfile> in vim and animates the transformation into <newfile>.
@@ -65,6 +74,15 @@ REPLAY_MODE=0
 REPLAY_FROM="HEAD~5"
 REPLAY_TO="HEAD"
 HELP=0
+VERSION=0
+DRY_RUN=0
+WORD_DIFF=0
+STEP_MODE=0
+ADAPTIVE_TIMING=0
+SIGN_COLUMN=0
+GIT_BLAME=0
+GIT_REV=""
+MAX_LINE_LEN=0
 
 show_help() {
     cat >&2 <<USAGE
@@ -86,6 +104,15 @@ Options:
   --replay                 Animate git history for given file(s)
   --from REV               Git rev to start replay from (default: HEAD~5)
   --to REV                 Git rev to end replay at (default: HEAD)
+  --version, -V            Print version ("diffvim 1.3.0") and exit
+  --dry-run                Print diff hunks without launching vim
+  --word-diff              Enable word-level diff flag in the engine
+  --step-mode              Space advances one op at a time (starts paused)
+  --adaptive-timing        Slow down on complex regions (±10 op window)
+  --sign-column            Show +/- signs in the sign column during animation
+  --git-blame              Echo git blame for the target line of each hunk
+  --git-rev REV..REV       Shorthand for --replay --from REV1 --to REV2
+  --max-line-len N         Warn on lines longer than N characters
   --help, -h               Show this help
 
 Controls (during animation, in vim normal mode):
@@ -101,7 +128,9 @@ Controls (during animation, in vim normal mode):
 Environment variables:
   DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
   DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
-  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED
+  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED,
+  DIFFVIM_WORD_DIFF, DIFFVIM_STEP_MODE, DIFFVIM_ADAPTIVE_TIMING,
+  DIFFVIM_SIGN_COLUMN, DIFFVIM_GIT_BLAME, DIFFVIM_MAX_LINE_LEN
 USAGE
 }
 
@@ -120,6 +149,15 @@ while [[ $# -gt 0 ]]; do
         --replay)        REPLAY_MODE=1; shift ;;
         --from)          REPLAY_FROM="$2"; shift 2 ;;
         --to)            REPLAY_TO="$2"; shift 2 ;;
+        --version|-V)    VERSION=1; shift ;;
+        --dry-run)       DRY_RUN=1; shift ;;
+        --word-diff)     WORD_DIFF=1; shift ;;
+        --step-mode)     STEP_MODE=1; shift ;;
+        --adaptive-timing) ADAPTIVE_TIMING=1; shift ;;
+        --sign-column)   SIGN_COLUMN=1; shift ;;
+        --git-blame)     GIT_BLAME=1; shift ;;
+        --git-rev)       GIT_REV="$2"; shift 2 ;;
+        --max-line-len)  MAX_LINE_LEN="$2"; shift 2 ;;
         --help|-h)       HELP=1; shift ;;
         --)              shift; while [[ $# -gt 0 ]]; do POSITIONAL+=("$1"); shift; done ;;
         -*)              echo "Unknown option: $1" >&2; show_help; exit 1 ;;
@@ -127,9 +165,26 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ $VERSION -eq 1 ]]; then
+    echo "diffvim 1.3.0"
+    exit 0
+fi
+
 if [[ $HELP -eq 1 ]]; then
     show_help
     exit 0
+fi
+
+# Parse --git-rev REV..REV syntax (shorthand for --replay --from REV1 --to REV2)
+if [[ -n "$GIT_REV" ]]; then
+    if [[ "$GIT_REV" =~ ^([^[:space:]]+)\.\.([^[:space:]]+)$ ]]; then
+        REPLAY_FROM="${BASH_REMATCH[1]}"
+        REPLAY_TO="${BASH_REMATCH[2]}"
+        REPLAY_MODE=1
+    else
+        echo "Error: --git-rev expects REV..REV syntax (got: $GIT_REV)" >&2
+        exit 1
+    fi
 fi
 
 # Apply speed multiplier
@@ -156,6 +211,12 @@ export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
 export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
 export DIFFVIM_OUTPUT="$OUTPUT_FILE"
 export DIFFVIM_CONTEXT="$CONTEXT_LINES"
+export DIFFVIM_WORD_DIFF="$WORD_DIFF"
+export DIFFVIM_STEP_MODE="$STEP_MODE"
+export DIFFVIM_ADAPTIVE_TIMING="$ADAPTIVE_TIMING"
+export DIFFVIM_SIGN_COLUMN="$SIGN_COLUMN"
+export DIFFVIM_GIT_BLAME="$GIT_BLAME"
+export DIFFVIM_MAX_LINE_LEN="$MAX_LINE_LEN"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -232,6 +293,49 @@ fi
 export DIFFVIM_FILE_PAIRS="${FILE_PAIRS[*]}"
 
 # ---------------------------------------------------------------------------
+# Binary file detection: refuse to animate files containing null bytes
+# ---------------------------------------------------------------------------
+for pair in "${FILE_PAIRS[@]}"; do
+    for f in "${pair%%:*}" "${pair##*:}"; do
+        if [[ -n "$(grep -laP '\0' "$f" 2>/dev/null)" ]]; then
+            echo "Error: '$f' appears to be a binary file (null bytes detected)" >&2
+            exit 1
+        fi
+    done
+done
+
+# ---------------------------------------------------------------------------
+# --max-line-len: warn on lines longer than N characters
+# ---------------------------------------------------------------------------
+if [[ $MAX_LINE_LEN -gt 0 ]]; then
+    for pair in "${FILE_PAIRS[@]}"; do
+        for f in "${pair%%:*}" "${pair##*:}"; do
+            awk -v maxlen="$MAX_LINE_LEN" -v fname="$f" '
+                length($0) > maxlen {
+                    printf "diffvim: warning: %s line %d has %d chars (max %d)\n", \
+                        fname, NR, length($0), maxlen
+                }
+            ' "$f" >&2 || true
+        done
+    done
+fi
+
+# ---------------------------------------------------------------------------
+# --dry-run: compute the diff in bash without launching vim
+# ---------------------------------------------------------------------------
+if [[ $DRY_RUN -eq 1 ]]; then
+    for pair in "${FILE_PAIRS[@]}"; do
+        old_f="${pair%%:*}"
+        new_f="${pair##*:}"
+        echo "=== diffvim dry-run: $old_f -> $new_f ==="
+        diff -u "$old_f" "$new_f" || true
+        hunk_count=$(diff -u "$old_f" "$new_f" 2>/dev/null | grep -c '^@@' || true)
+        echo "diffvim: $hunk_count hunk(s)"
+    done
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
 # Workspace for the embedded vimscript.
 # ---------------------------------------------------------------------------
 WORKDIR="${WORKDIR:-$(mktemp -d)}"
@@ -283,6 +387,12 @@ let g:diffvim = extend({
     \ 'max_hunk_chars':     !empty($DIFFVIM_MAX_HUNK_CHARS)   ? str2nr($DIFFVIM_MAX_HUNK_CHARS)   : 0,
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
     \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
+    \ 'word_diff':          !empty($DIFFVIM_WORD_DIFF)        ? 1 : 0,
+    \ 'step_mode':          !empty($DIFFVIM_STEP_MODE)        ? 1 : 0,
+    \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
+    \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
+    \ 'git_blame':          !empty($DIFFVIM_GIT_BLAME)        ? 1 : 0,
+    \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -734,6 +844,11 @@ function! s:StartNextHunk() abort
         endif
     endif
 
+    " --git-blame: echo git blame for the target line of this hunk.
+    if g:diffvim.git_blame
+        call s:ShowGitBlame(l:target_line)
+    endif
+
     " For end-of-file insertions, target the end of the last line.
     " For end-of-file deletions, target the end of the previous line so the
     " leading '\n' in old_text can collapse the trailing empty line.
@@ -841,12 +956,13 @@ function! s:ProcessCharOp() abort
     endif
     let l:op = l:hunk.char_ops[s:state.op_idx]
 
-    " Check --max-word-chars: if we're at the start of a word (contiguous
-    " insert or delete, non-space chars, terminated by space/newline/keep/end),
-    " and the word length <= max_word_chars, apply the whole word instantly.
+    " --max-word-chars: if a contiguous sequence of modified (non-space)
+    " characters is LONGER than max_word_chars, apply the whole sequence
+    " in one shot with a pause, so the user can read the change.
+    " Sequences <= max_word_chars are animated character by character.
     if g:diffvim.max_word_chars > 0 && (l:op[0] ==# 'insert' || l:op[0] ==# 'delete')
         let l:word_len = s:LookaheadWordLength(l:hunk.char_ops, s:state.op_idx)
-        if l:word_len > 0 && l:word_len <= g:diffvim.max_word_chars
+        if l:word_len > g:diffvim.max_word_chars
             call s:ApplyWordInstantly(l:hunk.char_ops, s:state.op_idx, l:word_len)
             let s:state.op_idx += l:word_len
             call s:ScheduleNext(float2nr(g:diffvim.word_pause_ms / s:state.runtime_speed))
@@ -862,10 +978,24 @@ function! s:ProcessCharOp() abort
         call s:DeleteCharAtCursor()
         redraw
         let l:delay = float2nr(g:diffvim.delete_delay_ms / s:state.runtime_speed)
+        if g:diffvim.adaptive_timing
+            let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
+            let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
+        endif
+        if g:diffvim.sign_column
+            call s:PlaceSign('dv_del', s:cur_l)
+        endif
     elseif l:op[0] ==# 'insert'
         call s:InsertCharAtCursor(l:op[1])
         redraw
         let l:delay = float2nr(g:diffvim.type_delay_ms / s:state.runtime_speed)
+        if g:diffvim.adaptive_timing
+            let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
+            let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
+        endif
+        if g:diffvim.sign_column
+            call s:PlaceSign('dv_add', s:cur_l)
+        endif
     endif
     let s:state.op_idx += 1
     call s:ScheduleNext(l:delay)
@@ -917,11 +1047,72 @@ function! s:ApplyWordInstantly(ops, start, len) abort
     redraw
 endfunction
 
+" --- Adaptive timing and sign-column helpers ------------------------------
+
+" Count non-keep ops in a ±10 window around idx (for --adaptive-timing).
+function! s:ComputeComplexity(ops, idx) abort
+    let l:start = a:idx - 10
+    if l:start < 0 | let l:start = 0 | endif
+    let l:end = a:idx + 10
+    if l:end >= len(a:ops) | let l:end = len(a:ops) - 1 | endif
+    let l:count = 0
+    let l:i = l:start
+    while l:i <= l:end
+        if a:ops[l:i][0] !=# 'keep'
+            let l:count += 1
+        endif
+        let l:i += 1
+    endwhile
+    return l:count
+endfunction
+
+" Sign placement (for --sign-column). Uses an incrementing ID per buffer.
+let s:sign_next_id = 100
+
+function! s:PlaceSign(name, line) abort
+    if a:line < 1 || a:line > line('$') | return | endif
+    execute 'sign place ' . s:sign_next_id . ' line=' . a:line
+        \ . ' name=' . a:name . ' buffer=' . bufnr('')
+    let s:sign_next_id += 1
+    if s:sign_next_id > 99990
+        let s:sign_next_id = 100
+    endif
+endfunction
+
+" Run git blame on a given line and echo the result (for --git-blame).
+function! s:ShowGitBlame(line) abort
+    let l:file = expand('%:p')
+    if empty(l:file) | return | endif
+    let l:cmd = 'git blame -L ' . a:line . ',' . a:line . ' -- ' . shellescape(l:file) . ' 2>/dev/null'
+    let l:result = system(l:cmd)
+    if !empty(l:result) && v:shell_error == 0
+        echo 'diffvim blame: ' . substitute(l:result, '\n\+$', '', '')
+    endif
+endfunction
+
 " --- User controls ---------------------------------------------------------
 
 function! s:TogglePause() abort
     if s:state.stopped || s:state.phase ==# 'done'
         echo 'diffvim: nothing to pause'
+        return
+    endif
+    " --step-mode: Space advances one step instead of toggling pause.
+    " The animation starts paused; each Space press advances one op.
+    if g:diffvim.step_mode
+        if s:state.phase ==# 'typing' && !empty(s:state.cur_hunk)
+            call s:ProcessCharOp()
+        elseif s:state.phase ==# 'moving'
+            " Jump to end of move and enter typing phase.
+            let s:cur_l = s:state.move_end_l
+            let s:cur_c = s:state.move_end_c
+            call s:PlaceCursor()
+            let s:state.phase = 'typing'
+            let s:state.op_idx = 0
+            redraw
+        elseif s:state.phase ==# 'idle'
+            call s:StartNextHunk()
+        endif
         return
     endif
     let s:state.paused = !s:state.paused
@@ -1058,11 +1249,22 @@ function! s:StartAnimation() abort
         echo 'diffvim: files are identical, nothing to animate'
         return
     endif
+    " --sign-column: define signs for add/delete/modify.
+    if g:diffvim.sign_column
+        sign define dv_add text=+ texthl=DiffAdd
+        sign define dv_del text=- texthl=DiffDelete
+        sign define dv_mod text=* texthl=DiffChange
+    endif
+    " --step-mode: start paused so the user can step through with Space.
+    if g:diffvim.step_mode
+        let s:state.paused = 1
+        echo 'diffvim: step mode active — press Space to advance one op'
+    endif
     let s:state.hunk_idx = 0
     let s:state.line_offset = 0
     let s:state.phase = 'idle'
     let s:state.stopped = 0
-    let s:state.paused = 0
+    let s:state.paused = g:diffvim.step_mode ? 1 : 0
     let s:cur_l = line('.')
     let s:cur_c = col('.')
     call s:ShowConfig()
@@ -1089,6 +1291,24 @@ function! s:ShowConfig() abort
     endif
     if !empty(g:diffvim.output_file)
         let l:msg .= '  output=' . g:diffvim.output_file
+    endif
+    if g:diffvim.word_diff
+        let l:msg .= '  word_diff=on'
+    endif
+    if g:diffvim.step_mode
+        let l:msg .= '  step_mode=on'
+    endif
+    if g:diffvim.adaptive_timing
+        let l:msg .= '  adaptive_timing=on'
+    endif
+    if g:diffvim.sign_column
+        let l:msg .= '  sign_column=on'
+    endif
+    if g:diffvim.git_blame
+        let l:msg .= '  git_blame=on'
+    endif
+    if g:diffvim.max_line_len > 0
+        let l:msg .= '  max_line_len=' . g:diffvim.max_line_len
     endif
     echo l:msg
 endfunction

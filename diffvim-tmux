@@ -30,6 +30,15 @@
 #   --replay                 Animate git history for given file(s)
 #   --from REV               Git rev to start replay from (default: HEAD~5)
 #   --to REV                 Git rev to end replay at (default: HEAD)
+#   --dry-run                Show diff hunk info without launching vim/tmux
+#   --word-diff              Enable word-level diff highlighting in engine
+#   --step-mode              Pause after each step; Space advances one step
+#   --adaptive-timing        Slow down in complex regions (more changes nearby)
+#   --sign-column            Show signs in the sign column at hunk locations
+#   --git-blame              Show git blame for target line before each hunk
+#   --git-rev REV..REV       Shorthand for --replay --from REV --to REV
+#   --max-line-len N         Warn if any file has lines longer than N chars
+#   --version, -V            Print version and exit
 #   --help, -h               Show help
 #
 # Controls (in vim, during animation):
@@ -83,10 +92,19 @@ Options:
   --replay                 Animate git history for given file(s)
   --from REV               Git rev to start replay from (default: HEAD~5)
   --to REV                 Git rev to end replay at (default: HEAD)
+  --dry-run                Show diff hunk info without launching vim/tmux
+  --word-diff              Enable word-level diff highlighting in the engine
+  --step-mode              Pause after each step; Space advances one step
+  --adaptive-timing        Slow down in complex regions (more changes nearby)
+  --sign-column            Show signs in the sign column at hunk locations
+  --git-blame              Show git blame for target line before each hunk
+  --git-rev REV..REV       Shorthand for --replay --from REV --to REV
+  --max-line-len N         Warn if any file has lines longer than N chars
+  --version, -V            Print version and exit
   --help, -h               Show this help
 
 Controls (during animation, in vim normal mode):
-  <Space>  pause / resume
+  <Space>  pause / resume  (in --step-mode: advance one step)
   n        skip current hunk (apply instantly)
   b        back to previous hunk (revert and restart)
   q        stop animation (leave buffer for editing)
@@ -98,6 +116,9 @@ Environment variables:
   DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
   DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
   DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED
+  Feature flags (set by CLI flags, read by the engine vimscript):
+  DIFFVIM_WORD_DIFF, DIFFVIM_STEP_MODE, DIFFVIM_ADAPTIVE_TIMING,
+  DIFFVIM_SIGN_COLUMN, DIFFVIM_GIT_BLAME
 USAGE
 }
 
@@ -115,10 +136,19 @@ REPLAY_MODE=0
 REPLAY_FROM="HEAD~5"
 REPLAY_TO="HEAD"
 HELP_FLAG=0
+VERSION_FLAG=0
+DRY_RUN=0
+WORD_DIFF=0
+STEP_MODE=0
+ADAPTIVE_TIMING=0
+SIGN_COLUMN=0
+GIT_BLAME=0
+GIT_REV_ARG=""
+MAX_LINE_LEN=0
 
 # Parse options with getopt (util-linux enhanced getopt supports long options).
-PARSED=$(getopt -o h \
-    --long help,speed:,output:,context:,max-hunk-chars:,max-word-chars:,word-pause-ms:,scroll:,multi,replay,from:,to: \
+PARSED=$(getopt -o hV \
+    --long help,version,speed:,output:,context:,max-hunk-chars:,max-word-chars:,word-pause-ms:,scroll:,multi,replay,from:,to:,dry-run,word-diff,step-mode,adaptive-timing,sign-column,git-blame,git-rev:,max-line-len: \
     -n "$(basename "$0")" -- "$@") || {
     echo "Run '$(basename "$0") --help' for details." >&2
     exit 1
@@ -139,6 +169,15 @@ while true; do
         --replay)         REPLAY_MODE=1; shift ;;
         --from)           REPLAY_FROM="$2"; shift 2 ;;
         --to)             REPLAY_TO="$2"; shift 2 ;;
+        --version|-V)     VERSION_FLAG=1; shift ;;
+        --dry-run)        DRY_RUN=1; shift ;;
+        --word-diff)      WORD_DIFF=1; shift ;;
+        --step-mode)      STEP_MODE=1; shift ;;
+        --adaptive-timing) ADAPTIVE_TIMING=1; shift ;;
+        --sign-column)    SIGN_COLUMN=1; shift ;;
+        --git-blame)      GIT_BLAME=1; shift ;;
+        --git-rev)        GIT_REV_ARG="$2"; shift 2 ;;
+        --max-line-len)   MAX_LINE_LEN="$2"; shift 2 ;;
         --)               shift; break ;;
         *) echo "Internal error: $1" >&2; exit 1 ;;
     esac
@@ -148,6 +187,31 @@ if [[ $HELP_FLAG -eq 1 ]]; then
     show_help
     exit 0
 fi
+
+if [[ $VERSION_FLAG -eq 1 ]]; then
+    echo "diffvim-tmux 1.3.0"
+    exit 0
+fi
+
+# --git-rev REV..REV: shorthand for --replay --from REV --to REV
+if [[ -n "$GIT_REV_ARG" ]]; then
+    if [[ "$GIT_REV_ARG" == *..* ]]; then
+        REPLAY_FROM="${GIT_REV_ARG%%..*}"
+        REPLAY_TO="${GIT_REV_ARG#*..}"
+        REPLAY_MODE=1
+    else
+        echo "diffvim-tmux: Error: --git-rev expects REV..REV syntax (got '$GIT_REV_ARG')" >&2
+        exit 1
+    fi
+fi
+
+# Export feature flags so the engine vimscript can read them via $DIFFVIM_*.
+# Empty string when off, "1" when on (so vim's !empty($VAR) works correctly).
+export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1)"
+export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1)"
+export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1)"
+export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1)"
+export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1)"
 
 # Remaining positional args
 POSITIONAL_ARGS=("$@")
@@ -212,6 +276,46 @@ for pair in "${FILE_PAIRS[@]}"; do
     [[ -f "$new_part" ]] || { echo "Error: '$new_part' not found" >&2; exit 1; }
 done
 
+# Binary file detection: reject files containing null bytes.
+for pair in "${FILE_PAIRS[@]}"; do
+    old_part="${pair%%:*}"
+    new_part="${pair#*:}"
+    for f in "$old_part" "$new_part"; do
+        if LC_ALL=C head -c 8192 "$f" 2>/dev/null | od -An -c | grep -qF '\0'; then
+            echo "diffvim-tmux: Error: '$f' contains null bytes (binary file)." >&2
+            exit 1
+        fi
+    done
+done
+
+# --max-line-len N: warn if any file has lines longer than N chars.
+if [[ $MAX_LINE_LEN -gt 0 ]]; then
+    for pair in "${FILE_PAIRS[@]}"; do
+        old_part="${pair%%:*}"
+        new_part="${pair#*:}"
+        for f in "$old_part" "$new_part"; do
+            max_observed=$(awk '{ if (length > m) m = length } END { print m+0 }' "$f")
+            if [[ $max_observed -gt $MAX_LINE_LEN ]]; then
+                echo "diffvim-tmux: Warning: '$f' has lines up to $max_observed chars (limit: $MAX_LINE_LEN)" >&2
+            fi
+        done
+    done
+fi
+
+# --dry-run: print diff hunk info and exit without launching vim/tmux.
+if [[ $DRY_RUN -eq 1 ]]; then
+    for pair in "${FILE_PAIRS[@]}"; do
+        old_part="${pair%%:*}"
+        new_part="${pair#*:}"
+        echo "=== diffvim-tmux dry-run: $old_part -> $new_part ==="
+        diff -u "$old_part" "$new_part" || true
+        hunk_count=$(diff -u "$old_part" "$new_part" 2>/dev/null | grep -c '^@@' || true)
+        echo "--- $hunk_count hunk(s) detected ---"
+        echo
+    done
+    exit 0
+fi
+
 for cmd in tmux vim diff sed awk; do
     command -v "$cmd" >/dev/null 2>&1 || {
         echo "diffvim-tmux: Error: '$cmd' not found in PATH. Please install it."
@@ -266,6 +370,13 @@ sleep_div() {
     # $1 = base duration in seconds (e.g. 0.035)
     sleep $(awk -v b="$1" -v s="$runtime_speed" \
         "BEGIN { r = b / s; if (r < 0.001) r = 0.001; printf \"%.4f\", r }")
+}
+
+# Sleep helper: base duration * multiplier / runtime_speed (for --adaptive-timing).
+sleep_div_mult() {
+    # $1 = base duration in seconds, $2 = multiplier (e.g. 1.5)
+    sleep $(awk -v b="$1" -v m="$2" -v s="$runtime_speed" \
+        "BEGIN { r = b * m / s; if (r < 0.001) r = 0.001; printf \"%.4f\", r }")
 }
 
 # ---------------------------------------------------------------------------
@@ -348,6 +459,22 @@ write_engine() {
 
 let g:dv_ctrl = '$CTRL_FIFO'
 let g:dv_scroll = '$SCROLL_MODE'
+
+" Feature flags read from the environment (set by bash CLI options).
+" Empty string = off, "1" = on; use !empty($VAR) to test.
+let g:dv_word_diff = \$DIFFVIM_WORD_DIFF
+let g:dv_step_mode = \$DIFFVIM_STEP_MODE
+let g:dv_adaptive_timing = \$DIFFVIM_ADAPTIVE_TIMING
+let g:dv_sign_column = \$DIFFVIM_SIGN_COLUMN
+let g:dv_git_blame = \$DIFFVIM_GIT_BLAME
+
+" --sign-column: define signs and keep the sign column visible.
+if !empty(g:dv_sign_column)
+    sign define dv_changed text=>> texthl=Search linehl=Search
+    sign define dv_added   text=+> texthl=DiffAdd linehl=DiffAdd
+    sign define dv_deleted text=-> texthl=DiffDelete linehl=DiffDelete
+    set signcolumn=yes
+endif
 
 " Logical cursor position (can exceed line length for "past end" state).
 " Vim's real cursor (normal mode) is clamped to len(line); we track the
@@ -462,8 +589,25 @@ function! DvReport(expr, path) abort
     call writefile([string(eval(a:expr))], a:path)
 endfunction
 
+" --git-blame: run git blame for a single line and echo the result.
+function! DvGitBlame(path, line) abort
+    if empty(g:dv_git_blame) | return | endif
+    if !executable('git') | return | endif
+    let l:cmd = 'git blame -L ' . shellescape(a:line . ',' . a:line) .
+        \ ' -- ' . shellescape(a:path) . ' 2>/dev/null | head -1'
+    let l:out = system(l:cmd)
+    let l:out = substitute(l:out, '\n\+$', '', '')
+    if !empty(l:out)
+        echo 'git blame:' l:out
+    endif
+endfunction
+
 " User input mappings - write single-char commands to the control FIFO.
-nnoremap <buffer> <silent> <Space> :call writefile(['p'], g:dv_ctrl, 'a')<CR>
+if !empty(g:dv_step_mode)
+    nnoremap <buffer> <silent> <Space> :call writefile(['s'], g:dv_ctrl, 'a')<CR>
+else
+    nnoremap <buffer> <silent> <Space> :call writefile(['p'], g:dv_ctrl, 'a')<CR>
+endif
 nnoremap <buffer> <silent> n       :call writefile(['n'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> b       :call writefile(['b'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> q       :call writefile(['q'], g:dv_ctrl, 'a')<CR>
@@ -844,6 +988,22 @@ start_next_hunk() {
     local end_ins=${HUNK_END_INS[$hunk_idx]}
     local end_del=${HUNK_END_DEL[$hunk_idx]}
 
+    # --git-blame: show git blame for the target line in the OLD file.
+    if [[ $GIT_BLAME -eq 1 ]]; then
+        local blame_line=$target
+        [[ $blame_line -lt 1 ]] && blame_line=1
+        local old_vim="${OLD//\'/\'\'}"
+        send_ex "call DvGitBlame('$old_vim', $blame_line)"
+    fi
+
+    # --sign-column: place a sign at the hunk target line in the buffer.
+    if [[ $SIGN_COLUMN -eq 1 ]]; then
+        local sign_line=$target_line
+        [[ $sign_line -lt 1 ]] && sign_line=1
+        local sign_id=$((hunk_idx + 1))
+        send_ex "execute 'sign place ' . $sign_id . ' line=' . $sign_line . ' name=dv_changed buffer=' . bufnr('%')"
+    fi
+
     # --max-hunk-chars: if hunk has too many changed chars, apply instantly
     if [[ $MAX_HUNK_CHARS -gt 0 ]]; then
         local ops="${HUNK_OPS[$hunk_idx]}"
@@ -999,18 +1159,40 @@ type_step() {
     local op="${found:0:1}"
     local code="${found:1}"
 
-    # --max-word-chars: if we're about to insert/delete a word (contiguous
-    # non-space chars followed by space/newline/keep/end), and the word is
-    # <= N chars, apply the whole word instantly, then pause.
+    # --max-word-chars: if a contiguous sequence of modified (non-space)
+    # characters is LONGER than MAX_WORD_CHARS, apply the whole sequence
+    # in one shot with a pause, so the user can read the change.
+    # Sequences <= MAX_WORD_CHARS are animated character by character.
     if [[ $MAX_WORD_CHARS -gt 0 && ( "$op" == "I" || "$op" == "D" ) ]]; then
         local word_len
         word_len=$(lookahead_word_length)
-        if [[ $word_len -gt 0 && $word_len -le $MAX_WORD_CHARS ]]; then
+        if [[ $word_len -gt $MAX_WORD_CHARS ]]; then
             apply_word_instantly "$word_len"
             op_idx=$((op_idx + word_len))
             sleep_div "$WORD_PAUSE_SEC"
             return
         fi
+    fi
+
+    # --adaptive-timing: count non-keep ops in a +/-10 window around the
+    # current op and multiply the per-char delay by (1 + complexity * 0.5),
+    # so dense change regions animate more deliberately.
+    local delay_mult=1.0
+    if [[ $ADAPTIVE_TIMING -eq 1 ]]; then
+        local total=${#parts[@]}
+        local win_start=$((op_idx - 10))
+        [[ $win_start -lt 0 ]] && win_start=0
+        local win_end=$((op_idx + 10))
+        [[ $win_end -ge $total ]] && win_end=$((total - 1))
+        local complexity=0
+        local j part_j op_j
+        for (( j=win_start; j<=win_end; j++ )); do
+            part_j="${parts[$j]}"
+            [[ -z "$part_j" ]] && continue
+            op_j="${part_j:0:1}"
+            [[ "$op_j" != "K" ]] && complexity=$((complexity + 1))
+        done
+        delay_mult=$(awk -v c="$complexity" 'BEGIN { printf "%.4f", 1.0 + c * 0.5 }')
     fi
 
     case "$op" in
@@ -1021,11 +1203,19 @@ type_step() {
             ;;
         D)
             send_ex_redraw "call DvDelete()"
-            sleep_div "$DELETE_SEC"
+            if [[ $ADAPTIVE_TIMING -eq 1 ]]; then
+                sleep_div_mult "$DELETE_SEC" "$delay_mult"
+            else
+                sleep_div "$DELETE_SEC"
+            fi
             ;;
         I)
             send_ex_redraw "call DvInsert($code)"
-            sleep_div "$TYPE_SEC"
+            if [[ $ADAPTIVE_TIMING -eq 1 ]]; then
+                sleep_div_mult "$TYPE_SEC" "$delay_mult"
+            else
+                sleep_div "$TYPE_SEC"
+            fi
             ;;
     esac
     op_idx=$((op_idx + 1))
@@ -1047,6 +1237,18 @@ handle_user_input() {
                     tmux send-keys -l -t "$TARGET" ":echo 'diffvim: resumed'" Enter
                 fi
                 update_progress
+                ;;
+            s)
+                # Step mode: advance exactly one operation, then re-pause.
+                paused=0
+                case "$phase" in
+                    idle)   start_next_hunk ;;
+                    moving) move_step ;;
+                    typing) type_step ;;
+                esac
+                if [[ $STEP_MODE -eq 1 ]]; then
+                    paused=1
+                fi
                 ;;
             n)
                 skip_current
@@ -1144,6 +1346,12 @@ animate() {
 
     # Show help
     tmux send-keys -l -t "$TARGET" ":echo 'diffvim: Space=pause n=skip b=back q=quit +/-=speed | hunk 1/$HUNK_COUNT'" Enter
+
+    # --step-mode: start paused so the user advances with Space one op at a time.
+    if [[ $STEP_MODE -eq 1 ]]; then
+        paused=1
+        tmux send-keys -l -t "$TARGET" ":echo 'diffvim: STEP MODE - press Space to advance (n=skip b=back q=quit)'" Enter
+    fi
 
     # Brief pause so user can see the original
     sleep 0.3

@@ -600,12 +600,13 @@ function! s:ProcessCharOp() abort
     endif
     let l:op = l:hunk.char_ops[s:state.op_idx]
 
-    " Check --max-word-chars: if we're at the start of a word (contiguous
-    " insert or delete, non-space chars, terminated by space/newline/keep/end),
-    " and the word length <= max_word_chars, apply the whole word instantly.
+    " --max-word-chars: if a contiguous sequence of modified (non-space)
+    " characters is LONGER than max_word_chars, apply the whole sequence
+    " in one shot with a pause, so the user can read the change.
+    " Sequences <= max_word_chars are animated character by character.
     if g:diffvim.max_word_chars > 0 && (l:op[0] ==# 'insert' || l:op[0] ==# 'delete')
         let l:word_len = s:LookaheadWordLength(l:hunk.char_ops, s:state.op_idx)
-        if l:word_len > 0 && l:word_len <= g:diffvim.max_word_chars
+        if l:word_len > g:diffvim.max_word_chars
             call s:ApplyWordInstantly(l:hunk.char_ops, s:state.op_idx, l:word_len)
             let s:state.op_idx += l:word_len
             call s:ScheduleNext(float2nr(g:diffvim.word_pause_ms / s:state.runtime_speed))

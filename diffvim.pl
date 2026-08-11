@@ -1059,12 +1059,13 @@ sub type_step {
     my $type = $op->{op};
     my $code = $op->{code};
 
-    # --max-word-chars: if we're about to insert/delete a word (contiguous
-    # non-space chars followed by space), and the word is <= N chars, apply
-    # the whole word instantly, then pause.
+    # --max-word-chars: if a contiguous sequence of modified (non-space)
+    # characters is LONGER than max_word_chars, apply the whole sequence
+    # in one shot with a pause, so the user can read the change.
+    # Sequences <= max_word_chars are animated character by character.
     if ($max_word_chars > 0 && ($type eq 'insert' || $type eq 'delete')) {
         my $word_len = _lookahead_word_length($ops, $op_idx);
-        if ($word_len > 0 && $word_len <= $max_word_chars) {
+        if ($word_len > $max_word_chars) {
             _apply_word_instantly($ops, $op_idx, $word_len);
             $op_idx += $word_len;
             sleep $config{word_pause_ms} / 1000 / $runtime_speed;
@@ -1072,28 +1073,12 @@ sub type_step {
         }
     }
 
-    # Batch consecutive keep ops (#4) — send them all in one Ex command
-    # to reduce tmux round-trips by 10-50x
+    # Process one op at a time. Batch operations via tmux send-keys
+    # cause corruption (Ex command text leaks into normal mode when the
+    # command is too long), so we don't batch.
     if ($type eq 'keep') {
-        my @batch;
-        my $count = 0;
-        while ($op_idx + $count < scalar(@$ops)
-               && $ops->[$op_idx + $count]{op} eq 'keep'
-               && $count < 100) {
-            push @batch, $ops->[$op_idx + $count]{code};
-            $count++;
-        }
-        if ($count > 1) {
-            # Batch: send all keep codes at once
-            my $codes_str = join(',', @batch);
-            send_ex("call DvKeepBatch([$codes_str])");
-            $op_idx += $count;
-            sleep 0.001;
-        } else {
-            send_ex("call DvKeep($code)");
-            $op_idx++;
-            sleep 0.001;
-        }
+        send_ex("call DvKeep($code)");
+        sleep 0.001;
     } elsif ($type eq 'delete') {
         # Adaptive timing (#44): slow down for complex regions
         my $delay = $config{delete_delay_ms};
@@ -1103,40 +1088,16 @@ sub type_step {
         }
         send_ex_redraw("call DvDelete()");
         sleep $delay / 1000 / $runtime_speed;
-        $op_idx++;
     } elsif ($type eq 'insert') {
-        # Batch consecutive insert ops if there are many (#4)
-        my @batch;
-        my $count = 0;
-        while ($op_idx + $count < scalar(@$ops)
-               && $ops->[$op_idx + $count]{op} eq 'insert'
-               && $ops->[$op_idx + $count]{code} != 10  # Don't batch newlines
-               && $count < 20) {
-            push @batch, $ops->[$op_idx + $count]{code};
-            $count++;
+        my $delay = $config{type_delay_ms};
+        if ($adaptive_timing) {
+            my $complexity = _measure_complexity($ops, $op_idx);
+            $delay = int($delay * (1.0 + $complexity * 0.5));
         }
-        if ($count > 3) {
-            # Batch: send all insert codes at once
-            my $codes_str = join(',', @batch);
-            send_ex_redraw("call DvInsertBatch([$codes_str])");
-            $op_idx += $count;
-            my $delay = $config{type_delay_ms} * $count;
-            if ($adaptive_timing) {
-                my $complexity = _measure_complexity($ops, $op_idx);
-                $delay = int($delay * (1.0 + $complexity * 0.5));
-            }
-            sleep $delay / 1000 / $runtime_speed;
-        } else {
-            my $delay = $config{type_delay_ms};
-            if ($adaptive_timing) {
-                my $complexity = _measure_complexity($ops, $op_idx);
-                $delay = int($delay * (1.0 + $complexity * 0.5));
-            }
-            send_ex_redraw("call DvInsert($code)");
-            sleep $delay / 1000 / $runtime_speed;
-            $op_idx++;
-        }
+        send_ex_redraw("call DvInsert($code)");
+        sleep $delay / 1000 / $runtime_speed;
     }
+    $op_idx++;
 }
 
 # Measure complexity of surrounding ops for adaptive timing (#44)

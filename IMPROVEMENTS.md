@@ -18,7 +18,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 3. ⬜ **Implement a proper ack/sync protocol** — after each Ex command, vim writes an acknowledgment to a file; the orchestrator waits for the ack before sending the next command. Eliminates all timing-based race conditions.
 
-4. ✅ **Batch char ops into a single Ex command** — instead of sending one `:call DvInsert(N)` per character, send `:call DvInsertBatch([97,98,99])` to reduce tmux round-trips by 10-50x.
+4. ⬜ **Batch char ops into a single Ex command** — instead of sending one `:call DvInsert(N)` per character, send `:call DvInsertBatch([97,98,99])` to reduce tmux round-trips by 10-50x. (Removed — caused corruption via tmux send-keys when Ex commands are too long. Needs a file-based command queue #1 first.)
 
 5. ⬜ **Use `vim --clean` instead of `-N -u NONE`** to get a cleaner vim environment without loading user plugins that might interfere.
 
@@ -232,7 +232,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 | Category | Total | ✅ Implemented | ⬜ Planned |
 |----------|-------|----------------|-----------|
-| Architecture & Communication (1-15) | 15 | 5 | 10 |
+| Architecture & Communication (1-15) | 15 | 4 | 11 |
 | Diff Parser (16-30) | 15 | 3 | 12 |
 | Animation & Easing (31-45) | 15 | 8 | 7 |
 | User Experience (46-60) | 15 | 7 | 8 |
