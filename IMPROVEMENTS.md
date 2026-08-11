@@ -128,13 +128,13 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 55. ✅ **Add a `--context` flag** — set the number of context lines shown around each hunk (default: 3, like unified diff).
 
-56. ⬜ **Implement fold-based hunk navigation** — fold unchanged regions between hunks so the user only sees the changes.
+56. ✅ **Implement fold-based hunk navigation** — fold unchanged regions between hunks so the user only sees the changes.
 
 57. ✅ **Add `--sign-column` support** — show +/- signs in vim's sign column to indicate deleted/added lines.
 
 58. ⬜ **Support `--diff-split` view** — open old and new files in a vertical split, animate the old file, and sync scrolling with the new file for reference.
 
-59. ⬜ **Add a `--theme` option** — let the user choose a color scheme (dark/light/high-contrast) for the animation highlights.
+59. ✅ **Add a `--theme` option** — let the user choose a color scheme (dark/light/high-contrast) for the animation highlights.
 
 60. ✅ **Implement `--max-chars` limit** — if a hunk has more than N changed characters, skip the char-by-char animation and apply it instantly (useful for large changes). *(Implemented as `--max-hunk-chars`)*
 
@@ -168,7 +168,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 74. ⬜ **Handle tmux version differences** — detect tmux version and adapt command syntax (e.g., `-l` flag behavior changed between tmux 2.x and 3.x).
 
-75. ⬜ **Add a `--debug` flag** — enable verbose logging of all Ex commands sent, responses received, and timing information, written to a log file.
+75. ✅ **Add a `--debug` flag** — enable verbose logging of all Ex commands sent, responses received, and timing information, written to a log file.
 
 ## Testing & Quality (76-85)
 
@@ -186,7 +186,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 82. ⬜ **Add fuzzing for the diff parser** — generate random file mutations and ensure the parser doesn't crash or produce invalid ops.
 
-83. ⬜ **Add a benchmark suite** — measure animation speed, diff computation time, and memory usage across different file sizes and diff complexities.
+83. ✅ **Add a benchmark suite** — measure animation speed, diff computation time, and memory usage across different file sizes and diff complexities.
 
 84. ⬜ **Add snapshot tests for animation output** — record the sequence of Ex commands for a given input and compare against a golden snapshot to detect regressions.
 
@@ -200,7 +200,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 88. ⬜ **Package as a CPAN module** — `DiffVim::` namespace with proper `Makefile.PL`, tests, and dependency declaration.
 
-89. ⬜ **Create a Homebrew formula** — for easy installation on macOS: `brew install diffvim`.
+89. ✅ **Create a Homebrew formula** — for easy installation on macOS: `brew install diffvim`.
 
 90. ✅ **Add shell completion** — generate bash/zsh/fish completion scripts for the `--parser` and other flags.
 
@@ -235,9 +235,9 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 | Architecture & Communication (1-15) | 15 | 6 | 9 |
 | Diff Parser (16-30) | 15 | 7 | 8 |
 | Animation & Easing (31-45) | 15 | 8 | 7 |
-| User Experience (46-60) | 15 | 7 | 8 |
-| Robustness & Error Handling (61-75) | 15 | 7 | 8 |
-| Testing & Quality (76-85) | 10 | 3 | 7 |
-| Documentation & Packaging (86-90) | 5 | 3 | 2 |
+| User Experience (46-60) | 15 | 8 | 7 |
+| Robustness & Error Handling (61-75) | 15 | 8 | 7 |
+| Testing & Quality (76-85) | 10 | 4 | 6 |
+| Documentation & Packaging (86-90) | 5 | 4 | 1 |
 | Advanced Features (91-100) | 10 | 3 | 7 |
 | **Total** | **100** | **39** | **61** |

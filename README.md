@@ -10,6 +10,7 @@ re-typed — surrounding text is never touched.
 ## Table of Contents
 
 - [What It Does](#what-it-does)
+- [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Three Implementations](#three-implementations)
 - [Controls](#controls)
@@ -42,6 +43,87 @@ animates the transformation into the **new** version character by character:
 
 After the animation completes (or the user stops it), the buffer is a normal
 vim buffer — you can `:w`, `:wq`, edit further, etc.
+
+---
+
+## Installation
+
+### Homebrew (macOS)
+
+```bash
+# From the repo (until published to a tap):
+brew install ./packaging/diffvim.rb
+
+# Or once published to a tap:
+# brew tap nkh/gitanim
+# brew install diffvim
+```
+
+This installs all three scripts (`diffvim`, `diffvim-tmux`, `diffvim.pl`),
+the Perl modules, the vim plugin, the man page, and shell completions.
+
+### Manual Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/nkh/gitanim.git
+cd gitanim
+
+# Make scripts executable
+chmod +x diffvim diffvim-tmux diffvim.pl
+
+# Install scripts to your PATH (choose one):
+sudo cp diffvim diffvim-tmux diffvim.pl /usr/local/bin/
+# or for current user only:
+mkdir -p ~/.local/bin && cp diffvim diffvim-tmux diffvim.pl ~/.local/bin/
+
+# Install Perl modules (for diffvim.pl):
+sudo cp -r DiffVim /usr/local/lib/perl5/
+# or:
+export PERL5LIB="$(pwd):$PERL5LIB"
+
+# Install the man page:
+sudo cp diffvim.1 /usr/local/share/man/man1/
+sudo mandb
+man diffvim
+
+# Install shell completions (optional):
+# Bash:
+sudo cp completion/diffvim.bash /etc/bash_completion.d/diffvim
+# Zsh:
+sudo cp completion/_diffvim /usr/local/share/zsh/site-functions/
+# Fish:
+cp completion/diffvim.fish ~/.config/fish/completions/
+
+# Install the vim plugin (for :Diffvim command):
+cp -r plugin autoload ~/.vim/
+```
+
+### Prerequisites
+
+| Dependency | Version | Required by |
+|-----------|---------|-------------|
+| Vim | 8+ with `+timers` `+float` | All implementations |
+| Bash | 4+ | `diffvim`, `diffvim-tmux` |
+| Perl | 5.10+ | `diffvim.pl` |
+| tmux | 3+ | `diffvim-tmux`, `diffvim.pl` |
+| diff | any | All |
+| git | any | `--replay`, `--git-rev`, `--git-blame` |
+| diff2html-cli | any | `--parser diff2html` (optional) |
+
+Install diff2html-cli (optional):
+```bash
+npm install -g diff2html-cli
+```
+
+### Verification
+
+```bash
+diffvim --version
+diffvim-tmux --version
+perl diffvim.pl --version
+man diffvim
+```
 
 ---
 
