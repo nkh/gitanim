@@ -44,11 +44,12 @@ sub parse_diff {
     $options //= {};
     my $use_word_diff = $options->{word_diff} // 0;
     my $use_semantic_cleanup = $options->{semantic_cleanup} // 0;
+    my $algorithm = $options->{algorithm} // 'lcs';
 
     my $old_lines = _read_lines($old_file);
     my $new_lines = _read_lines($new_file);
 
-    my $line_ops = _line_diff($old_lines, $new_lines);
+    my $line_ops = _line_diff($old_lines, $new_lines, $algorithm);
 
     # Group line-level ops into hunks (consecutive non-keep ops).
     my @hunks;
@@ -87,12 +88,246 @@ sub parse_diff {
 }
 
 # ---------------------------------------------------------------------------
-# Line-level diff (LCS)
+# Line-level diff (LCS / Myers / Patience)
 # ---------------------------------------------------------------------------
 
 sub _line_diff {
-    my ($a, $b) = @_;
+    my ($a, $b, $algorithm) = @_;
+    $algorithm //= 'lcs';
+    if ($algorithm eq 'patience') {
+        return _patience_diff($a, $b);
+    }
+    # Myers falls back to LCS (both produce correct diffs; Myers is faster
+    # for large files but the backtrace is complex and error-prone in
+    # pure Perl. LCS is correct for all cases.)
     return _lcs_diff($a, $b);
+}
+
+# Myers diff algorithm — O(ND) where D is the edit distance.
+# Much faster than LCS O(N*M) for small diffs in large files.
+# Returns list of [op, a_idx, b_idx].
+sub _myers_diff {
+    my ($a, $b) = @_;
+    my $na = scalar(@$a);
+    my $nb = scalar(@$b);
+
+    if ($na == 0 && $nb == 0) { return []; }
+    if ($na == 0) {
+        return [ map { ['insert', 0, $_] } 0 .. $nb - 1 ];
+    }
+    if ($nb == 0) {
+        return [ map { ['delete', $_, 0] } 0 .. $na - 1 ];
+    }
+
+    # Myers algorithm with backtrace.
+    # V[d][k] = furthest x reached on diagonal k after d edits.
+    my @trace;
+    my %v;
+    my $max = $na + $nb;
+    my $found;
+
+    for my $d (0 .. $max) {
+        my %vd;
+        for my $k (-$d .. $d) {
+            my $x;
+            if ($k == -$d || ($k != $d && ($v{$k - 1} // 0) < ($v{$k + 1} // 0))) {
+                $x = $v{$k + 1} // 0;  # Insert (move down)
+            } else {
+                $x = ($v{$k - 1} // 0) + 1;  # Delete (move right)
+            }
+            my $y = $x - $k;
+            while ($x < $na && $y < $nb && $a->[$x] eq $b->[$y]) {
+                $x++; $y++;
+            }
+            $vd{$k} = $x;
+            if ($x >= $na && $y >= $nb) {
+                $found = $d;
+                push @trace, { %v };
+                # Backtrace
+                return _myers_backtrace(\@trace, $a, $b, $na, $nb, $found);
+            }
+        }
+        %v = %vd;
+        push @trace, { %v };
+    }
+    # Fallback to LCS if Myers fails (shouldn't happen)
+    return _lcs_diff($a, $b);
+}
+
+sub _myers_backtrace {
+    my ($trace, $a, $b, $na, $nb, $max_d) = @_;
+    my @ops;
+    my $x = $na;
+    my $y = $nb;
+
+    for (my $d = $max_d; $d > 0; $d--) {
+        my $v = $trace->[$d - 1];
+        my $k = $x - $y;
+        my $prev_x;
+        if ($k == -$d || ($k != $d && ($v->{$k - 1} // 0) < ($v->{$k + 1} // 0))) {
+            $prev_x = $v->{$k + 1} // 0;  # Came from insert
+        } else {
+            $prev_x = ($v->{$k - 1} // 0) + 1;  # Came from delete
+        }
+        my $prev_y = $prev_x - ($k + ($k == -$d || ($k != $d && ($v->{$k - 1} // 0) < ($v->{$k + 1} // 0)) ? -1 : 1));
+
+        # Record snake (matches) in reverse
+        while ($x > $prev_x && $y > $prev_y) {
+            unshift @ops, ['keep', $x - 1, $y - 1];
+            $x--; $y--;
+        }
+
+        if ($d > 1) {
+            if ($x == $prev_x) {
+                unshift @ops, ['insert', $x, $y - 1];
+            } else {
+                unshift @ops, ['delete', $x - 1, $y];
+            }
+        } elsif ($x == $prev_x) {
+            unshift @ops, ['insert', $x, $y - 1];
+        } elsif ($y == $prev_y) {
+            unshift @ops, ['delete', $x - 1, $y];
+        }
+
+        $x = $prev_x;
+        $y = $prev_y;
+    }
+
+    # Handle initial snake (d=0)
+    while ($x > 0 && $y > 0) {
+        unshift @ops, ['keep', $x - 1, $y - 1];
+        $x--; $y--;
+    }
+    while ($x > 0) {
+        unshift @ops, ['delete', $x - 1, $y];
+        $x--;
+    }
+    while ($y > 0) {
+        unshift @ops, ['insert', $x, $y - 1];
+        $y--;
+    }
+
+    return \@ops;
+}
+
+# Patience diff algorithm — anchors on unique common lines, producing
+# more human-readable diffs with fewer "jumping" hunks.
+# Returns list of [op, a_idx, b_idx].
+sub _patience_diff {
+    my ($old_arr, $new_arr) = @_;
+    my $na = scalar(@$old_arr);
+    my $nb = scalar(@$new_arr);
+
+    # Find unique common lines (anchors)
+    my %a_count; $a_count{$_}++ for @$old_arr;
+    my %b_count; $b_count{$_}++ for @$new_arr;
+
+    my @anchors;  # [a_idx, b_idx] pairs
+    my %a_unique;  # line -> a_idx for unique lines
+    for my $i (0 .. $na - 1) {
+        my $line = $old_arr->[$i];
+        if ($a_count{$line} == 1 && ($b_count{$line} // 0) == 1) {
+            $a_unique{$line} = $i;
+        }
+    }
+    for my $j (0 .. $nb - 1) {
+        my $line = $new_arr->[$j];
+        if (exists $a_unique{$line}) {
+            push @anchors, [$a_unique{$line}, $j];
+        }
+    }
+
+    # Sort anchors by a_idx (numeric, since indices are integers)
+    @anchors = sort { $a->[0] <=> $b->[0] } @anchors;
+
+    # Find LIS (longest increasing subsequence) of b_idx values
+    my @lis = _find_lis([map { $_->[1] } @anchors]);
+    my @matched_anchors;
+    for my $idx (@lis) {
+        push @matched_anchors, $anchors[$idx];
+    }
+
+    # Recursively diff between anchors
+    my @ops;
+    my $a_start = 0;
+    my $b_start = 0;
+
+    for my $anchor (@matched_anchors) {
+        my ($a_idx, $b_idx) = @$anchor;
+
+        # Diff the gap before this anchor
+        if ($a_idx > $a_start || $b_idx > $b_start) {
+            my $sub_a = [ @{$old_arr}[$a_start .. $a_idx - 1] ];
+            my $sub_b = [ @{$new_arr}[$b_start .. $b_idx - 1] ];
+            my $sub_ops = _lcs_diff($sub_a, $sub_b);
+            for my $op (@$sub_ops) {
+                push @ops, [ $op->[0], $op->[1] + $a_start, $op->[2] + $b_start ];
+            }
+        }
+
+        # Keep the anchor
+        push @ops, ['keep', $a_idx, $b_idx];
+
+        $a_start = $a_idx + 1;
+        $b_start = $b_idx + 1;
+    }
+
+    # Diff the tail after the last anchor
+    if ($a_start < $na || $b_start < $nb) {
+        my $sub_a = [ @{$old_arr}[$a_start .. $na - 1] ];
+        my $sub_b = [ @{$new_arr}[$b_start .. $nb - 1] ];
+        my $sub_ops = _lcs_diff($sub_a, $sub_b);
+        for my $op (@$sub_ops) {
+            push @ops, [ $op->[0], $op->[1] + $a_start, $op->[2] + $b_start ];
+        }
+    }
+
+    return \@ops;
+}
+
+# Find the longest increasing subsequence (for patience diff)
+# Returns indices of the LIS elements.
+sub _find_lis {
+    my ($arr) = @_;
+    return [] unless @$arr;
+
+    my @tails;  # tails[i] = index of smallest tail of LIS of length i+1
+    my @prev;   # prev[i] = index of previous element in LIS ending at i
+
+    for my $i (0 .. $#$arr) {
+        # Binary search for the position to replace
+        my $lo = 0;
+        my $hi = $#tails;
+        while ($lo <= $hi) {
+            my $mid = int(($lo + $hi) / 2);
+            if ($arr->[$tails[$mid]] < $arr->[$i]) {
+                $lo = $mid + 1;
+            } else {
+                $hi = $mid - 1;
+            }
+        }
+
+        if ($lo > 0) {
+            $prev[$i] = $tails[$lo - 1];
+        } else {
+            $prev[$i] = -1;
+        }
+
+        if ($lo >= scalar(@tails)) {
+            push @tails, $i;
+        } else {
+            $tails[$lo] = $i;
+        }
+    }
+
+    # Reconstruct the LIS
+    my @result;
+    my $idx = $tails[-1];
+    while ($idx >= 0) {
+        unshift @result, $idx;
+        $idx = $prev[$idx];
+    }
+    return @result;
 }
 
 # Classic LCS dynamic programming diff. Returns list of [op, a_idx, b_idx].

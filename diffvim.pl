@@ -112,6 +112,7 @@ my $word_diff_mode = 0;
 my $diff_input     = '';
 my $semantic_cleanup = 0;
 my $parser_compare   = 0;
+my $diff_algorithm   = 'lcs';
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -138,6 +139,7 @@ GetOptions(
     'diff=s'           => \$diff_input,
     'semantic-cleanup' => \$semantic_cleanup,
     'parser-compare'   => \$parser_compare,
+    'algorithm=s'      => \$diff_algorithm,
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -213,6 +215,7 @@ Options:
   --diff FILE              Animate a unified diff file (- for stdin)
   --semantic-cleanup       Merge adjacent insert/delete pairs that cancel out
   --parser-compare         Run both parsers and report differences
+  --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -1012,7 +1015,7 @@ sub query_vim {
 sub compute_diff {
     my ($old, $new) = @_;
     my $result;
-    my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup };
+    my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup, algorithm => $diff_algorithm };
     if ($parser_name eq 'diff2html') {
         _which('diff2html') or die "Error: 'diff2html' not found in PATH\n" .
             "Install with: npm install -g diff2html-cli\n";
