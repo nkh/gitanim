@@ -261,9 +261,13 @@ sub _patience_diff {
     @anchors = sort { $a->[0] <=> $b->[0] } @anchors;
 
     # Find LIS (longest increasing subsequence) of b_idx values
-    my @lis = _find_lis([map { $_->[1] } @anchors]);
+    my @lis;
+    if (@anchors) {
+        @lis = _find_lis([map { $_->[1] } @anchors]);
+    }
     my @matched_anchors;
     for my $idx (@lis) {
+        next unless defined $idx && $idx >= 0 && $idx < scalar(@anchors);
         push @matched_anchors, $anchors[$idx];
     }
 

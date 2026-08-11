@@ -240,4 +240,4 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 | Testing & Quality (76-85) | 10 | 4 | 6 |
 | Documentation & Packaging (86-90) | 5 | 4 | 1 |
 | Advanced Features (91-100) | 10 | 3 | 7 |
-| **Total** | **100** | **39** | **61** |
+| **Total** | **100** | **52** | **48** |

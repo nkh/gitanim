@@ -1,4 +1,4 @@
-.TH DIFFVIM 1 "2026-08-10" "diffvim 1.1" "User Commands"
+.TH DIFFVIM 1 "2026-08-11" "diffvim 1.4" "User Commands"
 .SH NAME
 diffvim \- animate a code diff in vim as if a human were typing it
 .SH SYNOPSIS
@@ -24,6 +24,28 @@ diffvim \- animate a code diff in vim as if a human were typing it
 .IR REV ]
 .RB [ \-\-to
 .IR REV ]
+
+.br
+.B diffvim
+.RI [ options ]
+.B \-\-git-rev
+.IR REV..REV
+.RI <file>
+[<file> ...]
+
+.br
+.B diffvim
+.RI [ options ]
+.B \-\-diff
+.IR FILE
+.RB [ \-\-dry-run ]
+
+.br
+.B diffvim
+.B \-\-version
+.br
+.B diffvim
+.B \-\-help
 
 .SH DESCRIPTION
 .B diffvim
@@ -53,6 +75,63 @@ Perl orchestrator + vim in a tmux pane. Same architecture as diffvim-tmux
 but with pluggable diff parser modules. Requires Perl 5.10+, tmux 3+, vim 8+.
 
 .SH OPTIONS
+
+.SS Core Options
+
+.TP
+.BR \-\-speed\  N
+Speed multiplier.
+.B 0.5
+= half speed,
+.B 2
+= double speed,
+.B 5
+= 5x speed.
+All timing delays are divided by this value.
+Also settable via
+.B DIFFVIM_SPEED
+environment variable.
+
+.TP
+.BI \-\-output\  FILE
+After the animation completes, write the buffer to
+.I FILE
+and quit vim. Also works with
+.B q
+(quit) \(em the buffer is written before stopping.
+
+.TP
+.BR \-\-scroll\  zz | zt | zb | none
+Scroll the cursor to the specified position during animation:
+.RS
+.TP 4
+.B zz
+Center cursor on screen
+.TP 4
+.B zt
+Cursor at top of screen
+.TP 4
+.B zb
+Cursor at bottom of screen
+.TP 4
+.B none
+Don't force scroll (default)
+.RE
+
+.TP
+.B \-\-multi
+Treat arguments as
+.I old:new
+pairs for multi-file animation. After finishing one file, the animation
+transitions to the next.
+
+.TP
+.BI \-\-context\  N
+Fold unchanged regions longer than 2*N lines, keeping N lines of context
+around each hunk. Default: 0 (no folding).
+
+.SS Diff Options
+
 .TP
 .BR \-\-parser\  perl | diff2html
 (diffvim.pl only) Diff parser to use.
@@ -64,123 +143,275 @@ shells out to the
 CLI with
 .B \-f json
 for line-level parsing.
+
 .TP
-.BI \-\-speed\  N
-Speed multiplier. 0.5 = half speed, 2 = double speed, 5 = 5x speed. All
-timing delays are divided by this value. Can also be set via the
-.B DIFFVIM_SPEED
-environment variable.
+.B \-\-word-diff
+Use word-level diff instead of char-level. Groups changes by word
+(non-space sequences), producing more natural typing patterns.
+
 .TP
-.BI \-\-output\  FILE
-After the animation completes, write the buffer to
-.I FILE
-and quit vim. Useful for scripted use where you want the result saved
-without manual intervention.
-.TP
-.BI \-\-context\  N
-Fold unchanged regions longer than 2*N lines, keeping N lines of context
-around each hunk. This makes large-file diffs easier to follow by hiding
-unchanged regions. Default: 0 (no folding).
+.BR \-\-algorithm\  lcs | myers | patience
+Line-level diff algorithm.
+.B lcs
+(default) uses classic LCS dynamic programming.
+.B myers
+uses O(ND) Myers algorithm (falls back to LCS for correctness).
+.B patience
+anchors on unique common lines for more human-readable diffs.
+
 .TP
 .BI \-\-max-hunk-chars\  N
 If a hunk has more than N changed characters, skip the char-by-char
-animation and apply the entire hunk instantly. Useful for large changes
-that would take too long to animate character by character. Default: 0
-(no limit).
+animation and apply the entire hunk instantly.
+
 .TP
 .BI \-\-max-word-chars\  N
-If a contiguous sequence of changed characters forms a word (non-space
-characters terminated by a space or newline) and the word length is <= N,
-type the entire word instantly, then pause. This makes the animation
-feel more natural \(em short words are typed as units rather than
-character by character. Default: 0 (disabled).
+If a contiguous sequence of modified (non-space) characters is LONGER
+than N, apply the whole sequence in one shot with a pause, so the user
+can read the change. Sequences <= N are animated character by character.
+
 .TP
 .BI \-\-word-pause-ms\  N
 Pause in milliseconds after an instant word is applied (only relevant
 with
 .BR \-\-max-word-chars ).
-Default: 150. Can also be set via
-.BR DIFFVIM_WORD_PAUSE_MS .
+Default: 150.
+
 .TP
-.BR \-\-scroll\  zz | zt | zb | none
-Scroll the cursor to the specified position during animation:
-.RS
+.BI \-\-max-line-len\  N
+Warn if any line exceeds N characters (char-level diff may be slow).
+Default: 10000.
+
 .TP
-.B zz
-Center the cursor on screen
+.B \-\-semantic-cleanup
+Post-process char ops to merge adjacent insert/delete pairs that cancel
+out, reducing unnecessary typing.
+
 .TP
-.B zt
-Position the cursor at the top of the screen
-.TP
-.B zb
-Position the cursor at the bottom of the screen
-.TP
-.B none
-Don't force scroll (default)
-.RE
-.TP
-.B \-\-multi
-Treat arguments as
-.I old:new
-pairs for multi-file animation. After finishing one file, the animation
-transitions to the next with a brief "next file" message.
+.B \-\-indent-aware
+Normalize indentation before line-level diff, so lines that differ only
+in indentation are treated as "keep" at the line level.
+
+.SS Git Options
+
 .TP
 .B \-\-replay
-Animate git history for the given file(s). Requires
-.B git
-in PATH. For each file, extracts the old version at each commit in the
-range and animates the transformation to the next commit, ending with
-the working copy.
+Animate git history for the given file(s). For each commit in the range,
+extracts the old version and animates the transformation to the next commit.
+
 .TP
 .BI \-\-from\  REV
-(diffvim-tmux and diffvim.pl only) Git revision to start replay from.
-Default: HEAD~5. Only used with
-.BR \-\-replay .
+Git revision to start replay from. Default:
+.BR HEAD~5 .
+
 .TP
 .BI \-\-to\  REV
-(diffvim-tmux and diffvim.pl only) Git revision to end replay at.
-Default: HEAD. Only used with
-.BR \-\-replay .
+Git revision to end replay at. Default:
+.BR HEAD .
+
 .TP
-.BR \-h ,\  \-\-help
+.BI \-\-git-rev\  REV..REV
+Animate a git commit range using
+.I REV..REV
+syntax. Shorthand for
+.B \-\-replay \-\-from REV1 \-\-to REV2.
+
+.TP
+.B \-\-git-blame
+Show git blame information for each changed line.
+
+.SS Animation Options
+
+.TP
+.B \-\-step-mode
+Space advances one char op at a time instead of toggling pause/resume,
+for detailed inspection.
+
+.TP
+.B \-\-adaptive-timing
+Automatically slow down for complex hunks (many char ops close together)
+and speed up for simple ones.
+
+.TP
+.B \-\-sign-column
+Show
+.B +/-
+signs in vim's sign column to indicate deleted/added lines.
+
+.TP
+.B \-\-highlight-hunk
+Visually highlight the hunk region before animating it. The highlight
+is shown for
+.B \-\-highlight-duration-ms
+milliseconds, then cleared.
+
+.TP
+.BI \-\-highlight-color\  COLOR
+Vim highlight group for hunk highlighting. Default:
+.BR DiffChange .
+Also:
+.BR DiffAdd ,
+.BR DiffDelete ,
+.BR Search ,
+.BR Visual ,
+.BR IncSearch .
+
+.TP
+.BI \-\-highlight-duration-ms\  N
+Highlight duration in milliseconds. Default: 1000.
+
+.TP
+.BI \-\-highlight-min-chars\  N
+Minimum changed chars to trigger hunk highlighting. Default: 10.
+Hunks with fewer changed chars are animated without highlighting.
+
+.TP
+.B \-\-fold-unchanged
+Fold unchanged regions between hunks so the user only sees the changes.
+Press
+.B f
+during animation to toggle folding on/off.
+
+.TP
+.BR \-\-theme\  dark | light | high-contrast
+Color scheme for animation highlights:
+.RS
+.TP 4
+.B dark
+Set background=dark
+.TP 4
+.B light
+Set background=light
+.TP 4
+.B high-contrast
+Vivid green/red/yellow diff highlights
+.RE
+
+.SS Utility Options
+
+.TP
+.B \-\-no-tmux
+(diffvim.pl only) Run vim directly in the terminal (no tmux wrapper).
+Simpler single-shot use, but no FIFO-based user input.
+
+.TP
+.B \-\-remote
+(diffvim.pl only) Use
+.B vim \-\-remote-send
+with
+.B \-\-servername
+instead of tmux send-keys. Eliminates tmux race conditions.
+
+.TP
+.B \-\-dry-run
+Compute and print the diff ops without launching vim. Useful for
+debugging parser issues.
+
+.TP
+.B \-\-diff\  FILE
+Accept a unified diff/patch file as input instead of requiring two files.
+Use
+.B \-
+for stdin. Enables:
+.B git diff | diffvim \-\-diff \-
+
+.TP
+.B \-\-parser-compare
+(diffvim.pl only) Run both parsers and report any differences in the
+computed hunks. Exit code 0 if all match, 1 if any mismatch.
+
+.TP
+.B \-\-debug
+Enable verbose logging of all Ex commands sent, with timestamps, to
+.BR /tmp/diffvim-debug.log .
+Useful for debugging race conditions and timing issues.
+
+.TP
+.BR \-\-version ,\  \-V
+Print version, parser info, and dependency versions (vim, tmux, perl,
+diff2html).
+
+.TP
+.BR \-\-help ,\  \-h
 Show help message and exit.
 
 .SH CONTROLS
 During animation, the following keys are active in vim normal mode:
+
+.SS Basic Controls
 .TP
 .B <Space>
-Pause / resume the animation. While paused, a "PAUSED" indicator is shown.
+Pause / resume the animation. In
+.B \-\-step-mode ,
+advances one char op instead.
 .TP
 .B n
-Skip the current hunk: apply all remaining character operations instantly
+Skip current hunk: apply all remaining character operations instantly
 and move to the next hunk.
 .TP
 .B b
-Back to the previous hunk: revert the buffer to the state before the
+Back to previous hunk: revert the buffer to the state before the
 current hunk started and replay it from the beginning.
 .TP
 .B q
 Stop the animation. The buffer is left in its current state for normal
-editing. If
-.B \-\-output
-was specified, the buffer is written to the output file before stopping.
+editing.
+
+.SS Speed Controls
 .TP
 .B +
-Speed up: multiply the current speed by 1.5. The new speed is shown in
-the status message.
+Speed up: multiply the current speed by 1.5.
 .TP
 .B \-
 Slow down: divide the current speed by 1.5.
 .TP
 .B =
 Reset speed to 1.0x.
+
+.SS Granular Navigation
+.TP
+.B B
+(Shift-B) Go back one char op.
+.TP
+.B N
+(Shift-N) Skip to next file (multi-file mode).
+.TP
+.B Ctrl-B
+Go back to the beginning.
+.TP
+.B Ctrl-N
+Skip to the end.
+
+.SS Undo/Redo
+.TP
+.B u
+Undo last hunk (revert to previous snapshot).
+.TP
+.B Ctrl-r
+Redo hunk.
+
+.SS Display
 .TP
 .B ?
-(diffvim only) Show help: current hunk index and keymap reminder.
+Toggle full-screen help overlay.
+.TP
+.B f
+Toggle fold on/off (with
+.BR \-\-fold-unchanged ).
+
+.SS Progress
+A progress message is shown in the vim status line:
+.RS
+.PP
+.nf
+diffvim: hunk 3/7 (42%) | speed 2.3x | PAUSED
+.fi
+.RE
 
 .SH ENVIRONMENT VARIABLES
-All timing values can be set via environment variables. Command-line options
-override environment variables, which override built-in defaults.
+All timing values can be set via environment variables. Command-line
+options override environment variables, which override built-in defaults.
+
 .TP
 .B DIFFVIM_TICK_MS
 Animation frame interval in milliseconds (default: 16, ~60fps).
@@ -205,75 +436,134 @@ Milliseconds per unit of glide distance (default: 6). Lines are weighted
 Pause between hunks in milliseconds (default: 180).
 .TP
 .B DIFFVIM_WORD_PAUSE_MS
-Pause after instant word in milliseconds (default: 150). Only relevant
-with
-.BR \-\-max-word-chars .
+Pause after instant word in milliseconds (default: 150).
 .TP
 .B DIFFVIM_SPEED
 Speed multiplier (default: 1.0). Same as
 .BR \-\-speed .
+.TP
+.B DIFFVIM_MAX_LINE_LEN
+Warn threshold for long lines (default: 10000).
+.TP
+.B DIFFVIM_HIGHLIGHT_COLOR
+Highlight group for
+.B \-\-highlight-hunk
+(default: DiffChange).
+.TP
+.B DIFFVIM_HIGHLIGHT_DURATION_MS
+Highlight duration in ms (default: 1000).
+.TP
+.B DIFFVIM_HIGHLIGHT_MIN_CHARS
+Min changed chars to trigger highlight (default: 10).
 
 .SH EXAMPLES
-.TP
-Basic usage:
-.B diffvim old.py new.py
-.TP
-Slow down for a presentation:
-.B diffvim \-\-speed 0.5 old.py new.py
-.TP
-Speed up for a quick review:
-.B diffvim \-\-speed 3 old.py new.py
-.TP
-Write result to a file and quit:
-.B diffvim \-\-output result.py old.py new.py
-.TP
-Center cursor during animation:
-.B diffvim \-\-scroll zz old.py new.py
-.TP
-Skip large hunks, type short words instantly:
-.B diffvim \-\-max-hunk-chars 200 \-\-max-word-chars 5 old.py new.py
-.TP
-Multi-file animation:
-.B diffvim \-\-multi old1.py:new1.py old2.py:new2.py
-.TP
-Replay git history (last 5 commits):
-.B diffvim \-\-replay src/main.py
-.TP
-Replay a specific commit range:
-.B diffvim \-\-replay src/main.py \-\-from v1.0 \-\-to HEAD
-.TP
-Animate a git diff:
-.B git\ show\ HEAD:file.py\ >\ /tmp/old.py && diffvim /tmp/old.py file.py
 
-.SH ARCHITECTURE
-The animation uses a two-level diff:
-.IP 1. 3
-Line-level LCS diff identifies changed regions (hunks).
-.IP 2. 3
-Within each hunk, char-level LCS diff produces minimal character
-operations (keep / delete / insert).
+.SS Basic Usage
 .PP
-The cursor glides between change locations using an ease-in-out cubic
-curve. Glide duration is proportional to distance (lines weighted 80x
-more than columns), clamped to [MOVE_MIN_MS, MOVE_MAX_MS].
+.nf
+diffvim old.py new.py
+.fi
 
-In the
-.B diffvim
-implementation, vim's
-.BR timer_start ()
-drives the animation asynchronously. In
-.B diffvim-tmux
-and
-.BR diffvim.pl ,
-the orchestrator sends Ex commands to vim via
-.B tmux\ send-keys
-and sleeps between steps.
+.SS Speed Control
+.PP
+.nf
+# Half speed for a presentation
+diffvim \-\-speed 0.5 old.py new.py
 
-User input is handled via vim normal-mode mappings. In
-.BR diffvim ,
-mappings call vimscript functions directly. In the tmux-based
-implementations, mappings write single-character commands to a named
-pipe (FIFO) that the orchestrator reads non-blocking.
+# 3x speed for quick review
+diffvim \-\-speed 3 old.py new.py
+.fi
+
+.SS Output
+.PP
+.nf
+# Write result to file and quit
+diffvim \-\-output result.py old.py new.py
+.fi
+
+.SS Display Options
+.PP
+.nf
+# Center cursor, highlight hunks, fold unchanged regions
+diffvim \-\-scroll zz \-\-highlight-hunk \-\-fold-unchanged old.py new.py
+
+# High-contrast theme
+diffvim \-\-theme high-contrast old.py new.py
+.fi
+
+.SS Diff Algorithms
+.PP
+.nf
+# Use patience diff for more human-readable hunks
+diffvim \-\-algorithm patience old.py new.py
+
+# Word-level diff
+diffvim \-\-word-diff old.py new.py
+
+# Semantic cleanup
+diffvim \-\-semantic-cleanup old.py new.py
+.fi
+
+.SS Word Batching
+.PP
+.nf
+# Sequences > 5 chars are applied in one shot with a pause
+diffvim \-\-max-word-chars 5 old.py new.py
+.fi
+
+.SS Multi-file Animation
+.PP
+.nf
+diffvim \-\-multi old1.py:new1.py old2.py:new2.py
+.fi
+
+.SS Git Integration
+.PP
+.nf
+# Replay last 5 commits of a file
+diffvim \-\-replay src/main.py
+
+# Specific commit range
+diffvim \-\-replay src/main.py \-\-from v1.0 \-\-to HEAD
+
+# Using \-\-git-rev syntax
+diffvim \-\-git-rev HEAD~3..HEAD src/main.py
+
+# Show git blame during animation
+diffvim \-\-git-blame old.py new.py
+.fi
+
+.SS Unified Diff Input
+.PP
+.nf
+# Animate from a patch file
+diffvim \-\-diff my.patch
+
+# From stdin
+git diff | diffvim \-\-diff \-
+.fi
+
+.SS Debugging
+.PP
+.nf
+# Dry run (print ops without launching vim)
+diffvim \-\-dry-run old.py new.py
+
+# Verbose logging
+diffvim \-\-debug old.py new.py
+cat /tmp/diffvim-debug.log
+
+# Compare parsers
+diffvim \-\-parser-compare old.py new.py
+.fi
+
+.SS Vim Plugin
+.PP
+.nf
+# Inside an existing vim session:
+:Diffvim old.py new.py
+:Diffvim old.py new.py tabnew
+.fi
 
 .SH FILES
 .TP
@@ -287,12 +577,28 @@ diff2html CLI-based parser module (used by diffvim.pl).
 Vim plugin providing the
 .B :Diffvim
 command for running inside an existing vim session.
+.TP
+.I autoload/diffvim/engine.vim
+Standalone vimscript engine (sourced by the plugin).
+.TP
+.I completion/diffvim.bash
+Bash shell completion script.
+.TP
+.I completion/_diffvim
+Zsh shell completion script.
+.TP
+.I completion/diffvim.fish
+Fish shell completion script.
+.TP
+.I packaging/diffvim.rb
+Homebrew formula for macOS installation.
 
 .SH SEE ALSO
 .BR vim (1),
 .BR tmux (1),
 .BR diff (1),
-.BR git (1)
+.BR git (1),
+.BR perl (1)
 
 .SH BUGS
 .TP
@@ -307,14 +613,18 @@ and
 can experience race conditions where Ex command text leaks into normal
 mode when commands are sent faster than vim processes them. The
 .B diffvim
-implementation does not have this issue.
+implementation does not have this issue. Use
+.B \-\-remote
+(diffvim.pl) for an alternative that avoids tmux.
 .TP
 Large files
 The LCS dynamic programming table is O(N\(muM) in memory. For files with
-more than 10,000 lines, memory usage may be significant.
+more than 10,000 lines, use
+.B \-\-max-hunk-chars
+to skip large hunks.
 
 .SH AUTHOR
 Written by the diffvim contributors.
 
 .SH COPYRIGHT
-MIT License. See the LICENSE file for details.
+Copyright (c) 2026 diffvim contributors. MIT License.

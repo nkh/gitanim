@@ -78,6 +78,7 @@ sub apply_diff_to_file {
         # not byte values, for multi-byte characters)
         eval { require Encode; $new_text = Encode::encode('UTF-8', $new_text); };
         
+        
         # Split new_text into lines
         if (length($new_text) > 0) {
             my @new_lines = split /\n/, $new_text, -1;
