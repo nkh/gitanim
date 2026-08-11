@@ -119,6 +119,9 @@ my $highlight_hunk   = 0;
 my $highlight_color  = _env_or('DIFFVIM_HIGHLIGHT_COLOR', 'DiffChange');
 my $highlight_duration_ms = _env_or('DIFFVIM_HIGHLIGHT_DURATION_MS', 1000);
 my $highlight_min_chars = _env_or('DIFFVIM_HIGHLIGHT_MIN_CHARS', 10);
+my $fold_unchanged  = 0;
+my $theme           = '';
+my $debug_mode      = 0;
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -152,6 +155,9 @@ GetOptions(
     'highlight-color=s'=> \$highlight_color,
     'highlight-duration-ms=i' => sub { $highlight_duration_ms = $_[1]; },
     'highlight-min-chars=i'   => sub { $highlight_min_chars = $_[1]; },
+    'fold-unchanged'   => \$fold_unchanged,
+    'theme=s'          => \$theme,
+    'debug'            => \$debug_mode,
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -234,6 +240,9 @@ Options:
   --highlight-color COLOR  Highlight group/color (default: DiffChange)
   --highlight-duration-ms N  Highlight duration in ms (default: 1000)
   --highlight-min-chars N  Min changed chars to trigger highlight (default: 10)
+  --fold-unchanged         Fold unchanged regions between hunks (#56)
+  --theme dark|light|high-contrast  Color scheme for highlights (#59)
+  --debug                  Enable verbose logging to /tmp/diffvim-debug.log (#75)
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -786,6 +795,32 @@ function! DvClearHighlight() abort
     redraw
 endfunction
 
+" Fold-based hunk navigation (#56) — fold unchanged regions between hunks
+let g:dv_fold_enabled = FOLD_ENABLED_PLACEHOLDER
+let s:dv_fold_ids = []
+
+function! DvFoldSetup() abort
+    if !g:dv_fold_enabled | return | endif
+    setlocal foldmethod=manual
+    setlocal foldtext=v:folddashes.getline(v:foldstart)
+endfunction
+
+function! DvFoldRegion(start_line, end_line) abort
+    if !g:dv_fold_enabled | return | endif
+    if a:end_line <= a:start_line | return | endif
+    execute a:start_line . ',' . a:end_line . 'fold'
+endfunction
+
+function! DvUnfoldAll() abort
+    if !g:dv_fold_enabled | return | endif
+    normal! zR
+endfunction
+
+function! DvToggleFold() abort
+    if !g:dv_fold_enabled | return | endif
+    normal! za
+endfunction
+
 " Git blame integration (#94) — show blame for a line
 
 function! DvGitBlame(line) abort
@@ -893,6 +928,7 @@ nnoremap <buffer> <silent> B       :call writefile(['B'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> N       :call writefile(['N'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> <C-B>   :call writefile(['\x02'], g:dv_ctrl, 'a')<CR>
 nnoremap <buffer> <silent> <C-N>   :call writefile(['\x0e'], g:dv_ctrl, 'a')<CR>
+nnoremap <buffer> <silent> f       :call DvToggleFold()<CR>
 
 autocmd VimLeave * call writefile(['vimleft'], g:dv_ctrl, 'a')
 VIMEOF
@@ -910,6 +946,7 @@ VIMEOF
     $content =~ s/SCROLL_PLACEHOLDER/$scroll_mode/g;
     $content =~ s/SIGN_COLUMN_PLACEHOLDER/$sign_column/g;
     $content =~ s/GIT_BLAME_PLACEHOLDER/$git_blame/g;
+    $content =~ s/FOLD_ENABLED_PLACEHOLDER/$fold_unchanged ? 1 : 0/ge;
     open my $wfh, '>', $engine_vim or die;
     print $wfh $content;
     close $wfh;
@@ -1061,6 +1098,14 @@ sub _shell_quote {
 # ---------------------------------------------------------------------------
 sub send_ex {
     my ($cmd) = @_;
+    # Debug logging (#75)
+    if ($debug_mode) {
+        my $ts = sprintf("%.3f", Time::HiRes::time());
+        my $log_line = "[$ts] send_ex: :$cmd\n";
+        open my $logfh, '>>', '/tmp/diffvim-debug.log' or return;
+        print $logfh $log_line;
+        close $logfh;
+    }
     if ($use_remote && $target ne '') {
         # Use vim --remote-send instead of tmux send-keys (#2)
         system("vim", "--servername", $target, "--remote-send",
@@ -1282,6 +1327,17 @@ sub start_next_hunk {
 
     precompute_move($cur_l, $cur_c, $ml, $mc);
     $phase = 'moving';
+
+    # Fold unchanged regions (#56) — fold the region between the previous
+    # hunk end and this hunk start
+    if ($fold_unchanged && $hunk_idx > 0) {
+        my $prev_hunk = $hunks[$hunk_idx - 1];
+        my $fold_start = $prev_hunk->{target_line} + $prev_hunk->{deleted_count};
+        my $fold_end = $target_line - 1;
+        if ($fold_end > $fold_start) {
+            send_ex("call DvFoldRegion($fold_start, $fold_end)");
+        }
+    }
 }
 
 sub apply_hunk_instantly {
@@ -1659,6 +1715,22 @@ sub go_back {
 sub animate {
     sleep 0.5;
 
+    # Setup folding if enabled (#56)
+    if ($fold_unchanged) {
+        send_ex("call DvFoldSetup()");
+    }
+
+    # Apply theme (#59)
+    if ($theme ne '') {
+        my %themes = (
+            'dark'           => 'set background=dark | colorscheme default',
+            'light'          => 'set background=light | colorscheme default',
+            'high-contrast'  => 'hi DiffAdd ctermbg=2 guibg=#005500 | hi DiffDelete ctermbg=1 guibg=#550000 | hi DiffChange ctermbg=3 guibg=#555500',
+        );
+        my $theme_cmd = $themes{$theme} // $themes{'dark'};
+        send_ex($theme_cmd);
+    }
+
     # Show config
     my $config_msg = "diffvim config: tick=$config{tick_ms}ms type=$config{type_delay_ms}ms " .
                      "del=$config{delete_delay_ms}ms move=$config{move_min_ms}-$config{move_max_ms}ms " .
@@ -1667,9 +1739,11 @@ sub animate {
     $config_msg .= " scroll=$scroll_mode" if $scroll_mode ne 'none';
     $config_msg .= " max_hunk=$max_hunk_chars" if $max_hunk_chars > 0;
     $config_msg .= " max_word=$max_word_chars" if $max_word_chars > 0;
+    $config_msg .= " fold=on" if $fold_unchanged;
+    $config_msg .= " theme=$theme" if $theme ne '';
     send_ex("echo '$config_msg'");
 
-    send_ex("echo 'diffvim: Space=pause n=skip b=back q=quit +/-=speed | hunk 1/" . scalar(@hunks) . " | parser: $parser_used'");
+    send_ex("echo 'diffvim: Space=pause n=skip b=back q=quit +/-=speed f=fold | hunk 1/" . scalar(@hunks) . " | parser: $parser_used'");
 
     sleep 0.3;
 
