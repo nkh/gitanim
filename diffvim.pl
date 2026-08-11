@@ -113,6 +113,8 @@ my $diff_input     = '';
 my $semantic_cleanup = 0;
 my $parser_compare   = 0;
 my $diff_algorithm   = 'lcs';
+my $use_remote       = 0;
+my $indent_aware     = 0;
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -140,6 +142,8 @@ GetOptions(
     'semantic-cleanup' => \$semantic_cleanup,
     'parser-compare'   => \$parser_compare,
     'algorithm=s'      => \$diff_algorithm,
+    'remote'           => \$use_remote,
+    'indent-aware'     => \$indent_aware,
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -216,6 +220,8 @@ Options:
   --semantic-cleanup       Merge adjacent insert/delete pairs that cancel out
   --parser-compare         Run both parsers and report differences
   --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
+  --remote                 Use vim --remote-send instead of tmux (#2)
+  --indent-aware           Detect indent changes separately (#22)
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -919,6 +925,36 @@ sub setup_no_tmux {
          $old_file_arg);
 }
 
+# --remote mode (#2): use vim --remote-expr / --remote-send
+# Launches vim as a server, then communicates via --remote-send instead
+# of tmux send-keys. This is more reliable (no tmux race conditions).
+sub setup_remote {
+    my ($old_file_arg) = @_;
+    $old_file_arg //= $file_pairs[0][0];
+    write_engine();
+
+    my $servername = "diffvim-$$";
+
+    # Launch vim as a server in the background
+    my $vim_cmd = "vim -N -n -u NONE -T dumb --servername $servername" .
+                  " -c 'source $engine_vim'" .
+                  " -c \"let g:diffvim_new_file = '$file_pairs[0][1]'\"";
+    if ($output_file ne '') {
+        $vim_cmd .= " -c \"let g:diffvim.output_file = '$output_file'\"";
+    }
+    $vim_cmd .= " '$old_file_arg' &";
+
+    print "diffvim: launching vim server '$servername'...\n";
+    system($vim_cmd);
+
+    # Wait for the server to start
+    sleep 1;
+
+    # Set the target for send_ex to use --remote-send
+    $target = $servername;
+    $attached = 0;
+}
+
 sub _tmux {
     my ($cmd) = @_;
     my @args = _shell_split($cmd);
@@ -974,6 +1010,14 @@ sub _shell_quote {
 # ---------------------------------------------------------------------------
 sub send_ex {
     my ($cmd) = @_;
+    if ($use_remote && $target ne '') {
+        # Use vim --remote-send instead of tmux send-keys (#2)
+        system("vim", "--servername", $target, "--remote-send",
+               ":$cmd<CR>") == 0
+            or return;
+        Time::HiRes::sleep(0.005);
+        return;
+    }
     my $rc1 = system("tmux", "send-keys", "-l", "-t", $target, ":$cmd");
     return if $rc1 != 0;
     system("tmux", "send-keys", "-t", $target, "Enter");
@@ -1015,7 +1059,7 @@ sub query_vim {
 sub compute_diff {
     my ($old, $new) = @_;
     my $result;
-    my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup, algorithm => $diff_algorithm };
+    my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup, algorithm => $diff_algorithm, indent_aware => $indent_aware };
     if ($parser_name eq 'diff2html') {
         _which('diff2html') or die "Error: 'diff2html' not found in PATH\n" .
             "Install with: npm install -g diff2html-cli\n";
@@ -1731,6 +1775,14 @@ if (@file_pairs > 1) {
             print "diffvim: files are identical, nothing to animate.\n";
         }
         setup_no_tmux($old);
+        exit 0;
+    }
+
+    # Handle --remote mode (#2): use vim server
+    if ($use_remote) {
+        setup_remote($old);
+        animate();
+        cleanup();
         exit 0;
     }
 
