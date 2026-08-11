@@ -109,6 +109,7 @@ my $git_rev        = '';
 my $max_line_len   = _env_or('DIFFVIM_MAX_LINE_LEN', 10000);
 my $adaptive_timing= 0;
 my $word_diff_mode = 0;
+my $diff_input     = '';
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -132,6 +133,7 @@ GetOptions(
     'max-line-len=i'   => \$max_line_len,
     'adaptive-timing'  => \$adaptive_timing,
     'word-diff'        => \$word_diff_mode,
+    'diff=s'           => \$diff_input,
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -204,6 +206,7 @@ Options:
   --max-line-len N         Skip char-level diff for lines >N chars (default: 10000)
   --adaptive-timing        Auto-slow for complex hunks, speed up for simple ones
   --word-diff              Use word-level diff (groups changes by word)
+  --diff FILE              Animate a unified diff file (- for stdin)
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -233,8 +236,95 @@ USAGE
 # ---------------------------------------------------------------------------
 my @file_pairs;  # list of [old_file, new_file]
 
-# --git-rev: parse REV..REV syntax and animate each file's history
-if ($git_rev ne '') {
+# --diff: accept a unified diff file as input (#27)
+# Enables: git diff | diffvim.pl --diff -
+#          diffvim.pl --diff my.patch
+if ($diff_input ne '') {
+    # Read the diff content (from file or stdin)
+    my $diff_content;
+    if ($diff_input eq '-') {
+        local $/;
+        $diff_content = <STDIN>;
+    } else {
+        open my $fh, '<:raw', $diff_input or die "Error: cannot read '$diff_input': $!\n";
+        local $/;
+        $diff_content = <$fh>;
+        close $fh;
+    }
+
+    # Parse the unified diff and extract file pairs
+    # Each hunk has --- old_file and +++ new_file headers
+    my @diff_lines = split /\n/, $diff_content;
+
+    # Group by file: find all --- / +++ pairs
+    # Match both git-style (a/file, b/file) and plain diff (file1, file2)
+    my @file_hunks;
+    my $cur_old = '';
+    my $cur_new = '';
+    my $cur_lines = [];
+    for my $line (@diff_lines) {
+        if ($line =~ /^--- (.+)$/) {
+            # Save previous file if any
+            if ($cur_old ne '' && $cur_new ne '') {
+                push @file_hunks, [$cur_old, $cur_new, $cur_lines];
+            }
+            my $path = $1;
+            $path =~ s/^[ab]\///;  # Strip a/ or b/ prefix
+            $path =~ s/\s+\d{4}.*$//;  # Strip timestamp
+            $path =~ s/^\s+//;  # Strip leading whitespace
+            $cur_old = $path;
+            $cur_new = '';
+            $cur_lines = [];
+        } elsif ($line =~ /^\+\+\+ (.+)$/) {
+            my $path = $1;
+            $path =~ s/^[ab]\///;
+            $path =~ s/\s+\d{4}.*$//;
+            $path =~ s/^\s+//;
+            $cur_new = $path;
+        } elsif ($line =~ /^@@ /) {
+            push @$cur_lines, $line;
+        }
+    }
+    # Save last file
+    if ($cur_old ne '' && $cur_new ne '') {
+        push @file_hunks, [$cur_old, $cur_new, $cur_lines];
+    }
+
+    @file_hunks or die "Error: no file pairs found in diff input\n";
+
+    # For each file pair in the diff, we need the old and new versions.
+    # If it's a git diff, we can extract them from git.
+    # Otherwise, we look for the files on disk (old file is the current file,
+    # new file is reconstructed by applying the patch).
+    for my $fh_data (@file_hunks) {
+        my ($old_path, $new_path, $hunk_lines) = @$fh_data;
+
+        # Try to get old version from git
+        my $diff_tmpdir = File::Temp::tempdir(CLEANUP => 1);
+        my $old_tmp = "$diff_tmpdir/diff_old_" . scalar(@file_pairs);
+        my $new_tmp = "$diff_tmpdir/diff_new_" . scalar(@file_pairs);
+
+        if (_which('git') && -d '.git') {
+            # Git repo: extract old version from git show
+            my $git_old = `git show HEAD:"$old_path" 2>/dev/null`;
+            if ($? == 0) {
+                open my $ofh, '>:raw', $old_tmp or die;
+                print $ofh $git_old;
+                close $ofh;
+                # New version is the working copy (or apply patch)
+                push @file_pairs, [$old_tmp, _abs_path($new_path)];
+                next;
+            }
+        }
+
+        # Non-git: the old file should exist on disk
+        if (-f $old_path) {
+            push @file_pairs, [_abs_path($old_path), _abs_path($new_path)];
+        } else {
+            warn "Warning: cannot find '$old_path' on disk. Skipping.\n";
+        }
+    }
+} elsif ($git_rev ne '') {
     _which('git') or die "Error: 'git' not found in PATH\n";
     if ($git_rev =~ /^(\S+)\.\.(\S+)$/) {
         $replay_from = $1;
@@ -274,7 +364,7 @@ if ($replay_mode) {
             die "Error: '$arg' is not in old:new format\n";
         }
     }
-} else {
+} elsif (!$multi_mode && !$replay_mode && $git_rev eq '' && @file_pairs == 0) {
     # Single pair: oldfile newfile
     @ARGV == 2 or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
     @file_pairs = ([_abs_path($ARGV[0]), _abs_path($ARGV[1])]);
