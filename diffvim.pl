@@ -111,6 +111,7 @@ my $adaptive_timing= 0;
 my $word_diff_mode = 0;
 my $diff_input     = '';
 my $semantic_cleanup = 0;
+my $parser_compare   = 0;
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -136,6 +137,7 @@ GetOptions(
     'word-diff'        => \$word_diff_mode,
     'diff=s'           => \$diff_input,
     'semantic-cleanup' => \$semantic_cleanup,
+    'parser-compare'   => \$parser_compare,
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -210,6 +212,7 @@ Options:
   --word-diff              Use word-level diff (groups changes by word)
   --diff FILE              Animate a unified diff file (- for stdin)
   --semantic-cleanup       Merge adjacent insert/delete pairs that cancel out
+  --parser-compare         Run both parsers and report differences
   --version, -V            Print version and dependency info
   --help, -h               Show this help
 
@@ -425,6 +428,68 @@ for my $pair (@file_pairs) {
 # Forward-declare variables used by compute_diff and the dry-run block
 my @hunks;
 my $parser_used = '';
+
+# --parser-compare: run both parsers and report differences (#30)
+if ($parser_compare) {
+    _which('diff2html') or die "Error: --parser-compare requires 'diff2html' in PATH\n" .
+        "Install with: npm install -g diff2html-cli\n";
+    my $mismatches = 0;
+    for my $pair (@file_pairs) {
+        my ($old, $new) = @$pair;
+        print "=== Comparing parsers: $old -> $new ===\n";
+        my $r_perl = DiffVim::Parser::Perl::parse_diff($old, $new);
+        my $r_d2h  = DiffVim::Parser::Diff2Html::parse_diff($old, $new);
+
+        my @h_perl = @{$r_perl->{hunks}};
+        my @h_d2h  = @{$r_d2h->{hunks}};
+
+        if (scalar(@h_perl) != scalar(@h_d2h)) {
+            print "  MISMATCH: hunk count differs (perl=" . scalar(@h_perl) .
+                  ", diff2html=" . scalar(@h_d2h) . ")\n";
+            $mismatches++;
+            next;
+        }
+
+        for my $i (0 .. $#h_perl) {
+            my $hp = $h_perl[$i];
+            my $hd = $h_d2h[$i];
+            if ($hp->{target_line} != $hd->{target_line}) {
+                print "  MISMATCH hunk $i: target_line (perl=$hp->{target_line}, d2h=$hd->{target_line})\n";
+                $mismatches++;
+            }
+            if ($hp->{deleted_count} != $hd->{deleted_count}) {
+                print "  MISMATCH hunk $i: deleted_count (perl=$hp->{deleted_count}, d2h=$hd->{deleted_count})\n";
+                $mismatches++;
+            }
+            if ($hp->{inserted_count} != $hd->{inserted_count}) {
+                print "  MISMATCH hunk $i: inserted_count (perl=$hp->{inserted_count}, d2h=$hd->{inserted_count})\n";
+                $mismatches++;
+            }
+            # Compare char_ops
+            my @ops_p = @{$hp->{char_ops}};
+            my @ops_d = @{$hd->{char_ops}};
+            if (scalar(@ops_p) != scalar(@ops_d)) {
+                print "  MISMATCH hunk $i: char_ops count (perl=" . scalar(@ops_p) .
+                      ", d2h=" . scalar(@ops_d) . ")\n";
+                $mismatches++;
+            } else {
+                for my $j (0 .. $#ops_p) {
+                    if ($ops_p[$j]{op} ne $ops_d[$j]{op} || $ops_p[$j]{code} != $ops_d[$j]{code}) {
+                        print "  MISMATCH hunk $i op $j: perl=$ops_p[$j]{op}($ops_p[$j]{code})" .
+                              " d2h=$ops_d[$j]{op}($ops_d[$j]{code})\n";
+                        $mismatches++;
+                        last;
+                    }
+                }
+            }
+        }
+        if ($mismatches == 0) {
+            print "  OK: " . scalar(@h_perl) . " hunk(s) match\n";
+        }
+    }
+    print "\n=== Parser comparison: $mismatches mismatch(es) found ===\n";
+    exit($mismatches == 0 ? 0 : 1);
+}
 
 # --dry-run: compute and print diff ops without launching vim (#9)
 if ($dry_run) {
