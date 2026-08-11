@@ -705,7 +705,7 @@ sub setup_tmux {
     $old_file_arg //= $file_pairs[0][0];
     write_engine();
 
-    my $vim_cmd = "vim -N -n -u NONE -c 'source $engine_vim' '$old_file_arg'";
+    my $vim_cmd = "vim -N -n -u NONE -T dumb -c 'source $engine_vim' '$old_file_arg'";
 
     if ($ENV{TMUX}) {
         $attached = 1;
@@ -752,7 +752,7 @@ sub setup_no_tmux {
 
     print "diffvim: launching vim directly (no tmux)...\n";
     print "Controls: Space=pause n=skip b=back q=quit +/-=speed u=undo Ctrl-r=redo ?=help\n";
-    exec("vim", "-N", "-n", "-u", "NONE",
+    exec("vim", "-N", "-n", "-u", "NONE", "-T", "dumb",
          "-c", "source $engine_vim",
          "-c", "let g:diffvim_new_file = '$file_pairs[0][1]'$extra_cmd",
          $old_file_arg);

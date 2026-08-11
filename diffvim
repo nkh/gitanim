@@ -1319,6 +1319,6 @@ augroup diffvim
 augroup END
 __DIFFVIM_VIMSCRIPT_EOF__
 
-exec vim -f "$OLD" \
+exec vim -f -n -T dumb "$OLD" \
     -c "let g:diffvim_new_file = '$NEW'" \
     -c "source $VIMSCRIPT"
