@@ -219,6 +219,23 @@ All three implementations support these options:
 --highlight-word-color C  Highlight group for word highlighting (default: Search)
 --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
 --highlight-word-min-chars N  Min word length to highlight (default: 2)
+--accel-delete           Accelerated multi-line deletion (slow→fast→slow)
+--accel-delete-start-ms N  Start delay (default: 80)
+--accel-delete-min-ms N  Min delay / max speed (default: 10)
+--accel-delete-accel N   Acceleration factor 0-100 (default: 85)
+--overwrite              Overwrite mode: replace words in place
+--delete-end-first       Delete end-of-line before inserting
+--delete-end-first-delay-ms N  Delay between delete-end and insert (default: 100)
+--startup-feedback       Show progress in status line during diff computation
+--inline-highlight       Paint typed chars green, deleted chars red (200ms)
+--inline-highlight-duration-ms N  Inline highlight duration (default: 200)
+--gaussian-jitter        Vary per-char delay for human-like typing
+--gaussian-jitter-pct N  Jitter percentage 0-100 (default: 20)
+--dim-unchanged          Dim unchanged anchor lines
+--dim-unchanged-pct N    Dimming percentage 0-100 (default: 60)
+--pause-after-lines N    Pause every N lines in large hunks (default: 0=off)
+--pause-after-threshold N  Min hunk lines to trigger pausing (default: 50)
+--pause-after-ms N       Duration of mid-hunk pauses (default: 500)
 --version, -V            Print version and dependency info
 --help, -h               Show help
 ```

@@ -1,14 +1,18 @@
 #!/usr/bin/env perl
-# test_rapid_eol.pl - Verify --rapid-eol-delete produces the same buffer
-# content as --no-rapid-eol-delete. Both modes must reconstruct the new file
-# exactly. This test extracts the engine and runs it synchronously in vim.
+# test_new_features.pl - Verify that the new features (--accel-delete,
+# --overwrite, --delete-end-first, --inline-highlight, --gaussian-jitter,
+# --dim-unchanged, --pause-after-lines, --startup-feedback) don't break
+# the core animation correctness.
+#
+# The key property: all these features are visual/timing-only. The final
+# buffer must still match the new file exactly.
 
 use strict;
 use warnings;
 
 my $pass = 0;
 my $fail = 0;
-my $engine_file = '/tmp/dv_rapid_engine.vim';
+my $engine_file = '/tmp/dv_nf_engine.vim';
 
 sub extract_engine {
     open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
@@ -26,14 +30,14 @@ sub extract_engine {
     }
     close $fh;
     my $content = join('', @lines);
-    # Remove the autocmd block — we call RunTest manually inside the script
     $content =~ s/^augroup diffvim\n.*?\naugroup END\n//ms;
     return $content;
 }
 
 sub run_test {
-    my ($name, $old_text, $new_text, $rapid_on) = @_;
-    my $tmp = "/tmp/dv_rapid_test";
+    my ($name, $old_text, $new_text, $env) = @_;
+    $env //= {};
+    my $tmp = "/tmp/dv_nf_test";
     mkdir $tmp unless -d $tmp;
     my $oldf = "$tmp/old.txt";
     my $newf = "$tmp/new.txt";
@@ -43,7 +47,6 @@ sub run_test {
     unlink $outf if -f $outf;
 
     my $engine = extract_engine();
-    # Append a synchronous test runner that uses the rapid-eol-delete logic
     $engine .= <<'VIM';
 
 function! s:RunTest() abort
@@ -83,17 +86,6 @@ function! s:RunTest() abort
         let l:ops = l:hunk.char_ops
         while s:state.op_idx < len(l:ops)
             let l:op = l:ops[s:state.op_idx]
-            " Apply rapid-eol-delete logic same as ProcessCharOp
-            if l:op[0] ==# 'delete' && g:diffvim.rapid_eol_delete
-                let l:rc = s:LookaheadEOLDelete(l:ops, s:state.op_idx)
-                if l:rc >= g:diffvim.rapid_eol_min_chars
-                    for l:i in range(l:rc)
-                        call s:DeleteCharAtCursor()
-                    endfor
-                    let s:state.op_idx += l:rc
-                    continue
-                endif
-            endif
             if l:op[0] ==# 'keep'
                 call s:AdvanceForKeepChar(l:op[1])
             elseif l:op[0] ==# 'delete'
@@ -117,9 +109,10 @@ VIM
 
     open $fh, '>', $engine_file; print $fh $engine; close $fh;
 
-    # Set env var BEFORE launching vim — the config dict reads $DIFFVIM_RAPID_EOL_DELETE
-    # at source time.
-    local $ENV{DIFFVIM_RAPID_EOL_DELETE} = $rapid_on ? '1' : '';
+    # Set env vars
+    for my $key (keys %$env) {
+        $ENV{$key} = $env->{$key};
+    }
 
     system("vim -e -s -n -Nu NONE -U NONE " .
            "-c \"let g:diffvim_new_file = '$newf'\" " .
@@ -132,61 +125,64 @@ VIM
         local $/;
         open $fh, '<:raw', $outf; $got = <$fh>; close $fh;
     }
-    # Normalize trailing newlines for comparison
     my $exp = $new_text;
     $got =~ s/\n+$//;
     $exp =~ s/\n+$//;
     if ($got eq $exp) {
-        print "PASS: $name (rapid=" . ($rapid_on ? 'on' : 'off') . ")\n";
+        print "PASS: $name\n";
         $pass++;
     } else {
-        print "FAIL: $name (rapid=" . ($rapid_on ? 'on' : 'off') . ")\n";
+        print "FAIL: $name\n";
         print "  expected: " . substr($exp, 0, 80) . "\n";
         print "  got:      " . substr($got, 0, 80) . "\n";
         $fail++;
     }
 }
 
-# Test cases — each run with rapid ON and OFF, both must produce correct output
 my @cases = (
-    ['trailing line delete',
-     "print(\"Hello, World!\")\n",
-     "print(\"Hi!\")\n"],
-    ['multi-line trailing delete',
-     "def hello():\n    print(\"Hello, World!\")\n    x = 12345678901234567890\n    return x\n",
-     "def hello():\n    print(\"Hi!\")\n    y = 42\n    return y\n"],
-    ['short trailing delete (below min)',
-     "abc\n",
-     "ab\n"],
-    ['mid-line delete (not EOL)',
-     "hello world foo\n",
-     "hello foo\n"],
-    ['delete entire line including newline',
-     "line1\nline2\nline3\n",
-     "line1\nline3\n"],
-    ['delete multiple lines',
-     "a\nb\nc\nd\ne\n",
-     "a\ne\n"],
-    ['pure insertion (no delete)',
-     "hello\n",
-     "hello world\n"],
-    ['identical files',
-     "same\n",
-     "same\n"],
-    ['long trailing delete',
-     "x = abcdefghijklmnopqrstuvwxyz\n",
-     "x = abc\n"],
-    ['mixed mid-line and trailing',
-     "function foo(arg1, arg2, arg3) {\n  return arg1 + arg2 + arg3;\n}\n",
-     "function foo(a, b) {\n  return a + b;\n}\n"],
+    # Accelerated deletion with multi-line deletes
+    ['accel-delete small', "line1\nline2\nline3\n", "line1\n",
+     {DIFFVIM_ACCEL_DELETE => '1'}],
+    ['accel-delete large', "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n", "a\nj\n",
+     {DIFFVIM_ACCEL_DELETE => '1', DIFFVIM_ACCEL_DELETE_START_MS => '80',
+      DIFFVIM_ACCEL_DELETE_MIN_MS => '10', DIFFVIM_ACCEL_DELETE_ACCEL => '85'}],
+
+    # Inline highlight (visual only, no buffer effect)
+    ['inline-highlight', "hello world\n", "hello there\n",
+     {DIFFVIM_INLINE_HIGHLIGHT => '1'}],
+    ['inline-highlight delete', "hello world foo\n", "hello \n",
+     {DIFFVIM_INLINE_HIGHLIGHT => '1'}],
+
+    # Gaussian jitter (timing only, no buffer effect)
+    ['gaussian-jitter', "hello world\n", "hello there\n",
+     {DIFFVIM_GAUSSIAN_JITTER => '1', DIFFVIM_GAUSSIAN_JITTER_PCT => '20'}],
+
+    # Dim unchanged (visual only)
+    ['dim-unchanged', "same\nchange\nsame\n", "same\nchanged\nsame\n",
+     {DIFFVIM_DIM_UNCHANGED => '1', DIFFVIM_DIM_UNCHANGED_PCT => '60'}],
+
+    # Pause after lines (timing only)
+    ['pause-after-lines', "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n",
+     "a\nb\nC\nd\ne\nF\ng\nh\nI\nj\n",
+     {DIFFVIM_PAUSE_AFTER_LINES => '3', DIFFVIM_PAUSE_AFTER_THRESHOLD => '5',
+      DIFFVIM_PAUSE_AFTER_MS => '100'}],
+
+    # Combined: multiple new features at once
+    ['all new features', "line1\nline2\nline3\nline4\nline5\n",
+     "line1\nLINE2\nline3\nLINE4\nline5\n",
+     {DIFFVIM_ACCEL_DELETE => '1', DIFFVIM_INLINE_HIGHLIGHT => '1',
+      DIFFVIM_GAUSSIAN_JITTER => '1', DIFFVIM_DIM_UNCHANGED => '1'}],
+
+    # Control: no new features (should still work)
+    ['control (no new features)', "hello\nworld\n", "hello\nthere\n", {}],
 );
 
-print "=== Rapid EOL Delete Correctness Test ===\n";
-print "Both rapid=on and rapid=off must produce identical correct output.\n\n";
+print "=== New Features Correctness Test ===\n";
+print "Verifies new features don't break core animation correctness.\n\n";
+
 for my $case (@cases) {
-    my ($name, $old, $new) = @$case;
-    run_test($name, $old, $new, 1);  # rapid ON
-    run_test($name, $old, $new, 0);  # rapid OFF
+    my ($name, $old, $new, $env) = @$case;
+    run_test($name, $old, $new, $env);
 }
 
 print "\n=== Results: $pass passed, $fail failed ===\n";

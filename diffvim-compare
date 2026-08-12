@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# diffvim-compare — Generate diffs with all combinations of algorithms and
+# options, then compare them to find the most efficient and readable
+# combinations.
+#
+# Usage:
+#   diffvim-compare <oldfile> <newfile> [output_dir]
+#   diffvim-compare examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py
+#
+# Generates a matrix of precomputed diff files using every combination of:
+#   - Algorithm: lcs, myers, patience
+#   - Word diff: on, off
+#   - Semantic cleanup: on, off
+#   - Indent aware: on, off
+#
+# Then prints a comparison table showing:
+#   - Number of hunks
+#   - Number of char ops
+#   - Number of delete ops
+#   - Number of insert ops
+#   - Compute time
+#   - Total ops (lower = more efficient)
+#
+# The output helps you pick the best combination for your use case.
+
+set -euo pipefail
+
+OLD="${1:?Usage: $0 <oldfile> <newfile> [output_dir]}"
+NEW="${2:?Usage: $0 <oldfile> <newfile> [output_dir]}"
+OUTDIR="${3:-/tmp/diffvim-compare}"
+
+mkdir -p "$OUTDIR"
+
+COMPUTE="compute/bin/diffvim-compute-c"
+if [[ ! -f "$COMPUTE" ]]; then
+    echo "Error: $COMPUTE not found. Run 'make -C compute' first." >&2
+    exit 1
+fi
+
+ALGORITHMS="lcs myers patience"
+OPTIONS=("" "--word-diff" "--semantic-cleanup" "--indent-aware"
+         "--word-diff --semantic-cleanup"
+         "--word-diff --indent-aware"
+         "--semantic-cleanup --indent-aware"
+         "--word-diff --semantic-cleanup --indent-aware")
+
+echo "=== diffvim-compare: generating diff matrix ==="
+echo "Old: $OLD"
+echo "New: $NEW"
+echo "Output: $OUTDIR"
+echo ""
+
+# Generate all combinations
+for alg in $ALGORITHMS; do
+    for opt in "${OPTIONS[@]}"; do
+        # Create a filename from the options
+        opt_name=$(echo "$opt" | tr ' ' '-' | tr -d ' ')
+        [[ -z "$opt_name" ]] && opt_name="default"
+        outfile="$OUTDIR/${alg}-${opt_name}.diff"
+
+        # Compute
+        timing=$("$COMPUTE" --algorithm "$alg" $opt "$OLD" "$NEW" "$outfile" 2>&1 | grep "^compute:" | sed 's/compute: //')
+
+        # Analyze
+        hunks=$(grep -c "^HUNK" "$outfile" 2>/dev/null || echo 0)
+        total_ops=$(grep -cE "^(keep|delete|insert)" "$outfile" 2>/dev/null || echo 0)
+        del_ops=$(grep -c "^delete" "$outfile" 2>/dev/null || echo 0)
+        ins_ops=$(grep -c "^insert" "$outfile" 2>/dev/null || echo 0)
+        keep_ops=$(grep -c "^keep" "$outfile" 2>/dev/null || echo 0)
+        changed_ops=$((del_ops + ins_ops))
+
+        # Print row
+        printf "%-10s %-40s  hunks=%-4s ops=%-6s changed=%-6s (del=%-5s ins=%-5s)  %s\n" \
+            "$alg" "$opt_name" "$hunks" "$total_ops" "$changed_ops" "$del_ops" "$ins_ops" "$timing"
+    done
+done
+
+echo ""
+echo "=== Analysis ==="
+echo "Lower 'changed' = more efficient (fewer insert/delete ops for the viewer)."
+echo "Lower 'ops' = shorter animation."
+echo "Fewer 'hunks' = more coherent changes (less cursor movement)."
+echo ""
+echo "Files saved in: $OUTDIR"
+echo "Compare specific files with: diff $OUTDIR/lcs-default.diff $OUTDIR/myers-default.diff"

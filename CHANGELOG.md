@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] — 2026-08-13
+
+### Added — 10 new features
+
+#### Accelerated multi-line deletion (`--accel-delete`)
+When consecutive lines are deleted, the deletion starts slow, accelerates
+to a maximum speed, then decelerates near the end. Prevents large blocks
+from vanishing in a single shot. Triangle profile with configurable start
+delay, minimum delay (max speed), and acceleration factor.
+
+- `--accel-delete` — enable
+- `--accel-delete-start-ms N` (default 80) — initial delay per char
+- `--accel-delete-min-ms N` (default 10) — minimum delay (max speed)
+- `--accel-delete-accel N` (default 85) — acceleration factor 0-100
+
+Good values for block sizes 2-100 lines: start=80ms, min=10ms, accel=85.
+
+#### Overwrite mode (`--overwrite`)
+When a word is deleted and a new word takes its place, the replacement is
+done in-place (overwrite) instead of delete-all-then-insert-all. If the
+replacement is shorter, overwrites then deletes the extra chars. If same
+length, pure overwrite. If longer, overwrites then inserts the remainder.
+
+#### Delete-end-first (`--delete-end-first`)
+When a line has both inserts and end-of-line deletes, the end-of-line is
+deleted first (with a short pause), then the inserts are applied. More
+natural than "insert, then delete end".
+
+- `--delete-end-first-delay-ms N` (default 100) — pause between delete and insert
+
+#### Startup feedback (`--startup-feedback`)
+Shows progress in the status line during diff computation ("computing
+diff...", "N hunk(s) found"). Useful for large files where computation
+takes seconds.
+
+#### Inline char highlight (`--inline-highlight`)
+Paints each freshly-typed char green (`DiffAdd`) and each freshly-deleted
+char red (`DiffDelete`) for 200ms using `matchaddpos()`. Lets the eye
+lock onto the exact change even on long lines.
+
+- `--inline-highlight-duration-ms N` (default 200)
+
+#### Gaussian jitter (`--gaussian-jitter`)
+Varies per-char delay using a triangular distribution (approximation of
+Gaussian) so typing feels human, not metronomic.
+
+- `--gaussian-jitter-pct N` (default 20) — jitter percentage 0-100
+
+#### Dim unchanged lines (`--dim-unchanged`)
+Dims unchanged anchor lines (using a `diffvimDimUnchanged` highlight group)
+so the eye is drawn to changed lines. Configurable dimming percentage.
+
+- `--dim-unchanged-pct N` (default 60) — higher = more dim
+
+#### Pause-after-N-lines (`--pause-after-lines`)
+Auto-pauses every N lines in hunks larger than a threshold. Prevents the
+viewer from losing context in very large hunks.
+
+- `--pause-after-lines N` (default 0 = off)
+- `--pause-after-threshold N` (default 50) — min hunk size to trigger
+- `--pause-after-ms N` (default 500) — pause duration
+
+### Added — 10 large example file pairs (200-1000 lines)
+- `33_large_python` (208→393 lines) — Flask app refactor
+- `34_large_javascript` (352→354) — React class → hooks
+- `35_large_perl` (374→491) — Procedural → Moose OO
+- `36_large_rust` (437→554) — Manual args → clap derive
+- `37_large_go` (392→594) — Single handler → middleware chain
+- `38_large_java` (518→604) — synchronized → CompletableFuture
+- `39_large_typescript` (463→479) — any/callbacks → generics/async
+- `40_large_csharp` (699→816) — God class → ECS pattern
+- `41_large_ruby` (652→858) — Fat controller → service objects
+- `42_large_huge_python` (1016→1221) — Monolith → typed classes
+
+### Added — Documentation
+- `docs/MULTI_FILE.md` — multi-file animation + external tools for multi-file
+- `compute/PARALLELISM.md` — parallelism analysis + C OpenMP plan
+- `docs/DIFF_STUDY.md` — human reading behavior research + recommended combos
+- `diffvim-compare` — tool to generate all algorithm×option combinations
+
+### Tests
+- `tests/test_new_features.pl` (9 assertions) — new features correctness
+- `tests/test_overwrite_deletefirst.pl` (8 assertions) — overwrite + delete-end-first
+- All 160+ assertions across all test suites pass.
+
+---
+
 ## [1.4.1] — 2026-08-12
 
 ### Added — `--highlight-word` option

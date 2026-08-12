@@ -1,14 +1,14 @@
 #!/usr/bin/env perl
-# test_rapid_eol.pl - Verify --rapid-eol-delete produces the same buffer
-# content as --no-rapid-eol-delete. Both modes must reconstruct the new file
-# exactly. This test extracts the engine and runs it synchronously in vim.
+# test_overwrite_deletefirst.pl - Verify --overwrite and --delete-end-first
+# produce correct output. These transform char_ops but the final buffer
+# must still match the new file.
 
 use strict;
 use warnings;
 
 my $pass = 0;
 my $fail = 0;
-my $engine_file = '/tmp/dv_rapid_engine.vim';
+my $engine_file = '/tmp/dv_od_engine.vim';
 
 sub extract_engine {
     open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
@@ -26,14 +26,14 @@ sub extract_engine {
     }
     close $fh;
     my $content = join('', @lines);
-    # Remove the autocmd block — we call RunTest manually inside the script
     $content =~ s/^augroup diffvim\n.*?\naugroup END\n//ms;
     return $content;
 }
 
 sub run_test {
-    my ($name, $old_text, $new_text, $rapid_on) = @_;
-    my $tmp = "/tmp/dv_rapid_test";
+    my ($name, $old_text, $new_text, $env) = @_;
+    $env //= {};
+    my $tmp = "/tmp/dv_od_test";
     mkdir $tmp unless -d $tmp;
     my $oldf = "$tmp/old.txt";
     my $newf = "$tmp/new.txt";
@@ -43,7 +43,6 @@ sub run_test {
     unlink $outf if -f $outf;
 
     my $engine = extract_engine();
-    # Append a synchronous test runner that uses the rapid-eol-delete logic
     $engine .= <<'VIM';
 
 function! s:RunTest() abort
@@ -83,23 +82,14 @@ function! s:RunTest() abort
         let l:ops = l:hunk.char_ops
         while s:state.op_idx < len(l:ops)
             let l:op = l:ops[s:state.op_idx]
-            " Apply rapid-eol-delete logic same as ProcessCharOp
-            if l:op[0] ==# 'delete' && g:diffvim.rapid_eol_delete
-                let l:rc = s:LookaheadEOLDelete(l:ops, s:state.op_idx)
-                if l:rc >= g:diffvim.rapid_eol_min_chars
-                    for l:i in range(l:rc)
-                        call s:DeleteCharAtCursor()
-                    endfor
-                    let s:state.op_idx += l:rc
-                    continue
-                endif
-            endif
             if l:op[0] ==# 'keep'
                 call s:AdvanceForKeepChar(l:op[1])
             elseif l:op[0] ==# 'delete'
                 call s:DeleteCharAtCursor()
             elseif l:op[0] ==# 'insert'
                 call s:InsertCharAtCursor(l:op[1])
+            elseif l:op[0] ==# 'pause_end_first'
+                " Just a delay, no buffer change
             endif
             let s:state.op_idx += 1
         endwhile
@@ -117,9 +107,9 @@ VIM
 
     open $fh, '>', $engine_file; print $fh $engine; close $fh;
 
-    # Set env var BEFORE launching vim — the config dict reads $DIFFVIM_RAPID_EOL_DELETE
-    # at source time.
-    local $ENV{DIFFVIM_RAPID_EOL_DELETE} = $rapid_on ? '1' : '';
+    for my $key (keys %$env) {
+        $ENV{$key} = $env->{$key};
+    }
 
     system("vim -e -s -n -Nu NONE -U NONE " .
            "-c \"let g:diffvim_new_file = '$newf'\" " .
@@ -132,61 +122,53 @@ VIM
         local $/;
         open $fh, '<:raw', $outf; $got = <$fh>; close $fh;
     }
-    # Normalize trailing newlines for comparison
     my $exp = $new_text;
     $got =~ s/\n+$//;
     $exp =~ s/\n+$//;
     if ($got eq $exp) {
-        print "PASS: $name (rapid=" . ($rapid_on ? 'on' : 'off') . ")\n";
+        print "PASS: $name\n";
         $pass++;
     } else {
-        print "FAIL: $name (rapid=" . ($rapid_on ? 'on' : 'off') . ")\n";
+        print "FAIL: $name\n";
         print "  expected: " . substr($exp, 0, 80) . "\n";
         print "  got:      " . substr($got, 0, 80) . "\n";
         $fail++;
     }
 }
 
-# Test cases — each run with rapid ON and OFF, both must produce correct output
 my @cases = (
-    ['trailing line delete',
-     "print(\"Hello, World!\")\n",
-     "print(\"Hi!\")\n"],
-    ['multi-line trailing delete',
-     "def hello():\n    print(\"Hello, World!\")\n    x = 12345678901234567890\n    return x\n",
-     "def hello():\n    print(\"Hi!\")\n    y = 42\n    return y\n"],
-    ['short trailing delete (below min)',
-     "abc\n",
-     "ab\n"],
-    ['mid-line delete (not EOL)',
-     "hello world foo\n",
-     "hello foo\n"],
-    ['delete entire line including newline',
-     "line1\nline2\nline3\n",
-     "line1\nline3\n"],
-    ['delete multiple lines',
-     "a\nb\nc\nd\ne\n",
-     "a\ne\n"],
-    ['pure insertion (no delete)',
-     "hello\n",
-     "hello world\n"],
-    ['identical files',
-     "same\n",
-     "same\n"],
-    ['long trailing delete',
-     "x = abcdefghijklmnopqrstuvwxyz\n",
-     "x = abc\n"],
-    ['mixed mid-line and trailing',
-     "function foo(arg1, arg2, arg3) {\n  return arg1 + arg2 + arg3;\n}\n",
-     "function foo(a, b) {\n  return a + b;\n}\n"],
+    # Overwrite mode: word replace (same length)
+    ['overwrite same length', "hello world\n", "hello there\n",
+     {DIFFVIM_OVERWRITE_MODE => '1'}],
+    # Overwrite mode: replacement shorter
+    ['overwrite shorter', "hello world\n", "hello hi\n",
+     {DIFFVIM_OVERWRITE_MODE => '1'}],
+    # Overwrite mode: replacement longer
+    ['overwrite longer', "hello hi\n", "hello world\n",
+     {DIFFVIM_OVERWRITE_MODE => '1'}],
+    # Overwrite mode: multi-word
+    ['overwrite multi-word', "foo bar baz\n", "fox bat boz\n",
+     {DIFFVIM_OVERWRITE_MODE => '1'}],
+
+    # Delete-end-first
+    ['delete-end-first', "print(\"hello world\")\n", "print(\"hi\")\n",
+     {DIFFVIM_DELETE_END_FIRST => '1'}],
+    ['delete-end-first with insert', "x = old_value\n", "y = new_value extra\n",
+     {DIFFVIM_DELETE_END_FIRST => '1'}],
+
+    # Combined overwrite + delete-end-first
+    ['overwrite + delete-end-first', "print(\"hello world\")\n", "print(\"hi\")\n",
+     {DIFFVIM_OVERWRITE_MODE => '1', DIFFVIM_DELETE_END_FIRST => '1'}],
+
+    # Control
+    ['control', "hello\n", "there\n", {}],
 );
 
-print "=== Rapid EOL Delete Correctness Test ===\n";
-print "Both rapid=on and rapid=off must produce identical correct output.\n\n";
+print "=== Overwrite + Delete-End-First Test ===\n\n";
+
 for my $case (@cases) {
-    my ($name, $old, $new) = @$case;
-    run_test($name, $old, $new, 1);  # rapid ON
-    run_test($name, $old, $new, 0);  # rapid OFF
+    my ($name, $old, $new, $env) = @$case;
+    run_test($name, $old, $new, $env);
 }
 
 print "\n=== Results: $pass passed, $fail failed ===\n";
