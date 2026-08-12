@@ -1,6 +1,10 @@
 " diffvim.vim - animation engine, sourced by the diffvim bash launcher.
 " Expects g:diffvim_new_file to be set to the absolute path of the new file.
 
+" Ensure nocompatible mode — required for backslash line continuation.
+" The system vimrc (/etc/vim/vimrc) may set 'compatible' which breaks it.
+set nocp
+
 if !exists('g:diffvim_new_file')
     echoerr 'diffvim: g:diffvim_new_file not set'
     finish
@@ -52,6 +56,7 @@ let g:diffvim = extend({
     \ 'highlight_duration': !empty($DIFFVIM_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_DURATION_MS) : 1000,
     \ 'highlight_min_chars':!empty($DIFFVIM_HIGHLIGHT_MIN_CHARS)   ? str2nr($DIFFVIM_HIGHLIGHT_MIN_CHARS)  : 10,
     \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
+    \ 'fold_unchanged':     !empty($DIFFVIM_FOLD_UNCHANGED)   ? 1 : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
