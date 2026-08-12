@@ -80,6 +80,12 @@ DRY_RUN=0
 WORD_DIFF=0
 STEP_MODE=0
 ADAPTIVE_TIMING=0
+ADAPTIVE_MODE=0
+ADAPTIVE_START_DELAY_MS="${DIFFVIM_ADAPTIVE_START_MS:-80}"
+ADAPTIVE_MAX_DELAY_MS="${DIFFVIM_ADAPTIVE_MAX_MS:-30}"
+ADAPTIVE_ACCEL="${DIFFVIM_ADAPTIVE_ACCEL:-0.92}"
+ADAPTIVE_PAUSE_LINES="${DIFFVIM_ADAPTIVE_PAUSE_LINES:-15}"
+ADAPTIVE_PAUSE_MS="${DIFFVIM_ADAPTIVE_PAUSE_MS:-500}"
 NO_STARTUP_PAUSE=0
 SIGN_COLUMN=0
 GIT_BLAME=0
@@ -116,6 +122,12 @@ Options:
   --step-mode              Space advances one op at a time (starts paused)
   --no-startup-pause       Skip startup delay and messages, start immediately
   --language LANG          Set vim filetype for syntax highlighting (default: auto)
+  --adaptive               Adaptive speed mode (slow start, accelerate, pause at hunk end)
+  --adaptive-start-ms N    Initial delay per char in adaptive mode (default: 80)
+  --adaptive-max-ms N      Minimum delay (max speed) in adaptive mode (default: 30)
+  --adaptive-accel N       Acceleration factor 0-100, lower=faster accel (default: 92)
+  --adaptive-pause-lines N Pause every N lines in large hunks (default: 15)
+  --adaptive-pause-ms N    Duration of mid-hunk pauses (default: 500)
   --adaptive-timing        Slow down on complex regions (±10 op window)
   --sign-column            Show +/- signs in the sign column during animation
   --git-blame              Echo git blame for the target line of each hunk
@@ -167,6 +179,12 @@ while [[ $# -gt 0 ]]; do
         --step-mode)     STEP_MODE=1; shift ;;
         --no-startup-pause) NO_STARTUP_PAUSE=1; shift ;;
         --language)       LANGUAGE="$2"; shift 2 ;;
+        --adaptive)       ADAPTIVE_MODE=1; shift ;;
+        --adaptive-start-ms) ADAPTIVE_START_DELAY_MS="$2"; shift 2 ;;
+        --adaptive-max-ms) ADAPTIVE_MAX_DELAY_MS="$2"; shift 2 ;;
+        --adaptive-accel) ADAPTIVE_ACCEL="$2"; shift 2 ;;
+        --adaptive-pause-lines) ADAPTIVE_PAUSE_LINES="$2"; shift 2 ;;
+        --adaptive-pause-ms) ADAPTIVE_PAUSE_MS="$2"; shift 2 ;;
         --adaptive-timing) ADAPTIVE_TIMING=1; shift ;;
         --sign-column)   SIGN_COLUMN=1; shift ;;
         --git-blame)     GIT_BLAME=1; shift ;;
@@ -235,6 +253,12 @@ export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_NO_STARTUP_PAUSE="$([[ $NO_STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_LANGUAGE="$LANGUAGE"
+export DIFFVIM_ADAPTIVE_MODE="$([[ $ADAPTIVE_MODE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ADAPTIVE_START_MS="$ADAPTIVE_START_DELAY_MS"
+export DIFFVIM_ADAPTIVE_MAX_MS="$ADAPTIVE_MAX_DELAY_MS"
+export DIFFVIM_ADAPTIVE_ACCEL="$ADAPTIVE_ACCEL"
+export DIFFVIM_ADAPTIVE_PAUSE_LINES="$ADAPTIVE_PAUSE_LINES"
+export DIFFVIM_ADAPTIVE_PAUSE_MS="$ADAPTIVE_PAUSE_MS"
 export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
@@ -429,6 +453,12 @@ let g:diffvim = extend({
     \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ 'fold_unchanged':     !empty($DIFFVIM_FOLD_UNCHANGED)   ? 1 : 0,
     \ 'no_startup_pause':   !empty($DIFFVIM_NO_STARTUP_PAUSE) ? 1 : 0,
+    \ 'adaptive_mode':     !empty($DIFFVIM_ADAPTIVE_MODE)   ? 1 : 0,
+    \ 'adaptive_start_ms': !empty($DIFFVIM_ADAPTIVE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_START_MS) : 80,
+    \ 'adaptive_max_ms':   !empty($DIFFVIM_ADAPTIVE_MAX_MS)   ? str2nr($DIFFVIM_ADAPTIVE_MAX_MS)   : 30,
+    \ 'adaptive_accel':    !empty($DIFFVIM_ADAPTIVE_ACCEL)    ? str2nr($DIFFVIM_ADAPTIVE_ACCEL) * 1.0 / 100.0 : 0.92,
+    \ 'adaptive_pause_lines': !empty($DIFFVIM_ADAPTIVE_PAUSE_LINES) ? str2nr($DIFFVIM_ADAPTIVE_PAUSE_LINES) : 15,
+    \ 'adaptive_pause_ms': !empty($DIFFVIM_ADAPTIVE_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_PAUSE_MS) : 500,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -458,6 +488,8 @@ let s:state = {
     \ 'line_offset':   0,
     \ 'active_timer':  -1,
     \ 'runtime_speed': 1.0,
+    \ 'adaptive_delay': 0,
+    \ 'adaptive_lines_done': 0,
     \ }
 
 " --- Diff: LCS at line level and char level -------------------------------
@@ -868,6 +900,10 @@ function! s:StartNextHunk() abort
     " Set cur_hunk NOW — needed by ApplyHunkInstantly and ProcessCharOp
     let s:state.cur_hunk = l:hunk
 
+    " Reset adaptive state for this hunk
+    let s:state.adaptive_delay = 0
+    let s:state.adaptive_lines_done = 0
+
     " Position cursor at the hunk target BEFORE any processing
     " (including max-hunk-chars instant apply)
     if l:hunk.is_end_insert && l:target_line > line('$')
@@ -1008,10 +1044,16 @@ endfunction
 function! s:ProcessCharOp() abort
     let l:hunk = s:state.cur_hunk
     if s:state.op_idx >= len(l:hunk.char_ops)
-        " Hunk finished.
+        " Hunk finished — in adaptive mode, pause at end of hunk
         let s:state.line_offset += (l:hunk.inserted_count - l:hunk.deleted_count)
         let s:state.hunk_idx += 1
         let s:state.phase = 'idle'
+        if g:diffvim.adaptive_mode
+            let s:state.paused = 1
+            echo 'diffvim: hunk complete — paused (Space=resume, n=next)'
+            call s:UpdateProgress()
+            return
+        endif
         call s:ScheduleNext(float2nr(g:diffvim.hunk_pause_ms / s:state.runtime_speed))
         return
     endif
@@ -1020,7 +1062,6 @@ function! s:ProcessCharOp() abort
     " --max-word-chars: if a contiguous sequence of modified (non-space)
     " characters is LONGER than max_word_chars, apply the whole sequence
     " in one shot with a pause, so the user can read the change.
-    " Sequences <= max_word_chars are animated character by character.
     if g:diffvim.max_word_chars > 0 && (l:op[0] ==# 'insert' || l:op[0] ==# 'delete')
         let l:word_len = s:LookaheadWordLength(l:hunk.char_ops, s:state.op_idx)
         if l:word_len > g:diffvim.max_word_chars
@@ -1035,11 +1076,28 @@ function! s:ProcessCharOp() abort
     if l:op[0] ==# 'keep'
         call s:AdvanceForKeepChar(l:op[1])
         redraw
-        let l:delay = 1   " skip keeps as fast as possible
+        let l:delay = 1
+
+        " --adaptive mode: count lines, pause periodically
+        if g:diffvim.adaptive_mode && l:op[1] ==# "\n"
+            let s:state.adaptive_lines_done += 1
+            if s:state.adaptive_lines_done >= g:diffvim.adaptive_pause_lines
+                let s:state.adaptive_lines_done = 0
+                let s:state.paused = 1
+                call s:UpdateProgress()
+                echo 'diffvim: adaptive pause — press Space to continue'
+                call s:ScheduleNext(g:diffvim.adaptive_pause_ms)
+                return
+            endif
+        endif
     elseif l:op[0] ==# 'delete'
         call s:DeleteCharAtCursor()
         redraw
-        let l:delay = float2nr(g:diffvim.delete_delay_ms / s:state.runtime_speed)
+        if g:diffvim.adaptive_mode
+            let l:delay = float2nr(s:state.adaptive_delay)
+        else
+            let l:delay = float2nr(g:diffvim.delete_delay_ms / s:state.runtime_speed)
+        endif
         if g:diffvim.adaptive_timing
             let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
             let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
@@ -1050,7 +1108,11 @@ function! s:ProcessCharOp() abort
     elseif l:op[0] ==# 'insert'
         call s:InsertCharAtCursor(l:op[1])
         redraw
-        let l:delay = float2nr(g:diffvim.type_delay_ms / s:state.runtime_speed)
+        if g:diffvim.adaptive_mode
+            let l:delay = float2nr(s:state.adaptive_delay)
+        else
+            let l:delay = float2nr(g:diffvim.type_delay_ms / s:state.runtime_speed)
+        endif
         if g:diffvim.adaptive_timing
             let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
             let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
@@ -1059,6 +1121,19 @@ function! s:ProcessCharOp() abort
             call s:PlaceSign('dv_add', s:cur_l)
         endif
     endif
+
+    " --adaptive mode: accelerate (decrease delay) after each op
+    if g:diffvim.adaptive_mode && l:op[0] !=# 'keep'
+        if s:state.adaptive_delay <= 0
+            let s:state.adaptive_delay = g:diffvim.adaptive_start_ms
+        else
+            let s:state.adaptive_delay = s:state.adaptive_delay * g:diffvim.adaptive_accel
+            if s:state.adaptive_delay < g:diffvim.adaptive_max_ms
+                let s:state.adaptive_delay = g:diffvim.adaptive_max_ms
+            endif
+        endif
+    endif
+
     let s:state.op_idx += 1
     call s:ScheduleNext(l:delay)
 endfunction
@@ -1225,23 +1300,42 @@ function! s:SkipCurrent() abort
         return
     endif
     call s:StopTimer()
-    let s:state.paused = 0
+
+    " If between hunks (idle), jump to the next hunk target and apply it
     if s:state.phase ==# 'idle'
-        " Between hunks: just immediately kick off the next.
-        call s:ScheduleNext(1)
-        echo 'diffvim: skip'
-        return
+        " Start the next hunk to position cursor and set cur_hunk
+        let l:hunk = s:state.hunks[s:state.hunk_idx]
+        let s:state.cur_hunk = l:hunk
+        let l:target_line = l:hunk.target_line_old + s:state.line_offset
+        if l:hunk.is_end_insert && l:target_line > line('$')
+            let s:cur_l = line('$') | let s:cur_c = len(getline(line('$'))) + 1
+        elseif l:hunk.is_end_delete
+            let l:prev = l:target_line - 1
+            if l:prev < 1 | let l:prev = 1 | endif
+            if l:prev > line('$') | let l:prev = line('$') | endif
+            let s:cur_l = l:prev | let s:cur_c = len(getline(l:prev)) + 1
+        else
+            let l:tl = l:target_line
+            if l:tl < 1 | let l:tl = 1 | endif
+            if l:tl > line('$') | let l:tl = line('$') | endif
+            let s:cur_l = l:tl | let s:cur_c = 1
+        endif
+        call s:PlaceCursor()
+        let s:state.op_idx = 0
+        let s:state.phase = 'typing'
     endif
+
+    " If moving, jump to end of move first
     if s:state.phase ==# 'moving'
-        " Jump straight to the move endpoint.
         let s:cur_l = s:state.move_end_l
         let s:cur_c = s:state.move_end_c
         call s:PlaceCursor()
         let s:state.phase = 'typing'
         let s:state.op_idx = 0
     endif
+
+    " Apply all remaining char_ops in this hunk instantly
     if s:state.phase ==# 'typing'
-        " Apply remaining char_ops instantly.
         let l:hunk = s:state.cur_hunk
         while s:state.op_idx < len(l:hunk.char_ops)
             let l:op = l:hunk.char_ops[s:state.op_idx]
@@ -1258,9 +1352,13 @@ function! s:SkipCurrent() abort
         let s:state.hunk_idx += 1
         let s:state.phase = 'idle'
     endif
+
     redraw
     call s:UpdateProgress()
-    call s:ScheduleNext(g:diffvim.hunk_pause_ms)
+
+    " PAUSE after applying — user must press Space or n to continue
+    let s:state.paused = 1
+    echo 'diffvim: hunk applied — paused (Space=resume, n=next hunk, b=back)'
 endfunction
 
 function! s:Back() abort
@@ -1391,21 +1489,13 @@ function! s:SetupSyntax() abort
         let l:lang = s:DetectFiletype(l:ext)
     endif
     if !empty(l:lang)
-        try
-            " Try 'runtime' first (uses runtimepath)
-            execute 'runtime syntax/' . l:lang . '.vim'
-        catch
-            " Fallback: try sourcing by full path from common locations
-            for l:rtp in ['/usr/share/vim/vim91', '/usr/share/vim/vim90',
-                        \ '/usr/share/vim/vim82', '/usr/share/vim/vim81',
-                        \ '/usr/local/share/vim/vim91', '/usr/local/share/vim/vim90']
-                let l:synfile = l:rtp . '/syntax/' . l:lang . '.vim'
-                if filereadable(l:synfile)
-                    execute 'source ' . l:synfile
-                    return
-                endif
-            endfor
-        endtry
+        " Set filetype — this triggers syntax highlighting automatically
+        " because 'syntax enable' was called in the mini vimrc.
+        " Using setfiletype avoids re-triggering the filetype autocommand
+        " group (which may not exist with -u NONE).
+        let &l:filetype = l:lang
+        " Also set syntax directly as a fallback
+        let &l:syntax = l:lang
     endif
 endfunction
 
@@ -1510,9 +1600,15 @@ for d in $(vim --version 2>/dev/null | grep -o '/usr/share/vim/vim[0-9]*' | head
     fi
 done
 
-exec vim -f -n -u NONE -U NONE \
-    --cmd "set nocp nomore noswapfile" \
-    ${VIM_RUNTIME:+--cmd "let &runtimepath = '$VIM_RUNTIME'"} \
+# Build a minimal vimrc that sets runtimepath and enables syntax
+MINI_VIMRC="$WORKDIR/minirc.vim"
+cat > "$MINI_VIMRC" <<MINIRC
+set nocp nomore noswapfile
+${VIM_RUNTIME:+let &runtimepath = '$VIM_RUNTIME'}
+syntax enable
+MINIRC
+
+exec vim -f -n -u "$MINI_VIMRC" -U NONE \
     "$OLD" \
     -c "let g:diffvim_new_file = '$NEW'" \
     -c "source $VIMSCRIPT"
