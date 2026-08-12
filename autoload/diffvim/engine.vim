@@ -1021,12 +1021,19 @@ function! s:SetupSyntax() abort
     endif
     if !empty(l:lang)
         try
-            " Source the syntax file directly instead of 'set syntax='
-            " which triggers filetype detection (fails with -u NONE).
-            " 'runtime syntax/foo.vim' loads the syntax definitions
-            " without the filetype autocommand machinery.
+            " Try 'runtime' first (uses runtimepath)
             execute 'runtime syntax/' . l:lang . '.vim'
         catch
+            " Fallback: try sourcing by full path from common locations
+            for l:rtp in ['/usr/share/vim/vim91', '/usr/share/vim/vim90',
+                        \ '/usr/share/vim/vim82', '/usr/share/vim/vim81',
+                        \ '/usr/local/share/vim/vim91', '/usr/local/share/vim/vim90']
+                let l:synfile = l:rtp . '/syntax/' . l:lang . '.vim'
+                if filereadable(l:synfile)
+                    execute 'source ' . l:synfile
+                    return
+                endif
+            endfor
         endtry
     endif
 endfunction

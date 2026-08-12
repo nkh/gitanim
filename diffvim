@@ -1392,12 +1392,19 @@ function! s:SetupSyntax() abort
     endif
     if !empty(l:lang)
         try
-            " Source the syntax file directly instead of 'set syntax='
-            " which triggers filetype detection (fails with -u NONE).
-            " 'runtime syntax/foo.vim' loads the syntax definitions
-            " without the filetype autocommand machinery.
+            " Try 'runtime' first (uses runtimepath)
             execute 'runtime syntax/' . l:lang . '.vim'
         catch
+            " Fallback: try sourcing by full path from common locations
+            for l:rtp in ['/usr/share/vim/vim91', '/usr/share/vim/vim90',
+                        \ '/usr/share/vim/vim82', '/usr/share/vim/vim81',
+                        \ '/usr/local/share/vim/vim91', '/usr/local/share/vim/vim90']
+                let l:synfile = l:rtp . '/syntax/' . l:lang . '.vim'
+                if filereadable(l:synfile)
+                    execute 'source ' . l:synfile
+                    return
+                endif
+            endfor
         endtry
     endif
 endfunction
@@ -1493,12 +1500,19 @@ augroup END
 __DIFFVIM_VIMSCRIPT_EOF__
 
 # Find vim runtime directory for syntax files
-VIM_RUNTIME=$(vim -es -c "echo \$VIMRUNTIME" -c "qa!" 2>/dev/null || true)
-[[ -z "$VIM_RUNTIME" ]] && VIM_RUNTIME=$(ls -d /usr/share/vim/vim* 2>/dev/null | head -1)
+VIM_RUNTIME=""
+for d in $(vim --version 2>/dev/null | grep -o '/usr/share/vim/vim[0-9]*' | head -1) \
+         /usr/share/vim/vim91 /usr/share/vim/vim90 /usr/share/vim/vim82 \
+         /usr/share/vim/vim81 /usr/local/share/vim/vim91 /usr/local/share/vim/vim90; do
+    if [[ -d "$d/syntax" ]]; then
+        VIM_RUNTIME="$d"
+        break
+    fi
+done
 
 exec vim -f -n -u NONE -U NONE \
     --cmd "set nocp nomore noswapfile" \
-    --cmd "if !empty('$VIM_RUNTIME') | let &runtimepath = '$VIM_RUNTIME' | endif" \
+    ${VIM_RUNTIME:+--cmd "let &runtimepath = '$VIM_RUNTIME'"} \
     "$OLD" \
     -c "let g:diffvim_new_file = '$NEW'" \
     -c "source $VIMSCRIPT"
