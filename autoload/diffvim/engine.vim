@@ -1016,20 +1016,19 @@ endfunction
 function! s:SetupSyntax() abort
     let l:lang = $DIFFVIM_LANGUAGE
     if empty(l:lang) || l:lang ==# 'auto'
-        " Auto-detect from file extension
         let l:ext = fnamemodify(expand('%'), ':e')
         let l:lang = s:DetectFiletype(l:ext)
     endif
     if !empty(l:lang)
         try
-            execute 'setfiletype ' . l:lang
-            execute 'set syntax=' . l:lang
+            " Source the syntax file directly instead of 'set syntax='
+            " which triggers filetype detection (fails with -u NONE).
+            " 'runtime syntax/foo.vim' loads the syntax definitions
+            " without the filetype autocommand machinery.
+            execute 'runtime syntax/' . l:lang . '.vim'
         catch
         endtry
     endif
-    " Do NOT call 'syntax enable' here — it can cause display issues
-    " in timer-based mode with -u NONE. Syntax is set via 'set syntax='
-    " above which is sufficient for highlighting.
 endfunction
 
 " Detect vim filetype from file extension.
