@@ -856,6 +856,29 @@ function! s:StartNextHunk() abort
     let l:hunk = s:state.hunks[s:state.hunk_idx]
     let l:target_line = l:hunk.target_line_old + s:state.line_offset
 
+    " Set cur_hunk NOW — needed by ApplyHunkInstantly and ProcessCharOp
+    let s:state.cur_hunk = l:hunk
+
+    " Position cursor at the hunk target BEFORE any processing
+    " (including max-hunk-chars instant apply)
+    if l:hunk.is_end_insert && l:target_line > line('$')
+        let s:cur_l = line('$')
+        let s:cur_c = len(getline(line('$'))) + 1
+    elseif l:hunk.is_end_delete
+        let l:prev = l:target_line - 1
+        if l:prev < 1 | let l:prev = 1 | endif
+        if l:prev > line('$') | let l:prev = line('$') | endif
+        let s:cur_l = l:prev
+        let s:cur_c = len(getline(l:prev)) + 1
+    else
+        let l:tl = l:target_line
+        if l:tl < 1 | let l:tl = 1 | endif
+        if l:tl > line('$') | let l:tl = line('$') | endif
+        let s:cur_l = l:tl
+        let s:cur_c = 1
+    endif
+    call s:PlaceCursor()
+
     " Check --max-hunk-chars: if hunk has too many changed chars, apply instantly
     if g:diffvim.max_hunk_chars > 0
         let l:changed = 0
@@ -898,29 +921,9 @@ function! s:StartNextHunk() abort
         endif
     endif
 
-    " For end-of-file insertions, target the end of the last line.
-    " For end-of-file deletions, target the end of the previous line so the
-    " leading '\n' in old_text can collapse the trailing empty line.
-    if l:hunk.is_end_insert && l:target_line > line('$')
-        let s:state.move_end_l = line('$')
-        let s:state.move_end_c = len(getline(line('$'))) + 1
-    elseif l:hunk.is_end_delete
-        let l:prev = l:target_line - 1
-        if l:prev < 1 | let l:prev = 1 | endif
-        if l:prev > line('$') | let l:prev = line('$') | endif
-        let s:state.move_end_l = l:prev
-        let s:state.move_end_c = len(getline(l:prev)) + 1
-    else
-        if l:target_line < 1
-            let l:target_line = 1
-        endif
-        if l:target_line > line('$')
-            let l:target_line = line('$')
-        endif
-        let s:state.move_end_l = l:target_line
-        let s:state.move_end_c = 1
-    endif
-    let s:state.cur_hunk = l:hunk
+    " Set up the move (cursor glide to target)
+    let s:state.move_end_l = s:cur_l
+    let s:state.move_end_c = s:cur_c
     let s:state.move_start_l = s:cur_l
     let s:state.move_start_c = s:cur_c
     let s:state.move_elapsed = 0
