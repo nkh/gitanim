@@ -298,16 +298,6 @@ else
     NEW=$(resolve_abs "${POSITIONAL[1]}")
     [[ -f "$OLD" ]] || { echo "Error: '$OLD' not found" >&2; exit 1; }
     [[ -f "$NEW" ]] || { echo "Error: '$NEW' not found" >&2; exit 1; }
-    # Warn if files appear to be in reversed order (new.* before old.*)
-    old_base=$(basename "$OLD")
-    new_base=$(basename "$NEW")
-    if [[ "$old_base" == new.* && "$new_base" == old.* ]]; then
-        echo "Warning: files appear to be in reversed order (new before old)." >&2
-        echo "  Swapping: OLD=$NEW NEW=$OLD" >&2
-        tmp="$OLD"
-        OLD="$NEW"
-        NEW="$tmp"
-    fi
     FILE_PAIRS+=("$OLD:$NEW")
 fi
 
