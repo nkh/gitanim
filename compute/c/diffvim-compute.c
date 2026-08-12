@@ -83,6 +83,118 @@ static StrArr read_lines(const char *path) {
     return lines;
 }
 
+/* Read an entire file (or stdin if path is "-") into a malloc'd buffer.
+ * The buffer is NUL-terminated. Sets *out_size to the byte length (excluding
+ * the NUL). Caller must free the buffer. Returns NULL on error. */
+static char *read_file_or_stdin(const char *path, long *out_size) {
+    if (strcmp(path, "-") == 0) {
+        size_t cap = 65536, len = 0;
+        char *buf = malloc(cap + 1);
+        size_t n;
+        while ((n = fread(buf + len, 1, cap - len, stdin)) > 0) {
+            len += n;
+            if (len == cap) {
+                cap *= 2;
+                buf = realloc(buf, cap + 1);
+            }
+        }
+        buf[len] = '\0';
+        *out_size = (long)len;
+        return buf;
+    }
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *buf = malloc(sz + 1);
+    if (sz > 0) fread(buf, 1, sz, f);
+    buf[sz] = '\0';
+    fclose(f);
+    *out_size = sz;
+    return buf;
+}
+
+/* Parse a unified diff (patch file) into old_lines and new_lines.
+ *
+ * Reads from `path` (or stdin if "-"). Fills *old_lines and *new_lines
+ * (which the caller must sa_free).
+ *
+ * Unified diff rules:
+ *   - `---` prefix  → old file header, ignore.
+ *   - `+++` prefix  → new file header, ignore.
+ *   - `@@`  prefix  → hunk header, ignore (we recompute our own hunks).
+ *   - `\`   prefix  → diff metadata (e.g. "\ No newline at end of file"), ignore.
+ *   - `-`   prefix  (not `---`) → old file line; strip leading `-`.
+ *   - `+`   prefix  (not `+++`) → new file line; strip leading `+`.
+ *   - ` `   prefix  → context line; strip leading ` `; appears in BOTH.
+ *   - empty line    → treated as a space-prefixed empty context line.
+ *   - anything else → unrecognized (e.g. "diff --git" from git diff); skip.
+ *
+ * Multiple hunks are concatenated to reconstruct the full old/new content.
+ * Returns 0 on success, -1 if the diff file can't be read. */
+static int parse_unified_diff(const char *path, StrArr *old_lines, StrArr *new_lines) {
+    long sz;
+    char *buf = read_file_or_stdin(path, &sz);
+    if (!buf) return -1;
+
+    sa_init(old_lines);
+    sa_init(new_lines);
+
+    char *line_start = buf;
+    for (long i = 0; i <= sz; i++) {
+        if (i == sz || buf[i] == '\n') {
+            long len = &buf[i] - line_start;
+            /* Skip a trailing empty line (matches vim's readfile()). */
+            if (i == sz && len == 0) break;
+
+            if (len == 0) {
+                /* Empty line in the diff = empty context line in both files. */
+                char *e1 = malloc(1); e1[0] = '\0';
+                char *e2 = malloc(1); e2[0] = '\0';
+                sa_push(old_lines, e1);
+                sa_push(new_lines, e2);
+            } else if (len >= 3 && memcmp(line_start, "---", 3) == 0) {
+                /* old file header — ignore */
+            } else if (len >= 3 && memcmp(line_start, "+++", 3) == 0) {
+                /* new file header — ignore */
+            } else if (len >= 2 && memcmp(line_start, "@@", 2) == 0) {
+                /* hunk header — ignore (we recompute our own) */
+            } else if (line_start[0] == '\\') {
+                /* metadata (e.g. "\ No newline at end of file") — ignore */
+            } else if (line_start[0] == '-') {
+                /* delete line — strip leading '-' */
+                char *s = malloc(len);  /* (len-1) chars + NUL */
+                memcpy(s, line_start + 1, len - 1);
+                s[len - 1] = '\0';
+                sa_push(old_lines, s);
+            } else if (line_start[0] == '+') {
+                /* insert line — strip leading '+' */
+                char *s = malloc(len);
+                memcpy(s, line_start + 1, len - 1);
+                s[len - 1] = '\0';
+                sa_push(new_lines, s);
+            } else if (line_start[0] == ' ') {
+                /* context line — strip leading ' ', present in both */
+                char *s1 = malloc(len);
+                char *s2 = malloc(len);
+                memcpy(s1, line_start + 1, len - 1);
+                s1[len - 1] = '\0';
+                memcpy(s2, line_start + 1, len - 1);
+                s2[len - 1] = '\0';
+                sa_push(old_lines, s1);
+                sa_push(new_lines, s2);
+            }
+            /* else: unrecognized line (e.g. "diff --git", "index ...") — skip */
+
+            line_start = &buf[i + 1];
+        }
+    }
+
+    free(buf);
+    return 0;
+}
+
 /* --- Line-level LCS diff --- */
 typedef enum { OP_KEEP, OP_DELETE, OP_INSERT } OpType;
 
@@ -510,6 +622,143 @@ static CharOp *char_diff(const char *a, const char *b, int *out_count) {
     return ops;
 }
 
+/* --- Word-level diff --- */
+/* Splits text into tokens (maximal runs of non-whitespace + maximal runs of
+ * whitespace), runs LCS at the token level, then expands each token to
+ * individual char ops. Produces more natural typing patterns than char-level
+ * LCS because consecutive chars within a word are grouped.
+ *
+ * Matches vimscript s:WordDiff + s:SplitWords. */
+
+typedef struct {
+    int start;  /* byte offset into the source text */
+    int len;    /* byte length */
+} Token;
+
+static int is_ws_byte(unsigned char c) {
+    /* Vim's \s matches [ \t\n\r\f\v] */
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+}
+
+/* Split text into tokens: maximal runs of whitespace OR maximal runs of
+ * non-whitespace. E.g. "hello world" -> ["hello", " ", "world"].
+ * Returns malloc'd array; *out_count is the count. */
+static Token *split_words(const char *text, int *out_count) {
+    int len = (int)strlen(text);
+    int cap = 16, count = 0;
+    Token *toks = malloc(cap * sizeof(Token));
+    int i = 0;
+    while (i < len) {
+        if (count >= cap) {
+            cap *= 2;
+            toks = realloc(toks, cap * sizeof(Token));
+        }
+        int start = i;
+        if (is_ws_byte((unsigned char)text[i])) {
+            while (i < len && is_ws_byte((unsigned char)text[i])) i++;
+        } else {
+            while (i < len && !is_ws_byte((unsigned char)text[i])) i++;
+        }
+        toks[count].start = start;
+        toks[count].len = i - start;
+        count++;
+    }
+    *out_count = count;
+    return toks;
+}
+
+static int token_eq(const char *a, Token *ta, const char *b, Token *tb) {
+    return ta->len == tb->len && memcmp(a + ta->start, b + tb->start, ta->len) == 0;
+}
+
+static CharOp *word_diff(const char *a, const char *b, int *out_count) {
+    int na, nb;
+    Token *ta = split_words(a, &na);
+    Token *tb = split_words(b, &nb);
+
+    int *dp = calloc((na + 1) * (nb + 1), sizeof(int));
+    #define WDP(i,j) dp[(i)*(nb+1)+(j)]
+    for (int i = 1; i <= na; i++)
+        for (int j = 1; j <= nb; j++) {
+            if (token_eq(a, &ta[i-1], b, &tb[j-1]))
+                WDP(i,j) = WDP(i-1,j-1) + 1;
+            else
+                WDP(i,j) = WDP(i-1,j) > WDP(i,j-1) ? WDP(i-1,j) : WDP(i,j-1);
+        }
+
+    /* Backtrack at token level, collecting (type, is_a, tok_idx) in reverse. */
+    typedef struct { OpType type; int is_a; int tok_idx; } TokenOp;
+    int max_tops = na + nb;
+    if (max_tops == 0) max_tops = 1;
+    TokenOp *tops = malloc(max_tops * sizeof(TokenOp));
+    int tops_count = 0;
+    int i = na, j = nb;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && token_eq(a, &ta[i-1], b, &tb[j-1])) {
+            tops[tops_count].type = OP_KEEP;
+            tops[tops_count].is_a = 1;
+            tops[tops_count].tok_idx = i - 1;
+            tops_count++; i--; j--;
+        } else if (j > 0 && (i == 0 || WDP(i,j-1) >= WDP(i-1,j))) {
+            tops[tops_count].type = OP_INSERT;
+            tops[tops_count].is_a = 0;
+            tops[tops_count].tok_idx = j - 1;
+            tops_count++; j--;
+        } else {
+            tops[tops_count].type = OP_DELETE;
+            tops[tops_count].is_a = 1;
+            tops[tops_count].tok_idx = i - 1;
+            tops_count++; i--;
+        }
+    }
+    /* Reverse token ops so chars within each token are in forward order. */
+    for (int k = 0; k < tops_count / 2; k++) {
+        TokenOp tmp = tops[k];
+        tops[k] = tops[tops_count-1-k];
+        tops[tops_count-1-k] = tmp;
+    }
+
+    /* Expand each token to char ops (UTF-8 code points). */
+    int max_ops = (int)strlen(a) + (int)strlen(b);
+    if (max_ops == 0) max_ops = 1;
+    CharOp *ops = malloc(max_ops * sizeof(CharOp));
+    int count = 0;
+    for (int k = 0; k < tops_count; k++) {
+        TokenOp *top = &tops[k];
+        const char *text = top->is_a ? a : b;
+        Token *tok = top->is_a ? &ta[top->tok_idx] : &tb[top->tok_idx];
+        int pos = tok->start;
+        int end = tok->start + tok->len;
+        while (pos < end) {
+            int cp = utf8_decode(text, end, &pos);
+            if (cp < 0) break;
+            ops[count].type = top->type;
+            ops[count].code = cp;
+            count++;
+        }
+    }
+
+    free(dp);
+    free(tops);
+    free(ta);
+    free(tb);
+    *out_count = count;
+    return ops;
+    #undef WDP
+}
+
+/* Strip leading whitespace (spaces and tabs) from a line.
+ * Used by --indent-aware so lines that differ only in indentation are
+ * treated as "keep" at the line level. */
+static char *normalize_indent(const char *line) {
+    int start = 0;
+    while (line[start] == ' ' || line[start] == '\t') start++;
+    int len = (int)strlen(line + start);
+    char *result = malloc(len + 1);
+    memcpy(result, line + start, len + 1);
+    return result;
+}
+
 /* --- Hunk building --- */
 typedef struct {
     int target_line;     /* 1-indexed in old file */
@@ -560,30 +809,66 @@ int main(int argc, char **argv) {
     const char *algorithm = getenv("DIFFVIM_ALGORITHM");
     if (!algorithm || !*algorithm) algorithm = "lcs";
     int do_semantic = getenv("DIFFVIM_SEMANTIC_CLEANUP") && getenv("DIFFVIM_SEMANTIC_CLEANUP")[0] == '1';
+    int do_word_diff = getenv("DIFFVIM_WORD_DIFF") && getenv("DIFFVIM_WORD_DIFF")[0] == '1';
+    int do_indent_aware = getenv("DIFFVIM_INDENT_AWARE") && getenv("DIFFVIM_INDENT_AWARE")[0] == '1';
 
-    /* Parse args: <oldfile> <newfile> <outputfile> [--algorithm X] [--semantic-cleanup] */
-    const char *oldfile = NULL, *newfile = NULL, *outfile = NULL;
+    /* Parse args:
+     *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
+     *   Diff mode:     --diff <patchfile> <outputfile> [options]
+     * Options: --algorithm lcs|myers|patience, --semantic-cleanup,
+     *          --word-diff, --indent-aware. May appear in any position.
+     * --diff may also appear in any position; positional args are then
+     * interpreted as (patchfile, outputfile) instead of (old, new, output). */
+    int diff_mode = 0;
+    const char *positionals[3] = {NULL, NULL, NULL};
+    int n_positionals = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
             algorithm = argv[++i];
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
             do_semantic = 1;
-        } else if (!oldfile) {
-            oldfile = argv[i];
-        } else if (!newfile) {
-            newfile = argv[i];
-        } else if (!outfile) {
-            outfile = argv[i];
+        } else if (strcmp(argv[i], "--word-diff") == 0) {
+            do_word_diff = 1;
+        } else if (strcmp(argv[i], "--indent-aware") == 0) {
+            do_indent_aware = 1;
+        } else if (strcmp(argv[i], "--diff") == 0) {
+            diff_mode = 1;
+        } else if (n_positionals < 3) {
+            positionals[n_positionals++] = argv[i];
         }
     }
-    if (!oldfile || !newfile || !outfile) {
-        fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup]\n", argv[0]);
-        return 1;
+
+    const char *oldfile = NULL, *newfile = NULL, *outfile = NULL, *diff_file = NULL;
+    if (diff_mode) {
+        if (n_positionals < 2) {
+            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "   or: %s --diff - <outputfile> [options]   (read diff from stdin)\n", argv[0]);
+            return 1;
+        }
+        diff_file = positionals[0];
+        outfile = positionals[1];
+    } else {
+        if (n_positionals < 3) {
+            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "   or: %s --diff <patchfile> <outputfile> [options]\n", argv[0]);
+            return 1;
+        }
+        oldfile = positionals[0];
+        newfile = positionals[1];
+        outfile = positionals[2];
     }
 
     double t_read_start = now_ms();
-    StrArr old_lines = read_lines(oldfile);
-    StrArr new_lines = read_lines(newfile);
+    StrArr old_lines, new_lines;
+    if (diff_mode) {
+        if (parse_unified_diff(diff_file, &old_lines, &new_lines) != 0) {
+            fprintf(stderr, "Error: cannot read diff file %s\n", diff_file);
+            return 1;
+        }
+    } else {
+        old_lines = read_lines(oldfile);
+        new_lines = read_lines(newfile);
+    }
     double t_read_end = now_ms();
 
     if (old_lines.count == 0 && new_lines.count == 0) {
@@ -591,9 +876,25 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    /* If indent_aware, build normalized copies of the lines for the line-level
+     * diff. The indices returned by compute_line_diff are the same (since
+     * normalization doesn't change line count), so we can use them to access
+     * the ORIGINAL (non-normalized) lines when building hunk text. */
+    StrArr old_norm, new_norm;
+    sa_init(&old_norm);
+    sa_init(&new_norm);
+    if (do_indent_aware) {
+        for (int i = 0; i < old_lines.count; i++)
+            sa_push(&old_norm, normalize_indent(old_lines.data[i]));
+        for (int i = 0; i < new_lines.count; i++)
+            sa_push(&new_norm, normalize_indent(new_lines.data[i]));
+    }
+    StrArr *line_a = do_indent_aware ? &old_norm : &old_lines;
+    StrArr *line_b = do_indent_aware ? &new_norm : &new_lines;
+
     double t_diff_start = now_ms();
     int line_op_count;
-    LineOp *lops = compute_line_diff(&old_lines, &new_lines, &line_op_count, algorithm);
+    LineOp *lops = compute_line_diff(line_a, line_b, &line_op_count, algorithm);
 
     /* Group line ops into hunks */
     Hunk *hunks = malloc((line_op_count + 1) * sizeof(Hunk));
@@ -683,7 +984,8 @@ int main(int argc, char **argv) {
                 }
             }
 
-            h->char_ops = char_diff(old_text, new_text, &h->char_op_count);
+            h->char_ops = do_word_diff ? word_diff(old_text, new_text, &h->char_op_count)
+                                       : char_diff(old_text, new_text, &h->char_op_count);
             if (do_semantic) {
                 h->char_ops = semantic_cleanup(h->char_ops, &h->char_op_count);
             }
@@ -703,6 +1005,8 @@ int main(int argc, char **argv) {
     fprintf(out, "# diffvim precomputed diff v1\n");
     fprintf(out, "# algorithm %s\n", algorithm);
     fprintf(out, "# semantic_cleanup %d\n", do_semantic ? 1 : 0);
+    fprintf(out, "# word_diff %d\n", do_word_diff ? 1 : 0);
+    fprintf(out, "# indent_aware %d\n", do_indent_aware ? 1 : 0);
     fprintf(out, "# hunk_count %d\n", hunk_count);
     for (int h = 0; h < hunk_count; h++) {
         Hunk *hk = &hunks[h];
@@ -735,6 +1039,8 @@ int main(int argc, char **argv) {
     free(lops);
     sa_free(&old_lines);
     sa_free(&new_lines);
+    sa_free(&old_norm);
+    sa_free(&new_norm);
 
     return 0;
 }

@@ -114,6 +114,7 @@ PRECOMPUTED_FILE=""
 STARTUP_PAUSE=0
 ALGORITHM="${DIFFVIM_ALGORITHM:-lcs}"
 SEMANTIC_CLEANUP=0
+INDENT_AWARE=0
 HIGHLIGHT_WORD=0
 HIGHLIGHT_WORD_COLOR="${DIFFVIM_HIGHLIGHT_WORD_COLOR:-Search}"
 HIGHLIGHT_WORD_DURATION_MS="${DIFFVIM_HIGHLIGHT_WORD_DURATION_MS:-300}"
@@ -141,7 +142,6 @@ Options:
   --to REV                 Git rev to end replay at (default: HEAD)
   --version, -V            Print version ("diffvim 1.4.0") and exit
   --dry-run                Print diff hunks without launching vim
-  --word-diff              Enable word-level diff flag in the engine
   --step-mode              Space advances one op at a time (starts paused)
   --no-startup-pause       Skip startup delay and messages, start immediately
   --language LANG          Set vim filetype for syntax highlighting (default: auto)
@@ -163,6 +163,8 @@ Options:
   --startup-pause          Show config + help before starting (default: off, start immediately)
   --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
   --semantic-cleanup       Merge adjacent delete+insert pairs that cancel out
+  --indent-aware           Normalize indentation before line diff (indent-only changes = keep)
+  --word-diff              Use word-level diff (groups changes by word tokens)
   --highlight-word         Highlight the word at cursor before each change (finer than --highlight-hunk)
   --highlight-word-color C  Highlight group for word highlighting (default: Search)
   --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
@@ -238,6 +240,7 @@ while [[ $# -gt 0 ]]; do
         --startup-pause) STARTUP_PAUSE=1; shift ;;
         --algorithm)    ALGORITHM="$2"; shift 2 ;;
         --semantic-cleanup) SEMANTIC_CLEANUP=1; shift ;;
+        --indent-aware)  INDENT_AWARE=1; shift ;;
         --highlight-word) HIGHLIGHT_WORD=1; shift ;;
         --highlight-word-color) HIGHLIGHT_WORD_COLOR="$2"; shift 2 ;;
         --highlight-word-duration-ms) HIGHLIGHT_WORD_DURATION_MS="$2"; shift 2 ;;
@@ -331,6 +334,7 @@ export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
 export DIFFVIM_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_ALGORITHM="$ALGORITHM"
 export DIFFVIM_SEMANTIC_CLEANUP="$([[ $SEMANTIC_CLEANUP -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_INDENT_AWARE="$([[ $INDENT_AWARE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
 export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
@@ -510,6 +514,8 @@ let g:diffvim = extend({
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
     \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
     \ 'word_diff':          !empty($DIFFVIM_WORD_DIFF)        ? 1 : 0,
+    \ 'semantic_cleanup':   !empty($DIFFVIM_SEMANTIC_CLEANUP) ? 1 : 0,
+    \ 'indent_aware':       !empty($DIFFVIM_INDENT_AWARE)     ? 1 : 0,
     \ 'step_mode':          !empty($DIFFVIM_STEP_MODE)        ? 1 : 0,
     \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
     \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
@@ -666,6 +672,106 @@ function! s:CharDiff(a, b) abort
     return reverse(l:ops)
 endfunction
 
+" Word-level diff: splits text into word tokens (non-space runs and
+" whitespace runs), runs LCS at the token level, then expands back to
+" char ops. Produces more natural typing patterns than char-level LCS
+" because consecutive chars within a word are grouped.
+function! s:WordDiff(a, b) abort
+    let l:a = s:SplitWords(a:a)
+    let l:b = s:SplitWords(a:b)
+    let l:na = len(l:a)
+    let l:nb = len(l:b)
+    let l:dp = []
+    let l:i = 0
+    while l:i <= l:na
+        call add(l:dp, repeat([0], l:nb + 1))
+        let l:i += 1
+    endwhile
+    let l:i = 1
+    while l:i <= l:na
+        let l:j = 1
+        while l:j <= l:nb
+            if l:a[l:i - 1] ==# l:b[l:j - 1]
+                let l:dp[l:i][l:j] = l:dp[l:i - 1][l:j - 1] + 1
+            else
+                let l:dp[l:i][l:j] = max([l:dp[l:i - 1][l:j], l:dp[l:i][l:j - 1]])
+            endif
+            let l:j += 1
+        endwhile
+        let l:i += 1
+    endwhile
+    " Backtrack at token level, collecting (op_type, token) pairs in reverse.
+    let l:token_ops = []
+    let l:i = l:na
+    let l:j = l:nb
+    while l:i > 0 || l:j > 0
+        if l:i > 0 && l:j > 0 && l:a[l:i - 1] ==# l:b[l:j - 1]
+            call add(l:token_ops, ['keep', l:a[l:i - 1]])
+            let l:i -= 1
+            let l:j -= 1
+        elseif l:j > 0 && (l:i == 0 || l:dp[l:i][l:j - 1] >= l:dp[l:i - 1][l:j])
+            call add(l:token_ops, ['insert', l:b[l:j - 1]])
+            let l:j -= 1
+        else
+            call add(l:token_ops, ['delete', l:a[l:i - 1]])
+            let l:i -= 1
+        endif
+    endwhile
+    " Reverse to get forward order, THEN expand each token to char ops.
+    " This ensures chars within each token are in the correct order.
+    call reverse(l:token_ops)
+    let l:ops = []
+    for l:top in l:token_ops
+        for l:ch in split(l:top[1], '\zs')
+            call add(l:ops, [l:top[0], l:ch])
+        endfor
+    endfor
+    return l:ops
+endfunction
+
+" Split text into word tokens: maximal runs of non-space chars and
+" maximal runs of whitespace. E.g. "hello world" -> ["hello", " ", "world"].
+function! s:SplitWords(text) abort
+    return split(a:text, '\(\S\+\|\s\+\)\zs')
+endfunction
+
+" Semantic cleanup: merge adjacent delete+insert (or insert+delete) pairs
+" that cancel out (same char code) into a single keep op. Reduces
+" unnecessary typing noise.
+function! s:SemanticCleanup(ops) abort
+    if len(a:ops) < 2 | return a:ops | endif
+    let l:result = []
+    let l:i = 0
+    while l:i < len(a:ops)
+        if l:i + 1 < len(a:ops)
+            let l:op1 = a:ops[l:i]
+            let l:op2 = a:ops[l:i + 1]
+            " delete X followed by insert X → keep X
+            if l:op1[0] ==# 'delete' && l:op2[0] ==# 'insert' && l:op1[1] ==# l:op2[1]
+                call add(l:result, ['keep', l:op1[1]])
+                let l:i += 2
+                continue
+            endif
+            " insert X followed by delete X → keep X
+            if l:op1[0] ==# 'insert' && l:op2[0] ==# 'delete' && l:op1[1] ==# l:op2[1]
+                call add(l:result, ['keep', l:op1[1]])
+                let l:i += 2
+                continue
+            endif
+        endif
+        call add(l:result, a:ops[l:i])
+        let l:i += 1
+    endwhile
+    return l:result
+endfunction
+
+" Normalize indentation: strip leading whitespace from a line.
+" Used by --indent-aware so lines that differ only in indentation are
+" treated as "keep" at the line level.
+function! s:NormalizeIndent(line) abort
+    return substitute(a:line, '^[ \t]*', '', '')
+endfunction
+
 " Load precomputed hunks from a file produced by the external compute tools
 " (compute/c, compute/cpp, compute/rust, compute/go).
 "
@@ -750,7 +856,20 @@ function! s:BuildHunks() abort
         let l:new_lines = ['']
     endif
 
-    let l:line_ops = s:LineDiff(l:old_lines, l:new_lines)
+    " --indent-aware: normalize indentation before line-level diff so lines
+    " that differ only in indentation are treated as "keep" at line level.
+    " The indent change is then handled at the char level.
+    if g:diffvim.indent_aware
+        let l:old_norm = map(copy(l:old_lines), 's:NormalizeIndent(v:val)')
+        let l:new_norm = map(copy(l:new_lines), 's:NormalizeIndent(v:val)')
+        let l:line_ops = s:LineDiff(l:old_norm, l:new_norm)
+        " Fix up a_idx/b_idx to point into the ORIGINAL lines (not normalized),
+        " since BuildHunks reads from l:old_lines/l:new_lines.
+        " The indices are the same (normalization doesn't change line count),
+        " so we can use them directly.
+    else
+        let l:line_ops = s:LineDiff(l:old_lines, l:new_lines)
+    endif
 
     let l:hunks = []
     let l:cur_ops = []
@@ -844,7 +963,18 @@ function! s:BuildHunks() abort
             let l:h.is_end_delete = 0
         endif
 
-        let l:h.char_ops = s:CharDiff(l:h.old_text, l:h.new_text)
+        " --word-diff: use word-level LCS instead of char-level for more
+        " natural typing patterns (consecutive chars within a word are grouped).
+        if g:diffvim.word_diff
+            let l:h.char_ops = s:WordDiff(l:h.old_text, l:h.new_text)
+        else
+            let l:h.char_ops = s:CharDiff(l:h.old_text, l:h.new_text)
+        endif
+        " --semantic-cleanup: merge adjacent delete+insert pairs that cancel
+        " out, reducing unnecessary typing noise.
+        if g:diffvim.semantic_cleanup
+            let l:h.char_ops = s:SemanticCleanup(l:h.char_ops)
+        endif
         let l:h.deleted_count = len(l:deleted)
         let l:h.inserted_count = len(l:inserted)
     endfor

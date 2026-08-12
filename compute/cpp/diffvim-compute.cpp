@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 using namespace std;
@@ -58,6 +59,82 @@ vector<string> read_lines(const string& path) {
         }
     }
     return lines;
+}
+
+/* Read an entire file (or stdin if path is "-") into a string.
+ * Returns false on error. */
+static bool read_file_or_stdin(const string& path, string& out) {
+    if (path == "-") {
+        out.assign((istreambuf_iterator<char>(cin)), istreambuf_iterator<char>());
+        return true;
+    }
+    ifstream f(path, ios::binary);
+    if (!f) return false;
+    out.assign((istreambuf_iterator<char>(f)), istreambuf_iterator<char>());
+    return true;
+}
+
+/* Parse a unified diff (patch file) into old_lines and new_lines.
+ *
+ * Reads from `path` (or stdin if "-"). Fills old_lines and new_lines.
+ *
+ * Unified diff rules:
+ *   - `---` prefix  → old file header, ignore.
+ *   - `+++` prefix  → new file header, ignore.
+ *   - `@@`  prefix  → hunk header, ignore (we recompute our own hunks).
+ *   - `\`   prefix  → diff metadata, ignore.
+ *   - `-`   prefix  (not `---`) → old file line; strip leading `-`.
+ *   - `+`   prefix  (not `+++`) → new file line; strip leading `+`.
+ *   - ` `   prefix  → context line; strip leading ` `; appears in BOTH.
+ *   - empty line    → treated as a space-prefixed empty context line.
+ *   - anything else → unrecognized; skip.
+ *
+ * Multiple hunks are concatenated to reconstruct the full old/new content.
+ * Returns true on success, false if the diff file can't be read. */
+static bool parse_unified_diff(const string& path, vector<string>& old_lines,
+                                vector<string>& new_lines) {
+    string content;
+    if (!read_file_or_stdin(path, content)) return false;
+    old_lines.clear();
+    new_lines.clear();
+
+    size_t start = 0;
+    for (size_t i = 0; i <= content.size(); i++) {
+        if (i == content.size() || content[i] == '\n') {
+            size_t len = i - start;
+            /* Skip a trailing empty line (matches vim's readfile()). */
+            if (i == content.size() && len == 0) break;
+
+            if (len == 0) {
+                /* Empty line in the diff = empty context line in both files. */
+                old_lines.push_back("");
+                new_lines.push_back("");
+            } else if (len >= 3 && content.compare(start, 3, "---") == 0) {
+                /* old file header — ignore */
+            } else if (len >= 3 && content.compare(start, 3, "+++") == 0) {
+                /* new file header — ignore */
+            } else if (len >= 2 && content.compare(start, 2, "@@") == 0) {
+                /* hunk header — ignore */
+            } else if (content[start] == '\\') {
+                /* metadata — ignore */
+            } else if (content[start] == '-') {
+                /* delete line — strip leading '-' */
+                old_lines.push_back(content.substr(start + 1, len - 1));
+            } else if (content[start] == '+') {
+                /* insert line — strip leading '+' */
+                new_lines.push_back(content.substr(start + 1, len - 1));
+            } else if (content[start] == ' ') {
+                /* context line — strip leading ' ', present in both */
+                string s = content.substr(start + 1, len - 1);
+                old_lines.push_back(s);
+                new_lines.push_back(s);
+            }
+            /* else: unrecognized line (e.g. "diff --git") — skip */
+
+            start = i + 1;
+        }
+    }
+    return true;
 }
 
 /* --- Line-level LCS diff over a sub-range [a_start,a_end) x [b_start,b_end).
@@ -385,6 +462,120 @@ vector<CharOp> semantic_cleanup(vector<CharOp> ops) {
     return out;
 }
 
+/* --- Word-level diff --- */
+/* Splits text into tokens (maximal runs of non-whitespace + maximal runs of
+ * whitespace), runs LCS at the token level, then expands each token to
+ * individual char ops. Produces more natural typing patterns than char-level
+ * LCS because consecutive chars within a word are grouped.
+ *
+ * Matches vimscript s:WordDiff + s:SplitWords. */
+
+static bool is_ws_byte(unsigned char c) {
+    /* Vim's \s matches [ \t\n\r\f\v] */
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+}
+
+struct Token { int start; int len; };
+
+/* Split text into tokens: maximal runs of whitespace OR maximal runs of
+ * non-whitespace. E.g. "hello world" -> ["hello", " ", "world"]. */
+static vector<Token> split_words(const string& text) {
+    vector<Token> toks;
+    int len = (int)text.size();
+    int i = 0;
+    while (i < len) {
+        int start = i;
+        if (is_ws_byte((unsigned char)text[i])) {
+            while (i < len && is_ws_byte((unsigned char)text[i])) i++;
+        } else {
+            while (i < len && !is_ws_byte((unsigned char)text[i])) i++;
+        }
+        toks.push_back({start, i - start});
+    }
+    return toks;
+}
+
+static inline bool token_eq(const string& a, const Token& ta, const string& b, const Token& tb) {
+    return ta.len == tb.len && memcmp(a.data() + ta.start, b.data() + tb.start, ta.len) == 0;
+}
+
+/* Decode one UTF-8 sequence from s starting at *pos (up to end).
+ * Updates *pos to point past the decoded character.
+ * Returns the Unicode code point, or -1 on error. */
+static int utf8_decode_at(const string& s, int end, int *pos) {
+    if (*pos >= end) return -1;
+    unsigned char c = (unsigned char)s[*pos];
+    if (c < 0x80) { (*pos)++; return c; }
+    int cp, extra;
+    if ((c & 0xE0) == 0xC0) { cp = c & 0x1F; extra = 1; }
+    else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; extra = 2; }
+    else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; extra = 3; }
+    else { (*pos)++; return c; }
+    if (*pos + extra >= end) { (*pos)++; return c; }
+    for (int k = 1; k <= extra; k++) {
+        unsigned char b = (unsigned char)s[*pos + k];
+        if ((b & 0xC0) != 0x80) { (*pos)++; return c; }
+        cp = (cp << 6) | (b & 0x3F);
+    }
+    *pos += 1 + extra;
+    return cp;
+}
+
+vector<CharOp> word_diff(const string& a, const string& b) {
+    vector<Token> ta = split_words(a);
+    vector<Token> tb = split_words(b);
+    int na = (int)ta.size(), nb = (int)tb.size();
+
+    /* LCS at token level */
+    vector<vector<int>> dp(na + 1, vector<int>(nb + 1, 0));
+    for (int i = 1; i <= na; i++)
+        for (int j = 1; j <= nb; j++)
+            dp[i][j] = token_eq(a, ta[i-1], b, tb[j-1]) ? dp[i-1][j-1] + 1
+                       : max(dp[i-1][j], dp[i][j-1]);
+
+    /* Backtrack at token level, collecting (type, is_a, tok_idx) in reverse. */
+    struct TokenOp { OpType type; int is_a; int tok_idx; };
+    vector<TokenOp> tops;
+    tops.reserve(na + nb);
+    int i = na, j = nb;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && token_eq(a, ta[i-1], b, tb[j-1])) {
+            tops.push_back({OP_KEEP, 1, i - 1}); i--; j--;
+        } else if (j > 0 && (i == 0 || dp[i][j-1] >= dp[i-1][j])) {
+            tops.push_back({OP_INSERT, 0, j - 1}); j--;
+        } else {
+            tops.push_back({OP_DELETE, 1, i - 1}); i--;
+        }
+    }
+    /* Reverse token ops so chars within each token are in forward order. */
+    reverse(tops.begin(), tops.end());
+
+    /* Expand each token to char ops (UTF-8 code points). */
+    vector<CharOp> ops;
+    ops.reserve(a.size() + b.size());
+    for (auto& top : tops) {
+        const string& text = top.is_a ? a : b;
+        const Token& tok = top.is_a ? ta[top.tok_idx] : tb[top.tok_idx];
+        int pos = tok.start;
+        int end = tok.start + tok.len;
+        while (pos < end) {
+            int cp = utf8_decode_at(text, end, &pos);
+            if (cp < 0) break;
+            ops.push_back({top.type, cp});
+        }
+    }
+    return ops;
+}
+
+/* Strip leading whitespace (spaces and tabs) from a line.
+ * Used by --indent-aware so lines that differ only in indentation are
+ * treated as "keep" at the line level. */
+string normalize_indent(const string& line) {
+    int start = 0;
+    while (start < (int)line.size() && (line[start] == ' ' || line[start] == '\t')) start++;
+    return line.substr(start);
+}
+
 int main(int argc, char** argv) {
     auto t_start = Clock::now();
 
@@ -392,32 +583,65 @@ int main(int argc, char** argv) {
     string algorithm = (alg_env && *alg_env) ? string(alg_env) : "lcs";
     const char* sem_env = getenv("DIFFVIM_SEMANTIC_CLEANUP");
     bool do_semantic = sem_env && sem_env[0] == '1';
+    const char* wd_env = getenv("DIFFVIM_WORD_DIFF");
+    bool do_word_diff = wd_env && wd_env[0] == '1';
+    const char* ia_env = getenv("DIFFVIM_INDENT_AWARE");
+    bool do_indent_aware = ia_env && ia_env[0] == '1';
 
-    /* Parse args: <oldfile> <newfile> <outputfile> [--algorithm X] [--semantic-cleanup] */
-    const char* oldfile = nullptr;
-    const char* newfile = nullptr;
-    const char* outfile = nullptr;
+    /* Parse args:
+     *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
+     *   Diff mode:     --diff <patchfile> <outputfile> [options]
+     * Options: --algorithm lcs|myers|patience, --semantic-cleanup,
+     *          --word-diff, --indent-aware. May appear in any position. */
+    bool diff_mode = false;
+    vector<string> positionals;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
             algorithm = argv[++i];
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
             do_semantic = true;
-        } else if (!oldfile) {
-            oldfile = argv[i];
-        } else if (!newfile) {
-            newfile = argv[i];
-        } else if (!outfile) {
-            outfile = argv[i];
+        } else if (strcmp(argv[i], "--word-diff") == 0) {
+            do_word_diff = true;
+        } else if (strcmp(argv[i], "--indent-aware") == 0) {
+            do_indent_aware = true;
+        } else if (strcmp(argv[i], "--diff") == 0) {
+            diff_mode = true;
+        } else {
+            positionals.push_back(argv[i]);
         }
     }
-    if (!oldfile || !newfile || !outfile) {
-        fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup]\n", argv[0]);
-        return 1;
+
+    string oldfile, newfile, outfile, diff_file;
+    if (diff_mode) {
+        if (positionals.size() < 2) {
+            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "   or: %s --diff - <outputfile> [options]   (read diff from stdin)\n", argv[0]);
+            return 1;
+        }
+        diff_file = positionals[0];
+        outfile = positionals[1];
+    } else {
+        if (positionals.size() < 3) {
+            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "   or: %s --diff <patchfile> <outputfile> [options]\n", argv[0]);
+            return 1;
+        }
+        oldfile = positionals[0];
+        newfile = positionals[1];
+        outfile = positionals[2];
     }
 
     auto t_read_start = Clock::now();
-    auto old_lines = read_lines(oldfile);
-    auto new_lines = read_lines(newfile);
+    vector<string> old_lines, new_lines;
+    if (diff_mode) {
+        if (!parse_unified_diff(diff_file, old_lines, new_lines)) {
+            fprintf(stderr, "Error: cannot read diff file %s\n", diff_file.c_str());
+            return 1;
+        }
+    } else {
+        old_lines = read_lines(oldfile);
+        new_lines = read_lines(newfile);
+    }
     auto t_read_end = Clock::now();
 
     if (old_lines.empty() && new_lines.empty()) {
@@ -425,8 +649,22 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    /* If indent_aware, build normalized copies of the lines for the line-level
+     * diff. The indices returned by compute_line_diff are the same (since
+     * normalization doesn't change line count), so we can use them to access
+     * the ORIGINAL (non-normalized) lines when building hunk text. */
+    vector<string> old_norm, new_norm;
+    if (do_indent_aware) {
+        old_norm.reserve(old_lines.size());
+        new_norm.reserve(new_lines.size());
+        for (auto& l : old_lines) old_norm.push_back(normalize_indent(l));
+        for (auto& l : new_lines) new_norm.push_back(normalize_indent(l));
+    }
+    const vector<string>& line_a = do_indent_aware ? old_norm : old_lines;
+    const vector<string>& line_b = do_indent_aware ? new_norm : new_lines;
+
     auto t_diff_start = Clock::now();
-    auto lops = compute_line_diff(old_lines, new_lines, algorithm);
+    auto lops = compute_line_diff(line_a, line_b, algorithm);
 
     vector<Hunk> hunks;
     int old_pos = 1;
@@ -480,7 +718,7 @@ int main(int argc, char** argv) {
                 }
             }
 
-            h.char_ops = char_diff(old_text, new_text);
+            h.char_ops = do_word_diff ? word_diff(old_text, new_text) : char_diff(old_text, new_text);
             if (do_semantic) {
                 h.char_ops = semantic_cleanup(move(h.char_ops));
             }
@@ -491,10 +729,12 @@ int main(int argc, char** argv) {
 
     auto t_write_start = Clock::now();
     ofstream out(outfile, ios::binary);
-    if (!out) { fprintf(stderr, "Cannot write %s\n", outfile); return 1; }
+    if (!out) { fprintf(stderr, "Cannot write %s\n", outfile.c_str()); return 1; }
     out << "# diffvim precomputed diff v1\n";
     out << "# algorithm " << algorithm << "\n";
     out << "# semantic_cleanup " << (do_semantic ? 1 : 0) << "\n";
+    out << "# word_diff " << (do_word_diff ? 1 : 0) << "\n";
+    out << "# indent_aware " << (do_indent_aware ? 1 : 0) << "\n";
     out << "# hunk_count " << hunks.size() << "\n";
     for (auto& h : hunks) {
         out << "HUNK " << h.target_line << " " << h.deleted_count << " "
