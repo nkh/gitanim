@@ -634,7 +634,7 @@ setup_tmux() {
         cur_session=$(tmux display-message -p '#S')
         SESSION="$cur_session"
         tmux new-window -t "$SESSION:" -n diffvim \
-            "vim -N -n -u NONE -T dumb -c 'source $ENGINE_VIM' '$old_file'"
+            "vim -N -n -u NONE -c 'source $ENGINE_VIM' '$old_file'"
         TARGET=$(tmux display-message -p -t "$SESSION:" '#{pane_id}')
     else
         # Outside tmux: create a new detached session
@@ -642,7 +642,7 @@ setup_tmux() {
         SESSION="diffvim-$$"
         tmux new-session -d -s "$SESSION" -n main \
             -x "${COLUMNS:-80}" -y "${LINES:-24}" \
-            "vim -N -n -u NONE -T dumb -c 'source $ENGINE_VIM' '$old_file'"
+            "vim -N -n -u NONE -c 'source $ENGINE_VIM' '$old_file'"
         TARGET=$(tmux list-panes -t "$SESSION" -F '#{pane_id}' | head -1)
     fi
 }

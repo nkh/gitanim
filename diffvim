@@ -1496,7 +1496,7 @@ __DIFFVIM_VIMSCRIPT_EOF__
 VIM_RUNTIME=$(vim -es -c "echo \$VIMRUNTIME" -c "qa!" 2>/dev/null || true)
 [[ -z "$VIM_RUNTIME" ]] && VIM_RUNTIME=$(ls -d /usr/share/vim/vim* 2>/dev/null | head -1)
 
-exec vim -f -n -u NONE -U NONE -T dumb \
+exec vim -f -n -u NONE -U NONE \
     --cmd "set nocp nomore noswapfile" \
     --cmd "if !empty('$VIM_RUNTIME') | let &runtimepath = '$VIM_RUNTIME' | endif" \
     "$OLD" \

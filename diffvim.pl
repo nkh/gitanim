@@ -960,7 +960,7 @@ sub setup_tmux {
     $old_file_arg //= $file_pairs[0][0];
     write_engine();
 
-    my $vim_cmd = "vim -N -n -u NONE -T dumb -c 'source $engine_vim' '$old_file_arg'";
+    my $vim_cmd = "vim -N -n -u NONE -c 'source $engine_vim' '$old_file_arg'";
 
     if ($ENV{TMUX}) {
         $attached = 1;
@@ -1024,7 +1024,7 @@ sub setup_remote {
     my $servername = "diffvim-$$";
 
     # Launch vim as a server in the background
-    my $vim_cmd = "vim -N -n -u NONE -T dumb --servername $servername" .
+    my $vim_cmd = "vim -N -n -u NONE --servername $servername" .
                   " -c 'source $engine_vim'" .
                   " -c \"let g:diffvim_new_file = '$file_pairs[0][1]'\"";
     if ($output_file ne '') {
