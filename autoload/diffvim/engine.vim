@@ -662,6 +662,7 @@ function! s:ProcessCharOp() abort
     let l:delay = 0
     if l:op[0] ==# 'keep'
         call s:AdvanceForKeepChar(l:op[1])
+        redraw
         let l:delay = 1   " skip keeps as fast as possible
     elseif l:op[0] ==# 'delete'
         call s:DeleteCharAtCursor()
