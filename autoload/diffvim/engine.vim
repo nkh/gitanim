@@ -57,6 +57,7 @@ let g:diffvim = extend({
     \ 'highlight_min_chars':!empty($DIFFVIM_HIGHLIGHT_MIN_CHARS)   ? str2nr($DIFFVIM_HIGHLIGHT_MIN_CHARS)  : 10,
     \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ 'fold_unchanged':     !empty($DIFFVIM_FOLD_UNCHANGED)   ? 1 : 0,
+    \ 'no_startup_pause':   !empty($DIFFVIM_NO_STARTUP_PAUSE) ? 1 : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -584,7 +585,7 @@ function! s:ApplyHunkInstantly() abort
             call s:InsertCharAtCursor(l:op[1])
         endif
     endfor
-    redraw
+    redraw!
     let s:state.line_offset += (l:hunk.inserted_count - l:hunk.deleted_count)
     let s:state.hunk_idx += 1
     let s:state.phase = 'idle'
@@ -629,7 +630,7 @@ function! s:MoveStep() abort
     if l:cur_l > line('$') | let l:cur_l = line('$') | endif
     " During the glide, show the visible cursor at intermediate positions.
     call cursor(l:cur_l, l:cur_c)
-    redraw
+    redraw!
     call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
 endfunction
 
@@ -662,11 +663,11 @@ function! s:ProcessCharOp() abort
     let l:delay = 0
     if l:op[0] ==# 'keep'
         call s:AdvanceForKeepChar(l:op[1])
-        redraw
+        redraw!
         let l:delay = 1   " skip keeps as fast as possible
     elseif l:op[0] ==# 'delete'
         call s:DeleteCharAtCursor()
-        redraw
+        redraw!
         let l:delay = float2nr(g:diffvim.delete_delay_ms / s:state.runtime_speed)
         if g:diffvim.adaptive_timing
             let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
@@ -677,7 +678,7 @@ function! s:ProcessCharOp() abort
         endif
     elseif l:op[0] ==# 'insert'
         call s:InsertCharAtCursor(l:op[1])
-        redraw
+        redraw!
         let l:delay = float2nr(g:diffvim.type_delay_ms / s:state.runtime_speed)
         if g:diffvim.adaptive_timing
             let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
@@ -734,7 +735,7 @@ function! s:ApplyWordInstantly(ops, start, len) abort
         endif
         let l:i += 1
     endwhile
-    redraw
+    redraw!
 endfunction
 
 " --- Adaptive timing and sign-column helpers ------------------------------
@@ -803,7 +804,7 @@ function! s:HighlightHunk(start_line, end_line) abort
         let l:id = matchaddpos(g:diffvim.highlight_color, l:batch)
         call add(s:highlight_ids, l:id)
     endif
-    redraw
+    redraw!
 endfunction
 
 function! s:ClearHighlight(...) abort
@@ -814,7 +815,7 @@ function! s:ClearHighlight(...) abort
         endtry
     endfor
     let s:highlight_ids = []
-    redraw
+    redraw!
 endfunction
 
 " --- User controls ---------------------------------------------------------
@@ -836,7 +837,7 @@ function! s:TogglePause() abort
             call s:PlaceCursor()
             let s:state.phase = 'typing'
             let s:state.op_idx = 0
-            redraw
+            redraw!
         elseif s:state.phase ==# 'idle'
             call s:StartNextHunk()
         endif
@@ -886,7 +887,7 @@ function! s:SkipCurrent() abort
         let s:state.hunk_idx += 1
         let s:state.phase = 'idle'
     endif
-    redraw
+    redraw!
     call s:UpdateProgress()
     call s:ScheduleNext(g:diffvim.hunk_pause_ms)
 endfunction
@@ -909,7 +910,7 @@ function! s:Back() abort
     endif
     let s:state.phase = 'idle'
     let s:state.op_idx = 0
-    redraw
+    redraw!
     call s:UpdateProgress()
     call s:ScheduleNext(g:diffvim.hunk_pause_ms)
 endfunction
@@ -971,11 +972,16 @@ nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
 " --- Autostart -------------------------------------------------------------
 
 function! s:StartAnimation() abort
+    " Show immediate feedback that diffvim is starting
+    echo 'diffvim: computing diff...'
+    redraw!
     let s:state.hunks = s:BuildHunks()
     if empty(s:state.hunks)
         echo 'diffvim: files are identical, nothing to animate'
         return
     endif
+    echo 'diffvim: ' . len(s:state.hunks) . ' hunk(s) found — starting animation'
+    redraw!
     " --sign-column: define signs for add/delete/modify.
     if g:diffvim.sign_column
         sign define dv_add text=+ texthl=DiffAdd
@@ -994,9 +1000,14 @@ function! s:StartAnimation() abort
     let s:state.paused = g:diffvim.step_mode ? 1 : 0
     let s:cur_l = line('.')
     let s:cur_c = col('.')
-    call s:ShowConfig()
-    call s:ShowHelp()
-    call s:ScheduleNext(300)   " brief pause so the user can see the original
+    " Show config and help (can be disabled with --no-startup-pause)
+    if !g:diffvim.no_startup_pause
+        call s:ShowConfig()
+        call s:ShowHelp()
+        call s:ScheduleNext(300)
+    else
+        call s:ScheduleNext(50)
+    endif
 endfunction
 
 " Print the active configuration so the user can verify env vars are read.
