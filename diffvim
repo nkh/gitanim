@@ -218,21 +218,23 @@ fi
 [[ $DIFFVIM_DELETE_DELAY_MS -lt 1 ]] && DIFFVIM_DELETE_DELAY_MS=1 && export DIFFVIM_DELETE_DELAY_MS
 
 # Export config for vimscript to read
+# Boolean flags: export empty string when off (vim's !empty('0') returns 1,
+# so we must export "" for false, not "0")
 export DIFFVIM_SCROLL="$SCROLL_MODE"
 export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
 export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
 export DIFFVIM_OUTPUT="$OUTPUT_FILE"
 export DIFFVIM_CONTEXT="$CONTEXT_LINES"
-export DIFFVIM_WORD_DIFF="$WORD_DIFF"
-export DIFFVIM_STEP_MODE="$STEP_MODE"
-export DIFFVIM_ADAPTIVE_TIMING="$ADAPTIVE_TIMING"
-export DIFFVIM_SIGN_COLUMN="$SIGN_COLUMN"
-export DIFFVIM_GIT_BLAME="$GIT_BLAME"
-export DIFFVIM_HIGHLIGHT_HUNK="$HIGHLIGHT_HUNK"
+export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_HUNK="$([[ $HIGHLIGHT_HUNK -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_COLOR="$HIGHLIGHT_COLOR"
 export DIFFVIM_HIGHLIGHT_DURATION_MS="$HIGHLIGHT_DURATION_MS"
 export DIFFVIM_HIGHLIGHT_MIN_CHARS="$HIGHLIGHT_MIN_CHARS"
-export DIFFVIM_MAX_LINE_LEN="$MAX_LINE_LEN"
+export DIFFVIM_MAX_LINE_LEN="$([[ $MAX_LINE_LEN -gt 0 ]] && echo $MAX_LINE_LEN || echo '')"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -296,6 +298,16 @@ else
     NEW=$(resolve_abs "${POSITIONAL[1]}")
     [[ -f "$OLD" ]] || { echo "Error: '$OLD' not found" >&2; exit 1; }
     [[ -f "$NEW" ]] || { echo "Error: '$NEW' not found" >&2; exit 1; }
+    # Warn if files appear to be in reversed order (new.* before old.*)
+    old_base=$(basename "$OLD")
+    new_base=$(basename "$NEW")
+    if [[ "$old_base" == new.* && "$new_base" == old.* ]]; then
+        echo "Warning: files appear to be in reversed order (new before old)." >&2
+        echo "  Swapping: OLD=$NEW NEW=$OLD" >&2
+        tmp="$OLD"
+        OLD="$NEW"
+        NEW="$tmp"
+    fi
     FILE_PAIRS+=("$OLD:$NEW")
 fi
 
@@ -1398,6 +1410,6 @@ augroup diffvim
 augroup END
 __DIFFVIM_VIMSCRIPT_EOF__
 
-exec vim -f -n -T dumb "$OLD" \
+exec vim -f -n -u NONE -U NONE -T dumb --cmd "set nomore noswapfile" "$OLD" \
     -c "let g:diffvim_new_file = '$NEW'" \
     -c "source $VIMSCRIPT"
