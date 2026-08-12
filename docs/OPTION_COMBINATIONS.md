@@ -1333,3 +1333,66 @@ Default review mode (`n` key applies one hunk and pauses) combined with
 fast 40ms rapid EOL. Press `n` to apply a hunk, see the result instantly
 (trailing deletes go fast), review, press `n` again. Efficient for
 going through a large diff quickly while still seeing each hunk.
+
+## Word Highlighting (new in 1.4.1)
+
+### 111. Highlight the word at cursor before each change
+
+```bash
+diffvim --highlight-word old.py new.py
+```
+
+Before each delete or insert op, the word (maximal run of non-whitespace
+chars) at the cursor position is highlighted with the `Search` highlight
+group for 300ms. Finer-grained than `--highlight-hunk`: shows exactly
+which token is about to change, not the whole line range.
+
+### 112. Custom word highlight color and duration
+
+```bash
+diffvim --highlight-word \
+  --highlight-word-color Visual \
+  --highlight-word-duration-ms 500 \
+  --highlight-word-min-chars 3 \
+  old.py new.py
+```
+
+- Use `Visual` highlight group (blue) instead of the default `Search`
+- 500ms duration (longer than default 300ms, good for slow animation)
+- Only highlight words of 3+ characters (skip tiny 1-2 char changes)
+
+### 113. Combine word + hunk highlighting
+
+```bash
+diffvim --highlight-hunk --highlight-word old.py new.py
+```
+
+Both highlight layers are active:
+- `--highlight-hunk` highlights the whole hunk region (line range) before
+  the hunk starts animating, using `DiffChange` color.
+- `--highlight-word` highlights individual words as they're about to
+  change, using `Search` color.
+
+The two use different highlight IDs and colors, so they don't conflict.
+
+### 114. Word highlighting with step mode
+
+```bash
+diffvim --highlight-word --step-mode old.py new.py
+```
+
+Each Space press advances one char op. The word at the cursor is
+highlighted before each delete/insert, making it easy to see exactly
+which token is being modified at each step. Great for detailed code
+review.
+
+### 115. Word highlighting with rapid EOL delete
+
+```bash
+diffvim --highlight-word --rapid-eol-delete old.py new.py
+```
+
+When a trailing-line delete fires as a rapid shot, the word at the cursor
+is highlighted first (using the rapid run length as the "word length"),
+then all the trailing deletes are applied in one batch. The viewer sees
+which word is about to vanish before it disappears.

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.1] — 2026-08-12
+
+### Added — `--highlight-word` option
+
+#### `--highlight-word`
+Highlight the word at the cursor position before each delete or insert op
+is applied. Finer-grained than `--highlight-hunk`: instead of highlighting
+the whole hunk region (a line range), `--highlight-word` highlights just
+the token (maximal run of non-whitespace chars) that is about to change.
+
+- `--highlight-word` — enable word-level highlighting
+- `--highlight-word-color COLOR` (default: `Search`) — vim highlight group
+- `--highlight-word-duration-ms N` (default: 300) — how long the highlight
+  stays visible
+- `--highlight-word-min-chars N` (default: 2) — minimum word length to
+  trigger highlighting
+
+The engine uses `s:LookaheadSameTypeRun()` to count the upcoming contiguous
+delete/insert ops, then `s:HighlightCurrentWord()` finds the maximal
+non-whitespace run containing the cursor and applies `matchaddpos()` with
+the configured color. The highlight auto-clears after the duration via a
+timer.
+
+Useful for following the animation on long lines where the eye needs help
+locking onto the exact word being modified.
+
+### Tests
+- Added `tests/test_highlight_word.pl` — 20 assertions verifying that both
+  `--highlight-word=on` and `--highlight-word=off` produce identical,
+  correct output across 10 test cases (word replaces, trailing deletes,
+  pure insertions, multi-word lines, etc.).
+- All 469 assertions across 14 test suites pass.
+
+---
+
 ## [1.4.0] — 2026-08-12
 
 ### Added — 4 new features

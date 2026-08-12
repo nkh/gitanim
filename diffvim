@@ -109,6 +109,10 @@ RAPID_EOL_DELETE=1
 RAPID_EOL_DELAY_MS="${DIFFVIM_RAPID_EOL_DELAY_MS:-80}"
 RAPID_EOL_MIN_CHARS="${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}"
 KEEP_DIRTY=0
+HIGHLIGHT_WORD=0
+HIGHLIGHT_WORD_COLOR="${DIFFVIM_HIGHLIGHT_WORD_COLOR:-Search}"
+HIGHLIGHT_WORD_DURATION_MS="${DIFFVIM_HIGHLIGHT_WORD_DURATION_MS:-300}"
+HIGHLIGHT_WORD_MIN_CHARS="${DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS:-2}"
 
 show_help() {
     cat >&2 <<USAGE
@@ -149,6 +153,10 @@ Options:
   --rapid-eol-delay-ms N   Delay for rapid EOL deletion in ms (default: 80)
   --rapid-eol-min-chars N  Min trailing chars to trigger rapid EOL (default: 3)
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
+  --highlight-word         Highlight the word at cursor before each change (finer than --highlight-hunk)
+  --highlight-word-color C  Highlight group for word highlighting (default: Search)
+  --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
+  --highlight-word-min-chars N  Min word length to highlight (default: 2)
   --git-blame              Echo git blame for the target line of each hunk
   --highlight-hunk         Highlight hunk region before animating it
   --highlight-color COLOR  Highlight group (default: DiffChange, also: DiffAdd, DiffDelete, Search, Visual)
@@ -176,7 +184,8 @@ Environment variables:
   DIFFVIM_WORD_DIFF, DIFFVIM_STEP_MODE, DIFFVIM_ADAPTIVE_TIMING,
   DIFFVIM_SIGN_COLUMN, DIFFVIM_GIT_BLAME, DIFFVIM_MAX_LINE_LEN,
   DIFFVIM_RAPID_EOL_DELAY_MS, DIFFVIM_RAPID_EOL_MIN_CHARS,
-  DIFFVIM_KEEP_DIRTY
+  DIFFVIM_KEEP_DIRTY, DIFFVIM_HIGHLIGHT_WORD_COLOR,
+  DIFFVIM_HIGHLIGHT_WORD_DURATION_MS, DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS
 USAGE
 }
 
@@ -214,6 +223,10 @@ while [[ $# -gt 0 ]]; do
         --rapid-eol-delay-ms) RAPID_EOL_DELAY_MS="$2"; shift 2 ;;
         --rapid-eol-min-chars) RAPID_EOL_MIN_CHARS="$2"; shift 2 ;;
         --keep-dirty)    KEEP_DIRTY=1; shift ;;
+        --highlight-word) HIGHLIGHT_WORD=1; shift ;;
+        --highlight-word-color) HIGHLIGHT_WORD_COLOR="$2"; shift 2 ;;
+        --highlight-word-duration-ms) HIGHLIGHT_WORD_DURATION_MS="$2"; shift 2 ;;
+        --highlight-word-min-chars) HIGHLIGHT_WORD_MIN_CHARS="$2"; shift 2 ;;
         --git-blame)     GIT_BLAME=1; shift ;;
         --highlight-hunk) HIGHLIGHT_HUNK=1; shift ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
@@ -298,6 +311,10 @@ export DIFFVIM_RAPID_EOL_DELETE="$([[ $RAPID_EOL_DELETE -eq 1 ]] && echo 1 || ec
 export DIFFVIM_RAPID_EOL_DELAY_MS="$RAPID_EOL_DELAY_MS"
 export DIFFVIM_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
 export DIFFVIM_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
+export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
+export DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS="$HIGHLIGHT_WORD_MIN_CHARS"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -494,6 +511,10 @@ let g:diffvim = extend({
     \ 'rapid_eol_delay_ms': !empty($DIFFVIM_RAPID_EOL_DELAY_MS) ? str2nr($DIFFVIM_RAPID_EOL_DELAY_MS) : 80,
     \ 'rapid_eol_min_chars':!empty($DIFFVIM_RAPID_EOL_MIN_CHARS) ? str2nr($DIFFVIM_RAPID_EOL_MIN_CHARS) : 3,
     \ 'keep_dirty':         !empty($DIFFVIM_KEEP_DIRTY)        ? 1 : 0,
+    \ 'highlight_word':      !empty($DIFFVIM_HIGHLIGHT_WORD)            ? 1 : 0,
+    \ 'highlight_word_color':!empty($DIFFVIM_HIGHLIGHT_WORD_COLOR)      ? $DIFFVIM_HIGHLIGHT_WORD_COLOR            : 'Search',
+    \ 'highlight_word_duration': !empty($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) : 300,
+    \ 'highlight_word_min_chars': !empty($DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS) : 2,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -1135,6 +1156,13 @@ function! s:ProcessCharOp() abort
             endif
         endif
     elseif l:op[0] ==# 'delete'
+        " --highlight-word: highlight the word at cursor before deleting.
+        " Use the upcoming contiguous delete-run length as the "word length"
+        " so the highlight reflects the full change about to happen.
+        if g:diffvim.highlight_word
+            let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+            call s:HighlightCurrentWord('delete', l:run_len)
+        endif
         " --rapid-eol-delete: if a run of deletes extends to end of line
         " (or cursor is already past end of line), apply them in one rapid shot.
         if g:diffvim.rapid_eol_delete
@@ -1174,6 +1202,14 @@ function! s:ProcessCharOp() abort
             call s:PlaceSign('dv_del', s:cur_l)
         endif
     elseif l:op[0] ==# 'insert'
+        " --highlight-word: highlight the word at cursor before inserting.
+        " For inserts, the cursor sits on the existing char that the new
+        " text will be inserted before; highlighting that word shows the
+        " user where the insertion lands.
+        if g:diffvim.highlight_word
+            let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+            call s:HighlightCurrentWord('insert', l:run_len)
+        endif
         call s:InsertCharAtCursor(l:op[1])
         redraw
         if g:diffvim.adaptive_mode
@@ -1247,6 +1283,28 @@ function! s:LookaheadEOLDelete(ops, start) abort
         return l:count
     endif
     return 0
+endfunction
+
+" Look ahead from op_idx to count contiguous ops of the SAME type as the op
+" at op_idx. Stops at the first op of a different type, or at a newline, or
+" at end of ops. Used by --highlight-word to know how long the upcoming
+" change run is, so it can decide whether to highlight.
+" Returns at least 1 (the op at op_idx itself, if it's not a keep/newline).
+function! s:LookaheadSameTypeRun(ops, start) abort
+    if a:start >= len(a:ops) | return 0 | endif
+    let l:first_type = a:ops[a:start][0]
+    if l:first_type ==# 'keep' | return 0 | endif
+    let l:count = 0
+    let l:i = a:start
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] !=# l:first_type | break | endif
+        " Stop at newline — that's a line boundary, not part of the word.
+        if l:op[1] ==# "\n" | break | endif
+        let l:count += 1
+        let l:i += 1
+    endwhile
+    return l:count
 endfunction
 
 " Look ahead from op_idx to find a "word": contiguous insert or delete ops
@@ -1373,6 +1431,77 @@ function! s:ClearHighlight(...) abort
     endfor
     let s:highlight_ids = []
     redraw
+endfunction
+
+" Word highlighting (--highlight-word): highlight the word at the cursor
+" position before a delete or insert op touches it. Finer-grained than
+" --highlight-hunk: shows exactly which token is about to change.
+"
+" A "word" here is the maximal run of non-whitespace characters that
+" contains the cursor. If the cursor is on whitespace, no highlight is
+" applied (there's no word to highlight).
+let s:word_highlight_ids = []
+let s:word_highlight_timer = -1
+
+function! s:ClearWordHighlight(...) abort
+    for l:id in s:word_highlight_ids
+        try
+            call matchdelete(l:id)
+        catch
+        endtry
+    endfor
+    let s:word_highlight_ids = []
+    if s:word_highlight_timer != -1
+        call timer_stop(s:word_highlight_timer)
+        let s:word_highlight_timer = -1
+    endif
+    redraw
+endfunction
+
+" Highlight the word at the current cursor position (s:cur_l, s:cur_c).
+" The word is the maximal run of non-whitespace chars containing the cursor.
+" If the upcoming op is a delete/insert of length >= min_chars, the word is
+" highlighted for `duration` ms. Returns 1 if a highlight was applied.
+function! s:HighlightCurrentWord(op_type, op_count) abort
+    if !g:diffvim.highlight_word | return 0 | endif
+    " Only highlight for delete/insert ops, not keep.
+    if a:op_type !=# 'delete' && a:op_type !=# 'insert' | return 0 | endif
+    " Don't highlight if the change is too small.
+    if a:op_count < g:diffvim.highlight_word_min_chars | return 0 | endif
+    " Don't highlight newlines (no word to show).
+    let l:line = getline(s:cur_l)
+    let l:line_len = len(l:line)
+    if l:line_len == 0 | return 0 | endif
+    " Clamp cursor column to the line.
+    let l:c = s:cur_c
+    if l:c < 1 | let l:c = 1 | endif
+    if l:c > l:line_len | let l:c = l:line_len | endif
+    " If cursor is on whitespace, no word to highlight.
+    let l:ch_at = l:line[l:c - 1]
+    if l:ch_at ==# ' ' || l:ch_at ==# "\t" | return 0 | endif
+    " Find word start: walk left while non-whitespace.
+    let l:start_c = l:c
+    while l:start_c > 1 && l:line[l:start_c - 2] !=# ' ' && l:line[l:start_c - 2] !=# "\t"
+        let l:start_c -= 1
+    endwhile
+    " Find word end: walk right while non-whitespace.
+    let l:end_c = l:c
+    while l:end_c < l:line_len && l:line[l:end_c] !=# ' ' && l:line[l:end_c] !=# "\t"
+        let l:end_c += 1
+    endwhile
+    " matchaddpos uses [line, col, length] form.
+    let l:word_len = l:end_c - l:start_c + 1
+    if l:word_len < g:diffvim.highlight_word_min_chars | return 0 | endif
+    call s:ClearWordHighlight()
+    let l:pos = [[s:cur_l, l:start_c, l:word_len]]
+    let l:id = matchaddpos(g:diffvim.highlight_word_color, l:pos)
+    call add(s:word_highlight_ids, l:id)
+    redraw
+    " Schedule clear after the configured duration.
+    let s:word_highlight_timer = timer_start(
+        \ g:diffvim.highlight_word_duration,
+        \ function('s:ClearWordHighlight'))
+    return 1
 endfunction
 
 " --- User controls ---------------------------------------------------------
@@ -1709,6 +1838,9 @@ function! s:ShowConfig() abort
         let l:msg .= '  keep_dirty=on(:q!)'
     else
         let l:msg .= '  keep_dirty=off(:q)'
+    endif
+    if g:diffvim.highlight_word
+        let l:msg .= '  highlight_word=on(' . g:diffvim.highlight_word_color . ',' . g:diffvim.highlight_word_duration . 'ms)'
     endif
     echo l:msg
 endfunction

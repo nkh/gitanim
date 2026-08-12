@@ -24,6 +24,9 @@ variables. These control the animation speed and feel.
 | `DIFFVIM_WORD_PAUSE_MS`     | `150`   | Pause after instant word (ms)            |
 | `DIFFVIM_RAPID_EOL_DELAY_MS`| `80`    | Delay for rapid end-of-line deletion (ms)|
 | `DIFFVIM_RAPID_EOL_MIN_CHARS`| `3`    | Min trailing chars to trigger rapid EOL  |
+| `DIFFVIM_HIGHLIGHT_WORD_COLOR`| `Search`| Highlight group for `--highlight-word` |
+| `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS`| `300`| Word highlight duration (ms)          |
+| `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS`| `2`| Min word length to highlight            |
 | `DIFFVIM_KEEP_DIRTY`        | unset   | Set to `1` to leave buffer modified      |
 
 ### Detailed Descriptions
@@ -109,6 +112,25 @@ Set to `1` to leave the buffer marked as modified after the animation
 finishes. By default diffvim runs `:set nomodified` so that `:q` quits
 cleanly; with `DIFFVIM_KEEP_DIRTY=1` the user must type `:q!` to quit.
 Equivalent to the `--keep-dirty` command-line flag.
+
+#### `DIFFVIM_HIGHLIGHT_WORD_COLOR` (default: Search)
+
+Vim highlight group used by `--highlight-word` to highlight the word at
+the cursor before each change. Common choices: `Search` (default, yellow),
+`Visual` (blue), `IncSearch` (yellow, search-match style), `DiffAdd`
+(green), `DiffDelete` (red), `DiffChange` (cyan).
+
+#### `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS` (default: 300)
+
+How long the word highlight stays visible, in milliseconds. Lower values
+make the highlight flash briefly (good for fast animation); higher values
+leave it visible longer (useful with `--step-mode` or slow speeds).
+
+#### `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS` (default: 2)
+
+Minimum word length to trigger word highlighting. Words shorter than this
+are not highlighted (they change too fast to be worth the visual flash).
+Set to `1` to highlight every single-char change.
 
 ---
 

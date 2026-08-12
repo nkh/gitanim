@@ -284,6 +284,49 @@ to quit. Useful when you want vim's normal "unsaved changes" protection
 to remain active.
 
 .TP
+.B \-\-highlight-word
+Highlight the word at the cursor position before each delete or insert op
+is applied. Finer-grained than
+.BR \-\-highlight-hunk :
+instead of highlighting the whole hunk region (a line range),
+.B \-\-highlight-word
+highlights just the token (maximal run of non-whitespace chars) that is
+about to change. Useful for following the animation on long lines where
+the eye needs help locking onto the exact word being modified.
+
+The highlight is shown for
+.B \-\-highlight-word-duration-ms
+milliseconds (default: 300), then cleared. Words shorter than
+.B \-\-highlight-word-min-chars
+(default: 2) are not highlighted.
+
+.TP
+.BI \-\-highlight-word-color\  COLOR
+Vim highlight group for word highlighting. Default:
+.BR Search .
+Also:
+.BR Visual ,
+.BR IncSearch ,
+.BR DiffAdd ,
+.BR DiffDelete ,
+.BR DiffChange .
+
+.TP
+.BI \-\-highlight-word-duration-ms\  N
+Word highlight duration in milliseconds. Default: 300. Lower values make
+the highlight flash briefly; higher values leave it visible longer (useful
+with
+.B \-\-step-mode
+or slow animation speeds).
+
+.TP
+.BI \-\-highlight-word-min-chars\  N
+Minimum word length (in characters) to trigger word highlighting.
+Default: 2. Words shorter than this are not highlighted (they change too
+fast to be worth the visual flash). Set to 1 to highlight every single-char
+change.
+
+.TP
 .B \-\-sign-column
 Show
 .B +/-
@@ -535,6 +578,17 @@ and require
 Default: unset (buffer is marked not modified, so
 .B :q
 works).
+.TP
+.B DIFFVIM_HIGHLIGHT_WORD_COLOR
+Highlight group for
+.B \-\-highlight-word
+(default: Search).
+.TP
+.B DIFFVIM_HIGHLIGHT_WORD_DURATION_MS
+Word highlight duration in ms (default: 300).
+.TP
+.B DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS
+Min word length to trigger highlight (default: 2).
 
 .SH EXAMPLES
 
@@ -612,6 +666,20 @@ diffvim old.py new.py
 
 # Keep buffer modified; ':q!' required to quit
 diffvim \-\-keep-dirty old.py new.py
+.fi
+
+.SS Word Highlighting
+.PP
+.nf
+# Highlight the word at cursor before each change
+diffvim \-\-highlight-word old.py new.py
+
+# Use Visual group, 500ms duration, highlight words of 3+ chars
+diffvim \-\-highlight-word \\
+  \-\-highlight-word-color Visual \\
+  \-\-highlight-word-duration-ms 500 \\
+  \-\-highlight-word-min-chars 3 \\
+  old.py new.py
 .fi
 
 .SS Multi-file Animation

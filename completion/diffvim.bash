@@ -26,7 +26,7 @@ _diffvim_complete() {
             COMPREPLY=( $(compgen -W "0.5 1 2 3 5" -- "$cur") )
             return 0
             ;;
-        --output|--from|--to|--git-rev|--max-hunk-chars|--max-word-chars|--word-pause-ms|--context|--max-line-len|--rapid-eol-delay-ms|--rapid-eol-min-chars)
+        --output|--from|--to|--git-rev|--max-hunk-chars|--max-word-chars|--word-pause-ms|--context|--max-line-len|--rapid-eol-delay-ms|--rapid-eol-min-chars|--highlight-word-duration-ms|--highlight-word-min-chars)
             # File path or value
             COMPREPLY=( $(compgen -f -- "$cur") )
             return 0
@@ -40,7 +40,9 @@ _diffvim_complete() {
               --no-tmux --dry-run --sign-column --git-blame --step-mode
               --max-line-len --adaptive-timing --word-diff
               --rapid-eol-delete --no-rapid-eol-delete --rapid-eol-delay-ms --rapid-eol-min-chars
-              --keep-dirty --version --help"
+              --keep-dirty --highlight-word --highlight-word-color
+              --highlight-word-duration-ms --highlight-word-min-chars
+              --version --help"
         COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
         return 0
     fi

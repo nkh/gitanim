@@ -148,6 +148,45 @@ diffvim --keep-dirty old.py new.py
 The startup config echo shows which mode is active:
 `keep_dirty=off(:q)` or `keep_dirty=on(:q!)`.
 
+### `--highlight-word`
+Highlight the word at the cursor position before each delete or insert op
+is applied. Finer-grained than `--highlight-hunk`: instead of highlighting
+the whole hunk region (a line range), `--highlight-word` highlights just
+the token (maximal run of non-whitespace chars) that is about to change.
+
+Useful for following the animation on long lines where the eye needs help
+locking onto the exact word being modified. The highlight is shown for
+`--highlight-word-duration-ms` milliseconds (default: 300), then cleared.
+Words shorter than `--highlight-word-min-chars` (default: 2) are not
+highlighted.
+
+```bash
+# Highlight the word at cursor before each change
+diffvim --highlight-word old.py new.py
+
+# Use Visual group, 500ms duration, highlight words of 3+ chars
+diffvim --highlight-word \
+  --highlight-word-color Visual \
+  --highlight-word-duration-ms 500 \
+  --highlight-word-min-chars 3 \
+  old.py new.py
+```
+
+### `--highlight-word-color COLOR`
+Vim highlight group for word highlighting. Default: `Search`. Also:
+`Visual`, `IncSearch`, `DiffAdd`, `DiffDelete`, `DiffChange`.
+
+### `--highlight-word-duration-ms N`
+Word highlight duration in milliseconds. Default: 300. Lower values make
+the highlight flash briefly; higher values leave it visible longer (useful
+with `--step-mode` or slow animation speeds).
+
+### `--highlight-word-min-chars N`
+Minimum word length (in characters) to trigger word highlighting.
+Default: 2. Words shorter than this are not highlighted (they change too
+fast to be worth the visual flash). Set to 1 to highlight every single-char
+change.
+
 ### `--sign-column`
 Show `+`/`-` signs in vim's sign column to indicate deleted/added lines.
 

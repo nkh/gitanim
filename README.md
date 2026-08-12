@@ -215,6 +215,10 @@ All three implementations support these options:
 --rapid-eol-delay-ms N   Delay for rapid EOL deletion (default: 80)
 --rapid-eol-min-chars N  Min trailing chars to trigger rapid EOL (default: 3)
 --keep-dirty             Leave buffer modified; require :q! to quit
+--highlight-word         Highlight the word at cursor before each change
+--highlight-word-color C  Highlight group for word highlighting (default: Search)
+--highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
+--highlight-word-min-chars N  Min word length to highlight (default: 2)
 --version, -V            Print version and dependency info
 --help, -h               Show help
 ```
@@ -284,6 +288,9 @@ Timing can be tuned via environment variables:
 | `DIFFVIM_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
 | `DIFFVIM_RAPID_EOL_DELAY_MS` | `80` | Delay for rapid end-of-line deletion (ms) |
 | `DIFFVIM_RAPID_EOL_MIN_CHARS` | `3` | Min trailing chars to trigger rapid EOL |
+| `DIFFVIM_HIGHLIGHT_WORD_COLOR` | `Search` | Highlight group for `--highlight-word` |
+| `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS` | `300` | Word highlight duration in ms |
+| `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS` | `2` | Min word length to highlight |
 | `DIFFVIM_SPEED` | `1.0` | Speed multiplier (same as --speed) |
 | `DIFFVIM_MAX_LINE_LEN` | `10000` | Warn threshold for long lines |
 | `DIFFVIM_KEEP_DIRTY` | unset | Set to `1` to leave buffer modified (`:q!` required) |
@@ -333,6 +340,12 @@ perl diffvim.pl --dry-run old.py new.py
 
 # Tune rapid EOL: 50ms delay, only trigger for 5+ trailing chars
 ./diffvim --rapid-eol-delay-ms 50 --rapid-eol-min-chars 5 old.py new.py
+
+# Highlight the word at cursor before each change (finer than --highlight-hunk)
+./diffvim --highlight-word old.py new.py
+
+# Use a different color and longer duration for word highlights
+./diffvim --highlight-word --highlight-word-color Visual --highlight-word-duration-ms 500 old.py new.py
 ```
 
 ---

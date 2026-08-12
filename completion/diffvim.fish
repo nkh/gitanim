@@ -17,6 +17,7 @@ set -l diffvim_flags \
     --rapid-eol-delete \
     --no-rapid-eol-delete \
     --keep-dirty \
+    --highlight-word \
     --version \
     --help \
     -h \
@@ -37,7 +38,10 @@ set -l diffvim_opts \
     --git-rev \
     --max-line-len \
     --rapid-eol-delay-ms \
-    --rapid-eol-min-chars
+    --rapid-eol-min-chars \
+    --highlight-word-color \
+    --highlight-word-duration-ms \
+    --highlight-word-min-chars
 
 # Complete flags
 for cmd in diffvim diffvim-tmux diffvim.pl

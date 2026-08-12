@@ -17,6 +17,9 @@ options override environment variables, which override built-in defaults.
 | `DIFFVIM_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
 | `DIFFVIM_RAPID_EOL_DELAY_MS` | `80` | Delay for rapid end-of-line deletion (ms) |
 | `DIFFVIM_RAPID_EOL_MIN_CHARS` | `3` | Min trailing chars to trigger rapid EOL |
+| `DIFFVIM_HIGHLIGHT_WORD_COLOR` | `Search` | Highlight group for `--highlight-word` |
+| `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS` | `300` | Word highlight duration in ms |
+| `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS` | `2` | Min word length to highlight |
 | `DIFFVIM_SPEED` | `1.0` | Speed multiplier (same as --speed) |
 | `DIFFVIM_MAX_LINE_LEN` | `10000` | Warn threshold for long lines |
 | `DIFFVIM_KEEP_DIRTY` | unset | Set to `1` to leave buffer modified (`:q!` required) |
