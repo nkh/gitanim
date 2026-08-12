@@ -47,6 +47,8 @@ let g:diffvim = extend({
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
     \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
     \ 'word_diff':          !empty($DIFFVIM_WORD_DIFF)        ? 1 : 0,
+    \ 'semantic_cleanup':   !empty($DIFFVIM_SEMANTIC_CLEANUP) ? 1 : 0,
+    \ 'indent_aware':       !empty($DIFFVIM_INDENT_AWARE)     ? 1 : 0,
     \ 'step_mode':          !empty($DIFFVIM_STEP_MODE)        ? 1 : 0,
     \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
     \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
@@ -58,12 +60,39 @@ let g:diffvim = extend({
     \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ 'fold_unchanged':     !empty($DIFFVIM_FOLD_UNCHANGED)   ? 1 : 0,
     \ 'no_startup_pause':   !empty($DIFFVIM_NO_STARTUP_PAUSE) ? 1 : 0,
+    \ 'startup_pause':      !empty($DIFFVIM_STARTUP_PAUSE)    ? 1 : 0,
     \ 'adaptive_mode':     !empty($DIFFVIM_ADAPTIVE_MODE)   ? 1 : 0,
     \ 'adaptive_start_ms': !empty($DIFFVIM_ADAPTIVE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_START_MS) : 80,
     \ 'adaptive_max_ms':   !empty($DIFFVIM_ADAPTIVE_MAX_MS)   ? str2nr($DIFFVIM_ADAPTIVE_MAX_MS)   : 30,
     \ 'adaptive_accel':    !empty($DIFFVIM_ADAPTIVE_ACCEL)    ? str2nr($DIFFVIM_ADAPTIVE_ACCEL) * 1.0 / 100.0 : 0.92,
     \ 'adaptive_pause_lines': !empty($DIFFVIM_ADAPTIVE_PAUSE_LINES) ? str2nr($DIFFVIM_ADAPTIVE_PAUSE_LINES) : 15,
     \ 'adaptive_pause_ms': !empty($DIFFVIM_ADAPTIVE_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_PAUSE_MS) : 500,
+    \ 'rapid_eol_delete':   !empty($DIFFVIM_RAPID_EOL_DELETE)  ? 1 : 0,
+    \ 'rapid_eol_delay_ms': !empty($DIFFVIM_RAPID_EOL_DELAY_MS) ? str2nr($DIFFVIM_RAPID_EOL_DELAY_MS) : 80,
+    \ 'rapid_eol_min_chars':!empty($DIFFVIM_RAPID_EOL_MIN_CHARS) ? str2nr($DIFFVIM_RAPID_EOL_MIN_CHARS) : 3,
+    \ 'keep_dirty':         !empty($DIFFVIM_KEEP_DIRTY)        ? 1 : 0,
+    \ 'precomputed':        !empty($DIFFVIM_PRECOMPUTED)       ? $DIFFVIM_PRECOMPUTED             : '',
+    \ 'highlight_word':      !empty($DIFFVIM_HIGHLIGHT_WORD)            ? 1 : 0,
+    \ 'highlight_word_color':!empty($DIFFVIM_HIGHLIGHT_WORD_COLOR)      ? $DIFFVIM_HIGHLIGHT_WORD_COLOR            : 'Search',
+    \ 'highlight_word_duration': !empty($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) : 300,
+    \ 'highlight_word_min_chars': !empty($DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS) : 2,
+    \ 'accel_delete':       !empty($DIFFVIM_ACCEL_DELETE)        ? 1 : 0,
+    \ 'accel_delete_start_ms': !empty($DIFFVIM_ACCEL_DELETE_START_MS) ? str2nr($DIFFVIM_ACCEL_DELETE_START_MS) : 80,
+    \ 'accel_delete_min_ms':!empty($DIFFVIM_ACCEL_DELETE_MIN_MS) ? str2nr($DIFFVIM_ACCEL_DELETE_MIN_MS) : 10,
+    \ 'accel_delete_accel': !empty($DIFFVIM_ACCEL_DELETE_ACCEL)  ? str2nr($DIFFVIM_ACCEL_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
+    \ 'overwrite_mode':     !empty($DIFFVIM_OVERWRITE_MODE)      ? 1 : 0,
+    \ 'delete_end_first':   !empty($DIFFVIM_DELETE_END_FIRST)    ? 1 : 0,
+    \ 'delete_end_first_delay_ms': !empty($DIFFVIM_DELETE_END_FIRST_DELAY_MS) ? str2nr($DIFFVIM_DELETE_END_FIRST_DELAY_MS) : 100,
+    \ 'startup_feedback':   !empty($DIFFVIM_STARTUP_FEEDBACK)    ? 1 : 0,
+    \ 'inline_highlight':   !empty($DIFFVIM_INLINE_HIGHLIGHT)    ? 1 : 0,
+    \ 'inline_highlight_duration': !empty($DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS) : 200,
+    \ 'gaussian_jitter':    !empty($DIFFVIM_GAUSSIAN_JITTER)     ? 1 : 0,
+    \ 'gaussian_jitter_pct':!empty($DIFFVIM_GAUSSIAN_JITTER_PCT) ? str2nr($DIFFVIM_GAUSSIAN_JITTER_PCT) : 20,
+    \ 'dim_unchanged':      !empty($DIFFVIM_DIM_UNCHANGED)       ? 1 : 0,
+    \ 'dim_unchanged_pct':  !empty($DIFFVIM_DIM_UNCHANGED_PCT)   ? str2nr($DIFFVIM_DIM_UNCHANGED_PCT) : 60,
+    \ 'pause_after_lines':  !empty($DIFFVIM_PAUSE_AFTER_LINES)   ? str2nr($DIFFVIM_PAUSE_AFTER_LINES) : 0,
+    \ 'pause_after_threshold': !empty($DIFFVIM_PAUSE_AFTER_THRESHOLD) ? str2nr($DIFFVIM_PAUSE_AFTER_THRESHOLD) : 50,
+    \ 'pause_after_ms':     !empty($DIFFVIM_PAUSE_AFTER_MS)      ? str2nr($DIFFVIM_PAUSE_AFTER_MS) : 500,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -95,6 +124,10 @@ let s:state = {
     \ 'runtime_speed': 1.0,
     \ 'adaptive_delay': 0,
     \ 'adaptive_lines_done': 0,
+    \ 'accel_delete_delay': 0,
+    \ 'accel_delete_count': 0,
+    \ 'accel_delete_total': 0,
+    \ 'pause_after_count': 0,
     \ }
 
 " --- Diff: LCS at line level and char level -------------------------------
@@ -193,8 +226,342 @@ function! s:CharDiff(a, b) abort
     return reverse(l:ops)
 endfunction
 
+" Word-level diff: splits text into word tokens (non-space runs and
+" whitespace runs), runs LCS at the token level, then expands back to
+" char ops. Produces more natural typing patterns than char-level LCS
+" because consecutive chars within a word are grouped.
+function! s:WordDiff(a, b) abort
+    let l:a = s:SplitWords(a:a)
+    let l:b = s:SplitWords(a:b)
+    let l:na = len(l:a)
+    let l:nb = len(l:b)
+    let l:dp = []
+    let l:i = 0
+    while l:i <= l:na
+        call add(l:dp, repeat([0], l:nb + 1))
+        let l:i += 1
+    endwhile
+    let l:i = 1
+    while l:i <= l:na
+        let l:j = 1
+        while l:j <= l:nb
+            if l:a[l:i - 1] ==# l:b[l:j - 1]
+                let l:dp[l:i][l:j] = l:dp[l:i - 1][l:j - 1] + 1
+            else
+                let l:dp[l:i][l:j] = max([l:dp[l:i - 1][l:j], l:dp[l:i][l:j - 1]])
+            endif
+            let l:j += 1
+        endwhile
+        let l:i += 1
+    endwhile
+    " Backtrack at token level, collecting (op_type, token) pairs in reverse.
+    let l:token_ops = []
+    let l:i = l:na
+    let l:j = l:nb
+    while l:i > 0 || l:j > 0
+        if l:i > 0 && l:j > 0 && l:a[l:i - 1] ==# l:b[l:j - 1]
+            call add(l:token_ops, ['keep', l:a[l:i - 1]])
+            let l:i -= 1
+            let l:j -= 1
+        elseif l:j > 0 && (l:i == 0 || l:dp[l:i][l:j - 1] >= l:dp[l:i - 1][l:j])
+            call add(l:token_ops, ['insert', l:b[l:j - 1]])
+            let l:j -= 1
+        else
+            call add(l:token_ops, ['delete', l:a[l:i - 1]])
+            let l:i -= 1
+        endif
+    endwhile
+    " Reverse to get forward order, THEN expand each token to char ops.
+    " This ensures chars within each token are in the correct order.
+    call reverse(l:token_ops)
+    let l:ops = []
+    for l:top in l:token_ops
+        for l:ch in split(l:top[1], '\zs')
+            call add(l:ops, [l:top[0], l:ch])
+        endfor
+    endfor
+    return l:ops
+endfunction
+
+" Split text into word tokens: maximal runs of non-space chars and
+" maximal runs of whitespace. E.g. "hello world" -> ["hello", " ", "world"].
+function! s:SplitWords(text) abort
+    return split(a:text, '\(\S\+\|\s\+\)\zs')
+endfunction
+
+" Semantic cleanup: merge adjacent delete+insert (or insert+delete) pairs
+" that cancel out (same char code) into a single keep op. Reduces
+" unnecessary typing noise.
+function! s:SemanticCleanup(ops) abort
+    if len(a:ops) < 2 | return a:ops | endif
+    let l:result = []
+    let l:i = 0
+    while l:i < len(a:ops)
+        if l:i + 1 < len(a:ops)
+            let l:op1 = a:ops[l:i]
+            let l:op2 = a:ops[l:i + 1]
+            " delete X followed by insert X → keep X
+            if l:op1[0] ==# 'delete' && l:op2[0] ==# 'insert' && l:op1[1] ==# l:op2[1]
+                call add(l:result, ['keep', l:op1[1]])
+                let l:i += 2
+                continue
+            endif
+            " insert X followed by delete X → keep X
+            if l:op1[0] ==# 'insert' && l:op2[0] ==# 'delete' && l:op1[1] ==# l:op2[1]
+                call add(l:result, ['keep', l:op1[1]])
+                let l:i += 2
+                continue
+            endif
+        endif
+        call add(l:result, a:ops[l:i])
+        let l:i += 1
+    endwhile
+    return l:result
+endfunction
+
+" Normalize indentation: strip leading whitespace from a line.
+" Used by --indent-aware so lines that differ only in indentation are
+" treated as "keep" at the line level.
+function! s:NormalizeIndent(line) abort
+    return substitute(a:line, '^[ \t]*', '', '')
+endfunction
+
+" Load precomputed hunks from a file produced by the external compute tools
+" (compute/c, compute/cpp, compute/rust, compute/go).
+"
+" Format:
+"   # diffvim precomputed diff v1
+"   # hunk_count N
+"   HUNK target del ins end_ins end_del
+"   keep|delete|insert <code>
+"   ...
+"
+" Returns a list of hunk dictionaries, same structure as s:BuildHunks.
+function! s:LoadPrecomputed(path) abort
+    if !filereadable(a:path)
+        echoerr 'diffvim: cannot read precomputed file: ' . a:path
+        return []
+    endif
+    let l:lines = readfile(a:path)
+    let l:hunks = []
+    let l:cur_hunk = {}
+    let l:cur_ops = []
+    for l:line in l:lines
+        " Skip comments and blank lines
+        if l:line =~# '^#' || l:line =~# '^\s*$'
+            continue
+        endif
+        if l:line =~# '^HUNK '
+            " Save previous hunk if any
+            if !empty(l:cur_hunk)
+                let l:cur_hunk.char_ops = l:cur_ops
+                call add(l:hunks, l:cur_hunk)
+            endif
+            let l:parts = split(l:line)
+            let l:cur_hunk = {
+                \ 'target_line_old': str2nr(l:parts[1]),
+                \ 'deleted_count':   str2nr(l:parts[2]),
+                \ 'inserted_count':  str2nr(l:parts[3]),
+                \ 'is_end_insert':   str2nr(l:parts[4]),
+                \ 'is_end_delete':   str2nr(l:parts[5]),
+                \ 'old_text':        '',
+                \ 'new_text':        '',
+                \ }
+            let l:cur_ops = []
+        else
+            " Char op: "keep|delete|insert <code>"
+            let l:parts = split(l:line)
+            if len(l:parts) >= 2
+                let l:code = str2nr(l:parts[1])
+                let l:ch = l:code == 10 ? "\n" : nr2char(l:code, 1)
+                call add(l:cur_ops, [l:parts[0], l:ch])
+            endif
+        endif
+    endfor
+    " Save last hunk
+    if !empty(l:cur_hunk)
+        let l:cur_hunk.char_ops = l:cur_ops
+        call add(l:hunks, l:cur_hunk)
+    endif
+    echo 'diffvim: loaded ' . len(l:hunks) . ' precomputed hunk(s) from ' . a:path
+    return l:hunks
+endfunction
+
+" Overwrite transform: when a delete run is immediately followed by an
+" insert run (the classic "replace word X with word Y" pattern), transform
+" the ops so that:
+"   - If the replacement is SHORTER: overwrite min(len) chars (delete+insert
+"     pairs become keep+insert), then delete the extra old chars.
+"   - If the replacement is SAME LENGTH: all delete+insert pairs become
+"     keep (pure overwrite, no deletion needed).
+"   - If the replacement is LONGER: overwrite the old word (delete+insert
+"     pairs become keep+insert), then insert the remainder.
+"
+" This produces a more natural "typing over" effect instead of
+" "delete everything, then type everything".
+"
+" The transform scans for patterns: [delete D1..Dn] [insert I1..Im]
+" and rewrites them. It only applies when both runs are non-empty and
+" consist of non-space, non-newline chars (word tokens).
+function! s:OverwriteTransform(ops) abort
+    let l:result = []
+    let l:i = 0
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] ==# 'delete' && l:op[1] !=# "\n" && l:op[1] !=# ' '
+            " Collect the delete run (non-space, non-newline only)
+            let l:del_run = []
+            while l:i < len(a:ops) && a:ops[l:i][0] ==# 'delete'
+                \ && a:ops[l:i][1] !=# "\n" && a:ops[l:i][1] !=# ' '
+                call add(l:del_run, a:ops[l:i])
+                let l:i += 1
+            endwhile
+            " Check if followed by an insert run
+            if !empty(l:del_run) && l:i < len(a:ops) && a:ops[l:i][0] ==# 'insert'
+                \ && a:ops[l:i][1] !=# "\n" && a:ops[l:i][1] !=# ' '
+                let l:ins_run = []
+                while l:i < len(a:ops) && a:ops[l:i][0] ==# 'insert'
+                    \ && a:ops[l:i][1] !=# "\n" && a:ops[l:i][1] !=# ' '
+                    call add(l:ins_run, a:ops[l:i])
+                    let l:i += 1
+                endwhile
+                if !empty(l:ins_run)
+                    let l:del_len = len(l:del_run)
+                    let l:ins_len = len(l:ins_run)
+                    let l:min_len = min([l:del_len, l:ins_len])
+                    " Emit delete+insert pairs for the overlap (overwrite)
+                    for l:j in range(l:min_len)
+                        call add(l:result, l:del_run[l:j])
+                        call add(l:result, l:ins_run[l:j])
+                    endfor
+                    " Remainder
+                    if l:del_len > l:min_len
+                        for l:j in range(l:min_len, l:del_len - 1)
+                            call add(l:result, l:del_run[l:j])
+                        endfor
+                    elseif l:ins_len > l:min_len
+                        for l:j in range(l:min_len, l:ins_len - 1)
+                            call add(l:result, l:ins_run[l:j])
+                        endfor
+                    endif
+                else
+                    " No insert run — keep deletes as-is
+                    for l:d in l:del_run
+                        call add(l:result, l:d)
+                    endfor
+                endif
+            else
+                " No following insert run — keep deletes as-is
+                for l:d in l:del_run
+                    call add(l:result, l:d)
+                endfor
+            endif
+        else
+            " Not a word-delete or delete with newline/space — pass through
+            call add(l:result, l:op)
+            let l:i += 1
+        endif
+    endwhile
+    return l:result
+endfunction
+
+" Delete-end-first: when a line has both inserts and trailing deletes
+" (deletes that extend to end of line), move the trailing deletes BEFORE
+" the inserts. This makes the animation: "delete end of line, pause, then
+" insert new text" which is more natural than "insert, then delete end".
+"
+" Detects patterns: [insert I1..In] [delete D1..Dm] where the deletes
+" extend to end of line (next op is keep-\n or end of ops), and reorders
+" to: [delete D1..Dm] [pause marker] [insert I1..In].
+"
+" The pause is implemented as a special op ['pause_end_first', delay]
+" that ProcessCharOp recognizes and uses to schedule a delay.
+function! s:DeleteEndFirst(ops) abort
+    let l:result = []
+    let l:i = 0
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] ==# 'insert'
+            " Collect the insert run
+            let l:ins_start = l:i
+            while l:i < len(a:ops) && a:ops[l:i][0] ==# 'insert'
+                call add(l:result, a:ops[l:i])
+                let l:i += 1
+            endwhile
+            " Check if followed by a trailing-EOL delete run
+            if l:i < len(a:ops) && a:ops[l:i][0] ==# 'delete'
+                let l:del_start = l:i
+                while l:i < len(a:ops) && a:ops[l:i][0] ==# 'delete'
+                    let l:i += 1
+                endwhile
+                " Check if the delete run extends to EOL
+                let l:at_eol = 0
+                if l:i >= len(a:ops)
+                    let l:at_eol = 1
+                elseif a:ops[l:i][0] ==# 'keep' && a:ops[l:i][1] ==# "\n"
+                    let l:at_eol = 1
+                endif
+                if l:at_eol
+                    " Move the deletes before the inserts.
+                    " Remove the inserts we just added, add deletes first,
+                    " then pause marker, then inserts.
+                    let l:ins_count = l:i - l:ins_start - (l:i - l:del_start)
+                    " Actually, let's just rebuild this segment properly.
+                    " We added (del_start - ins_start) inserts to result.
+                    " Remove them.
+                    let l:ins_run = []
+                    let l:to_remove = l:del_start - l:ins_start
+                    while len(l:result) > 0 && l:to_remove > 0
+                        call add(l:ins_run, remove(l:result, -1))
+                        let l:to_remove -= 1
+                    endwhile
+                    call reverse(l:ins_run)
+                    " Collect the delete run
+                    let l:del_run = []
+                    let l:j = l:del_start
+                    while l:j < l:i
+                        call add(l:del_run, a:ops[l:j])
+                        let l:j += 1
+                    endwhile
+                    " Emit: deletes, pause marker, inserts
+                    for l:d in l:del_run
+                        call add(l:result, l:d)
+                    endfor
+                    call add(l:result, ['pause_end_first', g:diffvim.delete_end_first_delay_ms])
+                    for l:ins in l:ins_run
+                        call add(l:result, l:ins)
+                    endfor
+                else
+                    " Not at EOL — emit the deletes normally
+                    let l:j = l:del_start
+                    while l:j < l:i
+                        call add(l:result, a:ops[l:j])
+                        let l:j += 1
+                    endwhile
+                endif
+            endif
+        else
+            call add(l:result, l:op)
+            let l:i += 1
+        endif
+    endwhile
+    return l:result
+endfunction
+
 " Group line-level ops into hunks, then compute char-level diff per hunk.
 function! s:BuildHunks() abort
+    " If --precomputed FILE was given, load hunks from that file instead of
+    " computing the diff in vimscript. The file format is:
+    "   # diffvim precomputed diff v1
+    "   # hunk_count N
+    "   HUNK target del ins end_ins end_del
+    "   keep|delete|insert <code>
+    "   ...
+    " This is produced by the tools in compute/ (C, C++, Rust, Go).
+    if !empty(g:diffvim.precomputed)
+        return s:LoadPrecomputed(g:diffvim.precomputed)
+    endif
+
     let l:old_lines = getline(1, '$')
     if empty(l:old_lines)
         let l:old_lines = ['']
@@ -204,7 +571,20 @@ function! s:BuildHunks() abort
         let l:new_lines = ['']
     endif
 
-    let l:line_ops = s:LineDiff(l:old_lines, l:new_lines)
+    " --indent-aware: normalize indentation before line-level diff so lines
+    " that differ only in indentation are treated as "keep" at line level.
+    " The indent change is then handled at the char level.
+    if g:diffvim.indent_aware
+        let l:old_norm = map(copy(l:old_lines), 's:NormalizeIndent(v:val)')
+        let l:new_norm = map(copy(l:new_lines), 's:NormalizeIndent(v:val)')
+        let l:line_ops = s:LineDiff(l:old_norm, l:new_norm)
+        " Fix up a_idx/b_idx to point into the ORIGINAL lines (not normalized),
+        " since BuildHunks reads from l:old_lines/l:new_lines.
+        " The indices are the same (normalization doesn't change line count),
+        " so we can use them directly.
+    else
+        let l:line_ops = s:LineDiff(l:old_lines, l:new_lines)
+    endif
 
     let l:hunks = []
     let l:cur_ops = []
@@ -298,7 +678,32 @@ function! s:BuildHunks() abort
             let l:h.is_end_delete = 0
         endif
 
-        let l:h.char_ops = s:CharDiff(l:h.old_text, l:h.new_text)
+        " --word-diff: use word-level LCS instead of char-level for more
+        " natural typing patterns (consecutive chars within a word are grouped).
+        if g:diffvim.word_diff
+            let l:h.char_ops = s:WordDiff(l:h.old_text, l:h.new_text)
+        else
+            let l:h.char_ops = s:CharDiff(l:h.old_text, l:h.new_text)
+        endif
+        " --semantic-cleanup: merge adjacent delete+insert pairs that cancel
+        " out, reducing unnecessary typing noise.
+        if g:diffvim.semantic_cleanup
+            let l:h.char_ops = s:SemanticCleanup(l:h.char_ops)
+        endif
+        " --overwrite: transform delete+insert pairs into overwrite-then-
+        " insert-remainder or overwrite-then-delete-extra. When a word is
+        " replaced, overwrite the old word in place instead of delete-all
+        " then insert-all. Shorter replacement = overwrite + delete extra;
+        " same length = overwrite only; longer = overwrite + insert remainder.
+        if g:diffvim.overwrite_mode
+            let l:h.char_ops = s:OverwriteTransform(l:h.char_ops)
+        endif
+        " --delete-end-first: when a line has both inserts and end-of-line
+        " deletes, move the end-deletes before the inserts (with a short
+        " pause) so the viewer sees the tail disappear first.
+        if g:diffvim.delete_end_first
+            let l:h.char_ops = s:DeleteEndFirst(l:h.char_ops)
+        endif
         let l:h.deleted_count = len(l:deleted)
         let l:h.inserted_count = len(l:inserted)
     endfor
@@ -494,7 +899,16 @@ function! s:StartNextHunk() abort
             echo 'diffvim: result written to ' . g:diffvim.output_file
             qa!
         endif
-        echo 'diffvim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied)'
+        " By default, mark the buffer as not modified so ':q' quits cleanly.
+        " Use --keep-dirty to leave the buffer modified (then ':q!' is required).
+        if !g:diffvim.keep_dirty
+            set nomodified
+        endif
+        if g:diffvim.keep_dirty
+            echo 'diffvim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied) — buffer modified, use :q! to quit'
+        else
+            echo 'diffvim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied) — :q to quit'
+        endif
         return
     endif
     call s:SaveSnapshot()
@@ -695,8 +1109,79 @@ function! s:ProcessCharOp() abort
                 return
             endif
         endif
+
+        " --pause-after-lines: pause every N lines in large hunks
+        if g:diffvim.pause_after_lines > 0 && l:op[1] ==# "\n"
+            if s:state.cur_hunk.deleted_count + s:state.cur_hunk.inserted_count >= g:diffvim.pause_after_threshold
+                let s:state.pause_after_count += 1
+                if s:state.pause_after_count >= g:diffvim.pause_after_lines
+                    let s:state.pause_after_count = 0
+                    let s:state.paused = 1
+                    call s:UpdateProgress()
+                    echo 'diffvim: pause-after-lines — press Space to continue'
+                    call s:ScheduleNext(g:diffvim.pause_after_ms)
+                    return
+                endif
+            endif
+        endif
     elseif l:op[0] ==# 'delete'
+        " --highlight-word: highlight the word at cursor before deleting.
+        if g:diffvim.highlight_word
+            let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+            call s:HighlightCurrentWord('delete', l:run_len)
+        endif
+        " --accel-delete: accelerated multi-line deletion
+        if g:diffvim.accel_delete
+            let l:ml_count = s:LookaheadMultiLineDelete(l:hunk.char_ops, s:state.op_idx)
+            if l:ml_count >= 2
+                " Initialize accel state at the start of the run
+                if s:state.accel_delete_count == 0
+                    let s:state.accel_delete_total = l:ml_count
+                    let s:state.accel_delete_delay = 0
+                endif
+                call s:DeleteCharAtCursor()
+                " Inline highlight for deleted char
+                call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
+                redraw
+                let s:state.accel_delete_count += 1
+                let s:state.op_idx += 1
+                let l:delay = s:ComputeAccelDeleteDelay()
+                let l:delay = s:GaussianJitter(l:delay)
+                if g:diffvim.sign_column
+                    call s:PlaceSign('dv_del', s:cur_l)
+                endif
+                " Reset accel state when run is done
+                if s:state.accel_delete_count >= s:state.accel_delete_total
+                    let s:state.accel_delete_count = 0
+                    let s:state.accel_delete_delay = 0
+                    let s:state.accel_delete_total = 0
+                endif
+                call s:ScheduleNext(l:delay)
+                return
+            endif
+        endif
+        " --rapid-eol-delete: if a run of deletes extends to end of line
+        " (or cursor is already past end of line), apply them in one rapid shot.
+        if g:diffvim.rapid_eol_delete
+            let l:rapid_count = s:LookaheadEOLDelete(l:hunk.char_ops, s:state.op_idx)
+            if l:rapid_count >= g:diffvim.rapid_eol_min_chars
+                for l:i in range(l:rapid_count)
+                    call s:DeleteCharAtCursor()
+                endfor
+                redraw
+                let s:state.op_idx += l:rapid_count
+                if g:diffvim.sign_column
+                    call s:PlaceSign('dv_del', s:cur_l)
+                endif
+                let l:delay = float2nr(g:diffvim.rapid_eol_delay_ms / s:state.runtime_speed)
+                let l:delay = s:GaussianJitter(l:delay)
+                call s:ScheduleNext(l:delay)
+                return
+            endif
+        endif
         call s:DeleteCharAtCursor()
+        " Inline highlight for deleted char
+        call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
         redraw
         if g:diffvim.adaptive_mode
             let l:delay = float2nr(s:state.adaptive_delay)
@@ -707,11 +1192,19 @@ function! s:ProcessCharOp() abort
             let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
             let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
         endif
+        let l:delay = s:GaussianJitter(l:delay)
         if g:diffvim.sign_column
             call s:PlaceSign('dv_del', s:cur_l)
         endif
     elseif l:op[0] ==# 'insert'
+        " --highlight-word: highlight the word at cursor before inserting.
+        if g:diffvim.highlight_word
+            let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+            call s:HighlightCurrentWord('insert', l:run_len)
+        endif
         call s:InsertCharAtCursor(l:op[1])
+        " Inline highlight for freshly typed char
+        call s:InlineHighlight(s:cur_l, s:cur_c, 'insert')
         redraw
         if g:diffvim.adaptive_mode
             let l:delay = float2nr(s:state.adaptive_delay)
@@ -722,9 +1215,18 @@ function! s:ProcessCharOp() abort
             let l:complex = s:ComputeComplexity(l:hunk.char_ops, s:state.op_idx)
             let l:delay = float2nr(l:delay * (1.0 + l:complex * 0.5))
         endif
+        let l:delay = s:GaussianJitter(l:delay)
         if g:diffvim.sign_column
             call s:PlaceSign('dv_add', s:cur_l)
         endif
+    elseif l:op[0] ==# 'pause_end_first'
+        " --delete-end-first: pause marker between delete-end and insert.
+        " No buffer change, just a delay.
+        redraw
+        let l:delay = float2nr(l:op[1])
+        let s:state.op_idx += 1
+        call s:ScheduleNext(l:delay)
+        return
     endif
 
     " --adaptive mode: accelerate (decrease delay) after each op
@@ -741,6 +1243,71 @@ function! s:ProcessCharOp() abort
 
     let s:state.op_idx += 1
     call s:ScheduleNext(l:delay)
+endfunction
+
+" Look ahead from op_idx to count consecutive delete ops that extend to the
+" end of the current line. A delete run "extends to EOL" when any of these
+" is true:
+"   1. The cursor is already past the end of the line (col > len(line)) —
+"      every subsequent delete is "after the cursor".
+"   2. The op after the delete run is a 'keep' whose char is "\n" — the
+"      deletes consume the trailing text of the current line.
+"   3. The delete run reaches the end of char_ops — the deletes consume
+"      the rest of the hunk's old text.
+" Returns the count of deletes to apply rapidly (0 if not a trailing-EOL run
+" or below the min threshold).
+function! s:LookaheadEOLDelete(ops, start) abort
+    if !g:diffvim.rapid_eol_delete | return 0 | endif
+    let l:i = a:start
+    let l:count = 0
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] ==# 'delete'
+            let l:count += 1
+            let l:i += 1
+        else
+            break
+        endif
+    endwhile
+    if l:count == 0 | return 0 | endif
+    " Condition 1: cursor is past end of line — all subsequent deletes are
+    " "text after the cursor".
+    let l:line = getline(s:cur_l)
+    let l:at_eol = s:cur_c > len(l:line)
+    if l:at_eol
+        return l:count
+    endif
+    " Condition 2 & 3: deletes extend to end of line / end of ops.
+    if l:i >= len(a:ops)
+        return l:count
+    endif
+    let l:next_op = a:ops[l:i]
+    if l:next_op[0] ==# 'keep' && l:next_op[1] ==# "\n"
+        return l:count
+    endif
+    return 0
+endfunction
+
+" Look ahead from op_idx to count contiguous ops of the SAME type as the op
+" at op_idx. Stops at the first op of a different type, or at a newline, or
+" at end of ops. Used by --highlight-word to know how long the upcoming
+" change run is, so it can decide whether to highlight.
+" Returns at least 1 (the op at op_idx itself, if it's not a keep/newline).
+function! s:LookaheadSameTypeRun(ops, start) abort
+    if a:start >= len(a:ops) | return 0 | endif
+    let l:first_type = a:ops[a:start][0]
+    if l:first_type ==# 'keep' | return 0 | endif
+    let l:count = 0
+    let l:i = a:start
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] !=# l:first_type | break | endif
+        " Stop at newline — that's a line boundary, not part of the word.
+        if l:op[1] ==# "\n" | break | endif
+        let l:count += 1
+        let l:i += 1
+    endwhile
+    return l:count
 endfunction
 
 " Look ahead from op_idx to find a "word": contiguous insert or delete ops
@@ -808,6 +1375,181 @@ function! s:ComputeComplexity(ops, idx) abort
     return l:count
 endfunction
 
+" --- Accelerated multi-line deletion --------------------------------------
+" When --accel-delete is on, multi-line deletions start slow, accelerate to
+" a max speed, then decelerate near the end. This prevents large blocks
+" from vanishing in one shot while still being fast enough to not bore the
+" viewer.
+"
+" The acceleration uses a triangle profile:
+"   - Phase 1 (accelerate): delay = start_ms * accel^count, decreasing
+"   - Phase 2 (cruise):     delay = min_ms (max speed)
+"   - Phase 3 (decelerate): symmetric to phase 1, starting when we're
+"     close to the end of the delete run
+"
+" Returns the delay in ms for the current delete op.
+function! s:ComputeAccelDeleteDelay() abort
+    let l:count = s:state.accel_delete_count
+    let l:total = s:state.accel_delete_total
+    let l:remaining = l:total - l:count
+    " Deceleration phase: last 30% of the run, mirror the acceleration
+    if l:remaining < l:total * 0.3 && l:remaining > 0
+        let l:phase = l:remaining
+        let l:delay = g:diffvim.accel_delete_min_ms
+        let l:i = 0
+        while l:i < l:phase
+            let l:delay = l:delay / g:diffvim.accel_delete_accel
+            if l:delay > g:diffvim.accel_delete_start_ms
+                let l:delay = g:diffvim.accel_delete_start_ms
+            endif
+            let l:i += 1
+        endwhile
+        return float2nr(l:delay)
+    endif
+    " Acceleration phase
+    let l:delay = s:state.accel_delete_delay
+    if l:delay <= 0
+        let l:delay = g:diffvim.accel_delete_start_ms
+    else
+        let l:delay = l:delay * g:diffvim.accel_delete_accel
+        if l:delay < g:diffvim.accel_delete_min_ms
+            let l:delay = g:diffvim.accel_delete_min_ms
+        endif
+    endif
+    let s:state.accel_delete_delay = l:delay
+    return float2nr(l:delay)
+endfunction
+
+" Look ahead to count consecutive delete ops that span whole lines (i.e.,
+" the deletes include newlines). Returns the count, or 0 if not a multi-
+" line delete run.
+function! s:LookaheadMultiLineDelete(ops, start) abort
+    let l:i = a:start
+    let l:count = 0
+    let l:has_newline = 0
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] !=# 'delete' | break | endif
+        if l:op[1] ==# "\n" | let l:has_newline = 1 | endif
+        let l:count += 1
+        let l:i += 1
+    endwhile
+    " Only treat as multi-line if it spans at least 2 lines and has newlines
+    if l:has_newline && l:count >= 2
+        return l:count
+    endif
+    return 0
+endfunction
+
+" --- Gaussian jitter ------------------------------------------------------
+" Add random variation to a delay for human-like typing.
+" Uses a simple Box-Muller transform approximation.
+function! s:GaussianJitter(delay_ms) abort
+    if !g:diffvim.gaussian_jitter | return a:delay_ms | endif
+    let l:pct = g:diffvim.gaussian_jitter_pct
+    let l:range = a:delay_ms * l:pct / 100.0
+    " Simple approximation: average of two uniforms ~ triangular, close enough
+    let l:u1 = rand() * 1.0 / 0x7fffffff
+    let l:u2 = rand() * 1.0 / 0x7fffffff
+    let l:jitter = (l:u1 + l:u2 - 1.0) * l:range
+    let l:result = a:delay_ms + l:jitter
+    if l:result < 1 | let l:result = 1 | endif
+    return float2nr(l:result)
+endfunction
+
+" --- Inline char highlight ------------------------------------------------
+" Highlight freshly typed/deleted chars for a short duration.
+let s:inline_highlight_ids = []
+let s:inline_highlight_timer = -1
+
+function! s:InlineHighlight(line, col, type) abort
+    if !g:diffvim.inline_highlight | return | endif
+    " Clear previous highlight
+    for l:id in s:inline_highlight_ids
+        try | call matchdelete(l:id) | catch | endtry
+    endfor
+    let s:inline_highlight_ids = []
+    let l:color = a:type ==# 'insert' ? 'DiffAdd' : 'DiffDelete'
+    let l:pos = [[a:line, a:col, 1]]
+    let l:id = matchaddpos(l:color, l:pos)
+    call add(s:inline_highlight_ids, l:id)
+    if s:inline_highlight_timer != -1
+        call timer_stop(s:inline_highlight_timer)
+    endif
+    let s:inline_highlight_timer = timer_start(
+        \ g:diffvim.inline_highlight_duration,
+        \ function('s:ClearInlineHighlight'))
+endfunction
+
+function! s:ClearInlineHighlight(...) abort
+    for l:id in s:inline_highlight_ids
+        try | call matchdelete(l:id) | catch | endtry
+    endfor
+    let s:inline_highlight_ids = []
+    if s:inline_highlight_timer != -1
+        call timer_stop(s:inline_highlight_timer)
+        let s:inline_highlight_timer = -1
+    endif
+endfunction
+
+" --- Dim unchanged lines --------------------------------------------------
+let s:dim_match_ids = []
+
+function! s:SetupDimUnchanged() abort
+    if !g:diffvim.dim_unchanged | return | endif
+    call s:ClearDimUnchanged()
+    " Define a dim highlight group based on the percentage
+    let l:pct = g:diffvim.dim_unchanged_pct
+    let l:fg = synIDattr(synIDtrans(hlID('Normal')), 'fg', 'cterm')
+    let l:bg = synIDattr(synIDtrans(hlID('Normal')), 'bg', 'cterm')
+    " Create a dimmed version using Comment-like appearance
+    execute 'highlight diffvimDimUnchanged ctermfg=8 guifg=Gray' . l:pct
+    " Find all unchanged lines (lines not in any hunk) and dim them
+    let l:changed_lines = {}
+    for l:h in s:state.hunks
+        let l:start = l:h.target_line_old
+        let l:end = l:start + l:h.deleted_count - 1
+        if l:h.deleted_count == 0 | let l:end = l:start | endif
+        for l:l in range(l:start, l:end)
+            let l:changed_lines[l:l] = 1
+        endfor
+    endfor
+    let l:positions = []
+    for l:l in range(1, line('$'))
+        if !has_key(l:changed_lines, l:l)
+            call add(l:positions, [l:l])
+        endif
+    endfor
+    " Batch in groups of 8
+    let l:batch = []
+    for l:pos in l:positions
+        call add(l:batch, l:pos)
+        if len(l:batch) == 8
+            let l:id = matchaddpos('diffvimDimUnchanged', l:batch)
+            call add(s:dim_match_ids, l:id)
+            let l:batch = []
+        endif
+    endfor
+    if !empty(l:batch)
+        let l:id = matchaddpos('diffvimDimUnchanged', l:batch)
+        call add(s:dim_match_ids, l:id)
+    endif
+endfunction
+
+function! s:ClearDimUnchanged(...) abort
+    for l:id in s:dim_match_ids
+        try | call matchdelete(l:id) | catch | endtry
+    endfor
+    let s:dim_match_ids = []
+endfunction
+
+" --- Startup feedback -----------------------------------------------------
+function! s:ShowStartupFeedback(msg) abort
+    if !g:diffvim.startup_feedback | return | endif
+    echo a:msg
+    redraw
+endfunction
+
 " Sign placement (for --sign-column). Uses an incrementing ID per buffer.
 let s:sign_next_id = 100
 
@@ -822,7 +1564,38 @@ function! s:PlaceSign(name, line) abort
 endfunction
 
 " Run git blame on a given line and echo the result (for --git-blame).
+" Git blame cache — pre-compute blame for all lines at startup instead of
+" shelling out per hunk (which blocks the animation timer).
+let s:blame_cache = {}
+
+function! s:LoadBlameCache() abort
+    let s:blame_cache = {}
+    if !g:diffvim.git_blame | return | endif
+    let l:file = expand('%:p')
+    if empty(l:file) | return | endif
+    " Run git blame once for the entire file. This is much faster than
+    " per-line calls during animation.
+    let l:cmd = 'git blame -- ' . shellescape(l:file) . ' 2>/dev/null'
+    let l:result = systemlist(l:cmd)
+    if v:shell_error != 0 || empty(l:result) | return | endif
+    " Parse "hash (author date line) content" format into a per-line cache.
+    let l:line_num = 1
+    for l:line in l:result
+        " git blame output: ^hash (Author Name 2024-01-15 12:34:56 +0000 1) content
+        " or: hash (Author Name 2024-01-15 12:34:56 +0000 1) content
+        let l:blame = substitute(l:line, '^\^', '', '')
+        let s:blame_cache[l:line_num] = l:blame
+        let l:line_num += 1
+    endfor
+endfunction
+
 function! s:ShowGitBlame(line) abort
+    " Use the pre-computed blame cache if available.
+    if has_key(s:blame_cache, a:line)
+        echo 'diffvim blame: ' . s:blame_cache[a:line]
+        return
+    endif
+    " Fallback: if cache miss (e.g., line beyond file), shell out.
     let l:file = expand('%:p')
     if empty(l:file) | return | endif
     let l:cmd = 'git blame -L ' . a:line . ',' . a:line . ' -- ' . shellescape(l:file) . ' 2>/dev/null'
@@ -867,6 +1640,77 @@ function! s:ClearHighlight(...) abort
     endfor
     let s:highlight_ids = []
     redraw
+endfunction
+
+" Word highlighting (--highlight-word): highlight the word at the cursor
+" position before a delete or insert op touches it. Finer-grained than
+" --highlight-hunk: shows exactly which token is about to change.
+"
+" A "word" here is the maximal run of non-whitespace characters that
+" contains the cursor. If the cursor is on whitespace, no highlight is
+" applied (there's no word to highlight).
+let s:word_highlight_ids = []
+let s:word_highlight_timer = -1
+
+function! s:ClearWordHighlight(...) abort
+    for l:id in s:word_highlight_ids
+        try
+            call matchdelete(l:id)
+        catch
+        endtry
+    endfor
+    let s:word_highlight_ids = []
+    if s:word_highlight_timer != -1
+        call timer_stop(s:word_highlight_timer)
+        let s:word_highlight_timer = -1
+    endif
+    redraw
+endfunction
+
+" Highlight the word at the current cursor position (s:cur_l, s:cur_c).
+" The word is the maximal run of non-whitespace chars containing the cursor.
+" If the upcoming op is a delete/insert of length >= min_chars, the word is
+" highlighted for `duration` ms. Returns 1 if a highlight was applied.
+function! s:HighlightCurrentWord(op_type, op_count) abort
+    if !g:diffvim.highlight_word | return 0 | endif
+    " Only highlight for delete/insert ops, not keep.
+    if a:op_type !=# 'delete' && a:op_type !=# 'insert' | return 0 | endif
+    " Don't highlight if the change is too small.
+    if a:op_count < g:diffvim.highlight_word_min_chars | return 0 | endif
+    " Don't highlight newlines (no word to show).
+    let l:line = getline(s:cur_l)
+    let l:line_len = len(l:line)
+    if l:line_len == 0 | return 0 | endif
+    " Clamp cursor column to the line.
+    let l:c = s:cur_c
+    if l:c < 1 | let l:c = 1 | endif
+    if l:c > l:line_len | let l:c = l:line_len | endif
+    " If cursor is on whitespace, no word to highlight.
+    let l:ch_at = l:line[l:c - 1]
+    if l:ch_at ==# ' ' || l:ch_at ==# "\t" | return 0 | endif
+    " Find word start: walk left while non-whitespace.
+    let l:start_c = l:c
+    while l:start_c > 1 && l:line[l:start_c - 2] !=# ' ' && l:line[l:start_c - 2] !=# "\t"
+        let l:start_c -= 1
+    endwhile
+    " Find word end: walk right while non-whitespace.
+    let l:end_c = l:c
+    while l:end_c < l:line_len && l:line[l:end_c] !=# ' ' && l:line[l:end_c] !=# "\t"
+        let l:end_c += 1
+    endwhile
+    " matchaddpos uses [line, col, length] form.
+    let l:word_len = l:end_c - l:start_c + 1
+    if l:word_len < g:diffvim.highlight_word_min_chars | return 0 | endif
+    call s:ClearWordHighlight()
+    let l:pos = [[s:cur_l, l:start_c, l:word_len]]
+    let l:id = matchaddpos(g:diffvim.highlight_word_color, l:pos)
+    call add(s:word_highlight_ids, l:id)
+    redraw
+    " Schedule clear after the configured duration.
+    let s:word_highlight_timer = timer_start(
+        \ g:diffvim.highlight_word_duration,
+        \ function('s:ClearWordHighlight'))
+    return 1
 endfunction
 
 " --- User controls ---------------------------------------------------------
@@ -998,6 +1842,11 @@ function! s:Quit() abort
         execute 'w! ' . g:diffvim.output_file
         echo 'diffvim: result written to ' . g:diffvim.output_file
     endif
+    " By default, mark the buffer as not modified so ':q' quits cleanly.
+    " Use --keep-dirty to leave the buffer modified (then ':q!' is required).
+    if !g:diffvim.keep_dirty
+        set nomodified
+    endif
     silent! nunmap <buffer> <Space>
     silent! nunmap <buffer> n
     silent! nunmap <buffer> b
@@ -1006,7 +1855,11 @@ function! s:Quit() abort
     silent! nunmap <buffer> +
     silent! nunmap <buffer> -
     silent! nunmap <buffer> =
-    echo 'diffvim: animation stopped. Buffer left in current state.'
+    if g:diffvim.keep_dirty
+        echo 'diffvim: animation stopped. Buffer is modified — use :q! to quit.'
+    else
+        echo 'diffvim: animation stopped. Buffer left in current state — :q to quit.'
+    endif
 endfunction
 
 function! s:ShowHelp() abort
@@ -1048,26 +1901,24 @@ nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
 function! s:StartAnimation() abort
     " Set up syntax highlighting for the file
     call s:SetupSyntax()
-    " Show immediate feedback that diffvim is starting
-    echo 'diffvim: computing diff...'
-    redraw
+    " Pre-compute git blame cache if --git-blame is enabled (batch, not per-hunk)
+    call s:LoadBlameCache()
+    " Startup feedback: show progress during diff computation
+    call s:ShowStartupFeedback('diffvim: computing diff...')
+    " Compute the diff.
     let s:state.hunks = s:BuildHunks()
+    call s:ShowStartupFeedback('diffvim: ' . len(s:state.hunks) . ' hunk(s) found')
     if empty(s:state.hunks)
         echo 'diffvim: files are identical, nothing to animate'
         return
     endif
-    echo 'diffvim: ' . len(s:state.hunks) . ' hunk(s) found — starting animation'
-    redraw
+    " --dim-unchanged: dim unchanged anchor lines
+    call s:SetupDimUnchanged()
     " --sign-column: define signs for add/delete/modify.
     if g:diffvim.sign_column
         sign define dv_add text=+ texthl=DiffAdd
         sign define dv_del text=- texthl=DiffDelete
         sign define dv_mod text=* texthl=DiffChange
-    endif
-    " --step-mode: start paused so the user can step through with Space.
-    if g:diffvim.step_mode
-        let s:state.paused = 1
-        echo 'diffvim: step mode active — press Space to advance one op'
     endif
     let s:state.hunk_idx = 0
     let s:state.line_offset = 0
@@ -1076,12 +1927,18 @@ function! s:StartAnimation() abort
     let s:state.paused = g:diffvim.step_mode ? 1 : 0
     let s:cur_l = line('.')
     let s:cur_c = col('.')
-    " Show config and help (can be disabled with --no-startup-pause)
-    if !g:diffvim.no_startup_pause
+    " Show config and help ONLY if --startup-pause is explicitly requested.
+    " Default: no startup messages, start animating immediately.
+    if g:diffvim.startup_pause
         call s:ShowConfig()
         call s:ShowHelp()
         call s:ScheduleNext(300)
     else
+        " Silent startup: just start the animation after a minimal tick
+        " so vim has time to render the buffer.
+        if g:diffvim.step_mode
+            echo 'diffvim: step mode — press Space to advance'
+        endif
         call s:ScheduleNext(50)
     endif
 endfunction
@@ -1184,6 +2041,19 @@ function! s:ShowConfig() abort
     endif
     if g:diffvim.max_line_len > 0
         let l:msg .= '  max_line_len=' . g:diffvim.max_line_len
+    endif
+    if g:diffvim.rapid_eol_delete
+        let l:msg .= '  rapid_eol=on(' . g:diffvim.rapid_eol_delay_ms . 'ms,' . g:diffvim.rapid_eol_min_chars . '+)'
+    else
+        let l:msg .= '  rapid_eol=off'
+    endif
+    if g:diffvim.keep_dirty
+        let l:msg .= '  keep_dirty=on(:q!)'
+    else
+        let l:msg .= '  keep_dirty=off(:q)'
+    endif
+    if g:diffvim.highlight_word
+        let l:msg .= '  highlight_word=on(' . g:diffvim.highlight_word_color . ',' . g:diffvim.highlight_word_duration . 'ms)'
     endif
     echo l:msg
 endfunction

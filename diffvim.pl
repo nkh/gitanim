@@ -158,6 +158,31 @@ GetOptions(
     'fold-unchanged'   => \$fold_unchanged,
     'theme=s'          => \$theme,
     'debug'            => \$debug_mode,
+    'accel-delete'     => sub { $ENV{DIFFVIM_ACCEL_DELETE} = '1'; },
+    'accel-delete-start-ms=i' => sub { $ENV{DIFFVIM_ACCEL_DELETE_START_MS} = $_[1]; },
+    'accel-delete-min-ms=i' => sub { $ENV{DIFFVIM_ACCEL_DELETE_MIN_MS} = $_[1]; },
+    'accel-delete-accel=i' => sub { $ENV{DIFFVIM_ACCEL_DELETE_ACCEL} = $_[1]; },
+    'overwrite'        => sub { $ENV{DIFFVIM_OVERWRITE_MODE} = '1'; },
+    'delete-end-first' => sub { $ENV{DIFFVIM_DELETE_END_FIRST} = '1'; },
+    'delete-end-first-delay-ms=i' => sub { $ENV{DIFFVIM_DELETE_END_FIRST_DELAY_MS} = $_[1]; },
+    'startup-feedback' => sub { $ENV{DIFFVIM_STARTUP_FEEDBACK} = '1'; },
+    'inline-highlight' => sub { $ENV{DIFFVIM_INLINE_HIGHLIGHT} = '1'; },
+    'inline-highlight-duration-ms=i' => sub { $ENV{DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS} = $_[1]; },
+    'gaussian-jitter'  => sub { $ENV{DIFFVIM_GAUSSIAN_JITTER} = '1'; },
+    'gaussian-jitter-pct=i' => sub { $ENV{DIFFVIM_GAUSSIAN_JITTER_PCT} = $_[1]; },
+    'dim-unchanged'    => sub { $ENV{DIFFVIM_DIM_UNCHANGED} = '1'; },
+    'dim-unchanged-pct=i' => sub { $ENV{DIFFVIM_DIM_UNCHANGED_PCT} = $_[1]; },
+    'pause-after-lines=i' => sub { $ENV{DIFFVIM_PAUSE_AFTER_LINES} = $_[1]; },
+    'pause-after-threshold=i' => sub { $ENV{DIFFVIM_PAUSE_AFTER_THRESHOLD} = $_[1]; },
+    'pause-after-ms=i' => sub { $ENV{DIFFVIM_PAUSE_AFTER_MS} = $_[1]; },
+    'keep-dirty'       => sub { $ENV{DIFFVIM_KEEP_DIRTY} = '1'; },
+    'no-vimrc'         => sub { $ENV{DIFFVIM_NO_VIMRC} = '1'; },
+    'precomputed=s'    => sub { $ENV{DIFFVIM_PRECOMPUTED} = $_[1]; },
+    'startup-pause'    => sub { $ENV{DIFFVIM_STARTUP_PAUSE} = '1'; },
+    'highlight-word'   => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD} = '1'; },
+    'highlight-word-color=s' => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD_COLOR} = $_[1]; },
+    'highlight-word-duration-ms=i' => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD_DURATION_MS} = $_[1]; },
+    'highlight-word-min-chars=i' => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS} = $_[1]; },
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -181,7 +206,7 @@ apply_speed();
 
 # --version flag: print version and dependency info
 if ($version_flag) {
-    my $version = '1.2.0';
+    my $version = '1.5.0';
     print "diffvim.pl version $version\n";
     print "  parser: $parser_name\n";
     print "  perl: $]\n";
