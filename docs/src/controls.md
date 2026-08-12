@@ -7,9 +7,9 @@ During animation, the following keys are active in vim normal mode.
 | Key | Action |
 |-----|--------|
 | `Space` | Pause / resume the animation |
-| `n` | Skip current hunk (apply instantly, move to next) |
+| `n` | Skip current hunk (apply instantly, then pause for review) |
 | `b` | Back to previous hunk (revert and restart) |
-| `q` | Stop animation (leave buffer for editing) |
+| `q` | Stop animation — by default `:q` then quits; use `--keep-dirty` to require `:q!` |
 
 ## Speed Controls
 

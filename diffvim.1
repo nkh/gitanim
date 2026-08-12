@@ -1,4 +1,4 @@
-.TH DIFFVIM 1 "2026-08-11" "diffvim 1.4" "User Commands"
+.TH DIFFVIM 1 "2026-08-12" "diffvim 1.4" "User Commands"
 .SH NAME
 diffvim \- animate a code diff in vim as if a human were typing it
 .SH SYNOPSIS
@@ -55,7 +55,14 @@ locations with smooth ease-in-out acceleration, and only the actually-changed
 characters are deleted and re-typed \(em surrounding text is never touched.
 
 After the animation completes (or the user stops it), the buffer is a normal
-vim buffer and can be edited, saved, or quit normally.
+vim buffer and can be edited, saved, or quit normally. By default the buffer
+is marked as not modified so
+.B :q
+quits cleanly; use
+.B --keep-dirty
+to leave the buffer modified (then
+.B :q!
+is required).
 
 Three implementations are available:
 .TP
@@ -233,6 +240,50 @@ Automatically slow down for complex hunks (many char ops close together)
 and speed up for simple ones.
 
 .TP
+.B \-\-rapid-eol-delete
+(Default: on) When the cursor is at the end of the line and all the text
+after the cursor is being deleted, apply those deletes in one rapid shot
+rather than one char at a time. The single rapid delay is governed by
+.B \-\-rapid-eol-delay-ms
+and the minimum trailing-char threshold by
+.BR \-\-rapid-eol-min-chars .
+This makes tail-of-line deletions feel snappy instead of laborious.
+
+.TP
+.B \-\-no-rapid-eol-delete
+Disable rapid end-of-line deletion. Every character is deleted
+individually with
+.B DIFFVIM_DELETE_DELAY_MS
+between deletes.
+
+.TP
+.BI \-\-rapid-eol-delay-ms\  N
+Delay in milliseconds for a rapid end-of-line deletion (default: 80).
+The whole trailing run of deletes is applied in one shot, followed by this
+delay. Lower values make tail deletions feel faster.
+
+.TP
+.BI \-\-rapid-eol-min-chars\  N
+Minimum number of trailing characters required to trigger rapid end-of-line
+deletion (default: 3). Runs shorter than this are animated char by char.
+
+.TP
+.B \-\-keep-dirty
+Leave the buffer marked as modified after the animation finishes (or after
+the user presses
+.BR q ).
+By default diffvim runs
+.B :set nomodified
+so that
+.B :q
+quits cleanly; with
+.B \-\-keep-dirty
+the user must type
+.B :q!
+to quit. Useful when you want vim's normal "unsaved changes" protection
+to remain active.
+
+.TP
 .B \-\-sign-column
 Show
 .B +/-
@@ -346,16 +397,25 @@ Pause / resume the animation. In
 advances one char op instead.
 .TP
 .B n
-Skip current hunk: apply all remaining character operations instantly
-and move to the next hunk.
+Skip current hunk: apply all remaining character operations instantly,
+then pause for review. Press
+.B n
+again to advance to the next hunk. This is the "review mode" \(em apply
+one hunk at a time, pausing between each.
 .TP
 .B b
 Back to previous hunk: revert the buffer to the state before the
 current hunk started and replay it from the beginning.
 .TP
 .B q
-Stop the animation. The buffer is left in its current state for normal
-editing.
+Stop the animation. By default the buffer is then marked as not modified
+so
+.B :q
+quits cleanly. Use
+.B \-\-keep-dirty
+to require
+.B :q!
+instead.
 
 .SS Speed Controls
 .TP
@@ -417,26 +477,35 @@ options override environment variables, which override built-in defaults.
 Animation frame interval in milliseconds (default: 16, ~60fps).
 .TP
 .B DIFFVIM_TYPE_DELAY_MS
-Delay between typed characters in milliseconds (default: 35).
+Delay between typed characters in milliseconds (default: 50).
 .TP
 .B DIFFVIM_DELETE_DELAY_MS
-Delay between deleted characters in milliseconds (default: 25).
+Delay between deleted characters in milliseconds (default: 40).
 .TP
 .B DIFFVIM_MOVE_MIN_MS
-Minimum cursor glide duration in milliseconds (default: 200).
+Minimum cursor glide duration in milliseconds (default: 250).
 .TP
 .B DIFFVIM_MOVE_MAX_MS
-Maximum cursor glide duration in milliseconds (default: 1400).
+Maximum cursor glide duration in milliseconds (default: 1600).
 .TP
 .B DIFFVIM_MOVE_MS_PER_UNIT
 Milliseconds per unit of glide distance (default: 6). Lines are weighted
 80x more than columns.
 .TP
 .B DIFFVIM_HUNK_PAUSE_MS
-Pause between hunks in milliseconds (default: 180).
+Pause between hunks in milliseconds (default: 250).
 .TP
 .B DIFFVIM_WORD_PAUSE_MS
 Pause after instant word in milliseconds (default: 150).
+.TP
+.B DIFFVIM_RAPID_EOL_DELAY_MS
+Delay for rapid end-of-line deletion in milliseconds (default: 80).
+Only relevant when
+.B \-\-rapid-eol-delete
+is on (which is the default).
+.TP
+.B DIFFVIM_RAPID_EOL_MIN_CHARS
+Minimum trailing characters to trigger rapid EOL deletion (default: 3).
 .TP
 .B DIFFVIM_SPEED
 Speed multiplier (default: 1.0). Same as
@@ -455,6 +524,17 @@ Highlight duration in ms (default: 1000).
 .TP
 .B DIFFVIM_HIGHLIGHT_MIN_CHARS
 Min changed chars to trigger highlight (default: 10).
+.TP
+.B DIFFVIM_KEEP_DIRTY
+Set to
+.B 1
+to leave the buffer modified after animation; vim will then refuse
+.B :q
+and require
+.BR :q! .
+Default: unset (buffer is marked not modified, so
+.B :q
+works).
 
 .SH EXAMPLES
 
@@ -509,6 +589,29 @@ diffvim \-\-semantic-cleanup old.py new.py
 .nf
 # Sequences > 5 chars are applied in one shot with a pause
 diffvim \-\-max-word-chars 5 old.py new.py
+.fi
+
+.SS Rapid End-of-Line Deletion
+.PP
+.nf
+# Default behavior: trailing line deletes applied in one rapid shot
+diffvim old.py new.py
+
+# Disable rapid EOL (delete one char at a time)
+diffvim \-\-no-rapid-eol-delete old.py new.py
+
+# Tune rapid EOL timing
+diffvim \-\-rapid-eol-delay-ms 50 \-\-rapid-eol-min-chars 5 old.py new.py
+.fi
+
+.SS Buffer State After Animation
+.PP
+.nf
+# Default: ':q' quits cleanly (buffer marked not modified)
+diffvim old.py new.py
+
+# Keep buffer modified; ':q!' required to quit
+diffvim \-\-keep-dirty old.py new.py
 .fi
 
 .SS Multi-file Animation

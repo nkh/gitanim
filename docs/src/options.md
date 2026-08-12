@@ -97,6 +97,57 @@ for detailed inspection.
 Automatically slow down for complex hunks (many char ops close together)
 and speed up for simple ones.
 
+### `--rapid-eol-delete` *(default: on)*
+When the cursor is at the end of the line and all the text after the cursor
+is being deleted, apply those deletes in one rapid shot rather than one char
+at a time. This makes tail-of-line deletions feel snappy instead of
+laborious.
+
+The single rapid delay is governed by `--rapid-eol-delay-ms` (default 80ms)
+and the minimum trailing-char threshold by `--rapid-eol-min-chars`
+(default 3).
+
+```bash
+# Default behavior — rapid EOL on
+diffvim old.py new.py
+
+# Disable rapid EOL (delete one char at a time)
+diffvim --no-rapid-eol-delete old.py new.py
+
+# Tune: 50ms delay, only trigger for 5+ trailing chars
+diffvim --rapid-eol-delay-ms 50 --rapid-eol-min-chars 5 old.py new.py
+```
+
+### `--no-rapid-eol-delete`
+Disable rapid end-of-line deletion. Every character is deleted individually
+with `DIFFVIM_DELETE_DELAY_MS` between deletes.
+
+### `--rapid-eol-delay-ms N`
+Delay in milliseconds for a rapid end-of-line deletion (default: 80).
+The whole trailing run of deletes is applied in one shot, followed by this
+delay. Lower values make tail deletions feel faster.
+
+### `--rapid-eol-min-chars N`
+Minimum number of trailing characters required to trigger rapid end-of-line
+deletion (default: 3). Runs shorter than this are animated char by char,
+preserving the visual detail of small edits.
+
+### `--keep-dirty`
+Leave the buffer marked as modified after the animation finishes (or after
+the user presses `q`). By default diffvim runs `:set nomodified` so that
+`:q` quits cleanly; with `--keep-dirty` the user must type `:q!` to quit.
+
+```bash
+# Default: ':q' quits cleanly
+diffvim old.py new.py
+
+# Keep buffer modified; ':q!' required
+diffvim --keep-dirty old.py new.py
+```
+
+The startup config echo shows which mode is active:
+`keep_dirty=off(:q)` or `keep_dirty=on(:q!)`.
+
 ### `--sign-column`
 Show `+`/`-` signs in vim's sign column to indicate deleted/added lines.
 

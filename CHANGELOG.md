@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] — 2026-08-12
+
+### Added — 4 new features
+
+#### `--rapid-eol-delete` (default on)
+When the cursor is at the end of the line and all the text after the cursor
+is being deleted, apply those deletes in one rapid shot rather than one char
+at a time. Trailing-line deletions now feel snappy instead of laborious.
+
+- `--rapid-eol-delete` (default on)
+- `--no-rapid-eol-delete` to disable
+- `--rapid-eol-delay-ms N` (default 80) — single delay after the rapid run
+- `--rapid-eol-min-chars N` (default 3) — minimum trailing chars to trigger
+
+Logic: the engine looks ahead from a `delete` op. If the run extends to
+end of line (next op is `keep \n`, or end of ops, or cursor is already
+past end of line) and the run length is ≥ min_chars, all the deletes are
+applied in a single batch followed by the rapid delay.
+
+#### `--keep-dirty` (default off)
+By default, after the animation completes (or the user presses `q`),
+diffvim runs `:set nomodified` on the buffer so that `:q` quits cleanly
+— no more need to type `:q!` every time. With `--keep-dirty`, the buffer
+stays modified and `:q!` is required (useful when you want vim's normal
+"unsaved changes" protection to remain active).
+
+Also settable via `DIFFVIM_KEEP_DIRTY=1` environment variable.
+
+#### Review mode for `n` key
+`n` (SkipCurrent) now applies the next hunk and **pauses** for review,
+instead of applying all remaining hunks and continuing. Press `n` again
+for the next hunk, or `Space` to resume full-speed animation. This makes
+it easy to step through a diff one hunk at a time.
+
+#### `docs/FOLLOW_IMPROVEMENTS.md` — 50 UX improvements
+A new document listing 50 concrete UX improvements that would help viewers
+follow what's happening during patching. Organized into 5 categories:
+visual cues, information display, timing & pacing, navigation & control,
+and diff presentation. Each item is framed from the viewer's perspective.
+
+### Changed
+- Updated default timing values across all docs to match the implementation:
+  `type_delay_ms=50`, `delete_delay_ms=40`, `move_min_ms=250`,
+  `move_max_ms=1600`, `hunk_pause_ms=250`.
+- `ShowConfig()` now also prints the rapid_eol and keep_dirty state.
+- Startup echo shows which quit mode is active: `keep_dirty=off(:q)` or
+  `keep_dirty=on(:q!)`.
+
+### Fixed
+- Documentation drift: README, man page, docs/src/options.md,
+  docs/CONFIGURATION.md, and docs/CONTROLS.md all had stale defaults
+  (e.g., `type_delay_ms=35` instead of `50`). All updated to match the
+  actual implementation.
+- README now lists 32 example pairs (was 7) and points to the new
+  `FOLLOW_IMPROVEMENTS.md` document.
+
+### Tests
+- Added `tests/test_rapid_eol.pl` — 20 assertions verifying that both
+  `--rapid-eol-delete=on` and `--rapid-eol-delete=off` produce identical,
+  correct output across 10 test cases (trailing deletes, mid-line deletes,
+  multi-line deletes, pure insertions, identical files, etc.).
+- All 39 assertions in `tests/test_vim_correctness.pl` still pass.
+
+---
+
 ## [1.1.0] — 2026-08-10
 
 ### Added — 11 new features

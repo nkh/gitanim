@@ -44,57 +44,58 @@ sub read_lines {
 sub apply_diff_to_file {
     my ($old_file, $new_file, $options) = @_;
     $options //= {};
-    
+
     my $old_lines = read_lines($old_file);
+    my $new_lines = read_lines($new_file);
     my $result = parse_diff($old_file, $new_file, $options);
-    
+
     my @result_lines;
     my $old_pos = 0;
-    
+    my $new_pos = 0;
+
     for my $h (@{$result->{hunks}}) {
-        my $target_idx = $h->{target_line} - 1;
-        
-        # Copy unchanged lines up to the hunk target
+        my $target_idx = $h->{target_line} - 1;  # 0-indexed in old file
+
+        # Copy unchanged old lines up to the hunk target.
+        # These correspond to unchanged new lines too (line-level LCS
+        # keeps them in 1:1 correspondence).
         while ($old_pos < $target_idx) {
             push @result_lines, $old_lines->[$old_pos];
             $old_pos++;
+            $new_pos++;
         }
-        
+
         my $del_count = $h->{deleted_count};
-        
-        # Skip deleted lines
+        my $ins_count = $h->{inserted_count};
+
+        # Skip deleted old lines (they are consumed by the hunk).
         $old_pos += $del_count;
-        
-        # Apply char ops to build new text
-        my $new_text = '';
-        for my $op (@{$h->{char_ops}}) {
-            if ($op->{op} eq 'keep' || $op->{op} eq 'insert') {
-                my $ch = $op->{code} == 10 ? "\n" : chr($op->{code});
-                $new_text .= $ch;
-            }
+
+        # The inserted lines are the next ins_count lines of the new file.
+        # This is the authoritative source — the parser computed the hunk
+        # by diffing exactly these new lines against the deleted old lines.
+        # Using the new file directly avoids any ambiguity from new_text
+        # byte representation (e.g., trailing empty lines, leading \n
+        # for end-insertions).
+        for my $i (0 .. $ins_count - 1) {
+            push @result_lines, $new_lines->[$new_pos + $i];
         }
-        
-        # Encode back to UTF-8 (the parser now returns Unicode code points,
-        # not byte values, for multi-byte characters)
-        eval { require Encode; $new_text = Encode::encode('UTF-8', $new_text); };
-        
-        
-        # Split new_text into lines
-        if (length($new_text) > 0) {
-            my @new_lines = split /\n/, $new_text, -1;
-            # If new_text ends with \n, the last element is empty — remove it
-            # because the \n is a line terminator, not a separator
-            pop @new_lines if @new_lines && $new_lines[-1] eq '' && $new_text =~ /\n\z/;
-            push @result_lines, @new_lines;
-        }
+        $new_pos += $ins_count;
     }
-    
-    # Copy remaining unchanged lines
+
+    # Copy remaining unchanged old lines.
     while ($old_pos < scalar(@$old_lines)) {
         push @result_lines, $old_lines->[$old_pos];
         $old_pos++;
+        $new_pos++;
     }
-    
+    # Also copy any remaining new lines (trailing pure insertion that the
+    # parser may have represented as an end_insert hunk).
+    while ($new_pos < scalar(@$new_lines)) {
+        push @result_lines, $new_lines->[$new_pos];
+        $new_pos++;
+    }
+
     return \@result_lines;
 }
 

@@ -14,6 +14,9 @@ set -l diffvim_flags \
     --step-mode \
     --adaptive-timing \
     --word-diff \
+    --rapid-eol-delete \
+    --no-rapid-eol-delete \
+    --keep-dirty \
     --version \
     --help \
     -h \
@@ -32,7 +35,9 @@ set -l diffvim_opts \
     --from \
     --to \
     --git-rev \
-    --max-line-len
+    --max-line-len \
+    --rapid-eol-delay-ms \
+    --rapid-eol-min-chars
 
 # Complete flags
 for cmd in diffvim diffvim-tmux diffvim.pl

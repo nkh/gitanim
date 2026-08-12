@@ -15,12 +15,16 @@ variables. These control the animation speed and feel.
 | Variable                    | Default | Description                              |
 | --------------------------- | ------- | ---------------------------------------- |
 | `DIFFVIM_TICK_MS`           | `16`    | Animation frame interval (~60fps)        |
-| `DIFFVIM_TYPE_DELAY_MS`     | `35`    | Delay between typed characters (ms)      |
-| `DIFFVIM_DELETE_DELAY_MS`   | `25`    | Delay between deleted characters (ms)    |
-| `DIFFVIM_MOVE_MIN_MS`       | `200`   | Minimum cursor-glide duration (ms)       |
-| `DIFFVIM_MOVE_MAX_MS`       | `1400`  | Maximum cursor-glide duration (ms)       |
+| `DIFFVIM_TYPE_DELAY_MS`     | `50`    | Delay between typed characters (ms)      |
+| `DIFFVIM_DELETE_DELAY_MS`   | `40`    | Delay between deleted characters (ms)    |
+| `DIFFVIM_MOVE_MIN_MS`       | `250`   | Minimum cursor-glide duration (ms)       |
+| `DIFFVIM_MOVE_MAX_MS`       | `1600`  | Maximum cursor-glide duration (ms)       |
 | `DIFFVIM_MOVE_MS_PER_UNIT`  | `6`     | Milliseconds per unit of glide distance  |
-| `DIFFVIM_HUNK_PAUSE_MS`     | `180`   | Pause between hunks (ms)                 |
+| `DIFFVIM_HUNK_PAUSE_MS`     | `250`   | Pause between hunks (ms)                 |
+| `DIFFVIM_WORD_PAUSE_MS`     | `150`   | Pause after instant word (ms)            |
+| `DIFFVIM_RAPID_EOL_DELAY_MS`| `80`    | Delay for rapid end-of-line deletion (ms)|
+| `DIFFVIM_RAPID_EOL_MIN_CHARS`| `3`    | Min trailing chars to trigger rapid EOL  |
+| `DIFFVIM_KEEP_DIRTY`        | unset   | Set to `1` to leave buffer modified      |
 
 ### Detailed Descriptions
 
@@ -36,7 +40,7 @@ Only used by `diffvim-tmux` and `diffvim.pl`. The `diffvim`
 (Vimscript) implementation uses vim's `timer_start()` which has its
 own tick interval (also configurable via this variable).
 
-#### `DIFFVIM_TYPE_DELAY_MS` (default: 35)
+#### `DIFFVIM_TYPE_DELAY_MS` (default: 50)
 
 The delay after each inserted character. This controls how fast
 characters appear when typing.
@@ -44,18 +48,18 @@ characters appear when typing.
 - **Lower** = faster typing (try 10 for very fast)
 - **Higher** = slower typing (try 80 for presentations)
 
-#### `DIFFVIM_DELETE_DELAY_MS` (default: 25)
+#### `DIFFVIM_DELETE_DELAY_MS` (default: 40)
 
 The delay after each deleted character. Usually set slightly lower
 than `TYPE_DELAY_MS` because deletion feels faster than typing.
 
-#### `DIFFVIM_MOVE_MIN_MS` (default: 200)
+#### `DIFFVIM_MOVE_MIN_MS` (default: 250)
 
 The minimum duration of a cursor glide between change locations.
 Even if the distance is very short, the glide will take at least
 this long.
 
-#### `DIFFVIM_MOVE_MAX_MS` (default: 1400)
+#### `DIFFVIM_MOVE_MAX_MS` (default: 1600)
 
 The maximum duration of a cursor glide. Even if the distance is very
 large (e.g., moving from line 1 to line 500), the glide will take at
@@ -78,11 +82,33 @@ feels like a larger visual jump.
 - **Lower** = faster glides (try 3 for snappy movement)
 - **Higher** = slower glides (try 12 for dramatic movement)
 
-#### `DIFFVIM_HUNK_PAUSE_MS` (default: 180)
+#### `DIFFVIM_HUNK_PAUSE_MS` (default: 250)
 
 The pause between finishing one hunk and starting the next. This
 gives the viewer a moment to register the completed change before the
 cursor starts moving to the next location.
+
+#### `DIFFVIM_RAPID_EOL_DELAY_MS` (default: 80)
+
+When `--rapid-eol-delete` is on (the default), a trailing run of deletes
+(cursor at end of line, all remaining text being deleted) is applied in
+one shot followed by this single delay. Lower values make tail-of-line
+deletions feel faster. Set to the same as `DIFFVIM_DELETE_DELAY_MS` to
+make rapid EOL feel like a single char delete.
+
+#### `DIFFVIM_RAPID_EOL_MIN_CHARS` (default: 3)
+
+Minimum number of trailing characters required to trigger rapid end-of-line
+deletion. Runs shorter than this are animated char by char, preserving
+the visual detail of small edits. Set to a large number (e.g., 9999) to
+effectively disable rapid EOL without using `--no-rapid-eol-delete`.
+
+#### `DIFFVIM_KEEP_DIRTY` (default: unset)
+
+Set to `1` to leave the buffer marked as modified after the animation
+finishes. By default diffvim runs `:set nomodified` so that `:q` quits
+cleanly; with `DIFFVIM_KEEP_DIRTY=1` the user must type `:q!` to quit.
+Equivalent to the `--keep-dirty` command-line flag.
 
 ---
 
@@ -156,34 +182,23 @@ unset DIFFVIM_TICK_MS DIFFVIM_TYPE_DELAY_MS DIFFVIM_DELETE_DELAY_MS \
 
 ## Command-Line Options
 
-### `diffvim`
+All three implementations share a common set of CLI options. Run
+`diffvim --help` for the full list. Key options include:
 
 ```bash
-diffvim <oldfile> <newfile>
+diffvim [--speed N] [--output FILE] [--scroll zz|zt|zb|none]
+        [--multi] [--replay] [--from REV] [--to REV] [--git-rev REV..REV]
+        [--step-mode] [--adaptive-timing] [--rapid-eol-delete]
+        [--no-rapid-eol-delete] [--rapid-eol-delay-ms N] [--rapid-eol-min-chars N]
+        [--keep-dirty] [--sign-column] [--git-blame] [--highlight-hunk]
+        [--dry-run] [--version] [--help]
+        <oldfile> <newfile>
 ```
 
-No command-line options. All configuration is via environment variables
-or the `g:diffvim` vimrc variable.
-
-### `diffvim-tmux`
-
-```bash
-diffvim-tmux <oldfile> <newfile>
-```
-
-No command-line options. All configuration is via environment variables.
-
-### `diffvim.pl`
-
-```bash
-perl diffvim.pl [--parser perl|diff2html] [--help] <oldfile> <newfile>
-```
-
-| Option             | Description                                          |
-| ------------------ | ---------------------------------------------------- |
-| `--parser perl`    | Use the pure-Perl LCS parser (default)               |
-| `--parser diff2html` | Use the diff2html CLI parser                        |
-| `--help`, `-h`     | Show help message and exit                           |
+The `--rapid-eol-delete` family controls whether trailing-line deletions
+are applied in one rapid shot (default: on). The `--keep-dirty` flag
+leaves the buffer modified so `:q!` is required to quit. See
+`docs/src/options.md` for the full option reference.
 
 ---
 

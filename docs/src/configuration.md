@@ -8,15 +8,18 @@ options override environment variables, which override built-in defaults.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DIFFVIM_TICK_MS` | `16` | Animation frame interval (~60fps) |
-| `DIFFVIM_TYPE_DELAY_MS` | `35` | Delay between typed characters (ms) |
-| `DIFFVIM_DELETE_DELAY_MS` | `25` | Delay between deleted characters (ms) |
-| `DIFFVIM_MOVE_MIN_MS` | `200` | Minimum cursor glide duration (ms) |
-| `DIFFVIM_MOVE_MAX_MS` | `1400` | Maximum cursor glide duration (ms) |
+| `DIFFVIM_TYPE_DELAY_MS` | `50` | Delay between typed characters (ms) |
+| `DIFFVIM_DELETE_DELAY_MS` | `40` | Delay between deleted characters (ms) |
+| `DIFFVIM_MOVE_MIN_MS` | `250` | Minimum cursor glide duration (ms) |
+| `DIFFVIM_MOVE_MAX_MS` | `1600` | Maximum cursor glide duration (ms) |
 | `DIFFVIM_MOVE_MS_PER_UNIT` | `6` | Milliseconds per unit of glide distance |
-| `DIFFVIM_HUNK_PAUSE_MS` | `180` | Pause between hunks (ms) |
+| `DIFFVIM_HUNK_PAUSE_MS` | `250` | Pause between hunks (ms) |
 | `DIFFVIM_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
+| `DIFFVIM_RAPID_EOL_DELAY_MS` | `80` | Delay for rapid end-of-line deletion (ms) |
+| `DIFFVIM_RAPID_EOL_MIN_CHARS` | `3` | Min trailing chars to trigger rapid EOL |
 | `DIFFVIM_SPEED` | `1.0` | Speed multiplier (same as --speed) |
 | `DIFFVIM_MAX_LINE_LEN` | `10000` | Warn threshold for long lines |
+| `DIFFVIM_KEEP_DIRTY` | unset | Set to `1` to leave buffer modified (`:q!` required) |
 
 ## Presets
 

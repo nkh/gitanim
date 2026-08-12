@@ -9,9 +9,9 @@ This document describes all user controls available during the animation.
 | Key       | Action                                      | Available in          |
 | --------- | ------------------------------------------- | --------------------- |
 | `Space`   | Pause / resume the animation                | All implementations   |
-| `n`       | Skip current hunk (apply instantly)         | All implementations   |
+| `n`       | Skip current hunk (apply instantly, pause)  | All implementations   |
 | `b`       | Back to previous hunk (revert and restart)  | All implementations   |
-| `q`       | Stop animation (leave buffer for editing)   | All implementations   |
+| `q`       | Stop animation (by default `:q` then quits) | All implementations   |
 | `?`       | Show help                                   | `diffvim` only        |
 
 Controls are active at **any moment** during the animation — even
@@ -42,10 +42,12 @@ animation.
 
 ---
 
-## `n` — Skip Current Hunk
+## `n` — Skip Current Hunk (Review Mode)
 
-Applies the current hunk **instantly** (no char-by-char animation) and
-moves to the next hunk.
+Applies the current hunk **instantly** (no char-by-char animation), then
+**pauses** so the viewer can review what just changed before pressing `n`
+again to advance to the next hunk. This is the "review mode" — apply
+one hunk at a time, pausing between each.
 
 **What happens:**
 1. If the animation is in the "moving" phase (cursor gliding), the
@@ -53,14 +55,16 @@ moves to the next hunk.
 2. All remaining char ops in the current hunk are applied with no
    delay between them (they're sent as a batch of Ex commands).
 3. The hunk index advances.
-4. A message is displayed: `diffvim: skipped to hunk 3/7`
-5. The next hunk begins normally (with cursor glide).
+4. A message is displayed: `diffvim: hunk applied — paused (Space=resume,
+   n=next hunk, b=back)`.
+5. The animation pauses. Press `n` again to apply the next hunk, or
+   `Space` to resume full-speed animation.
 
 **When paused:** `n` still works — it applies the current hunk
-instantly and then resumes the animation (clears the paused flag).
+instantly and pauses again.
 
-**When between hunks (phase = idle):** `n` has no effect (there's no
-"current hunk" to skip). Use `Space` to resume if paused.
+**When between hunks (phase = idle):** `n` jumps to the next hunk target,
+applies it instantly, and pauses again.
 
 **When animation is done:** `n` has no effect. A message is displayed:
 `diffvim: already done`.
@@ -103,21 +107,35 @@ snapshots are discarded).
 
 ## `q` — Quit Animation
 
-Stops the animation and leaves the buffer in its current state for
-editing.
+Stops the animation and leaves the buffer in its current state.
 
 **What happens:**
 1. The animation loop exits.
 2. The user-input mappings (`Space`, `n`, `b`, `q`) are removed
    (`diffvim` only; in tmux implementations, the mappings remain but
    are harmless).
-3. A message is displayed: `diffvim: animation stopped. Buffer left
-   in current state.`
-4. The buffer is a normal vim buffer — you can `:w`, `:wq`, edit, etc.
+3. By default, diffvim runs `:set nomodified` on the buffer so that
+   `:q` quits cleanly without complaining about unsaved changes.
+4. A message is displayed: `diffvim: animation stopped. Buffer left in
+   current state — :q to quit.`
+
+**Keeping the buffer dirty:** If you want vim's normal "unsaved changes"
+protection to remain active, pass `--keep-dirty` (or set
+`DIFFVIM_KEEP_DIRTY=1`). With this option, the buffer stays modified
+and you must type `:q!` to quit:
+
+```bash
+# Default: ':q' quits cleanly
+diffvim old.py new.py
+
+# Keep buffer modified; ':q!' required to quit
+diffvim --keep-dirty old.py new.py
+```
 
 **After quitting:**
 - In `diffvim`: vim remains open with the buffer. You can quit vim
-  normally with `:q` or `:wq`.
+  with `:q` (default) or `:q!` (with `--keep-dirty`), or continue
+  editing.
 - In `diffvim-tmux` / `diffvim.pl`: vim remains open in the tmux
   pane. The orchestrator process waits for vim to exit (detected via
   the `VimLeave` autocmd writing `vimleft` to the FIFO).

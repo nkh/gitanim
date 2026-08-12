@@ -25,3 +25,9 @@
 - [Git Integration](./git-integration.md)
 - [Testing](./testing.md)
 - [Shell Completion](./completion.md)
+
+# Reference
+
+- [50 UX Improvements for Following Patches](../FOLLOW_IMPROVEMENTS.md)
+- [100 Option Combinations](../OPTION_COMBINATIONS.md)
+- [CHANGELOG](../../CHANGELOG.md)

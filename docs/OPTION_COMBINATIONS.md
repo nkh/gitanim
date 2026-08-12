@@ -1216,3 +1216,120 @@ echo "All tests passed!"
 
 Complete CI pipeline: run all 12 test suites, then verify all 32 example file
 pairs produce valid diff output. 378+ assertions, 32 examples, 12 test suites.
+
+---
+
+## Rapid End-of-Line Deletion (new in 1.4.0)
+
+### 101. Default rapid EOL behavior
+
+```bash
+diffvim old.py new.py
+```
+
+By default, when the cursor is at the end of the line and all the text
+after the cursor is being deleted, those deletes are applied in one rapid
+shot (80ms total) instead of one char at a time (40ms × N chars). Trailing
+line deletions feel snappy.
+
+### 102. Disable rapid EOL for full visual detail
+
+```bash
+diffvim --no-rapid-eol-delete old.py new.py
+```
+
+Every character is deleted individually with `DIFFVIM_DELETE_DELAY_MS`
+between deletes. Useful for presentations where you want the viewer to
+see every single character disappear.
+
+### 103. Tune rapid EOL timing
+
+```bash
+diffvim --rapid-eol-delay-ms 50 --rapid-eol-min-chars 5 old.py new.py
+```
+
+- 50ms delay after the rapid run (faster than default 80ms)
+- Only trigger rapid EOL when 5 or more trailing chars are being deleted
+  (default is 3). Shorter runs are animated char by char.
+
+### 104. Disable rapid EOL via env var
+
+```bash
+DIFFVIM_RAPID_EOL_MIN_CHARS=9999 diffvim old.py new.py
+```
+
+Setting `DIFFVIM_RAPID_EOL_MIN_CHARS` to a very large number effectively
+disables rapid EOL without needing the `--no-rapid-eol-delete` flag, since
+no trailing run will ever reach the threshold.
+
+## Buffer State After Animation (new in 1.4.0)
+
+### 105. Default: `:q` quits cleanly
+
+```bash
+diffvim old.py new.py
+```
+
+After the animation finishes (or you press `q`), diffvim runs
+`:set nomodified` on the buffer. You can then type `:q` to quit vim
+without complaint — no need to type `:q!` every time.
+
+### 106. Keep buffer dirty for safety
+
+```bash
+diffvim --keep-dirty old.py new.py
+```
+
+The buffer stays modified after the animation. Vim's `:q` will refuse
+with "E37: No write since last change" — you must type `:q!` to quit.
+Useful when you want vim's normal "unsaved changes" protection to
+remain active, e.g., when reviewing a patch and want to be sure you
+don't accidentally quit without saving.
+
+### 107. Keep-dirty via env var
+
+```bash
+DIFFVIM_KEEP_DIRTY=1 diffvim old.py new.py
+```
+
+Same as `--keep-dirty` but set via environment variable. Useful for
+setting once in your shell config:
+
+```bash
+# In ~/.bashrc or ~/.zshrc
+export DIFFVIM_KEEP_DIRTY=1   # always require :q!
+```
+
+### 108. Combine rapid EOL with keep-dirty
+
+```bash
+diffvim --rapid-eol-delay-ms 30 --keep-dirty old.py new.py
+```
+
+- 30ms rapid EOL delay (very snappy trailing deletes)
+- Buffer stays modified; `:q!` required to quit
+
+This is a good combo for power users who want fast animations and don't
+mind typing `:q!`.
+
+### 109. Combine rapid EOL with adaptive mode
+
+```bash
+diffvim --adaptive --rapid-eol-delete old.py new.py
+```
+
+Adaptive mode (slow start, accelerate, pause at hunk end) plus rapid EOL
+for trailing deletes. The rapid EOL fires inside hunks when the trailing
+text of a line is being deleted, while adaptive mode handles the pacing
+of the rest of the hunk.
+
+### 110. Review mode + rapid EOL for fast diff review
+
+```bash
+diffvim --rapid-eol-delay-ms 40 old.py new.py
+```
+
+Default review mode (`n` key applies one hunk and pauses) combined with
+fast 40ms rapid EOL. Press `n` to apply a hunk, see the result instantly
+(trailing deletes go fast), review, press `n` again. Efficient for
+going through a large diff quickly while still seeing each hunk.

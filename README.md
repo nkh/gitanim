@@ -15,6 +15,7 @@ re-typed — surrounding text is never touched.
 - [Three Implementations](#three-implementations)
 - [Controls](#controls)
 - [Options](#options)
+- [Buffer State After Animation](#buffer-state-after-animation)
 - [Plugin Mode](#plugin-mode)
 - [Configuration](#configuration)
 - [Examples](#examples)
@@ -42,7 +43,9 @@ animates the transformation into the **new** version character by character:
    change speed, undo/redo, or quit
 
 After the animation completes (or the user stops it), the buffer is a normal
-vim buffer — you can `:w`, `:wq`, edit further, etc.
+vim buffer. By default diffvim marks the buffer as *not modified* so that
+`:q` quits cleanly — you don't have to type `:q!`. Use `--keep-dirty` if you
+want the buffer to remain modified (then `:q!` is required to quit).
 
 ---
 
@@ -170,19 +173,13 @@ During animation (in vim normal mode):
 | Key | Action |
 |-----|--------|
 | `Space` | Pause / resume (or advance one op in `--step-mode`) |
-| `n` | Skip current hunk (apply instantly) |
+| `n` | Skip current hunk (apply instantly, then pause for review) |
 | `b` | Back to previous hunk (revert and restart) |
-| `q` | Stop animation (leave buffer for editing) |
+| `q` | Stop animation — by default `:q` then quits cleanly; use `--keep-dirty` to require `:q!` |
 | `+` | Speed up (x1.5) |
 | `-` | Slow down (x0.67) |
 | `=` | Reset speed to 1.0x |
-| `u` | Undo last hunk |
-| `Ctrl-r` | Redo hunk |
-| `B` | Go back one char op |
-| `N` | Skip to next file (multi-file mode) |
-| `Ctrl-B` | Go back to beginning |
-| `Ctrl-N` | Skip to end |
-| `?` | Toggle full-screen help overlay |
+| `?` | Show help
 
 A progress bar is shown: `hunk 3/7 (42%) | speed 2.3x | PAUSED`
 
@@ -199,7 +196,7 @@ All three implementations support these options:
 --max-hunk-chars N       Skip char-by-char for hunks > N changed chars
 --max-word-chars N       Type words <= N chars instantly, pause after
 --word-pause-ms N        Pause after instant word (default: 150)
---scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none
+--scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
 --multi                  Animate multiple old:new file pairs
 --replay                 Animate git history for given file(s)
 --from REV               Git rev to start replay from (default: HEAD~5)
@@ -213,11 +210,36 @@ All three implementations support these options:
 --max-line-len N         Warn threshold for long lines (default: 10000)
 --adaptive-timing        Auto-slow for complex hunks, speed up for simple
 --word-diff              Use word-level diff (groups changes by word)
+--rapid-eol-delete       (default: on) Delete trailing line text in one rapid shot
+--no-rapid-eol-delete    Disable rapid end-of-line deletion
+--rapid-eol-delay-ms N   Delay for rapid EOL deletion (default: 80)
+--rapid-eol-min-chars N  Min trailing chars to trigger rapid EOL (default: 3)
+--keep-dirty             Leave buffer modified; require :q! to quit
 --version, -V            Print version and dependency info
 --help, -h               Show help
 ```
 
 `diffvim.pl` also supports `--parser perl|diff2html`.
+
+### Buffer State After Animation
+
+By default, after the animation finishes (or you press `q` to stop it),
+diffvim runs `:set nomodified` on the buffer. This means `:q` quits vim
+without complaint — no need to type `:q!`.
+
+If you want the buffer to stay modified (so vim's `:q` will refuse and
+`:q!` will be required), pass `--keep-dirty`:
+
+```bash
+# Default: :q quits cleanly
+./diffvim old.py new.py
+
+# Keep buffer modified: :q! required to quit
+./diffvim --keep-dirty old.py new.py
+```
+
+The startup config echo shows which mode is active:
+`keep_dirty=off(:q)` or `keep_dirty=on(:q!)`.
 
 ---
 
@@ -253,15 +275,18 @@ Timing can be tuned via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DIFFVIM_TICK_MS` | `16` | Animation frame interval (~60fps) |
-| `DIFFVIM_TYPE_DELAY_MS` | `35` | Delay between typed characters (ms) |
-| `DIFFVIM_DELETE_DELAY_MS` | `25` | Delay between deleted characters (ms) |
-| `DIFFVIM_MOVE_MIN_MS` | `200` | Minimum cursor-glide duration (ms) |
-| `DIFFVIM_MOVE_MAX_MS` | `1400` | Maximum cursor-glide duration (ms) |
+| `DIFFVIM_TYPE_DELAY_MS` | `50` | Delay between typed characters (ms) |
+| `DIFFVIM_DELETE_DELAY_MS` | `40` | Delay between deleted characters (ms) |
+| `DIFFVIM_MOVE_MIN_MS` | `250` | Minimum cursor-glide duration (ms) |
+| `DIFFVIM_MOVE_MAX_MS` | `1600` | Maximum cursor-glide duration (ms) |
 | `DIFFVIM_MOVE_MS_PER_UNIT` | `6` | Milliseconds per unit of glide distance |
-| `DIFFVIM_HUNK_PAUSE_MS` | `180` | Pause between hunks (ms) |
+| `DIFFVIM_HUNK_PAUSE_MS` | `250` | Pause between hunks (ms) |
 | `DIFFVIM_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
+| `DIFFVIM_RAPID_EOL_DELAY_MS` | `80` | Delay for rapid end-of-line deletion (ms) |
+| `DIFFVIM_RAPID_EOL_MIN_CHARS` | `3` | Min trailing chars to trigger rapid EOL |
 | `DIFFVIM_SPEED` | `1.0` | Speed multiplier (same as --speed) |
 | `DIFFVIM_MAX_LINE_LEN` | `10000` | Warn threshold for long lines |
+| `DIFFVIM_KEEP_DIRTY` | unset | Set to `1` to leave buffer modified (`:q!` required) |
 
 See [docs/src/configuration.md](docs/src/configuration.md) for presets.
 
@@ -299,6 +324,15 @@ perl diffvim.pl --dry-run old.py new.py
 
 # Multi-file animation
 ./diffvim --multi old1.py:new1.py old2.py:new2.py
+
+# Keep buffer modified so :q! is required to quit
+./diffvim --keep-dirty old.py new.py
+
+# Disable rapid end-of-line deletion (delete one char at a time)
+./diffvim --no-rapid-eol-delete old.py new.py
+
+# Tune rapid EOL: 50ms delay, only trigger for 5+ trailing chars
+./diffvim --rapid-eol-delay-ms 50 --rapid-eol-min-chars 5 old.py new.py
 ```
 
 ---
@@ -340,6 +374,12 @@ perl tests/test_features.pl
 
 # Integration tests (62 assertions)
 perl tests/test_integration.pl
+
+# Authoritative vim correctness test (39 assertions)
+perl tests/test_vim_correctness.pl
+
+# Rapid end-of-line delete correctness (20 assertions)
+perl tests/test_rapid_eol.pl
 ```
 
 ---
@@ -371,12 +411,15 @@ gitanim/
 │   ├── test_integration.pl       # Integration tests (62 assertions)
 │   └── test_e2e_perl.pl          # End-to-end tmux tests
 ├── docs/
-│   └── src/                      # mdbook documentation
-├── examples/                     # 7 example file pairs
+│   ├── src/                      # mdbook documentation
+│   ├── FOLLOW_IMPROVEMENTS.md    # 50 UX improvements for following patches
+│   └── OPTION_COMBINATIONS.md    # 100 option combination examples
+├── examples/                     # 32 example file pairs in 15+ languages
 ├── README.md
 ├── CHANGELOG.md
 ├── LICENSE
-└── IMPROVEMENTS.md               # 100 improvements (39 implemented)
+└── IMPROVEMENTS.md               # 100 improvements (52 implemented)
+└── docs/FOLLOW_IMPROVEMENTS.md    # 50 UX followability improvements
 ```
 
 ---
