@@ -972,6 +972,8 @@ nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
 " --- Autostart -------------------------------------------------------------
 
 function! s:StartAnimation() abort
+    " Set up syntax highlighting for the file
+    call s:SetupSyntax()
     " Show immediate feedback that diffvim is starting
     echo 'diffvim: computing diff...'
     redraw!
@@ -1008,6 +1010,70 @@ function! s:StartAnimation() abort
     else
         call s:ScheduleNext(50)
     endif
+endfunction
+
+" Set up syntax highlighting based on --language option or auto-detection.
+function! s:SetupSyntax() abort
+    let l:lang = $DIFFVIM_LANGUAGE
+    if empty(l:lang) || l:lang ==# 'auto'
+        " Auto-detect from file extension
+        let l:ext = fnamemodify(expand('%'), ':e')
+        let l:lang = s:DetectFiletype(l:ext)
+    endif
+    if !empty(l:lang)
+        execute 'setfiletype ' . l:lang
+        " Also set syntax explicitly (setfiletype may not set syntax
+        " if filetype plugins aren't loaded with -u NONE)
+        execute 'set syntax=' . l:lang
+    endif
+    " Enable syntax if vim supports it
+    if has('syntax')
+        syntax enable
+    endif
+    redraw!
+endfunction
+
+" Detect vim filetype from file extension.
+function! s:DetectFiletype(ext) abort
+    let l:ft_map = {
+        \ 'py': 'python', 'pyw': 'python',
+        \ 'js': 'javascript', 'mjs': 'javascript', 'cjs': 'javascript',
+        \ 'ts': 'typescript', 'tsx': 'typescript',
+        \ 'java': 'java',
+        \ 'kt': 'kotlin', 'kts': 'kotlin',
+        \ 'swift': 'swift',
+        \ 'rb': 'ruby',
+        \ 'php': 'php',
+        \ 'scala': 'scala', 'sbt': 'scala',
+        \ 'ex': 'elixir', 'exs': 'elixir',
+        \ 'clj': 'clojure', 'cljs': 'clojure', 'cljc': 'clojure',
+        \ 'hs': 'haskell',
+        \ 'lua': 'lua',
+        \ 'pl': 'perl', 'pm': 'perl',
+        \ 'r': 'r', 'R': 'r',
+        \ 'sql': 'sql',
+        \ 'go': 'go',
+        \ 'rs': 'rust',
+        \ 'c': 'c', 'h': 'c',
+        \ 'cpp': 'cpp', 'cc': 'cpp', 'cxx': 'cpp', 'hpp': 'cpp',
+        \ 'cs': 'cs',
+        \ 'sh': 'sh', 'bash': 'sh', 'zsh': 'sh',
+        \ 'json': 'json',
+        \ 'yaml': 'yaml', 'yml': 'yaml',
+        \ 'xml': 'xml',
+        \ 'html': 'html', 'htm': 'html',
+        \ 'css': 'css',
+        \ 'toml': 'toml',
+        \ 'md': 'markdown', 'markdown': 'markdown',
+        \ 'txt': 'text',
+        \ 'vim': 'vim',
+        \ 'ml': 'ocaml', 'mli': 'ocaml',
+        \ 'dart': 'dart',
+        \ 'groovy': 'groovy', 'gradle': 'groovy',
+        \ 'dockerfile': 'dockerfile',
+        \ 'makefile': 'make', 'mk': 'make',
+        \ }
+    return get(l:ft_map, a:ext, '')
 endfunction
 
 " Print the active configuration so the user can verify env vars are read.

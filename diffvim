@@ -69,6 +69,7 @@ CONTEXT_LINES=0
 MAX_HUNK_CHARS=0
 MAX_WORD_CHARS=0
 SCROLL_MODE="${DIFFVIM_SCROLL:-zz}"
+LANGUAGE="${DIFFVIM_LANGUAGE:-auto}"
 MULTI_MODE=0
 REPLAY_MODE=0
 REPLAY_FROM="HEAD~5"
@@ -114,6 +115,7 @@ Options:
   --word-diff              Enable word-level diff flag in the engine
   --step-mode              Space advances one op at a time (starts paused)
   --no-startup-pause       Skip startup delay and messages, start immediately
+  --language LANG          Set vim filetype for syntax highlighting (default: auto)
   --adaptive-timing        Slow down on complex regions (±10 op window)
   --sign-column            Show +/- signs in the sign column during animation
   --git-blame              Echo git blame for the target line of each hunk
@@ -164,6 +166,7 @@ while [[ $# -gt 0 ]]; do
         --word-diff)     WORD_DIFF=1; shift ;;
         --step-mode)     STEP_MODE=1; shift ;;
         --no-startup-pause) NO_STARTUP_PAUSE=1; shift ;;
+        --language)       LANGUAGE="$2"; shift 2 ;;
         --adaptive-timing) ADAPTIVE_TIMING=1; shift ;;
         --sign-column)   SIGN_COLUMN=1; shift ;;
         --git-blame)     GIT_BLAME=1; shift ;;
@@ -231,6 +234,7 @@ export DIFFVIM_CONTEXT="$CONTEXT_LINES"
 export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_NO_STARTUP_PAUSE="$([[ $NO_STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_LANGUAGE="$LANGUAGE"
 export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
@@ -1339,6 +1343,8 @@ nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
 " --- Autostart -------------------------------------------------------------
 
 function! s:StartAnimation() abort
+    " Set up syntax highlighting for the file
+    call s:SetupSyntax()
     " Show immediate feedback that diffvim is starting
     echo 'diffvim: computing diff...'
     redraw!
@@ -1375,6 +1381,70 @@ function! s:StartAnimation() abort
     else
         call s:ScheduleNext(50)
     endif
+endfunction
+
+" Set up syntax highlighting based on --language option or auto-detection.
+function! s:SetupSyntax() abort
+    let l:lang = $DIFFVIM_LANGUAGE
+    if empty(l:lang) || l:lang ==# 'auto'
+        " Auto-detect from file extension
+        let l:ext = fnamemodify(expand('%'), ':e')
+        let l:lang = s:DetectFiletype(l:ext)
+    endif
+    if !empty(l:lang)
+        execute 'setfiletype ' . l:lang
+        " Also set syntax explicitly (setfiletype may not set syntax
+        " if filetype plugins aren't loaded with -u NONE)
+        execute 'set syntax=' . l:lang
+    endif
+    " Enable syntax if vim supports it
+    if has('syntax')
+        syntax enable
+    endif
+    redraw!
+endfunction
+
+" Detect vim filetype from file extension.
+function! s:DetectFiletype(ext) abort
+    let l:ft_map = {
+        \ 'py': 'python', 'pyw': 'python',
+        \ 'js': 'javascript', 'mjs': 'javascript', 'cjs': 'javascript',
+        \ 'ts': 'typescript', 'tsx': 'typescript',
+        \ 'java': 'java',
+        \ 'kt': 'kotlin', 'kts': 'kotlin',
+        \ 'swift': 'swift',
+        \ 'rb': 'ruby',
+        \ 'php': 'php',
+        \ 'scala': 'scala', 'sbt': 'scala',
+        \ 'ex': 'elixir', 'exs': 'elixir',
+        \ 'clj': 'clojure', 'cljs': 'clojure', 'cljc': 'clojure',
+        \ 'hs': 'haskell',
+        \ 'lua': 'lua',
+        \ 'pl': 'perl', 'pm': 'perl',
+        \ 'r': 'r', 'R': 'r',
+        \ 'sql': 'sql',
+        \ 'go': 'go',
+        \ 'rs': 'rust',
+        \ 'c': 'c', 'h': 'c',
+        \ 'cpp': 'cpp', 'cc': 'cpp', 'cxx': 'cpp', 'hpp': 'cpp',
+        \ 'cs': 'cs',
+        \ 'sh': 'sh', 'bash': 'sh', 'zsh': 'sh',
+        \ 'json': 'json',
+        \ 'yaml': 'yaml', 'yml': 'yaml',
+        \ 'xml': 'xml',
+        \ 'html': 'html', 'htm': 'html',
+        \ 'css': 'css',
+        \ 'toml': 'toml',
+        \ 'md': 'markdown', 'markdown': 'markdown',
+        \ 'txt': 'text',
+        \ 'vim': 'vim',
+        \ 'ml': 'ocaml', 'mli': 'ocaml',
+        \ 'dart': 'dart',
+        \ 'groovy': 'groovy', 'gradle': 'groovy',
+        \ 'dockerfile': 'dockerfile',
+        \ 'makefile': 'make', 'mk': 'make',
+        \ }
+    return get(l:ft_map, a:ext, '')
 endfunction
 
 " Print the active configuration so the user can verify env vars are read.
@@ -1424,6 +1494,13 @@ augroup diffvim
 augroup END
 __DIFFVIM_VIMSCRIPT_EOF__
 
-exec vim -f -n -u NONE -U NONE -T dumb --cmd "set nocp nomore noswapfile" "$OLD" \
+# Find vim runtime directory for syntax files
+VIM_RUNTIME=$(vim -es -c "echo \$VIMRUNTIME" -c "qa!" 2>/dev/null || true)
+[[ -z "$VIM_RUNTIME" ]] && VIM_RUNTIME=$(ls -d /usr/share/vim/vim* 2>/dev/null | head -1)
+
+exec vim -f -n -u NONE -U NONE -T dumb \
+    --cmd "set nocp nomore noswapfile" \
+    --cmd "if !empty('$VIM_RUNTIME') | let &runtimepath = '$VIM_RUNTIME' | endif" \
+    "$OLD" \
     -c "let g:diffvim_new_file = '$NEW'" \
     -c "source $VIMSCRIPT"
