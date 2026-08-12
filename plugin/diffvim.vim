@@ -45,15 +45,15 @@ endif
 
 " Default config (merged with user's g:diffvim)
 let s:default_config = {
-    \ 'type_delay_ms':    get(g:diffvim, 'type_delay_ms',    35),
-    \ 'delete_delay_ms':  get(g:diffvim, 'delete_delay_ms',  25),
-    \ 'move_min_ms':      get(g:diffvim, 'move_min_ms',      200),
-    \ 'move_max_ms':      get(g:diffvim, 'move_max_ms',      1400),
+    \ 'type_delay_ms':    get(g:diffvim, 'type_delay_ms',    50),
+    \ 'delete_delay_ms':  get(g:diffvim, 'delete_delay_ms',  40),
+    \ 'move_min_ms':      get(g:diffvim, 'move_min_ms',      250),
+    \ 'move_max_ms':      get(g:diffvim, 'move_max_ms',      1600),
     \ 'move_ms_per_unit': get(g:diffvim, 'move_ms_per_unit', 6),
-    \ 'hunk_pause_ms':    get(g:diffvim, 'hunk_pause_ms',    180),
+    \ 'hunk_pause_ms':    get(g:diffvim, 'hunk_pause_ms',    250),
     \ 'tick_ms':          get(g:diffvim, 'tick_ms',          16),
     \ 'word_pause_ms':    get(g:diffvim, 'word_pause_ms',    150),
-    \ 'scroll':           get(g:diffvim, 'scroll',           'none'),
+    \ 'scroll':           get(g:diffvim, 'scroll',           'zz'),
     \ 'max_hunk_chars':   get(g:diffvim, 'max_hunk_chars',   0),
     \ 'max_word_chars':   get(g:diffvim, 'max_word_chars',   0),
     \ 'output_file':      get(g:diffvim, 'output_file',      ''),

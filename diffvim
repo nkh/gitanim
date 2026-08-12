@@ -13,7 +13,7 @@
 #   --max-hunk-chars N       Skip char-by-char for hunks > N changed chars
 #   --max-word-chars N       Type words <= N chars instantly, pause after
 #   --word-pause-ms N        Pause after instant word (default: 150)
-#   --scroll zz|zt|zb|none   Cursor scroll position (default: none)
+#   --scroll zz|zt|zb|none   Cursor scroll position (default: zz)
 #   --multi                  Treat args as old:new pairs for multi-file
 #   --replay                 Animate git history for given file(s)
 #   --from REV               Git rev to start replay from (default: HEAD~5)
@@ -52,12 +52,12 @@ set -euo pipefail
 # Defaults (can be overridden by env vars or --speed)
 # ---------------------------------------------------------------------------
 export DIFFVIM_TICK_MS=${DIFFVIM_TICK_MS:-16}
-export DIFFVIM_TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-35}
-export DIFFVIM_DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-25}
-export DIFFVIM_MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-200}
-export DIFFVIM_MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-1400}
+export DIFFVIM_TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-50}
+export DIFFVIM_DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-40}
+export DIFFVIM_MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-250}
+export DIFFVIM_MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-1600}
 export DIFFVIM_MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-6}
-export DIFFVIM_HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-180}
+export DIFFVIM_HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-250}
 export DIFFVIM_WORD_PAUSE_MS=${DIFFVIM_WORD_PAUSE_MS:-150}
 
 # ---------------------------------------------------------------------------
@@ -68,7 +68,7 @@ OUTPUT_FILE=""
 CONTEXT_LINES=0
 MAX_HUNK_CHARS=0
 MAX_WORD_CHARS=0
-SCROLL_MODE="none"
+SCROLL_MODE="${DIFFVIM_SCROLL:-zz}"
 MULTI_MODE=0
 REPLAY_MODE=0
 REPLAY_FROM="HEAD~5"
@@ -103,7 +103,7 @@ Options:
   --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
   --max-word-chars N       Type words <=N chars instantly, pause after
   --word-pause-ms N        Pause after instant word (default: 150)
-  --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: none)
+  --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
   --multi                  Treat args as old:new pairs for multi-file animation
   --replay                 Animate git history for given file(s)
   --from REV               Git rev to start replay from (default: HEAD~5)
@@ -397,15 +397,15 @@ endif
 " In Vimscript, $NAME accesses environment variables.  empty($NAME) is true
 " when the var is unset or empty.  str2nr() converts the string to a number.
 let g:diffvim = extend({
-    \ 'type_delay_ms':      !empty($DIFFVIM_TYPE_DELAY_MS)    ? str2nr($DIFFVIM_TYPE_DELAY_MS)    : 35,
-    \ 'delete_delay_ms':    !empty($DIFFVIM_DELETE_DELAY_MS)  ? str2nr($DIFFVIM_DELETE_DELAY_MS)  : 25,
-    \ 'move_min_ms':        !empty($DIFFVIM_MOVE_MIN_MS)      ? str2nr($DIFFVIM_MOVE_MIN_MS)      : 200,
-    \ 'move_max_ms':        !empty($DIFFVIM_MOVE_MAX_MS)      ? str2nr($DIFFVIM_MOVE_MAX_MS)      : 1400,
+    \ 'type_delay_ms':      !empty($DIFFVIM_TYPE_DELAY_MS)    ? str2nr($DIFFVIM_TYPE_DELAY_MS)    : 50,
+    \ 'delete_delay_ms':    !empty($DIFFVIM_DELETE_DELAY_MS)  ? str2nr($DIFFVIM_DELETE_DELAY_MS)  : 40,
+    \ 'move_min_ms':        !empty($DIFFVIM_MOVE_MIN_MS)      ? str2nr($DIFFVIM_MOVE_MIN_MS)      : 250,
+    \ 'move_max_ms':        !empty($DIFFVIM_MOVE_MAX_MS)      ? str2nr($DIFFVIM_MOVE_MAX_MS)      : 1600,
     \ 'move_ms_per_unit':   !empty($DIFFVIM_MOVE_MS_PER_UNIT) ? str2nr($DIFFVIM_MOVE_MS_PER_UNIT) : 6,
-    \ 'hunk_pause_ms':      !empty($DIFFVIM_HUNK_PAUSE_MS)    ? str2nr($DIFFVIM_HUNK_PAUSE_MS)    : 180,
+    \ 'hunk_pause_ms':      !empty($DIFFVIM_HUNK_PAUSE_MS)    ? str2nr($DIFFVIM_HUNK_PAUSE_MS)    : 250,
     \ 'tick_ms':            !empty($DIFFVIM_TICK_MS)          ? str2nr($DIFFVIM_TICK_MS)          : 16,
     \ 'word_pause_ms':      !empty($DIFFVIM_WORD_PAUSE_MS)    ? str2nr($DIFFVIM_WORD_PAUSE_MS)    : 150,
-    \ 'scroll':             !empty($DIFFVIM_SCROLL)           ? $DIFFVIM_SCROLL                   : 'none',
+    \ 'scroll':             !empty($DIFFVIM_SCROLL)           ? $DIFFVIM_SCROLL                   : 'zz',
     \ 'max_hunk_chars':     !empty($DIFFVIM_MAX_HUNK_CHARS)   ? str2nr($DIFFVIM_MAX_HUNK_CHARS)   : 0,
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
     \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',

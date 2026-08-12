@@ -75,12 +75,12 @@ sub _env_or {
 
 my %config = (
     tick_ms          => _env_or('DIFFVIM_TICK_MS',          16),
-    type_delay_ms    => _env_or('DIFFVIM_TYPE_DELAY_MS',    35),
-    delete_delay_ms  => _env_or('DIFFVIM_DELETE_DELAY_MS',  25),
-    move_min_ms      => _env_or('DIFFVIM_MOVE_MIN_MS',      200),
-    move_max_ms      => _env_or('DIFFVIM_MOVE_MAX_MS',      1400),
+    type_delay_ms    => _env_or('DIFFVIM_TYPE_DELAY_MS',    50),
+    delete_delay_ms  => _env_or('DIFFVIM_DELETE_DELAY_MS',  40),
+    move_min_ms      => _env_or('DIFFVIM_MOVE_MIN_MS',      250),
+    move_max_ms      => _env_or('DIFFVIM_MOVE_MAX_MS',      1600),
     move_ms_per_unit => _env_or('DIFFVIM_MOVE_MS_PER_UNIT', 6),
-    hunk_pause_ms    => _env_or('DIFFVIM_HUNK_PAUSE_MS',    180),
+    hunk_pause_ms    => _env_or('DIFFVIM_HUNK_PAUSE_MS',    250),
     word_pause_ms    => _env_or('DIFFVIM_WORD_PAUSE_MS',    150),
 );
 
@@ -95,7 +95,7 @@ my $output_file    = '';
 my $context_lines  = 0;
 my $max_hunk_chars = 0;
 my $max_word_chars = 0;
-my $scroll_mode    = 'none';
+my $scroll_mode    = _env_or('DIFFVIM_SCROLL', 'zz');
 my $multi_mode     = 0;
 my $replay_mode    = 0;
 my $replay_from    = 'HEAD~5';
