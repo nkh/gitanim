@@ -109,6 +109,8 @@ RAPID_EOL_DELETE=1
 RAPID_EOL_DELAY_MS="${DIFFVIM_RAPID_EOL_DELAY_MS:-80}"
 RAPID_EOL_MIN_CHARS="${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}"
 KEEP_DIRTY=0
+NO_VIMRC=0
+PRECOMPUTED_FILE=""
 HIGHLIGHT_WORD=0
 HIGHLIGHT_WORD_COLOR="${DIFFVIM_HIGHLIGHT_WORD_COLOR:-Search}"
 HIGHLIGHT_WORD_DURATION_MS="${DIFFVIM_HIGHLIGHT_WORD_DURATION_MS:-300}"
@@ -153,6 +155,8 @@ Options:
   --rapid-eol-delay-ms N   Delay for rapid EOL deletion in ms (default: 80)
   --rapid-eol-min-chars N  Min trailing chars to trigger rapid EOL (default: 3)
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
+  --no-vimrc               Don't load user's ~/.vimrc (isolated vim, default: off)
+  --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
   --highlight-word         Highlight the word at cursor before each change (finer than --highlight-hunk)
   --highlight-word-color C  Highlight group for word highlighting (default: Search)
   --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
@@ -223,6 +227,8 @@ while [[ $# -gt 0 ]]; do
         --rapid-eol-delay-ms) RAPID_EOL_DELAY_MS="$2"; shift 2 ;;
         --rapid-eol-min-chars) RAPID_EOL_MIN_CHARS="$2"; shift 2 ;;
         --keep-dirty)    KEEP_DIRTY=1; shift ;;
+        --no-vimrc)      NO_VIMRC=1; shift ;;
+        --precomputed)   PRECOMPUTED_FILE="$2"; shift 2 ;;
         --highlight-word) HIGHLIGHT_WORD=1; shift ;;
         --highlight-word-color) HIGHLIGHT_WORD_COLOR="$2"; shift 2 ;;
         --highlight-word-duration-ms) HIGHLIGHT_WORD_DURATION_MS="$2"; shift 2 ;;
@@ -311,6 +317,8 @@ export DIFFVIM_RAPID_EOL_DELETE="$([[ $RAPID_EOL_DELETE -eq 1 ]] && echo 1 || ec
 export DIFFVIM_RAPID_EOL_DELAY_MS="$RAPID_EOL_DELAY_MS"
 export DIFFVIM_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
 export DIFFVIM_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
 export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
 export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
@@ -511,6 +519,7 @@ let g:diffvim = extend({
     \ 'rapid_eol_delay_ms': !empty($DIFFVIM_RAPID_EOL_DELAY_MS) ? str2nr($DIFFVIM_RAPID_EOL_DELAY_MS) : 80,
     \ 'rapid_eol_min_chars':!empty($DIFFVIM_RAPID_EOL_MIN_CHARS) ? str2nr($DIFFVIM_RAPID_EOL_MIN_CHARS) : 3,
     \ 'keep_dirty':         !empty($DIFFVIM_KEEP_DIRTY)        ? 1 : 0,
+    \ 'precomputed':        !empty($DIFFVIM_PRECOMPUTED)       ? $DIFFVIM_PRECOMPUTED             : '',
     \ 'highlight_word':      !empty($DIFFVIM_HIGHLIGHT_WORD)            ? 1 : 0,
     \ 'highlight_word_color':!empty($DIFFVIM_HIGHLIGHT_WORD_COLOR)      ? $DIFFVIM_HIGHLIGHT_WORD_COLOR            : 'Search',
     \ 'highlight_word_duration': !empty($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) : 300,
@@ -644,8 +653,81 @@ function! s:CharDiff(a, b) abort
     return reverse(l:ops)
 endfunction
 
+" Load precomputed hunks from a file produced by the external compute tools
+" (compute/c, compute/cpp, compute/rust, compute/go).
+"
+" Format:
+"   # diffvim precomputed diff v1
+"   # hunk_count N
+"   HUNK target del ins end_ins end_del
+"   keep|delete|insert <code>
+"   ...
+"
+" Returns a list of hunk dictionaries, same structure as s:BuildHunks.
+function! s:LoadPrecomputed(path) abort
+    if !filereadable(a:path)
+        echoerr 'diffvim: cannot read precomputed file: ' . a:path
+        return []
+    endif
+    let l:lines = readfile(a:path)
+    let l:hunks = []
+    let l:cur_hunk = {}
+    let l:cur_ops = []
+    for l:line in l:lines
+        " Skip comments and blank lines
+        if l:line =~# '^#' || l:line =~# '^\s*$'
+            continue
+        endif
+        if l:line =~# '^HUNK '
+            " Save previous hunk if any
+            if !empty(l:cur_hunk)
+                let l:cur_hunk.char_ops = l:cur_ops
+                call add(l:hunks, l:cur_hunk)
+            endif
+            let l:parts = split(l:line)
+            let l:cur_hunk = {
+                \ 'target_line_old': str2nr(l:parts[1]),
+                \ 'deleted_count':   str2nr(l:parts[2]),
+                \ 'inserted_count':  str2nr(l:parts[3]),
+                \ 'is_end_insert':   str2nr(l:parts[4]),
+                \ 'is_end_delete':   str2nr(l:parts[5]),
+                \ 'old_text':        '',
+                \ 'new_text':        '',
+                \ }
+            let l:cur_ops = []
+        else
+            " Char op: "keep|delete|insert <code>"
+            let l:parts = split(l:line)
+            if len(l:parts) >= 2
+                let l:code = str2nr(l:parts[1])
+                let l:ch = l:code == 10 ? "\n" : nr2char(l:code, 1)
+                call add(l:cur_ops, [l:parts[0], l:ch])
+            endif
+        endif
+    endfor
+    " Save last hunk
+    if !empty(l:cur_hunk)
+        let l:cur_hunk.char_ops = l:cur_ops
+        call add(l:hunks, l:cur_hunk)
+    endif
+    echo 'diffvim: loaded ' . len(l:hunks) . ' precomputed hunk(s) from ' . a:path
+    return l:hunks
+endfunction
+
 " Group line-level ops into hunks, then compute char-level diff per hunk.
 function! s:BuildHunks() abort
+    " If --precomputed FILE was given, load hunks from that file instead of
+    " computing the diff in vimscript. The file format is:
+    "   # diffvim precomputed diff v1
+    "   # hunk_count N
+    "   HUNK target del ins end_ins end_del
+    "   keep|delete|insert <code>
+    "   ...
+    " This is produced by the tools in compute/ (C, C++, Rust, Go).
+    if !empty(g:diffvim.precomputed)
+        return s:LoadPrecomputed(g:diffvim.precomputed)
+    endif
+
     let l:old_lines = getline(1, '$')
     if empty(l:old_lines)
         let l:old_lines = ['']
@@ -1851,7 +1933,7 @@ augroup diffvim
 augroup END
 __DIFFVIM_VIMSCRIPT_EOF__
 
-# Find vim runtime directory for syntax files
+# Find vim runtime directory for syntax files (used in --no-vimrc mode)
 VIM_RUNTIME=""
 for d in $(vim --version 2>/dev/null | grep -o '/usr/share/vim/vim[0-9]*' | head -1) \
          /usr/share/vim/vim91 /usr/share/vim/vim90 /usr/share/vim/vim82 \
@@ -1862,15 +1944,39 @@ for d in $(vim --version 2>/dev/null | grep -o '/usr/share/vim/vim[0-9]*' | head
     fi
 done
 
-# Build a minimal vimrc that sets runtimepath and enables syntax
-MINI_VIMRC="$WORKDIR/minirc.vim"
-cat > "$MINI_VIMRC" <<MINIRC
+if [[ $NO_VIMRC -eq 1 ]]; then
+    # --no-vimrc: use an isolated mini vimrc (no user config loaded).
+    # This is the old behavior — useful when the user's vimrc interferes
+    # with the animation (e.g., autocommands that move the cursor).
+    MINI_VIMRC="$WORKDIR/minirc.vim"
+    cat > "$MINI_VIMRC" <<MINIRC
 set nocp nomore noswapfile
 ${VIM_RUNTIME:+let &runtimepath = '$VIM_RUNTIME'}
 syntax enable
 MINIRC
 
-exec vim -f -n -u "$MINI_VIMRC" -U NONE \
-    "$OLD" \
-    -c "let g:diffvim_new_file = '$NEW'" \
-    -c "source $VIMSCRIPT"
+    exec vim -f -n -u "$MINI_VIMRC" -U NONE \
+        "$OLD" \
+        -c "let g:diffvim_new_file = '$NEW'" \
+        -c "source $VIMSCRIPT"
+else
+    # Default: load the user's vimrc (~/.vimrc or $MYVIMRC).
+    # This preserves the user's colorscheme, syntax settings, plugins,
+    # key mappings, etc. — they see the same vim environment they're
+    # used to, with diffvim's engine sourced on top.
+    #
+    # We use -c commands (not -u) to set the few things diffvim needs:
+    #   - nomore: suppress pager prompts
+    #   - noswapfile: avoid swap-file dialogs
+    #   - syntax enable: ensure syntax is on (idempotent — won't hurt
+    #     if the user's vimrc already enabled it; will enable it if not)
+    #
+    # The user's vimrc is loaded by vim's default startup (no -u flag),
+    # then our -c commands run, then the VimEnter autocmd fires the engine.
+    exec vim -f -n -U NONE \
+        "$OLD" \
+        -c "set nomore noswapfile" \
+        -c "syntax enable" \
+        -c "let g:diffvim_new_file = '$NEW'" \
+        -c "source $VIMSCRIPT"
+fi

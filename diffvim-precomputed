@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# diffvim-precomputed — Run diffvim with a pre-computed diff.
+#
+# Computes the diff using an external native tool (C, C++, Rust, or Go),
+# then launches diffvim with --precomputed to skip the in-vim LCS computation.
+#
+# This is 10-100x faster for large files where the vimscript LCS would take
+# seconds or more.
+#
+# Usage:
+#   diffvim-precomputed [options] <oldfile> <newfile>
+#
+# Options:
+#   --tool c|cpp|rust|go   Which compute tool to use (default: c)
+#   --keep                 Keep the precomputed file (don't delete on exit)
+#   --time                 Print timing to stderr
+#   ...all other diffvim options are passed through...
+#
+# Environment:
+#   DIFFVIM_COMPUTE_TOOL  Default tool (c, cpp, rust, go)
+#   DIFFVIM_COMPUTE_DIR   Directory containing compute/bin/ (default: auto)
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+TOOL="${DIFFVIM_COMPUTE_TOOL:-c}"
+KEEP=0
+TIMING=0
+DIFFVIM_ARGS=()
+POSITIONAL=()
+
+# Find the compute directory (parent of this script's directory, or env var)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPUTE_DIR="${DIFFVIM_COMPUTE_DIR:-$SCRIPT_DIR/compute}"
+
+# ---------------------------------------------------------------------------
+# Parse options
+# ---------------------------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --tool)
+            TOOL="$2"; shift 2 ;;
+        --keep)
+            KEEP=1; shift ;;
+        --time)
+            TIMING=1; shift ;;
+        --diffvim)
+            DIFFVIM_CMD="$2"; shift 2 ;;
+        *)
+            # Pass through to diffvim
+            DIFFVIM_ARGS+=("$1"); shift ;;
+    esac
+done
+
+# Re-extract positional args from DIFFVIM_ARGS
+POSITIONAL=()
+for arg in "${DIFFVIM_ARGS[@]}"; do
+    if [[ "$arg" != -* ]]; then
+        POSITIONAL+=("$arg")
+    fi
+done
+
+if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
+    echo "Usage: $(basename "$0") [--tool c|cpp|rust|go] [--keep] [--time] [diffvim options] <oldfile> <newfile>" >&2
+    exit 1
+fi
+
+OLD="${POSITIONAL[-2]}"
+NEW="${POSITIONAL[-1]}"
+
+# ---------------------------------------------------------------------------
+# Find the compute tool
+# ---------------------------------------------------------------------------
+COMPUTE_BIN="$COMPUTE_DIR/bin/diffvim-compute-$TOOL"
+if [[ ! -f "$COMPUTE_BIN" ]]; then
+    echo "Error: compute tool not found: $COMPUTE_BIN" >&2
+    echo "Run 'make -C $COMPUTE_DIR' to build." >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Compute the diff
+# ---------------------------------------------------------------------------
+WORKDIR=$(mktemp -d)
+trap '[ $KEEP -eq 0 ] && rm -rf "$WORKDIR"' EXIT
+PRECOMPUTED="$WORKDIR/diff.txt"
+
+if [[ $TIMING -eq 1 ]]; then
+    echo "[diffvim-precomputed] computing diff with $TOOL..." >&2
+    time "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED" 2>&1 | sed 's/^/[compute] /' >&2
+else
+    "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED" 2>/dev/null
+fi
+
+# ---------------------------------------------------------------------------
+# Run diffvim with --precomputed
+# ---------------------------------------------------------------------------
+DIFFVIM_CMD="${DIFFVIM_CMD:-$SCRIPT_DIR/diffvim}"
+
+# Build the diffvim command line, inserting --precomputed before the files
+# and removing our own --tool/--keep/--time options
+DV_ARGS=()
+for arg in "${DIFFVIM_ARGS[@]}"; do
+    case "$arg" in
+        --tool|--keep|--time) ;;  # skip our options
+        *) DV_ARGS+=("$arg") ;;
+    esac
+done
+DV_ARGS+=("--precomputed" "$PRECOMPUTED")
+
+if [[ $TIMING -eq 1 ]]; then
+    echo "[diffvim-precomputed] launching diffvim..." >&2
+    time "$DIFFVIM_CMD" "${DV_ARGS[@]}"
+else
+    exec "$DIFFVIM_CMD" "${DV_ARGS[@]}"
+fi
