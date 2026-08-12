@@ -150,8 +150,8 @@ for my $dir (glob("examples/*/")) {
 print "=== Precomputed Diff Correctness Test ===\n";
 print "Verifies that --precomputed produces the same buffer as inline.\n\n";
 
-my $compute_c = "compute/bin/diffvim-compute-c";
-die "compute/bin/diffvim-compute-c not found. Run 'make -C compute' first.\n" unless -f $compute_c;
+my $compute_c = $ENV{DIFFVIM_COMPUTE_TOOL} || "compute/bin/diffvim-compute-c";
+die "$compute_c not found. Run 'make -C compute' first.\n" unless -f $compute_c;
 
 my $tmp = "/tmp/dv_pc_test";
 mkdir $tmp unless -d $tmp;

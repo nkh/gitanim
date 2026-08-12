@@ -132,6 +132,295 @@ static LineOp *line_diff(StrArr *a, StrArr *b, int *out_count) {
     return ops;
 }
 
+/* --- Myers diff algorithm (O(ND)) --- */
+/* Faster than LCS for small diffs. Falls back to LCS for very large N+M. */
+static LineOp *myers_diff(StrArr *a, StrArr *b, int *out_count) {
+    int na = a->count, nb = b->count;
+    /* For very large inputs, Myers can use excessive memory; fall back to LCS. */
+    if (na + nb > 200000) {
+        return line_diff(a, b, out_count);
+    }
+    int max = na + nb;
+    int *v = calloc(2 * max + 1, sizeof(int));
+    #define V(k) v[(k) + max]
+    /* Trace stores the v array at each d for backtracking. */
+    typedef int *IntPtr;
+    IntPtr *trace = malloc((max + 1) * sizeof(IntPtr));
+
+    int found = 0;
+    for (int d = 0; d <= max; d++) {
+        trace[d] = malloc((2 * max + 1) * sizeof(int));
+        memcpy(trace[d], v, (2 * max + 1) * sizeof(int));
+        for (int k = -d; k <= d; k += 2) {
+            int x;
+            if (k == -d || (k != d && V(k-1) < V(k+1)))
+                x = V(k+1);
+            else
+                x = V(k-1) + 1;
+            int y = x - k;
+            while (x < na && y < nb && strcmp(a->data[x], b->data[y]) == 0) {
+                x++; y++;
+            }
+            V(k) = x;
+            if (x >= na && y >= nb) {
+                found = 1;
+                /* Backtrack from (x, y) at depth d. */
+                LineOp *ops = malloc((d + na + nb) * sizeof(LineOp));
+                int count = 0;
+                int cx = na, cy = nb;
+                for (int dd = d; dd > 0; dd--) {
+                    int *vp = trace[dd];
+                    #define TV(k) vp[(k) + max]
+                    int k = cx - cy;
+                    int prev_x, prev_y;
+                    int from_below;  /* 1 = came from k+1 (insert), 0 = came from k-1 (delete) */
+                    if (k == -dd) {
+                        from_below = 1;
+                    } else if (k == dd) {
+                        from_below = 0;
+                    } else {
+                        from_below = (TV(k-1) < TV(k+1)) ? 1 : 0;
+                    }
+                    if (from_below) {
+                        prev_x = TV(k+1);
+                        prev_y = prev_x - (k + 1);
+                    } else {
+                        prev_x = TV(k-1) + 1;
+                        prev_y = prev_x - (k - 1);
+                    }
+                    /* Emit diagonal keeps from (cx,cy) back to (prev_x, prev_y) */
+                    while (cx > prev_x && cy > prev_y) {
+                        ops[count].type = OP_KEEP;
+                        ops[count].a_idx = cx - 1;
+                        ops[count].b_idx = cy - 1;
+                        count++; cx--; cy--;
+                    }
+                    /* The single non-diagonal step */
+                    if (from_below) {
+                        ops[count].type = OP_INSERT;
+                        ops[count].a_idx = -1;
+                        ops[count].b_idx = cy - 1;
+                        count++; cy--;
+                    } else {
+                        ops[count].type = OP_DELETE;
+                        ops[count].a_idx = cx - 1;
+                        ops[count].b_idx = -1;
+                        count++; cx--;
+                    }
+                    #undef TV
+                }
+                /* Handle any diagonal keeps at the very start (depth 0) */
+                while (cx > 0 && cy > 0) {
+                    ops[count].type = OP_KEEP;
+                    ops[count].a_idx = cx - 1;
+                    ops[count].b_idx = cy - 1;
+                    count++; cx--; cy--;
+                }
+                /* Reverse */
+                for (int i = 0; i < count/2; i++) {
+                    LineOp tmp = ops[i]; ops[i] = ops[count-1-i]; ops[count-1-i] = tmp;
+                }
+                for (int i = 0; i <= d; i++) free(trace[i]);
+                free(trace);
+                free(v);
+                *out_count = count;
+                return ops;
+            }
+        }
+        if (found) break;
+    }
+    /* Fallback */
+    for (int i = 0; i <= max; i++) if (trace[i]) free(trace[i]);
+    free(trace);
+    free(v);
+    return line_diff(a, b, out_count);
+    #undef V
+}
+
+/* --- Patience diff algorithm --- */
+/* Anchors on unique common lines, then recurses on the gaps. */
+static LineOp *patience_diff(StrArr *a, StrArr *b, int *out_count);
+
+/* Find unique common lines between a[a_start..a_end) and b[b_start..b_end).
+ * Returns arrays of matching (a_idx, b_idx) pairs in increasing order. */
+static int find_patience_anchors(StrArr *a, int a_start, int a_end,
+                                  StrArr *b, int b_start, int b_end,
+                                  int *out_a_idx, int *out_b_idx) {
+    /* Count occurrences of each line in both a and b. We use a simple
+     * hash map (linear probe) keyed by string. For simplicity and
+     * correctness, we use a naive O(N*M) approach for small ranges. */
+    int count = 0;
+    for (int i = a_start; i < a_end; i++) {
+        /* Check if a[i] appears exactly once in a[a_start..a_end) */
+        int a_count = 0;
+        for (int k = a_start; k < a_end; k++) {
+            if (strcmp(a->data[i], a->data[k]) == 0) a_count++;
+        }
+        if (a_count != 1) continue;
+        /* Find the unique match in b[b_start..b_end) */
+        int b_match = -1;
+        int b_count = 0;
+        for (int k = b_start; k < b_end; k++) {
+            if (strcmp(a->data[i], b->data[k]) == 0) {
+                b_match = k;
+                b_count++;
+            }
+        }
+        if (b_count == 1) {
+            out_a_idx[count] = i;
+            out_b_idx[count] = b_match;
+            count++;
+        }
+    }
+    /* The anchors are already in increasing a_idx order. We need them in
+     * increasing b_idx order too (for the LIS). Since we iterated a in
+     * order, we need to find the LIS of b_idx values. */
+    /* Simple LIS via patience sorting. */
+    if (count <= 1) return count;
+    /* Build LIS of (a_idx, b_idx) pairs sorted by a_idx, maximizing b_idx
+     * increasing subsequence. */
+    int *lis_prev = malloc(count * sizeof(int));
+    int *lis_tail = malloc(count * sizeof(int));
+    int *lis_tail_idx = malloc(count * sizeof(int));
+    int lis_len = 0;
+    for (int i = 0; i < count; i++) {
+        /* Binary search for position in lis_tail (by b_idx) */
+        int lo = 0, hi = lis_len;
+        while (lo < hi) {
+            int mid = (lo + hi) / 2;
+            if (out_b_idx[lis_tail_idx[mid]] < out_b_idx[i])
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+        lis_prev[i] = (lo > 0) ? lis_tail_idx[lo - 1] : -1;
+        if (lo == lis_len) {
+            lis_tail_idx[lis_len] = i;
+            lis_len++;
+        } else {
+            lis_tail_idx[lo] = i;
+        }
+    }
+    /* Reconstruct LIS */
+    int *keep_a = malloc(lis_len * sizeof(int));
+    int *keep_b = malloc(lis_len * sizeof(int));
+    int idx = lis_tail_idx[lis_len - 1];
+    for (int i = lis_len - 1; i >= 0; i--) {
+        keep_a[i] = out_a_idx[idx];
+        keep_b[i] = out_b_idx[idx];
+        idx = lis_prev[idx];
+    }
+    /* Copy back */
+    for (int i = 0; i < lis_len; i++) {
+        out_a_idx[i] = keep_a[i];
+        out_b_idx[i] = keep_b[i];
+    }
+    free(lis_prev); free(lis_tail); free(lis_tail_idx);
+    free(keep_a); free(keep_b);
+    return lis_len;
+}
+
+static LineOp *patience_diff_range(StrArr *a, int a_start, int a_end,
+                                    StrArr *b, int b_start, int b_end,
+                                    int *out_count) {
+    int na = a_end - a_start;
+    int nb = b_end - b_start;
+    LineOp *ops = NULL;
+    int count = 0;
+
+    if (na == 0 && nb == 0) {
+        *out_count = 0;
+        return NULL;
+    }
+    if (na == 0) {
+        ops = malloc(nb * sizeof(LineOp));
+        for (int j = 0; j < nb; j++) {
+            ops[j].type = OP_INSERT;
+            ops[j].a_idx = -1;
+            ops[j].b_idx = b_start + j;
+        }
+        *out_count = nb;
+        return ops;
+    }
+    if (nb == 0) {
+        ops = malloc(na * sizeof(LineOp));
+        for (int i = 0; i < na; i++) {
+            ops[i].type = OP_DELETE;
+            ops[i].a_idx = a_start + i;
+            ops[i].b_idx = -1;
+        }
+        *out_count = na;
+        return ops;
+    }
+
+    /* Find patience anchors */
+    int max_anchors = na < nb ? na : nb;
+    int *anchor_a = malloc(max_anchors * sizeof(int));
+    int *anchor_b = malloc(max_anchors * sizeof(int));
+    int n_anchors = find_patience_anchors(a, a_start, a_end, b, b_start, b_end,
+                                           anchor_a, anchor_b);
+
+    if (n_anchors == 0) {
+        /* No unique common lines — fall back to LCS for this range. */
+        StrArr sub_a, sub_b;
+        sub_a.data = a->data + a_start; sub_a.count = na; sub_a.capacity = na;
+        sub_b.data = b->data + b_start; sub_b.count = nb; sub_b.capacity = nb;
+        free(anchor_a); free(anchor_b);
+        ops = line_diff(&sub_a, &sub_b, &count);
+        /* Fix indices to be absolute */
+        for (int i = 0; i < count; i++) {
+            if (ops[i].type == OP_KEEP || ops[i].type == OP_DELETE)
+                ops[i].a_idx += a_start;
+            if (ops[i].type == OP_KEEP || ops[i].type == OP_INSERT)
+                ops[i].b_idx += b_start;
+        }
+        *out_count = count;
+        return ops;
+    }
+
+    /* Diff the gaps between anchors. */
+    int prev_a = a_start, prev_b = b_start;
+    for (int k = 0; k <= n_anchors; k++) {
+        int cur_a = (k < n_anchors) ? anchor_a[k] : a_end;
+        int cur_b = (k < n_anchors) ? anchor_b[k] : b_end;
+        if (cur_a > prev_a || cur_b > prev_b) {
+            int sub_count;
+            LineOp *sub_ops = patience_diff_range(a, prev_a, cur_a, b, prev_b, cur_b, &sub_count);
+            if (sub_count > 0) {
+                ops = realloc(ops, (count + sub_count) * sizeof(LineOp));
+                memcpy(ops + count, sub_ops, sub_count * sizeof(LineOp));
+                count += sub_count;
+                free(sub_ops);
+            }
+        }
+        if (k < n_anchors) {
+            ops = realloc(ops, (count + 1) * sizeof(LineOp));
+            ops[count].type = OP_KEEP;
+            ops[count].a_idx = anchor_a[k];
+            ops[count].b_idx = anchor_b[k];
+            count++;
+            prev_a = anchor_a[k] + 1;
+            prev_b = anchor_b[k] + 1;
+        }
+    }
+    free(anchor_a); free(anchor_b);
+    *out_count = count;
+    return ops;
+}
+
+static LineOp *patience_diff(StrArr *a, StrArr *b, int *out_count) {
+    return patience_diff_range(a, 0, a->count, b, 0, b->count, out_count);
+}
+
+/* --- Diff dispatcher --- */
+static LineOp *compute_line_diff(StrArr *a, StrArr *b, int *out_count, const char *algorithm) {
+    if (strcmp(algorithm, "myers") == 0)
+        return myers_diff(a, b, out_count);
+    if (strcmp(algorithm, "patience") == 0)
+        return patience_diff(a, b, out_count);
+    return line_diff(a, b, out_count);  /* default: lcs */
+}
+
 /* --- Char-level LCS diff between two strings --- */
 /* Uses Unicode code points (not bytes) to match vim's split(str, '\zs'). */
 
@@ -232,17 +521,69 @@ typedef struct {
     int char_op_count;
 } Hunk;
 
+/* --- Semantic cleanup: merge adjacent delete+insert pairs that cancel --- */
+static CharOp *semantic_cleanup(CharOp *ops, int *count) {
+    if (*count < 2) return ops;
+    CharOp *out = malloc(*count * sizeof(CharOp));
+    int out_count = 0;
+    int i = 0;
+    while (i < *count) {
+        if (i + 1 < *count) {
+            /* delete X followed by insert X → keep X */
+            if (ops[i].type == OP_DELETE && ops[i+1].type == OP_INSERT && ops[i].code == ops[i+1].code) {
+                out[out_count].type = OP_KEEP;
+                out[out_count].code = ops[i].code;
+                out_count++;
+                i += 2;
+                continue;
+            }
+            /* insert X followed by delete X → keep X */
+            if (ops[i].type == OP_INSERT && ops[i+1].type == OP_DELETE && ops[i].code == ops[i+1].code) {
+                out[out_count].type = OP_KEEP;
+                out[out_count].code = ops[i].code;
+                out_count++;
+                i += 2;
+                continue;
+            }
+        }
+        out[out_count++] = ops[i];
+        i++;
+    }
+    free(ops);
+    *count = out_count;
+    return out;
+}
+
 int main(int argc, char **argv) {
     double t_start = now_ms();
 
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile>\n", argv[0]);
+    const char *algorithm = getenv("DIFFVIM_ALGORITHM");
+    if (!algorithm || !*algorithm) algorithm = "lcs";
+    int do_semantic = getenv("DIFFVIM_SEMANTIC_CLEANUP") && getenv("DIFFVIM_SEMANTIC_CLEANUP")[0] == '1';
+
+    /* Parse args: <oldfile> <newfile> <outputfile> [--algorithm X] [--semantic-cleanup] */
+    const char *oldfile = NULL, *newfile = NULL, *outfile = NULL;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
+            algorithm = argv[++i];
+        } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
+            do_semantic = 1;
+        } else if (!oldfile) {
+            oldfile = argv[i];
+        } else if (!newfile) {
+            newfile = argv[i];
+        } else if (!outfile) {
+            outfile = argv[i];
+        }
+    }
+    if (!oldfile || !newfile || !outfile) {
+        fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup]\n", argv[0]);
         return 1;
     }
 
     double t_read_start = now_ms();
-    StrArr old_lines = read_lines(argv[1]);
-    StrArr new_lines = read_lines(argv[2]);
+    StrArr old_lines = read_lines(oldfile);
+    StrArr new_lines = read_lines(newfile);
     double t_read_end = now_ms();
 
     if (old_lines.count == 0 && new_lines.count == 0) {
@@ -252,7 +593,7 @@ int main(int argc, char **argv) {
 
     double t_diff_start = now_ms();
     int line_op_count;
-    LineOp *lops = line_diff(&old_lines, &new_lines, &line_op_count);
+    LineOp *lops = compute_line_diff(&old_lines, &new_lines, &line_op_count, algorithm);
 
     /* Group line ops into hunks */
     Hunk *hunks = malloc((line_op_count + 1) * sizeof(Hunk));
@@ -343,6 +684,9 @@ int main(int argc, char **argv) {
             }
 
             h->char_ops = char_diff(old_text, new_text, &h->char_op_count);
+            if (do_semantic) {
+                h->char_ops = semantic_cleanup(h->char_ops, &h->char_op_count);
+            }
             free(old_text);
             free(new_text);
             hunk_count++;
@@ -353,10 +697,12 @@ int main(int argc, char **argv) {
 
     /* Write output */
     double t_write_start = now_ms();
-    FILE *out = fopen(argv[3], "wb");
-    if (!out) { fprintf(stderr, "Cannot write %s\n", argv[3]); return 1; }
+    FILE *out = fopen(outfile, "wb");
+    if (!out) { fprintf(stderr, "Cannot write %s\n", outfile); return 1; }
 
     fprintf(out, "# diffvim precomputed diff v1\n");
+    fprintf(out, "# algorithm %s\n", algorithm);
+    fprintf(out, "# semantic_cleanup %d\n", do_semantic ? 1 : 0);
     fprintf(out, "# hunk_count %d\n", hunk_count);
     for (int h = 0; h < hunk_count; h++) {
         Hunk *hk = &hunks[h];

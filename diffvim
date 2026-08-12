@@ -111,6 +111,9 @@ RAPID_EOL_MIN_CHARS="${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}"
 KEEP_DIRTY=0
 NO_VIMRC=0
 PRECOMPUTED_FILE=""
+STARTUP_PAUSE=0
+ALGORITHM="${DIFFVIM_ALGORITHM:-lcs}"
+SEMANTIC_CLEANUP=0
 HIGHLIGHT_WORD=0
 HIGHLIGHT_WORD_COLOR="${DIFFVIM_HIGHLIGHT_WORD_COLOR:-Search}"
 HIGHLIGHT_WORD_DURATION_MS="${DIFFVIM_HIGHLIGHT_WORD_DURATION_MS:-300}"
@@ -157,6 +160,9 @@ Options:
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc               Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
+  --startup-pause          Show config + help before starting (default: off, start immediately)
+  --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
+  --semantic-cleanup       Merge adjacent delete+insert pairs that cancel out
   --highlight-word         Highlight the word at cursor before each change (finer than --highlight-hunk)
   --highlight-word-color C  Highlight group for word highlighting (default: Search)
   --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
@@ -229,6 +235,9 @@ while [[ $# -gt 0 ]]; do
         --keep-dirty)    KEEP_DIRTY=1; shift ;;
         --no-vimrc)      NO_VIMRC=1; shift ;;
         --precomputed)   PRECOMPUTED_FILE="$2"; shift 2 ;;
+        --startup-pause) STARTUP_PAUSE=1; shift ;;
+        --algorithm)    ALGORITHM="$2"; shift 2 ;;
+        --semantic-cleanup) SEMANTIC_CLEANUP=1; shift ;;
         --highlight-word) HIGHLIGHT_WORD=1; shift ;;
         --highlight-word-color) HIGHLIGHT_WORD_COLOR="$2"; shift 2 ;;
         --highlight-word-duration-ms) HIGHLIGHT_WORD_DURATION_MS="$2"; shift 2 ;;
@@ -319,6 +328,9 @@ export DIFFVIM_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
 export DIFFVIM_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
+export DIFFVIM_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ALGORITHM="$ALGORITHM"
+export DIFFVIM_SEMANTIC_CLEANUP="$([[ $SEMANTIC_CLEANUP -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
 export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
@@ -509,6 +521,7 @@ let g:diffvim = extend({
     \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
     \ 'fold_unchanged':     !empty($DIFFVIM_FOLD_UNCHANGED)   ? 1 : 0,
     \ 'no_startup_pause':   !empty($DIFFVIM_NO_STARTUP_PAUSE) ? 1 : 0,
+    \ 'startup_pause':      !empty($DIFFVIM_STARTUP_PAUSE)    ? 1 : 0,
     \ 'adaptive_mode':     !empty($DIFFVIM_ADAPTIVE_MODE)   ? 1 : 0,
     \ 'adaptive_start_ms': !empty($DIFFVIM_ADAPTIVE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_START_MS) : 80,
     \ 'adaptive_max_ms':   !empty($DIFFVIM_ADAPTIVE_MAX_MS)   ? str2nr($DIFFVIM_ADAPTIVE_MAX_MS)   : 30,
@@ -1468,7 +1481,38 @@ function! s:PlaceSign(name, line) abort
 endfunction
 
 " Run git blame on a given line and echo the result (for --git-blame).
+" Git blame cache — pre-compute blame for all lines at startup instead of
+" shelling out per hunk (which blocks the animation timer).
+let s:blame_cache = {}
+
+function! s:LoadBlameCache() abort
+    let s:blame_cache = {}
+    if !g:diffvim.git_blame | return | endif
+    let l:file = expand('%:p')
+    if empty(l:file) | return | endif
+    " Run git blame once for the entire file. This is much faster than
+    " per-line calls during animation.
+    let l:cmd = 'git blame -- ' . shellescape(l:file) . ' 2>/dev/null'
+    let l:result = systemlist(l:cmd)
+    if v:shell_error != 0 || empty(l:result) | return | endif
+    " Parse "hash (author date line) content" format into a per-line cache.
+    let l:line_num = 1
+    for l:line in l:result
+        " git blame output: ^hash (Author Name 2024-01-15 12:34:56 +0000 1) content
+        " or: hash (Author Name 2024-01-15 12:34:56 +0000 1) content
+        let l:blame = substitute(l:line, '^\^', '', '')
+        let s:blame_cache[l:line_num] = l:blame
+        let l:line_num += 1
+    endfor
+endfunction
+
 function! s:ShowGitBlame(line) abort
+    " Use the pre-computed blame cache if available.
+    if has_key(s:blame_cache, a:line)
+        echo 'diffvim blame: ' . s:blame_cache[a:line]
+        return
+    endif
+    " Fallback: if cache miss (e.g., line beyond file), shell out.
     let l:file = expand('%:p')
     if empty(l:file) | return | endif
     let l:cmd = 'git blame -L ' . a:line . ',' . a:line . ' -- ' . shellescape(l:file) . ' 2>/dev/null'
@@ -1774,26 +1818,22 @@ nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
 function! s:StartAnimation() abort
     " Set up syntax highlighting for the file
     call s:SetupSyntax()
-    " Show immediate feedback that diffvim is starting
-    echo 'diffvim: computing diff...'
-    redraw
+    " Pre-compute git blame cache if --git-blame is enabled (batch, not per-hunk)
+    call s:LoadBlameCache()
+    " Compute the diff. By default (--no-startup-pause is the default now),
+    " do this silently — no echo, no "computing diff..." message, no
+    " "Press ENTER" prompt. The user wants the animation to start
+    " immediately without any pre-animation interaction.
     let s:state.hunks = s:BuildHunks()
     if empty(s:state.hunks)
         echo 'diffvim: files are identical, nothing to animate'
         return
     endif
-    echo 'diffvim: ' . len(s:state.hunks) . ' hunk(s) found — starting animation'
-    redraw
     " --sign-column: define signs for add/delete/modify.
     if g:diffvim.sign_column
         sign define dv_add text=+ texthl=DiffAdd
         sign define dv_del text=- texthl=DiffDelete
         sign define dv_mod text=* texthl=DiffChange
-    endif
-    " --step-mode: start paused so the user can step through with Space.
-    if g:diffvim.step_mode
-        let s:state.paused = 1
-        echo 'diffvim: step mode active — press Space to advance one op'
     endif
     let s:state.hunk_idx = 0
     let s:state.line_offset = 0
@@ -1802,12 +1842,18 @@ function! s:StartAnimation() abort
     let s:state.paused = g:diffvim.step_mode ? 1 : 0
     let s:cur_l = line('.')
     let s:cur_c = col('.')
-    " Show config and help (can be disabled with --no-startup-pause)
-    if !g:diffvim.no_startup_pause
+    " Show config and help ONLY if --startup-pause is explicitly requested.
+    " Default: no startup messages, start animating immediately.
+    if g:diffvim.startup_pause
         call s:ShowConfig()
         call s:ShowHelp()
         call s:ScheduleNext(300)
     else
+        " Silent startup: just start the animation after a minimal tick
+        " so vim has time to render the buffer.
+        if g:diffvim.step_mode
+            echo 'diffvim: step mode — press Space to advance'
+        endif
         call s:ScheduleNext(50)
     endif
 endfunction
@@ -1966,16 +2012,18 @@ else
     # used to, with diffvim's engine sourced on top.
     #
     # We use -c commands (not -u) to set the few things diffvim needs:
-    #   - nomore: suppress pager prompts
+    #   - nomore: suppress "Press ENTER or type command to continue" prompts.
+    #     This is CRITICAL — without it, any echo output during startup
+    #     triggers the --more-- pager, blocking the animation.
     #   - noswapfile: avoid swap-file dialogs
-    #   - syntax enable: ensure syntax is on (idempotent — won't hurt
-    #     if the user's vimrc already enabled it; will enable it if not)
+    #   - shortmess+=A: suppress "ATTENTION" swap-file dialog
+    #   - syntax enable: ensure syntax is on (idempotent)
     #
     # The user's vimrc is loaded by vim's default startup (no -u flag),
     # then our -c commands run, then the VimEnter autocmd fires the engine.
     exec vim -f -n -U NONE \
         "$OLD" \
-        -c "set nomore noswapfile" \
+        -c "set nomore noswapfile shortmess+=A" \
         -c "syntax enable" \
         -c "let g:diffvim_new_file = '$NEW'" \
         -c "source $VIMSCRIPT"

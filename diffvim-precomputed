@@ -87,11 +87,31 @@ WORKDIR=$(mktemp -d)
 trap '[ $KEEP -eq 0 ] && rm -rf "$WORKDIR"' EXIT
 PRECOMPUTED="$WORKDIR/diff.txt"
 
+# Extract --algorithm VALUE and --semantic-cleanup from args to pass to compute tool
+COMPUTE_EXTRA=()
+i=0
+while [[ $i -lt ${#DIFFVIM_ARGS[@]} ]]; do
+    arg="${DIFFVIM_ARGS[$i]}"
+    case "$arg" in
+        --algorithm)
+            COMPUTE_EXTRA+=("--algorithm" "${DIFFVIM_ARGS[$((i+1))]}")
+            i=$((i+2))
+            ;;
+        --semantic-cleanup)
+            COMPUTE_EXTRA+=("--semantic-cleanup")
+            i=$((i+1))
+            ;;
+        *)
+            i=$((i+1))
+            ;;
+    esac
+done
+
 if [[ $TIMING -eq 1 ]]; then
     echo "[diffvim-precomputed] computing diff with $TOOL..." >&2
-    time "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED" 2>&1 | sed 's/^/[compute] /' >&2
+    time "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED" "${COMPUTE_EXTRA[@]}" 2>&1 | sed 's/^/[compute] /' >&2
 else
-    "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED" 2>/dev/null
+    "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED" "${COMPUTE_EXTRA[@]}" 2>/dev/null
 fi
 
 # ---------------------------------------------------------------------------
