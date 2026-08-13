@@ -2059,6 +2059,72 @@ function! s:ResetSpeed() abort
     echo 'diffvim: speed reset to 1.0x'
 endfunction
 
+" --- Multi-file navigation ------------------------------------------------
+
+let s:file_pairs = []
+let s:cur_file_idx = 0
+
+function! s:SetFilePairs(pairs) abort
+    let s:file_pairs = a:pairs
+    let s:cur_file_idx = 0
+endfunction
+
+function! s:NextFile() abort
+    if empty(s:file_pairs)
+        echo 'diffvim: no multi-file pairs'
+        return
+    endif
+    if s:cur_file_idx >= len(s:file_pairs) - 1
+        echo 'diffvim: already at last file'
+        return
+    endif
+    " Apply all remaining hunks instantly
+    call s:StopTimer()
+    while s:state.phase !=# 'done' && !s:state.stopped
+        if s:state.phase ==# 'idle'
+            call s:StartNextHunk()
+        elseif s:state.phase ==# 'moving'
+            let s:cur_l = s:state.move_end_l
+            let s:cur_c = s:state.move_end_c
+            call s:PlaceCursor()
+            let s:state.phase = 'typing'
+            let s:state.op_idx = 0
+        elseif s:state.phase ==# 'typing'
+            call s:ApplyHunkInstantly()
+        endif
+    endwhile
+    " Load next file
+    let s:cur_file_idx += 1
+    let l:pair = s:file_pairs[s:cur_file_idx]
+    let l:old = l:pair[0]
+    let l:new = l:pair[1]
+    " Edit the new old file
+    execute 'edit! ' . l:old
+    let g:diffvim_new_file = l:new
+    call s:StartAnimation()
+    echo 'diffvim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
+endfunction
+
+function! s:PrevFile() abort
+    if empty(s:file_pairs)
+        echo 'diffvim: no multi-file pairs'
+        return
+    endif
+    if s:cur_file_idx <= 0
+        echo 'diffvim: already at first file'
+        return
+    endif
+    call s:StopTimer()
+    let s:cur_file_idx -= 1
+    let l:pair = s:file_pairs[s:cur_file_idx]
+    let l:old = l:pair[0]
+    let l:new = l:pair[1]
+    execute 'edit! ' . l:old
+    let g:diffvim_new_file = l:new
+    call s:StartAnimation()
+    echo 'diffvim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
+endfunction
+
 " --- Mappings --------------------------------------------------------------
 
 nnoremap <buffer> <silent> <Space> :call <SID>TogglePause()<CR>
@@ -2069,6 +2135,8 @@ nnoremap <buffer> <silent> ?       :call <SID>ShowHelp()<CR>
 nnoremap <buffer> <silent> +       :call <SID>SpeedUp()<CR>
 nnoremap <buffer> <silent> -       :call <SID>SlowDown()<CR>
 nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
+nnoremap <buffer> <silent> ]       :call <SID>NextFile()<CR>
+nnoremap <buffer> <silent> [       :call <SID>PrevFile()<CR>
 
 " --- Autostart -------------------------------------------------------------
 

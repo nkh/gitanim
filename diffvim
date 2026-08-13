@@ -230,7 +230,7 @@ Options:
   --theme dark|light|high-contrast  Color scheme for highlights
   --optimize-sequence      Post-process ops to eliminate erratic movement (default: on)
   --no-optimize-sequence   Disable op-sequence optimization
-  --log-mode 1|2|markers|progressive  Generate log file without starting vim
+  --log-mode 1|2                  Generate log file (1=markers, 2=progressive) without starting vim
   --log-file FILE          Write log to FILE (default: diffvim.log)
   --git-blame              Echo git blame for the target line of each hunk
   --highlight-hunk         Highlight hunk region before animating it
@@ -573,8 +573,11 @@ fi
 
 # ---------------------------------------------------------------------------
 # --log-mode: generate a log file showing what happens to each line.
-# Mode 1 (markers): show deleted chars with ❌ emoji, inserted chars with ➕
-# Mode 2 (progressive): show the line before, with position highlighted, then after
+# Mode 1: show the original line, then a line with 'd' at each deleted position,
+#         then a line with inserted text at the insertion position.
+# Mode 2: progressive — show the line state after each operation:
+#         original line, then for each delete: line with 'd' at that position,
+#         then for each insert: line with the inserted char at that position.
 # Does NOT start vim.
 # ---------------------------------------------------------------------------
 if [[ -n "$LOG_MODE" ]]; then
@@ -588,137 +591,209 @@ if [[ -n "$LOG_MODE" ]]; then
         exit 1
     fi
 
-    for pair in "${FILE_PAIRS[@]}"; do
-        old_f="${pair%%:*}"
-        new_f="${pair##*:}"
-        pc_file=$(mktemp)
-        "$COMPUTE_BIN" "$old_f" "$new_f" "$pc_file" 2>/dev/null
+    # Perl script that does the actual log generation.
+    # It's much easier in Perl than bash for string manipulation.
+    perl -e '
+        use strict;
+        use warnings;
 
-        {
-            echo "# diffvim log: $old_f -> $new_f"
-            echo "# log mode: $LOG_MODE"
-            echo ""
+        my $log_mode = $ENV{DIFFVIM_LOG_MODE};
+        my $log_file = $ENV{DIFFVIM_LOG_FILE} || "diffvim.log";
+        my $compute = $ARGV[0];
+        my @pairs = @ARGV[1 .. $#ARGV];
+
+        open my $out, ">>", $log_file or die "Cannot write $log_file: $!";
+
+        for my $pair (@pairs) {
+            my ($old_f, $new_f) = split /:/, $pair, 2;
+            my $pc_file = "/tmp/dv_log_$$.txt";
+            system("$compute", $old_f, $new_f, $pc_file);
 
             # Read old file lines
-            mapfile -t OLD_LINES < "$old_f"
+            open my $fh, "<", $old_f or next;
+            my @old_lines = <$fh>;
+            close $fh;
+            chomp @old_lines;
 
-            cur_line=1
-            cur_col=1
-            in_hunk=0
-            hunk_target=1
-            hunk_ops=()
+            print $out "# diffvim log: $old_f -> $new_f\n";
+            print $out "# log mode: $log_mode\n\n";
 
-            while IFS= read -r line; do
-                [[ "$line" =~ ^# ]] && continue
-                [[ -z "$line" ]] && continue
+            # Parse precomputed file
+            open $fh, "<", $pc_file or next;
+            my @hunk_ops;
+            my $hunk_target;
+            my $in_hunk = 0;
 
-                if [[ "$line" =~ ^HUNK\  ]]; then
-                    # Flush previous hunk
-                    if [[ ${#hunk_ops[@]} -gt 0 ]]; then
-                        echo "=== HUNK at line $hunk_target ==="
-                        if [[ "$LOG_MODE" == "1" || "$LOG_MODE" == "markers" ]]; then
-                            # Mode 1: show each line with deletion/insertion markers
-                            # Group ops by line
-                            declare -A line_deletes
-                            declare -A line_inserts
-                            for op_line in "${hunk_ops[@]}"; do
-                                op_type="${op_line%% *}"
-                                op_code="${op_line##* }"
-                                # Track position
-                                if [[ "$op_type" == "keep" ]]; then
-                                    if [[ "$op_code" == "10" ]]; then
-                                        cur_line=$((cur_line + 1))
-                                        cur_col=1
-                                    else
-                                        cur_col=$((cur_col + 1))
-                                    fi
-                                elif [[ "$op_type" == "delete" ]]; then
-                                    line_deletes[$cur_line]="${line_deletes[$cur_line]:-}$cur_col,"
-                                    if [[ "$op_code" == "10" ]]; then
-                                        cur_line=$((cur_line + 1))
-                                        cur_col=1
-                                    else
-                                        cur_col=$((cur_col + 1))
-                                    fi
-                                elif [[ "$op_type" == "insert" ]]; then
-                                    if [[ "$op_code" == "10" ]]; then
-                                        : # newline insert
-                                    else
-                                        ch=$(printf "\\$(printf '%03o' "$op_code")")
-                                        line_inserts[$cur_line]="${line_inserts[$cur_line]:-}$ch"
-                                    fi
-                                fi
-                            done
-                            # Print each affected line with markers
-                            for ln in "${!line_deletes[@]}"; do
-                                orig="${OLD_LINES[$((ln-1))]:-}"
-                                echo "  Line $ln: $orig"
-                                echo "    Deleted at: ${line_deletes[$ln]}"
-                            done
-                            for ln in "${!line_inserts[@]}"; do
-                                echo "  Line $ln inserts: ${line_inserts[$ln]}"
-                            done
-                        elif [[ "$LOG_MODE" == "2" || "$LOG_MODE" == "progressive" ]]; then
-                            # Mode 2: progressive — show line, then with highlight, then after
-                            echo "  (progressive mode — shows each step)"
-                            cur_line=$hunk_target
-                            cur_col=1
-                            for op_line in "${hunk_ops[@]}"; do
-                                op_type="${op_line%% *}"
-                                op_code="${op_line##* }"
-                                if [[ "$op_type" == "keep" ]]; then
-                                    if [[ "$op_code" == "10" ]]; then
-                                        cur_line=$((cur_line + 1))
-                                        cur_col=1
-                                    else
-                                        cur_col=$((cur_col + 1))
-                                    fi
-                                elif [[ "$op_type" == "delete" ]]; then
-                                    orig="${OLD_LINES[$((cur_line-1))]:-}"
-                                    # Show position with cursor marker
-                                    before="${orig:0:$((cur_col-1))}"
-                                    after="${orig:$cur_col}"
-                                    echo "  DEL line $cur_line col $cur_col: $before⟨$after⟩"
-                                    if [[ "$op_code" == "10" ]]; then
-                                        cur_line=$((cur_line + 1))
-                                        cur_col=1
-                                    fi
-                                elif [[ "$op_type" == "insert" ]]; then
-                                    if [[ "$op_code" != "10" ]]; then
-                                        ch=$(printf "\\$(printf '%03o' "$op_code")")
-                                        orig="${OLD_LINES[$((cur_line-1))]:-}"
-                                        before="${orig:0:$((cur_col-1))}"
-                                        after="${orig:$((cur_col-1))}"
-                                        echo "  INS line $cur_line col $cur_col: $before⟨$ch⟩$after"
-                                        cur_col=$((cur_col + 1))
-                                    fi
-                                fi
-                            done
-                        fi
-                        echo ""
-                    fi
-                    # Parse new hunk
-                    parts=($line)
-                    hunk_target="${parts[1]}"
-                    hunk_ops=()
-                    cur_line=$hunk_target
-                    cur_col=1
-                    in_hunk=1
-                else
-                    hunk_ops+=("$line")
-                fi
-            done < "$pc_file"
+            while (my $line = <$fh>) {
+                chomp $line;
+                next if $line =~ /^#/ || $line =~ /^\s*$/;
+                if ($line =~ /^HUNK\s+(\d+)/) {
+                    if ($in_hunk && @hunk_ops) {
+                        process_hunk($out, $log_mode, \@old_lines, $hunk_target, \@hunk_ops);
+                    }
+                    $hunk_target = $1;
+                    @hunk_ops = ();
+                    $in_hunk = 1;
+                } else {
+                    push @hunk_ops, $line;
+                }
+            }
+            if ($in_hunk && @hunk_ops) {
+                process_hunk($out, $log_mode, \@old_lines, $hunk_target, \@hunk_ops);
+            }
+            close $fh;
+            unlink $pc_file;
+        }
 
-            # Flush last hunk
-            if [[ ${#hunk_ops[@]} -gt 0 ]]; then
-                echo "=== HUNK at line $hunk_target ==="
-                echo "(see above for ops)"
-            fi
-        } >> "$LOG_FILE"
+        print STDERR "diffvim: log written to $log_file\n";
 
-        rm -f "$pc_file"
-    done
-    echo "diffvim: log written to $LOG_FILE"
+        sub process_hunk {
+            my ($out, $mode, $old_lines, $target, $ops) = @_;
+            my @ops = @$ops;
+            return unless @ops;
+
+            print $out "=== HUNK at line $target ===\n";
+
+            # Group ops by line. A line ends when we see keep-\n or delete-\n.
+            my $cur_line = $target;
+            my $cur_col = 1;
+            my @line_ops;
+
+            for my $op (@ops) {
+                my ($type, $code) = split /\s+/, $op, 2;
+
+                if (($type eq "keep" || $type eq "delete") && $code == 10) {
+                    # End of line
+                    if (@line_ops) {
+                        print_line_log($out, $mode, $old_lines, $cur_line, \@line_ops);
+                    }
+                    $cur_line++;
+                    $cur_col = 1;
+                    @line_ops = ();
+                } else {
+                    push @line_ops, [$type, $code, $cur_col];
+                    $cur_col++;
+                }
+            }
+            if (@line_ops) {
+                print_line_log($out, $mode, $old_lines, $cur_line, \@line_ops);
+            }
+            print $out "\n";
+        }
+
+        sub print_line_log {
+            my ($out, $mode, $old_lines, $ln, $ops) = @_;
+            my @ops = @$ops;
+            my $orig = $old_lines->[$ln - 1] // "";
+
+            if ($mode eq "1") {
+                # Mode 1: show original, then deletion markers, then insertion
+                print $out "  Line $ln: $orig\n";
+
+                # Build deletion line: mark deleted positions with "d"
+                my $del_line = $orig;
+                my $ins_text = "";
+                my $ins_pos = 0;
+                my $offset = 0;
+
+                for my $op (@ops) {
+                    my ($type, $code, $pos) = @$op;
+                    if ($type eq "delete") {
+                        my $adj = $pos - 1 + $offset;
+                        if ($adj >= 0 && $adj < length($del_line)) {
+                            substr($del_line, $adj, 1) = "d";
+                        }
+                    } elsif ($type eq "insert" && $code != 10) {
+                        $ins_text .= chr($code);
+                        $ins_pos = $pos;
+                    }
+                }
+                print $out "  Del   : $del_line\n";
+                if ($ins_text ne "") {
+                    print $out "  Ins   : $ins_text (at col $ins_pos)\n";
+                }
+            } elsif ($mode eq "2") {
+                # Mode 2: progressive — show the line, then for each phase
+                # (deletions, then insertions), show:
+                #   1. The line with markers at the positions that will change
+                #   2. The line after the change is applied
+                #
+                # Example output:
+                #   def load_json(self, filepath: str | Path) -> bool:
+                #            d
+                #   def load_son(self, filepath: str | Path) -> bool:
+                #                        dddddddd
+                #   def load_son(self, : str | Path) -> bool:
+                #                      the_path
+                #   def load_son(self, the_path: str | Path) -> bool:
+
+                # Separate ops into delete phase and insert phase
+                my @del_ops;
+                my @ins_ops;
+                for my $op (@ops) {
+                    my ($type, $code, $pos) = @$op;
+                    if ($type eq "delete") {
+                        push @del_ops, $op;
+                    } elsif ($type eq "insert" && $code != 10) {
+                        push @ins_ops, $op;
+                    }
+                }
+
+                my $state = $orig;
+
+                # If there are deletes, show the deletion phase
+                if (@del_ops) {
+                    # Build marker line: spaces with d at each delete position
+                    my $marker_line = " " x length($state);
+                    for my $op (@del_ops) {
+                        my ($type, $code, $pos) = @$op;
+                        my $adj = $pos - 1;
+                        if ($adj >= 0 && $adj < length($marker_line)) {
+                            substr($marker_line, $adj, 1) = "d";
+                        }
+                    }
+                    print $out "  $state\n";
+                    print $out "  $marker_line\n";
+
+                    # Apply deletes: remove deleted chars from state
+                    # Process from right to left so positions do not shift
+                    my @sorted_dels = sort { $b->[2] <=> $a->[2] } @del_ops;
+                    for my $op (@sorted_dels) {
+                        my ($type, $code, $pos) = @$op;
+                        my $adj = $pos - 1;
+                        if ($adj >= 0 && $adj < length($state)) {
+                            substr($state, $adj, 1) = "";
+                        }
+                    }
+                    print $out "  $state\n";
+                } else {
+                    print $out "  $state\n";
+                }
+
+                # If there are inserts, show the insertion phase
+                if (@ins_ops) {
+                    # Build marker line: show inserted text at positions
+                    my $marker_line = " " x length($state);
+                    my $ins_offset = 0;
+                    for my $op (@ins_ops) {
+                        my ($type, $code, $pos) = @$op;
+                        my $ch = chr($code);
+                        my $adj = $pos - 1 + $ins_offset;
+                        # Clamp to valid range
+                        if ($adj < 0) { $adj = 0; }
+                        if ($adj > length($marker_line)) { $adj = length($marker_line); }
+                        if ($adj > length($state)) { $adj = length($state); }
+                        substr($marker_line, $adj, 0) = $ch;
+                        substr($state, $adj, 0) = $ch;
+                        $ins_offset++;
+                    }
+                    print $out "  $marker_line\n";
+                    print $out "  $state\n";
+                }
+                print $out "\n";
+            }
+        }
+    ' "$COMPUTE_BIN" "${FILE_PAIRS[@]}"
     exit 0
 fi
 
@@ -2791,6 +2866,72 @@ function! s:ResetSpeed() abort
     echo 'diffvim: speed reset to 1.0x'
 endfunction
 
+" --- Multi-file navigation ------------------------------------------------
+
+let s:file_pairs = []
+let s:cur_file_idx = 0
+
+function! s:SetFilePairs(pairs) abort
+    let s:file_pairs = a:pairs
+    let s:cur_file_idx = 0
+endfunction
+
+function! s:NextFile() abort
+    if empty(s:file_pairs)
+        echo 'diffvim: no multi-file pairs'
+        return
+    endif
+    if s:cur_file_idx >= len(s:file_pairs) - 1
+        echo 'diffvim: already at last file'
+        return
+    endif
+    " Apply all remaining hunks instantly
+    call s:StopTimer()
+    while s:state.phase !=# 'done' && !s:state.stopped
+        if s:state.phase ==# 'idle'
+            call s:StartNextHunk()
+        elseif s:state.phase ==# 'moving'
+            let s:cur_l = s:state.move_end_l
+            let s:cur_c = s:state.move_end_c
+            call s:PlaceCursor()
+            let s:state.phase = 'typing'
+            let s:state.op_idx = 0
+        elseif s:state.phase ==# 'typing'
+            call s:ApplyHunkInstantly()
+        endif
+    endwhile
+    " Load next file
+    let s:cur_file_idx += 1
+    let l:pair = s:file_pairs[s:cur_file_idx]
+    let l:old = l:pair[0]
+    let l:new = l:pair[1]
+    " Edit the new old file
+    execute 'edit! ' . l:old
+    let g:diffvim_new_file = l:new
+    call s:StartAnimation()
+    echo 'diffvim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
+endfunction
+
+function! s:PrevFile() abort
+    if empty(s:file_pairs)
+        echo 'diffvim: no multi-file pairs'
+        return
+    endif
+    if s:cur_file_idx <= 0
+        echo 'diffvim: already at first file'
+        return
+    endif
+    call s:StopTimer()
+    let s:cur_file_idx -= 1
+    let l:pair = s:file_pairs[s:cur_file_idx]
+    let l:old = l:pair[0]
+    let l:new = l:pair[1]
+    execute 'edit! ' . l:old
+    let g:diffvim_new_file = l:new
+    call s:StartAnimation()
+    echo 'diffvim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
+endfunction
+
 " --- Mappings --------------------------------------------------------------
 
 nnoremap <buffer> <silent> <Space> :call <SID>TogglePause()<CR>
@@ -2801,6 +2942,8 @@ nnoremap <buffer> <silent> ?       :call <SID>ShowHelp()<CR>
 nnoremap <buffer> <silent> +       :call <SID>SpeedUp()<CR>
 nnoremap <buffer> <silent> -       :call <SID>SlowDown()<CR>
 nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
+nnoremap <buffer> <silent> ]       :call <SID>NextFile()<CR>
+nnoremap <buffer> <silent> [       :call <SID>PrevFile()<CR>
 
 " --- Autostart -------------------------------------------------------------
 
@@ -2981,10 +3124,20 @@ for d in $(vim --version 2>/dev/null | grep -o '/usr/share/vim/vim[0-9]*' | head
     fi
 done
 
+# Build the file-pairs vimscript command for multi-file navigation (]/[ keys)
+FILE_PAIRS_VIM=""
+if [[ ${#FILE_PAIRS[@]} -gt 1 ]]; then
+    FILE_PAIRS_VIM="call s:SetFilePairs(["
+    for pair in "${FILE_PAIRS[@]}"; do
+        old_p="${pair%%:*}"
+        new_p="${pair##*:}"
+        FILE_PAIRS_VIM+="['$old_p','$new_p'],"
+    done
+    FILE_PAIRS_VIM+="])"
+fi
+
 if [[ $NO_VIMRC -eq 1 ]]; then
     # --no-vimrc: use an isolated mini vimrc (no user config loaded).
-    # This is the old behavior — useful when the user's vimrc interferes
-    # with the animation (e.g., autocommands that move the cursor).
     MINI_VIMRC="$WORKDIR/minirc.vim"
     cat > "$MINI_VIMRC" <<MINIRC
 set nocp nomore noswapfile
@@ -2995,27 +3148,15 @@ MINIRC
     exec vim -f -n -u "$MINI_VIMRC" -U NONE \
         "$OLD" \
         -c "let g:diffvim_new_file = '$NEW'" \
-        -c "source $VIMSCRIPT"
+        -c "source $VIMSCRIPT" \
+        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
 else
     # Default: load the user's vimrc (~/.vimrc or $MYVIMRC).
-    # This preserves the user's colorscheme, syntax settings, plugins,
-    # key mappings, etc. — they see the same vim environment they're
-    # used to, with diffvim's engine sourced on top.
-    #
-    # We use -c commands (not -u) to set the few things diffvim needs:
-    #   - nomore: suppress "Press ENTER or type command to continue" prompts.
-    #     This is CRITICAL — without it, any echo output during startup
-    #     triggers the --more-- pager, blocking the animation.
-    #   - noswapfile: avoid swap-file dialogs
-    #   - shortmess+=A: suppress "ATTENTION" swap-file dialog
-    #   - syntax enable: ensure syntax is on (idempotent)
-    #
-    # The user's vimrc is loaded by vim's default startup (no -u flag),
-    # then our -c commands run, then the VimEnter autocmd fires the engine.
     exec vim -f -n -U NONE \
         "$OLD" \
         -c "set nomore noswapfile shortmess+=A" \
         -c "syntax enable" \
         -c "let g:diffvim_new_file = '$NEW'" \
-        -c "source $VIMSCRIPT"
+        -c "source $VIMSCRIPT" \
+        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
 fi
