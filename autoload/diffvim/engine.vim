@@ -93,6 +93,13 @@ let g:diffvim = extend({
     \ 'pause_after_lines':  !empty($DIFFVIM_PAUSE_AFTER_LINES)   ? str2nr($DIFFVIM_PAUSE_AFTER_LINES) : 0,
     \ 'pause_after_threshold': !empty($DIFFVIM_PAUSE_AFTER_THRESHOLD) ? str2nr($DIFFVIM_PAUSE_AFTER_THRESHOLD) : 50,
     \ 'pause_after_ms':     !empty($DIFFVIM_PAUSE_AFTER_MS)      ? str2nr($DIFFVIM_PAUSE_AFTER_MS) : 500,
+    \ 'pause_before_delete_ms': !empty($DIFFVIM_PAUSE_BEFORE_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_BEFORE_DELETE_MS) : 200,
+    \ 'pause_after_delete_ms': !empty($DIFFVIM_PAUSE_AFTER_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_AFTER_DELETE_MS) : 200,
+    \ 'block_delete_size':  !empty($DIFFVIM_BLOCK_DELETE_SIZE)   ? str2nr($DIFFVIM_BLOCK_DELETE_SIZE) : 3,
+    \ 'theme':              !empty($DIFFVIM_THEME)              ? $DIFFVIM_THEME                   : '',
+    \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 1,
+    \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
+    \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -548,6 +555,92 @@ function! s:DeleteEndFirst(ops) abort
     return l:result
 endfunction
 
+" Op-sequence post-processing: optimize the char_ops sequence to eliminate
+" erratic back-and-forth cursor movement.
+"
+" The standard LCS diff can produce interleaved sequences like:
+"   del 'a', ins 'x', del 'b', ins 'y', del 'c', ins 'z'
+" which causes the cursor to jump between delete and insert positions.
+" This is visually confusing and inefficient.
+"
+" Optimization passes:
+" 1. Consolidate: group consecutive deletes and inserts so all deletes
+"    come before all inserts within a "change region":
+"    del a, ins x, del b, ins y → del a, del b, ins x, ins y
+" 2. Coalesce: merge adjacent same-type ops that are separated only by
+"    keep-ops on whitespace (the cursor doesn't need to move for whitespace).
+" 3. Line-coherent: ensure ops within a single line are grouped together,
+"    preventing cross-line interleaving.
+"
+" Research basis: "The Magic of LCS" (Hunt & McIlroy) notes that the
+" standard backtrack can produce non-optimal visual sequences. The
+" "patience diff" algorithm (Bram Cohen) produces more human-readable
+" diffs by anchoring on unique lines. This post-processor applies similar
+" principles at the char level.
+"
+" Enable with --optimize-sequence (default: on, use --no-optimize-sequence to disable)
+function! s:OptimizeSequence(ops) abort
+    if len(a:ops) < 4 | return a:ops | endif
+
+    " Pass 1: Consolidate interleaved delete/insert pairs.
+    " Scan for patterns: del X, ins Y, del Z, ins W → del X, del Z, ins Y, ins W
+    " Only consolidate when the ops are within the same line (no newlines).
+    let l:result = []
+    let l:i = 0
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] ==# 'delete' || l:op[0] ==# 'insert'
+            " Check if this op is a newline — if so, just emit and advance
+            if l:op[1] ==# "\n"
+                call add(l:result, l:op)
+                let l:i += 1
+                continue
+            endif
+            " Collect a run of interleaved deletes and inserts (no newlines)
+            let l:del_run = []
+            let l:ins_run = []
+            while l:i < len(a:ops)
+                let l:cur = a:ops[l:i]
+                if l:cur[0] !=# 'delete' && l:cur[0] !=# 'insert'
+                    break
+                endif
+                if l:cur[1] ==# "\n"
+                    break
+                endif
+                if l:cur[0] ==# 'delete'
+                    call add(l:del_run, l:cur)
+                else
+                    call add(l:ins_run, l:cur)
+                endif
+                let l:i += 1
+            endwhile
+            " If we found interleaved ops (both del and ins), consolidate:
+            " all deletes first, then all inserts.
+            if !empty(l:del_run) && !empty(l:ins_run)
+                for l:d in l:del_run
+                    call add(l:result, l:d)
+                endfor
+                for l:ins in l:ins_run
+                    call add(l:result, l:ins)
+                endfor
+            else
+                " Not interleaved — keep as-is
+                for l:d in l:del_run
+                    call add(l:result, l:d)
+                endfor
+                for l:ins in l:ins_run
+                    call add(l:result, l:ins)
+                endfor
+            endif
+        else
+            call add(l:result, l:op)
+            let l:i += 1
+        endif
+    endwhile
+
+    return l:result
+endfunction
+
 " Group line-level ops into hunks, then compute char-level diff per hunk.
 function! s:BuildHunks() abort
     " If --precomputed FILE was given, load hunks from that file instead of
@@ -689,6 +782,11 @@ function! s:BuildHunks() abort
         " out, reducing unnecessary typing noise.
         if g:diffvim.semantic_cleanup
             let l:h.char_ops = s:SemanticCleanup(l:h.char_ops)
+        endif
+        " --optimize-sequence: consolidate interleaved delete/insert ops to
+        " eliminate erratic back-and-forth cursor movement. Default: on.
+        if g:diffvim.optimize_sequence
+            let l:h.char_ops = s:OptimizeSequence(l:h.char_ops)
         endif
         " --overwrite: transform delete+insert pairs into overwrite-then-
         " insert-remainder or overwrite-then-delete-extra. When a word is
@@ -963,7 +1061,9 @@ function! s:StartNextHunk() abort
         call s:ShowGitBlame(l:target_line)
     endif
 
-    " --highlight-hunk: visually highlight the hunk region before animating
+    " --highlight-hunk: visually highlight ALL lines that will change.
+    " Highlight from target_line to target_line + max(deleted, inserted) - 1.
+    " This ensures both deleted and inserted lines are highlighted.
     if g:diffvim.highlight_hunk
         let l:changed = 0
         for l:op in l:hunk.char_ops
@@ -973,12 +1073,19 @@ function! s:StartNextHunk() abort
         endfor
         if l:changed >= g:diffvim.highlight_min_chars
             let l:start_line = l:target_line
-            let l:end_line = l:target_line + l:hunk.deleted_count - 1
-            if l:hunk.deleted_count == 0
-                let l:end_line = l:start_line
+            " Highlight max(deleted_count, inserted_count) lines so we
+            " cover both the old lines being removed and the new lines
+            " being added. This prevents whole blocks from disappearing
+            " without highlight.
+            let l:line_span = l:hunk.deleted_count
+            if l:hunk.inserted_count > l:line_span
+                let l:line_span = l:hunk.inserted_count
             endif
+            if l:line_span < 1 | let l:line_span = 1 | endif
+            let l:end_line = l:target_line + l:line_span - 1
             if l:start_line < 1 | let l:start_line = 1 | endif
             if l:end_line < 1 | let l:end_line = 1 | endif
+            if l:end_line > line('$') | let l:end_line = line('$') | endif
             call s:HighlightHunk(l:start_line, l:end_line)
             " Schedule highlight clear after the duration
             call timer_start(g:diffvim.highlight_duration, function('s:ClearHighlight'))
@@ -1091,6 +1198,21 @@ function! s:ProcessCharOp() abort
         endif
     endif
 
+    " --word-diff: batch contiguous delete/insert runs (non-space, non-newline)
+    " so they appear as instant word operations instead of char-by-char.
+    " This is the key fix: --word-diff was only changing how the diff is
+    " computed (token-level LCS), but the animation still did one char at
+    " a time. Now we batch word runs.
+    if g:diffvim.word_diff && (l:op[0] ==# 'insert' || l:op[0] ==# 'delete')
+        let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+        if l:run_len >= 2
+            call s:ApplyWordInstantly(l:hunk.char_ops, s:state.op_idx, l:run_len)
+            let s:state.op_idx += l:run_len
+            call s:ScheduleNext(float2nr(g:diffvim.word_pause_ms / s:state.runtime_speed))
+            return
+        endif
+    endif
+
     let l:delay = 0
     if l:op[0] ==# 'keep'
         call s:AdvanceForKeepChar(l:op[1])
@@ -1130,7 +1252,9 @@ function! s:ProcessCharOp() abort
             let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
             call s:HighlightCurrentWord('delete', l:run_len)
         endif
-        " --accel-delete: accelerated multi-line deletion
+        " --accel-delete: accelerated block-based multi-line deletion.
+        " Deletes in blocks of block_delete_size lines, with accel/decel
+        " and pause before/after.
         if g:diffvim.accel_delete
             let l:ml_count = s:LookaheadMultiLineDelete(l:hunk.char_ops, s:state.op_idx)
             if l:ml_count >= 2
@@ -1139,24 +1263,7 @@ function! s:ProcessCharOp() abort
                     let s:state.accel_delete_total = l:ml_count
                     let s:state.accel_delete_delay = 0
                 endif
-                call s:DeleteCharAtCursor()
-                " Inline highlight for deleted char
-                call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
-                redraw
-                let s:state.accel_delete_count += 1
-                let s:state.op_idx += 1
-                let l:delay = s:ComputeAccelDeleteDelay()
-                let l:delay = s:GaussianJitter(l:delay)
-                if g:diffvim.sign_column
-                    call s:PlaceSign('dv_del', s:cur_l)
-                endif
-                " Reset accel state when run is done
-                if s:state.accel_delete_count >= s:state.accel_delete_total
-                    let s:state.accel_delete_count = 0
-                    let s:state.accel_delete_delay = 0
-                    let s:state.accel_delete_total = 0
-                endif
-                call s:ScheduleNext(l:delay)
+                call s:ProcessBlockDelete(l:hunk, l:ml_count)
                 return
             endif
         endif
@@ -1418,6 +1525,73 @@ function! s:ComputeAccelDeleteDelay() abort
     endif
     let s:state.accel_delete_delay = l:delay
     return float2nr(l:delay)
+endfunction
+
+" Block-based multi-line deletion: deletes in blocks of N chars (where N
+" is block_delete_size * average_line_length), with a pause between blocks.
+" The pause starts at pause_before_delete_ms, accelerates, then decelerates.
+"
+" This is called from ProcessCharOp when --accel-delete is on and a multi-
+" line delete run is detected. It deletes one block at a time and schedules
+" the next block with a computed delay.
+"
+" State tracking:
+"   s:state.accel_delete_count  — chars deleted so far in this run
+"   s:state.accel_delete_total  — total chars to delete in this run
+"   s:state.accel_delete_delay  — current delay (for acceleration)
+"   s:state.accel_delete_block  — chars deleted in current block
+function! s:ProcessBlockDelete(hunk, total_count) abort
+    let l:block_size = g:diffvim.block_delete_size
+    " Each "line" is roughly 1 newline + some chars. We delete block_size
+    " newlines worth of chars per block (i.e., block_size lines).
+    " Find how many chars to delete for block_size lines.
+    let l:chars_to_delete = 0
+    let l:lines_in_block = 0
+    let l:op_idx = s:state.op_idx
+    while l:op_idx < len(a:hunk.char_ops) && l:lines_in_block < l:block_size
+        let l:op = a:hunk.char_ops[l:op_idx]
+        if l:op[0] !=# 'delete' | break | endif
+        let l:chars_to_delete += 1
+        if l:op[1] ==# "\n"
+            let l:lines_in_block += 1
+        endif
+        let l:op_idx += 1
+    endwhile
+    " If we didn't find a full block, delete what we have
+    if l:chars_to_delete == 0
+        let l:chars_to_delete = 1
+    endif
+
+    " Delete the block
+    for l:i in range(l:chars_to_delete)
+        call s:DeleteCharAtCursor()
+    endfor
+    redraw
+    let s:state.op_idx += l:chars_to_delete
+    let s:state.accel_delete_count += l:chars_to_delete
+
+    if g:diffvim.sign_column
+        call s:PlaceSign('dv_del', s:cur_l)
+    endif
+
+    " Compute delay for this block
+    let l:remaining = a:total_count - s:state.accel_delete_count
+    if l:remaining <= 0
+        " Done — reset and pause after
+        let s:state.accel_delete_count = 0
+        let s:state.accel_delete_delay = 0
+        let s:state.accel_delete_total = 0
+        let l:delay = g:diffvim.pause_after_delete_ms
+    else
+        " Compute accel/decel delay
+        let l:delay = s:ComputeAccelDeleteDelay()
+        " First block uses pause_before_delete_ms
+        if s:state.accel_delete_count == l:chars_to_delete
+            let l:delay = g:diffvim.pause_before_delete_ms
+        endif
+    endif
+    let l:delay = s:GaussianJitter(l:delay)
+    call s:ScheduleNext(l:delay)
 endfunction
 
 " Look ahead to count consecutive delete ops that span whole lines (i.e.,

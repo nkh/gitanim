@@ -1396,3 +1396,101 @@ When a trailing-line delete fires as a rapid shot, the word at the cursor
 is highlighted first (using the rapid run length as the "word length"),
 then all the trailing deletes are applied in one batch. The viewer sees
 which word is about to vanish before it disappears.
+
+## New v1.6.0 Options
+
+### 116. Accelerated block-based multi-line deletion
+
+```bash
+diffvim --accel-delete --block-delete-size 3 \
+  --pause-before-delete-ms 200 --pause-after-delete-ms 200 \
+  old.py new.py
+```
+
+Multi-line deletions are done in blocks of 3 lines. A 200ms pause before
+the first block, then blocks accelerate (getting faster), then decelerate
+near the end. A 200ms pause after the last block. Prevents large blocks
+from vanishing in one shot while keeping the animation fast.
+
+### 117. Overwrite mode for word replacement
+
+```bash
+diffvim --overwrite old.py new.py
+```
+
+When a word is replaced, the new word overwrites the old word in place
+instead of delete-all-then-insert-all. Shorter replacement = overwrite +
+delete extra; same length = pure overwrite; longer = overwrite + insert
+remainder.
+
+### 118. Op-sequence optimization (default: on)
+
+```bash
+# Default: optimization on (recommended)
+diffvim old.py new.py
+
+# Disable for raw LCS behavior
+diffvim --no-optimize-sequence old.py new.py
+```
+
+Post-processes the char-op sequence to eliminate erratic back-and-forth
+cursor movement. Consolidates interleaved delete/insert pairs into
+all-deletes-then-all-inserts. See docs/POST_PROCESSING.md for details.
+
+### 119. Log mode (no vim, generates analysis file)
+
+```bash
+# Mode 1: markers — show deleted positions
+diffvim --log-mode markers --log-file analysis.txt old.py new.py
+
+# Mode 2: progressive — show each step
+diffvim --log-mode progressive --log-file analysis.txt old.py new.py
+```
+
+Generates a log file showing what happens to each line without starting
+vim. Useful for analyzing the op sequence and debugging.
+
+### 120. Fold unchanged regions
+
+```bash
+diffvim --fold-unchanged old.py new.py
+```
+
+Folds unchanged regions between hunks so the user only sees the changes.
+
+### 121. Gaussian jitter for human-like typing
+
+```bash
+diffvim --gaussian-jitter --gaussian-jitter-pct 20 old.py new.py
+```
+
+Varies per-char delay by ±20% using a triangular distribution. Makes
+typing feel human instead of metronomic.
+
+### 122. Dim unchanged lines
+
+```bash
+diffvim --dim-unchanged --dim-unchanged-pct 60 old.py new.py
+```
+
+Dims unchanged anchor lines to 60% opacity, drawing the eye to changed
+lines.
+
+### 123. All optimization features combined
+
+```bash
+diffvim --optimize-sequence --semantic-cleanup --overwrite \
+  --accel-delete --block-delete-size 3 \
+  --inline-highlight --dim-unchanged \
+  --highlight-hunk --highlight-word \
+  old.py new.py
+```
+
+The "kitchen sink" — all post-processing and visual features at once:
+- Op-sequence optimization consolidates interleaved ops
+- Semantic cleanup removes canceling pairs
+- Overwrite mode replaces words in place
+- Accelerated block deletion for multi-line removes
+- Inline char highlight (green type, red delete)
+- Dim unchanged lines
+- Hunk + word highlighting
