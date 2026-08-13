@@ -1179,6 +1179,17 @@ sub query_vim {
 # ---------------------------------------------------------------------------
 sub compute_diff {
     my ($old, $new) = @_;
+
+    # If --precomputed FILE is set, load the diff from that file instead
+    # of computing it with the Perl/diff2html parser.
+    if (defined $ENV{DIFFVIM_PRECOMPUTED} && $ENV{DIFFVIM_PRECOMPUTED} ne '') {
+        my $pc_file = $ENV{DIFFVIM_PRECOMPUTED};
+        my $r = load_precomputed($pc_file);
+        @hunks = @$r;
+        $parser_used = 'precomputed';
+        return;
+    }
+
     my $result;
     my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup, algorithm => $diff_algorithm, indent_aware => $indent_aware };
     if ($parser_name eq 'diff2html') {
@@ -1190,6 +1201,46 @@ sub compute_diff {
     }
     @hunks = @{$result->{hunks}};
     $parser_used = $result->{parser};
+}
+
+# Load precomputed diff from a file (produced by compute/ tools).
+# Format:
+#   # diffvim precomputed diff v1
+#   # algorithm X
+#   # hunk_count N
+#   HUNK target del ins end_ins end_del
+#   keep|delete|insert <code>
+#   ...
+sub load_precomputed {
+    my ($path) = @_;
+    open my $fh, '<', $path or die "Cannot read precomputed file $path: $!";
+    my @hunks;
+    my $cur_hunk;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next if $line =~ /^#/ || $line =~ /^\s*$/;
+        if ($line =~ /^HUNK\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/) {
+            if ($cur_hunk) { push @hunks, $cur_hunk; }
+            $cur_hunk = {
+                target_line_old => $1,
+                deleted_count   => $2,
+                inserted_count  => $3,
+                is_end_insert   => $4,
+                is_end_delete   => $5,
+                char_ops        => [],
+            };
+        } elsif ($line =~ /^(keep|delete|insert)\s+(\d+)/) {
+            if ($cur_hunk) {
+                my $code = $2;
+                my $ch = $code == 10 ? "\n" : chr($code);
+                push @{$cur_hunk->{char_ops}}, [$1, $ch];
+            }
+        }
+    }
+    if ($cur_hunk) { push @hunks, $cur_hunk; }
+    close $fh;
+    print STDERR "diffvim.pl: loaded " . scalar(@hunks) . " precomputed hunk(s) from $path\n";
+    return \@hunks;
 }
 
 sub init_buffer_lines {

@@ -808,6 +808,68 @@ declare -a CUR_OLD CUR_NEW
 CUR_TARGET=1
 CUR_HAS_HUNK=0
 
+# Load precomputed diff from a file (produced by compute/ tools).
+# Format:
+#   # diffvim precomputed diff v1
+#   # algorithm X
+#   # hunk_count N
+#   HUNK target del ins end_ins end_del
+#   keep|delete|insert <code>
+#   ...
+load_precomputed() {
+    local pc_file="$1"
+    if [[ -z "$pc_file" || ! -f "$pc_file" ]]; then
+        echo "diffvim-tmux: cannot read precomputed file: $pc_file" >&2
+        return 1
+    fi
+
+    HUNK_COUNT=0
+    HUNK_TARGET=()
+    HUNK_OPS=()
+    HUNK_DEL=()
+    HUNK_INS=()
+    HUNK_END_INS=()
+    HUNK_END_DEL=()
+
+    local cur_ops=""
+    local in_hunk=0
+
+    while IFS= read -r line; do
+        # Skip comments and blank lines
+        [[ "$line" =~ ^# ]] && continue
+        [[ -z "$line" ]] && continue
+
+        if [[ "$line" =~ ^HUNK\  ]]; then
+            # Save previous hunk's ops
+            if [[ $in_hunk -eq 1 ]]; then
+                HUNK_OPS+=("$cur_ops")
+            fi
+            cur_ops=""
+            in_hunk=1
+
+            # Parse HUNK line
+            local parts=($line)
+            HUNK_TARGET+=("${parts[1]}")
+            HUNK_DEL+=("${parts[2]}")
+            HUNK_INS+=("${parts[3]}")
+            HUNK_END_INS+=("${parts[4]}")
+            HUNK_END_DEL+=("${parts[5]}")
+            HUNK_COUNT=$((HUNK_COUNT + 1))
+        else
+            # Char op: "keep|delete|insert <code>"
+            cur_ops="${cur_ops}${line}|"
+        fi
+    done < "$pc_file"
+
+    # Save last hunk
+    if [[ $in_hunk -eq 1 ]]; then
+        HUNK_OPS+=("$cur_ops")
+    fi
+
+    echo "diffvim-tmux: loaded $HUNK_COUNT precomputed hunk(s) from $pc_file" >&2
+    return 0
+}
+
 build_hunks() {
     HUNK_COUNT=0
     HUNK_TARGET=()
@@ -1509,7 +1571,11 @@ animate_pair() {
     SNAP_CUR_C=()
     SNAP_OFFSET=()
 
-    build_hunks
+    if [[ -n "${PRECOMPUTED_FILE:-}" ]]; then
+        load_precomputed "$PRECOMPUTED_FILE"
+    else
+        build_hunks
+    fi
     init_buffer_lines
 
     if [[ $HUNK_COUNT -eq 0 ]]; then
@@ -1545,7 +1611,11 @@ main() {
         pair="${FILE_PAIRS[0]}"
         OLD="${pair%%:*}"
         NEW="${pair#*:}"
-        build_hunks
+        if [[ -n "${PRECOMPUTED_FILE:-}" ]]; then
+            load_precomputed "$PRECOMPUTED_FILE"
+        else
+            build_hunks
+        fi
         init_buffer_lines
 
         if [[ $HUNK_COUNT -eq 0 ]]; then
