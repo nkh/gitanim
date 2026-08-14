@@ -111,6 +111,8 @@ RAPID_EOL_MIN_CHARS="${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}"
 KEEP_DIRTY=0
 NO_VIMRC=0
 PRECOMPUTED_FILE=""
+AUTO_PRECOMPUTE="${DIFFVIM_AUTO_PRECOMPUTE:-0}"
+COMPUTE_TOOL="${DIFFVIM_COMPUTE_TOOL:-c}"
 STARTUP_PAUSE=0
 ALGORITHM="${DIFFVIM_ALGORITHM:-lcs}"
 SEMANTIC_CLEANUP=0
@@ -156,13 +158,18 @@ THEME="${DIFFVIM_THEME:-}"
 OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
-LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-0}"
+LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-1}"
 ADAPTIVE_WORD_DELETE="${DIFFVIM_ADAPTIVE_WORD_DELETE:-0}"
 ADAPTIVE_WORD_DELETE_START_CHARS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS:-3}"
 ADAPTIVE_WORD_DELETE_START_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS:-80}"
 ADAPTIVE_WORD_DELETE_MIN_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS:-15}"
 ADAPTIVE_WORD_DELETE_ACCEL="${DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL:-0.85}"
 ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS:-100}"
+RAPID_IDENTICAL_CHARS="${DIFFVIM_RAPID_IDENTICAL_CHARS:-0}"
+RAPID_IDENTICAL_MIN="${DIFFVIM_RAPID_IDENTICAL_MIN:-5}"
+RAPID_IDENTICAL_ACCEL="${DIFFVIM_RAPID_IDENTICAL_ACCEL:-0.5}"
+PRESET="${DIFFVIM_PRESET:-}"
+LOG_TIMING="${DIFFVIM_LOG_TIMING:-1}"
 
 show_help() {
     cat >&2 <<USAGE
@@ -204,6 +211,8 @@ Options:
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc               Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
+  --auto-precompute        Auto-run external compute tool (uses DIFFVIM_COMPUTE_TOOL, default: c)
+  --compute-tool c|cpp|rust|go  Which compute tool to use with --auto-precompute
   --startup-pause          Show config + help before starting (default: off, start immediately)
   --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
   --semantic-cleanup       Merge adjacent delete+insert pairs that cancel out
@@ -245,6 +254,11 @@ Options:
   --adaptive-word-delete-min-ms N  Min delay (max speed) for word phase (default: 15)
   --adaptive-word-delete-accel N  Word accel factor 0-100 (default: 85)
   --adaptive-word-delete-word-pause-ms N  Pause after each word (default: 100)
+  --rapid-identical-chars  Accelerate deletion of identical char runs (---, ===)
+  --rapid-identical-min N  Min identical chars to trigger (default: 5)
+  --rapid-identical-accel N  Acceleration factor 0-100 (default: 50, lower=faster)
+  --preset NAME            Apply named preset (fast-delete, review, present, ai-code, custom)
+  --no-log-timing          Disable timing info in log output
   --log-mode 1|2                  Generate log file (1=markers, 2=progressive) without starting vim
   --log-file FILE          Write log to FILE (default: diffvim.log)
   --git-blame              Echo git blame for the target line of each hunk
@@ -315,6 +329,8 @@ while [[ $# -gt 0 ]]; do
         --keep-dirty)    KEEP_DIRTY=1; shift ;;
         --no-vimrc)      NO_VIMRC=1; shift ;;
         --precomputed)   PRECOMPUTED_FILE="$2"; shift 2 ;;
+        --auto-precompute) AUTO_PRECOMPUTE=1; shift ;;
+        --compute-tool)  COMPUTE_TOOL="$2"; shift 2 ;;
         --startup-pause) STARTUP_PAUSE=1; shift ;;
         --algorithm)    ALGORITHM="$2"; shift 2 ;;
         --semantic-cleanup) SEMANTIC_CLEANUP=1; shift ;;
@@ -357,6 +373,11 @@ while [[ $# -gt 0 ]]; do
         --adaptive-word-delete-min-ms) ADAPTIVE_WORD_DELETE_MIN_MS="$2"; shift 2 ;;
         --adaptive-word-delete-accel) ADAPTIVE_WORD_DELETE_ACCEL="$2"; shift 2 ;;
         --adaptive-word-delete-word-pause-ms) ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$2"; shift 2 ;;
+        --rapid-identical-chars) RAPID_IDENTICAL_CHARS=1; shift ;;
+        --rapid-identical-min) RAPID_IDENTICAL_MIN="$2"; shift 2 ;;
+        --rapid-identical-accel) RAPID_IDENTICAL_ACCEL="$2"; shift 2 ;;
+        --preset)        PRESET="$2"; shift 2 ;;
+        --no-log-timing) LOG_TIMING=0; shift ;;
         --git-blame)     GIT_BLAME=1; shift ;;
         --highlight-hunk) HIGHLIGHT_HUNK=1; shift ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
@@ -391,6 +412,78 @@ if [[ -n "$GIT_REV" ]]; then
         echo "Error: --git-rev expects REV..REV syntax (got: $GIT_REV)" >&2
         exit 1
     fi
+fi
+
+# ---------------------------------------------------------------------------
+# --preset: apply a named preset that sets multiple options at once.
+# Presets can also be set via DIFFVIM_PRESET env var. Multiple presets
+# can be comma-separated. Available presets:
+#   fast-delete: maximize non-char deletion and acceleration
+#   review: thorough review with highlighting and pauses
+#   present: slow, dramatic for presentations
+#   ai-code: optimized for AI-generated code diffs
+#   custom: reads options from DIFFVIM_PRESET_CUSTOM env var
+# ---------------------------------------------------------------------------
+if [[ -n "$PRESET" ]]; then
+    IFS=',' read -ra PRESETS <<< "$PRESET"
+    for p in "${PRESETS[@]}"; do
+        case "$p" in
+            fast-delete)
+                ACCEL_DELETE=1
+                ADAPTIVE_WORD_DELETE=1
+                RAPID_IDENTICAL_CHARS=1
+                RAPID_EOL_DELETE=1
+                OPTIMIZE_SEQUENCE=1
+                LEFT_TO_RIGHT=1
+                SEMANTIC_CLEANUP=1
+                ;;
+            review)
+                HIGHLIGHT_HUNK=1
+                HIGHLIGHT_WORD=1
+                HIGHLIGHT_INLINE=1
+                DIM_UNCHANGED=1
+                PAUSE_AFTER_LINES=5
+                PAUSE_AFTER_THRESHOLD=20
+                OPTIMIZE_SEQUENCE=1
+                LEFT_TO_RIGHT=1
+                SEMANTIC_CLEANUP=1
+                ;;
+            present)
+                SPEED_MULT=0.5
+                HIGHLIGHT_HUNK=1
+                SIGN_COLUMN=1
+                WORD_DIFF=1
+                OPTIMIZE_SEQUENCE=1
+                ;;
+            ai-code)
+                OPTIMIZE_SEQUENCE=1
+                LEFT_TO_RIGHT=1
+                SEMANTIC_CLEANUP=1
+                ACCEL_DELETE=1
+                ADAPTIVE_WORD_DELETE=1
+                RAPID_IDENTICAL_CHARS=1
+                HIGHLIGHT_INLINE=1
+                DIM_UNCHANGED=1
+                PAUSE_AFTER_LINES=7
+                ;;
+            custom)
+                # Read custom options from DIFFVIM_PRESET_CUSTOM env var
+                # Format: space-separated --option value pairs
+                if [[ -n "${DIFFVIM_PRESET_CUSTOM:-}" ]]; then
+                    eval "set -- $DIFFVIM_PRESET_CUSTOM"
+                    while [[ $# -gt 0 ]]; do
+                        case "$1" in
+                            --*) eval "$(echo "$1" | tr '-' '_' | tr '[:lower:]' '[:upper:]' | sed 's/^_//')=\"${2:-1}\"" 2>/dev/null; shift 2 ;;
+                            *) shift ;;
+                        esac
+                    done
+                fi
+                ;;
+            *)
+                echo "diffvim: unknown preset '$p' (available: fast-delete, review, present, ai-code, custom)" >&2
+                ;;
+        esac
+    done
 fi
 
 # Apply speed multiplier
@@ -483,6 +576,9 @@ export DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS="$ADAPTIVE_WORD_DELETE_START_MS"
 export DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS="$ADAPTIVE_WORD_DELETE_MIN_MS"
 export DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL="$ADAPTIVE_WORD_DELETE_ACCEL"
 export DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS"
+export DIFFVIM_RAPID_IDENTICAL_CHARS="$([[ $RAPID_IDENTICAL_CHARS -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_RAPID_IDENTICAL_MIN="$RAPID_IDENTICAL_MIN"
+export DIFFVIM_RAPID_IDENTICAL_ACCEL="$RAPID_IDENTICAL_ACCEL"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -632,8 +728,8 @@ if [[ -n "$LOG_MODE" ]]; then
         my $compute = $ARGV[0];
         my @pairs = @ARGV[1 .. $#ARGV];
 
-        # Acceleration parameters (read from env so the log shows what
-        # the engine would actually use)
+        # Timing parameters (always included unless --no-log-timing)
+        my $log_timing = ($ENV{DIFFVIM_LOG_TIMING} || "1") ne "0";
         my $accel_delete = $ENV{DIFFVIM_ACCEL_DELETE} || "";
         my $accel_start_ms = $ENV{DIFFVIM_ACCEL_DELETE_START_MS} || 80;
         my $accel_min_ms = $ENV{DIFFVIM_ACCEL_DELETE_MIN_MS} || 10;
@@ -641,6 +737,19 @@ if [[ -n "$LOG_MODE" ]]; then
         my $block_delete_size = $ENV{DIFFVIM_BLOCK_DELETE_SIZE} || 3;
         my $pause_before = $ENV{DIFFVIM_PAUSE_BEFORE_DELETE_MS} || 200;
         my $pause_after = $ENV{DIFFVIM_PAUSE_AFTER_DELETE_MS} || 200;
+        my $type_delay = $ENV{DIFFVIM_TYPE_DELAY_MS} || 50;
+        my $delete_delay = $ENV{DIFFVIM_DELETE_DELAY_MS} || 40;
+        my $hunk_pause = $ENV{DIFFVIM_HUNK_PAUSE_MS} || 250;
+        my $rapid_eol_delay = $ENV{DIFFVIM_RAPID_EOL_DELAY_MS} || 80;
+        my $awd_start_ms = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS} || 80;
+        my $awd_min_ms = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS} || 15;
+        my $awd_accel_raw = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL} || 85;
+        my $awd_accel = $awd_accel_raw > 1 ? $awd_accel_raw / 100.0 : $awd_accel_raw;
+        my $awd_word_pause = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS} || 100;
+        my $ric_accel_raw = $ENV{DIFFVIM_RAPID_IDENTICAL_ACCEL} || 50;
+        my $ric_accel = $ric_accel_raw > 1 ? $ric_accel_raw / 100.0 : $ric_accel_raw;
+        my $gaussian_jitter = $ENV{DIFFVIM_GAUSSIAN_JITTER} || "";
+        my $gaussian_pct = $ENV{DIFFVIM_GAUSSIAN_JITTER_PCT} || 20;
 
         open my $out, ">>", $log_file or die "Cannot write $log_file: $!";
 
@@ -657,9 +766,18 @@ if [[ -n "$LOG_MODE" ]]; then
 
             print $out "# diffvim log: $old_f -> $new_f\n";
             print $out "# log mode: $log_mode\n";
-            if ($accel_delete) {
-                print $out "# accel_delete: on (start=${accel_start_ms}ms min=${accel_min_ms}ms accel=" . sprintf("%.2f", $accel_accel) . " block=${block_delete_size})\n";
-                print $out "# pause_before=${pause_before}ms pause_after=${pause_after}ms\n";
+            if ($log_timing) {
+                print $out "# timing: type=${type_delay}ms delete=${delete_delay}ms hunk_pause=${hunk_pause}ms\n";
+                print $out "# rapid_eol: delay=${rapid_eol_delay}ms\n";
+                if ($accel_delete) {
+                    print $out "# accel_delete: on (start=${accel_start_ms}ms min=${accel_min_ms}ms accel=" . sprintf("%.2f", $accel_accel) . " block=${block_delete_size})\n";
+                    print $out "# pause_before=${pause_before}ms pause_after=${pause_after}ms\n";
+                }
+                print $out "# adaptive_word_delete: start_ms=${awd_start_ms} min_ms=${awd_min_ms} accel=" . sprintf("%.2f", $awd_accel) . " word_pause=${awd_word_pause}ms\n";
+                print $out "# rapid_identical: accel=" . sprintf("%.2f", $ric_accel) . "\n";
+                if ($gaussian_jitter) {
+                    print $out "# gaussian_jitter: pct=${gaussian_pct}%\n";
+                }
             }
             print $out "\n";
 
@@ -852,6 +970,27 @@ WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
 
+# --auto-precompute: run the external compute tool to generate the diff
+# before launching vim. Uses DIFFVIM_COMPUTE_TOOL (default: c) to select
+# which tool to use. Creates a temp file in WORKDIR and passes it via
+# the existing --precomputed mechanism.
+if [[ $AUTO_PRECOMPUTE -eq 1 && -z "$PRECOMPUTED_FILE" ]]; then
+    COMPUTE_BIN=""
+    for d in "compute/bin/diffvim-compute-$COMPUTE_TOOL" \
+             "/usr/local/bin/diffvim-compute-$COMPUTE_TOOL" \
+             "$HOME/.local/bin/diffvim-compute-$COMPUTE_TOOL"; do
+        if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
+    done
+    if [[ -n "$COMPUTE_BIN" ]]; then
+        PRECOMPUTED_FILE="$WORKDIR/auto_precomputed.diff"
+        echo "diffvim: pre-computing diff with $COMPUTE_TOOL..." >&2
+        "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED_FILE" 2>&1 | grep "^compute:" >&2 || true
+        export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
+    else
+        echo "diffvim: --auto-precompute: compute tool '$COMPUTE_TOOL' not found, falling back to inline" >&2
+    fi
+fi
+
 cat > "$VIMSCRIPT" <<'__DIFFVIM_VIMSCRIPT_EOF__'
 " diffvim.vim - animation engine, sourced by the diffvim bash launcher.
 " Expects g:diffvim_new_file to be set to the absolute path of the new file.
@@ -955,13 +1094,16 @@ let g:diffvim = extend({
     \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 1,
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
+    \ 'left_to_right':      empty($DIFFVIM_LEFT_TO_RIGHT)       ? 1 : ($DIFFVIM_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
     \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
     \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
     \ 'adaptive_word_delete_start_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) : 80,
     \ 'adaptive_word_delete_min_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) : 15,
     \ 'adaptive_word_delete_accel': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
     \ 'adaptive_word_delete_word_pause_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) : 100,
+    \ 'rapid_identical_chars': !empty($DIFFVIM_RAPID_IDENTICAL_CHARS) ? 1 : 0,
+    \ 'rapid_identical_min': !empty($DIFFVIM_RAPID_IDENTICAL_MIN) ? str2nr($DIFFVIM_RAPID_IDENTICAL_MIN) : 5,
+    \ 'rapid_identical_accel': !empty($DIFFVIM_RAPID_IDENTICAL_ACCEL) ? str2nr($DIFFVIM_RAPID_IDENTICAL_ACCEL) * 1.0 / 100.0 : 0.5,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -1578,11 +1720,24 @@ function! s:SortLineOps(line_ops) abort
             call add(l:ins, l:item)
         endif
     endfor
-    " Sort deletes by position (ascending = left to right)
-    call sort(l:dels, {a, b -> a[1] - b[1]})
+    " Sort deletes: non-whitespace first (by position, left to right),
+    " then whitespace deletes last. Whitespace = space (32) or tab (9).
+    " This ensures the user sees content being deleted first, not indentation.
+    let l:dels_nonws = []
+    let l:dels_ws = []
+    for l:item in l:dels
+        if l:item[0][1] ==# ' ' || l:item[0][1] ==# "\t"
+            call add(l:dels_ws, l:item)
+        else
+            call add(l:dels_nonws, l:item)
+        endif
+    endfor
+    call sort(l:dels_nonws, {a, b -> a[1] - b[1]})
+    call sort(l:dels_ws, {a, b -> a[1] - b[1]})
+    let l:dels = l:dels_nonws + l:dels_ws
     " Sort inserts by position (ascending = left to right)
     call sort(l:ins, {a, b -> a[1] - b[1]})
-    " Emit: keeps first (they maintain original order), then deletes, then inserts
+    " Emit: keeps first, then deletes (non-ws then ws), then inserts
     let l:result = []
     for l:item in l:keeps
         call add(l:result, l:item[0])
@@ -2212,6 +2367,36 @@ function! s:ProcessCharOp() abort
             let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
             call s:HighlightCurrentWord('delete', l:run_len)
         endif
+        " --rapid-identical-chars: accelerate deletion of identical char runs
+        " like "---------------------------" rapidly. Each char deleted with
+        " exponentially decreasing delay (accel^count).
+        if g:diffvim.rapid_identical_chars
+            let l:ident_count = s:LookaheadIdenticalChars(l:hunk.char_ops, s:state.op_idx)
+            if l:ident_count > 0
+                " Delete one char, schedule next with rapidly decreasing delay
+                call s:DeleteCharAtCursor()
+                call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
+                redraw
+                let s:state.op_idx += 1
+                if g:diffvim.sign_column
+                    call s:PlaceSign('dv_del', s:cur_l)
+                endif
+                " Compute rapidly accelerating delay
+                let l:delay = float2nr(g:diffvim.delete_delay_ms)
+                let l:ident_progress = 0
+                " Track how many identical chars we have deleted in this run
+                " by checking how many identical chars are left
+                let l:remaining = s:LookaheadIdenticalChars(l:hunk.char_ops, s:state.op_idx)
+                if l:remaining > 0
+                    let l:ident_progress = l:ident_count - l:remaining
+                    let l:delay = float2nr(g:diffvim.delete_delay_ms * pow(g:diffvim.rapid_identical_accel, l:ident_progress))
+                    if l:delay < 1 | let l:delay = 1 | endif
+                endif
+                let l:delay = s:GaussianJitter(l:delay)
+                call s:ScheduleNext(l:delay)
+                return
+            endif
+        endif
         " --adaptive-word-delete: word-by-word line deletion with acceleration.
         " Each line: few chars slow → word by word (accelerating) → rest rapid.
         if g:diffvim.adaptive_word_delete
@@ -2387,6 +2572,32 @@ function! s:LookaheadSameTypeRun(ops, start) abort
         let l:i += 1
     endwhile
     return l:count
+endfunction
+
+" Look ahead for a run of identical characters being deleted.
+" Returns the count if >= min_threshold, 0 otherwise.
+" Used for --rapid-identical-chars: accelerate deletion of sequences
+" like "---------------------------" or "=====" rapidly.
+function! s:LookaheadIdenticalChars(ops, start) abort
+    if !g:diffvim.rapid_identical_chars | return 0 | endif
+    if a:start >= len(a:ops) | return 0 | endif
+    let l:first_op = a:ops[a:start]
+    if l:first_op[0] !=# 'delete' | return 0 | endif
+    let l:first_char = l:first_op[1]
+    if l:first_char ==# "\n" || l:first_char ==# ' ' || l:first_char ==# "\t" | return 0 | endif
+    let l:count = 0
+    let l:i = a:start
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] !=# 'delete' | break | endif
+        if l:op[1] !=# l:first_char | break | endif
+        let l:count += 1
+        let l:i += 1
+    endwhile
+    if l:count >= g:diffvim.rapid_identical_min
+        return l:count
+    endif
+    return 0
 endfunction
 
 " Look ahead from op_idx to find a "word": contiguous insert or delete ops

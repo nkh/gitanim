@@ -100,13 +100,16 @@ let g:diffvim = extend({
     \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 1,
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
+    \ 'left_to_right':      empty($DIFFVIM_LEFT_TO_RIGHT)       ? 1 : ($DIFFVIM_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
     \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
     \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
     \ 'adaptive_word_delete_start_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) : 80,
     \ 'adaptive_word_delete_min_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) : 15,
     \ 'adaptive_word_delete_accel': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
     \ 'adaptive_word_delete_word_pause_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) : 100,
+    \ 'rapid_identical_chars': !empty($DIFFVIM_RAPID_IDENTICAL_CHARS) ? 1 : 0,
+    \ 'rapid_identical_min': !empty($DIFFVIM_RAPID_IDENTICAL_MIN) ? str2nr($DIFFVIM_RAPID_IDENTICAL_MIN) : 5,
+    \ 'rapid_identical_accel': !empty($DIFFVIM_RAPID_IDENTICAL_ACCEL) ? str2nr($DIFFVIM_RAPID_IDENTICAL_ACCEL) * 1.0 / 100.0 : 0.5,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -723,11 +726,24 @@ function! s:SortLineOps(line_ops) abort
             call add(l:ins, l:item)
         endif
     endfor
-    " Sort deletes by position (ascending = left to right)
-    call sort(l:dels, {a, b -> a[1] - b[1]})
+    " Sort deletes: non-whitespace first (by position, left to right),
+    " then whitespace deletes last. Whitespace = space (32) or tab (9).
+    " This ensures the user sees content being deleted first, not indentation.
+    let l:dels_nonws = []
+    let l:dels_ws = []
+    for l:item in l:dels
+        if l:item[0][1] ==# ' ' || l:item[0][1] ==# "\t"
+            call add(l:dels_ws, l:item)
+        else
+            call add(l:dels_nonws, l:item)
+        endif
+    endfor
+    call sort(l:dels_nonws, {a, b -> a[1] - b[1]})
+    call sort(l:dels_ws, {a, b -> a[1] - b[1]})
+    let l:dels = l:dels_nonws + l:dels_ws
     " Sort inserts by position (ascending = left to right)
     call sort(l:ins, {a, b -> a[1] - b[1]})
-    " Emit: keeps first (they maintain original order), then deletes, then inserts
+    " Emit: keeps first, then deletes (non-ws then ws), then inserts
     let l:result = []
     for l:item in l:keeps
         call add(l:result, l:item[0])
@@ -1357,6 +1373,36 @@ function! s:ProcessCharOp() abort
             let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
             call s:HighlightCurrentWord('delete', l:run_len)
         endif
+        " --rapid-identical-chars: accelerate deletion of identical char runs
+        " like "---------------------------" rapidly. Each char deleted with
+        " exponentially decreasing delay (accel^count).
+        if g:diffvim.rapid_identical_chars
+            let l:ident_count = s:LookaheadIdenticalChars(l:hunk.char_ops, s:state.op_idx)
+            if l:ident_count > 0
+                " Delete one char, schedule next with rapidly decreasing delay
+                call s:DeleteCharAtCursor()
+                call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
+                redraw
+                let s:state.op_idx += 1
+                if g:diffvim.sign_column
+                    call s:PlaceSign('dv_del', s:cur_l)
+                endif
+                " Compute rapidly accelerating delay
+                let l:delay = float2nr(g:diffvim.delete_delay_ms)
+                let l:ident_progress = 0
+                " Track how many identical chars we have deleted in this run
+                " by checking how many identical chars are left
+                let l:remaining = s:LookaheadIdenticalChars(l:hunk.char_ops, s:state.op_idx)
+                if l:remaining > 0
+                    let l:ident_progress = l:ident_count - l:remaining
+                    let l:delay = float2nr(g:diffvim.delete_delay_ms * pow(g:diffvim.rapid_identical_accel, l:ident_progress))
+                    if l:delay < 1 | let l:delay = 1 | endif
+                endif
+                let l:delay = s:GaussianJitter(l:delay)
+                call s:ScheduleNext(l:delay)
+                return
+            endif
+        endif
         " --adaptive-word-delete: word-by-word line deletion with acceleration.
         " Each line: few chars slow → word by word (accelerating) → rest rapid.
         if g:diffvim.adaptive_word_delete
@@ -1532,6 +1578,32 @@ function! s:LookaheadSameTypeRun(ops, start) abort
         let l:i += 1
     endwhile
     return l:count
+endfunction
+
+" Look ahead for a run of identical characters being deleted.
+" Returns the count if >= min_threshold, 0 otherwise.
+" Used for --rapid-identical-chars: accelerate deletion of sequences
+" like "---------------------------" or "=====" rapidly.
+function! s:LookaheadIdenticalChars(ops, start) abort
+    if !g:diffvim.rapid_identical_chars | return 0 | endif
+    if a:start >= len(a:ops) | return 0 | endif
+    let l:first_op = a:ops[a:start]
+    if l:first_op[0] !=# 'delete' | return 0 | endif
+    let l:first_char = l:first_op[1]
+    if l:first_char ==# "\n" || l:first_char ==# ' ' || l:first_char ==# "\t" | return 0 | endif
+    let l:count = 0
+    let l:i = a:start
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] !=# 'delete' | break | endif
+        if l:op[1] !=# l:first_char | break | endif
+        let l:count += 1
+        let l:i += 1
+    endwhile
+    if l:count >= g:diffvim.rapid_identical_min
+        return l:count
+    endif
+    return 0
 endfunction
 
 " Look ahead from op_idx to find a "word": contiguous insert or delete ops
