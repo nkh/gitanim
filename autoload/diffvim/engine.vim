@@ -1147,6 +1147,14 @@ function! s:StartNextHunk() abort
     let s:state.adaptive_delay = 0
     let s:state.adaptive_lines_done = 0
 
+    " Save the current cursor position as the START of the glide.
+    " This is the key fix: previously, the cursor was moved to the target
+    " BEFORE setting up the glide, so move_start == move_end and there
+    " was no visible scrolling. Now we save the old position, set the
+    " new target, and let MoveStep glide from old to new.
+    let l:old_cur_l = s:cur_l
+    let l:old_cur_c = s:cur_c
+
     " Position cursor at the hunk target BEFORE any processing
     " (including max-hunk-chars instant apply)
     if l:hunk.is_end_insert && l:target_line > line('$')
@@ -1165,7 +1173,10 @@ function! s:StartNextHunk() abort
         let s:cur_l = l:tl
         let s:cur_c = 1
     endif
-    call s:PlaceCursor()
+    " Do NOT call PlaceCursor here — let MoveStep handle the scrolling.
+    " PlaceCursor would jump the cursor instantly, defeating the glide.
+    " Exception: for instant-apply paths (max-hunk-chars), we need the
+    " cursor positioned immediately.
 
     " Check --max-hunk-chars: if hunk has too many changed chars, apply instantly
     if g:diffvim.max_hunk_chars > 0
@@ -1176,6 +1187,7 @@ function! s:StartNextHunk() abort
             endif
         endfor
         if l:changed > g:diffvim.max_hunk_chars
+            call s:PlaceCursor()
             echo 'diffvim: hunk ' . (s:state.hunk_idx + 1) . ' has ' . l:changed . ' changed chars (> ' . g:diffvim.max_hunk_chars . '), applying instantly'
             call s:ApplyHunkInstantly()
             return
@@ -1218,11 +1230,11 @@ function! s:StartNextHunk() abort
         endif
     endif
 
-    " Set up the move (cursor glide to target)
+    " Set up the move (cursor glide from old position to new target)
+    let s:state.move_start_l = l:old_cur_l
+    let s:state.move_start_c = l:old_cur_c
     let s:state.move_end_l = s:cur_l
     let s:state.move_end_c = s:cur_c
-    let s:state.move_start_l = s:cur_l
-    let s:state.move_start_c = s:cur_c
     let s:state.move_elapsed = 0
     let s:state.move_duration = s:ComputeMoveDuration(
         \ s:state.move_start_l, s:state.move_start_c,
@@ -1287,8 +1299,21 @@ function! s:MoveStep() abort
     if l:cur_l < 1 | let l:cur_l = 1 | endif
     if l:cur_c < 1 | let l:cur_c = 1 | endif
     if l:cur_l > line('$') | let l:cur_l = line('$') | endif
-    " During the glide, show the visible cursor at intermediate positions.
+    " During the glide, move the cursor AND scroll the viewport so the
+    " user sees smooth scrolling instead of a jump at the end.
+    " The scroll follows the cursor with the configured scroll mode (zz/zt/zb).
     call cursor(l:cur_l, l:cur_c)
+    " Scroll the viewport to follow the cursor during the glide.
+    " This is the key fix: previously the viewport only scrolled at the
+    " end of the glide (in PlaceCursor), causing a jarring jump. Now
+    " it scrolls smoothly at each intermediate step.
+    if g:diffvim.scroll ==# 'zz'
+        normal! zz
+    elseif g:diffvim.scroll ==# 'zt'
+        normal! zt
+    elseif g:diffvim.scroll ==# 'zb'
+        normal! zb
+    endif
     redraw
     call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
 endfunction
