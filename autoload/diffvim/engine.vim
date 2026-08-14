@@ -112,6 +112,8 @@ let g:diffvim = extend({
     \ 'rapid_identical_accel': !empty($DIFFVIM_RAPID_IDENTICAL_ACCEL) ? str2nr($DIFFVIM_RAPID_IDENTICAL_ACCEL) * 1.0 / 100.0 : 0.5,
     \ 'word_accel':          !empty($DIFFVIM_WORD_ACCEL)           ? 1 : 0,
     \ 'word_accel_delete_pct': !empty($DIFFVIM_WORD_ACCEL_DELETE_PCT) ? str2nr($DIFFVIM_WORD_ACCEL_DELETE_PCT) : 20,
+    \ 'word_end_pause_ms':   !empty($DIFFVIM_WORD_END_PAUSE_MS)   ? str2nr($DIFFVIM_WORD_END_PAUSE_MS) : 150,
+    \ 'line_change_pause_ms': !empty($DIFFVIM_LINE_CHANGE_PAUSE_MS) ? str2nr($DIFFVIM_LINE_CHANGE_PAUSE_MS) : 200,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -1100,7 +1102,7 @@ endfunction
 function! s:Tick(timer) abort
     if s:state.stopped | return | endif
     if s:state.paused
-        call s:ScheduleNext(50)
+        call s:ScheduleNext(16)
         return
     endif
     if s:state.phase ==# 'idle'
@@ -1299,14 +1301,20 @@ function! s:MoveStep() abort
     if l:cur_l < 1 | let l:cur_l = 1 | endif
     if l:cur_c < 1 | let l:cur_c = 1 | endif
     if l:cur_l > line('$') | let l:cur_l = line('$') | endif
+
+    " Scroll debug log: write to /tmp/diffvim_scroll.log if enabled
+    if !empty($DIFFVIM_SCROLL_DEBUG)
+        let l:top = line('w0')
+        let l:bot = line('w$')
+        call writefile([printf('t=%.3f eased=%.3f line=%d col=%d win=%d-%d start=%d end=%d dur=%d'
+            \ , l:t, l:eased, l:cur_l, l:cur_c, l:top, l:bot
+            \ , s:state.move_start_l, s:state.move_end_l, s:state.move_duration)]
+            \ , '/tmp/diffvim_scroll.log', 'a')
+    endif
+
     " During the glide, move the cursor AND scroll the viewport so the
     " user sees smooth scrolling instead of a jump at the end.
-    " The scroll follows the cursor with the configured scroll mode (zz/zt/zb).
     call cursor(l:cur_l, l:cur_c)
-    " Scroll the viewport to follow the cursor during the glide.
-    " This is the key fix: previously the viewport only scrolled at the
-    " end of the glide (in PlaceCursor), causing a jarring jump. Now
-    " it scrolls smoothly at each intermediate step.
     if g:diffvim.scroll ==# 'zz'
         normal! zz
     elseif g:diffvim.scroll ==# 'zt'
@@ -1387,25 +1395,30 @@ function! s:ProcessCharOp() abort
             endif
             let s:state.op_idx += 1
             let s:state.word_accel_idx += 1
-            " Compute accelerating delay: start at 2x base, decrease to 0.5x
-            " The profile is: delay = base * (2.0 - 1.5 * progress)
-            " where progress = idx / total. So first char = 2x, last char = 0.5x.
-            " Total = sum(base * (2 - 1.5*k/N)) for k=0..N-1
-            "       = base * (2N - 1.5*(N-1)/2) ≈ base * N * 1.25
-            " We want total = base * N, so scale by 1/1.25 = 0.8
-            let l:progress = s:state.word_accel_idx * 1.0 / s:state.word_accel_total
-            let l:delay = s:state.word_accel_base_delay * (2.0 - 1.5 * l:progress) * 0.8
-            if l:delay < 1 | let l:delay = 1 | endif
+            " Compute accelerating delay: first 3 chars at ~1.5x base (slow start),
+            " then exponential acceleration so chars 4+ go very fast.
+            " After 3-4 chars the user has guessed the word, so the rest
+            " should be very rapid with a longer end-of-word pause.
+            let l:idx = s:state.word_accel_idx
+            let l:total = s:state.word_accel_total
+            if l:idx < 3
+                " Slow start: first 3 chars at 1.5x base delay
+                let l:delay = s:state.word_accel_base_delay * 1.5
+            else
+                " Exponential acceleration: delay = base * 0.3^(idx-2)
+                " So char 4 = 0.3x, char 5 = 0.09x, char 6 = 0.027x...
+                let l:delay = s:state.word_accel_base_delay * pow(0.3, l:idx - 2)
+                if l:delay < 1 | let l:delay = 1 | endif
+            endif
             let l:delay = s:GaussianJitter(float2nr(l:delay))
             " Check if word is done
             if s:state.word_accel_idx >= s:state.word_accel_total
                 let l:word_total = s:state.word_accel_total
                 let s:state.word_accel_total = 0
                 let s:state.word_accel_idx = 0
-                " Short pause after the word (10% of total word time)
-                let l:pause = float2nr(s:state.word_accel_base_delay * l:word_total * 0.1)
-                if l:pause < 10 | let l:pause = 10 | endif
-                call s:ScheduleNext(l:pause)
+                " End-of-word pause: use word_end_pause_ms (configurable)
+                let l:pause = g:diffvim.word_end_pause_ms
+                call s:ScheduleNext(float2nr(l:pause / s:state.runtime_speed))
                 return
             endif
             call s:ScheduleNext(l:delay)
@@ -1437,6 +1450,12 @@ function! s:ProcessCharOp() abort
         call s:AdvanceForKeepChar(l:op[1])
         redraw
         let l:delay = 1
+
+        " --line-change-pause: when crossing a line boundary (keep-\n),
+        " add a pause so the user can register the line change.
+        if l:op[1] ==# "\n" && g:diffvim.line_change_pause_ms > 0
+            let l:delay = float2nr(g:diffvim.line_change_pause_ms / s:state.runtime_speed)
+        endif
 
         " --adaptive mode: count lines, pause periodically
         if g:diffvim.adaptive_mode && l:op[1] ==# "\n"
@@ -2426,6 +2445,10 @@ function! s:TogglePause() abort
         return
     endif
     let s:state.paused = !s:state.paused
+    " Stop the current timer and schedule an immediate tick so the
+    " pause/resume takes effect instantly, not after the current delay.
+    call s:StopTimer()
+    call s:ScheduleNext(1)
     call s:UpdateProgress()
 endfunction
 
@@ -2549,6 +2572,13 @@ function! s:Quit() abort
     endif
 endfunction
 
+" Ensure :q works at any time (not just after animation completes).
+" This autocmd fires when the user types :q, :wq, or :qa — before vim
+" checks the modified flag. It sets nomodified so vim does not complain.
+augroup diffvim_quit
+    autocmd!
+    autocmd QuitPre <buffer> if !g:diffvim.keep_dirty | set nomodified | endif
+
 function! s:ShowHelp() abort
     echo 'diffvim: hunk ' . (s:state.hunk_idx + 1) . '/' . len(s:state.hunks)
         \ . '  | Space=pause  n=next  b=back  q=quit  +/-=speed  ?=help'
@@ -2640,16 +2670,16 @@ endfunction
 
 " --- Mappings --------------------------------------------------------------
 
-nnoremap <buffer> <silent> <Space> :call <SID>TogglePause()<CR>
-nnoremap <buffer> <silent> n       :call <SID>SkipCurrent()<CR>
-nnoremap <buffer> <silent> b       :call <SID>Back()<CR>
-nnoremap <buffer> <silent> q       :call <SID>Quit()<CR>
-nnoremap <buffer> <silent> ?       :call <SID>ShowHelp()<CR>
-nnoremap <buffer> <silent> +       :call <SID>SpeedUp()<CR>
-nnoremap <buffer> <silent> -       :call <SID>SlowDown()<CR>
-nnoremap <buffer> <silent> =       :call <SID>ResetSpeed()<CR>
-nnoremap <buffer> <silent> ]       :call <SID>NextFile()<CR>
-nnoremap <buffer> <silent> [       :call <SID>PrevFile()<CR>
+nnoremap <buffer> <silent> <nowait> <Space> :call <SID>TogglePause()<CR>
+nnoremap <buffer> <silent> <nowait> n       :call <SID>SkipCurrent()<CR>
+nnoremap <buffer> <silent> <nowait> b       :call <SID>Back()<CR>
+nnoremap <buffer> <silent> <nowait> q       :call <SID>Quit()<CR>
+nnoremap <buffer> <silent> <nowait> ?       :call <SID>ShowHelp()<CR>
+nnoremap <buffer> <silent> <nowait> +       :call <SID>SpeedUp()<CR>
+nnoremap <buffer> <silent> <nowait> -       :call <SID>SlowDown()<CR>
+nnoremap <buffer> <silent> <nowait> =       :call <SID>ResetSpeed()<CR>
+nnoremap <buffer> <silent> <nowait> ]       :call <SID>NextFile()<CR>
+nnoremap <buffer> <silent> <nowait> [       :call <SID>PrevFile()<CR>
 
 " --- Autostart -------------------------------------------------------------
 
