@@ -190,6 +190,38 @@ change.
 ### `--sign-column`
 Show `+`/`-` signs in vim's sign column to indicate deleted/added lines.
 
+### `--left-to-right` (default: on)
+Sort ops within each line so deletes and inserts go from left to right,
+never jumping around. Whitespace deletes come after non-whitespace deletes.
+Use `--no-left-to-right` to disable.
+
+### `--word-accel`
+When inserting or deleting a word character by character, start slowly
+and accelerate, then pause slightly. Total time equals uniform char-by-char.
+Deletion is 20% faster by default (configurable via `--word-accel-delete-pct`).
+
+### `--rapid-identical-chars`
+Accelerate deletion of identical character runs (like `-----------`)
+exponentially. Options: `--rapid-identical-min` (5), `--rapid-identical-accel` (50).
+
+### `--adaptive-word-delete`
+Word-by-word line deletion: few chars slow, then word by word accelerating,
+then rest rapid. Options: `--adaptive-word-delete-start-chars` (3),
+`-start-ms` (80), `-min-ms` (15), `-accel` (85), `-word-pause-ms` (100).
+
+### `--auto-precompute`
+Automatically run the external compute tool and use a temp file for
+`--precomputed`. Uses `DIFFVIM_COMPUTE_TOOL` (default: c) or `--compute-tool`.
+
+### `--preset NAME`
+Apply named preset: `fast-delete`, `review`, `present`, `ai-code`, `custom`.
+Multiple presets can be comma-separated. Also set via `DIFFVIM_PRESET`.
+
+### `--log-mode 1|2`
+Generate a log file without starting vim. Mode 1: markers. Mode 2: progressive
+(3 lines per char op). Use `--log-file FILE` to set output path.
+Use `--no-log-timing` to disable timing info in the log.
+
 ## Utility Options
 
 ### `--no-tmux` *(diffvim.pl only)*

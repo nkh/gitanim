@@ -179,6 +179,8 @@ During animation (in vim normal mode):
 | `+` | Speed up (x1.5) |
 | `-` | Slow down (x0.67) |
 | `=` | Reset speed to 1.0x |
+| `]` | Next file (multi-file mode) |
+| `[` | Previous file (multi-file mode) |
 | `?` | Show help
 
 A progress bar is shown: `hunk 3/7 (42%) | speed 2.3x | PAUSED`
@@ -236,6 +238,25 @@ All three implementations support these options:
 --pause-after-lines N    Pause every N lines in large hunks (default: 0=off)
 --pause-after-threshold N  Min hunk lines to trigger pausing (default: 50)
 --pause-after-ms N       Duration of mid-hunk pauses (default: 500)
+--pause-before-delete-ms N  Pause before multi-line block delete (default: 200)
+--pause-after-delete-ms N  Pause after multi-line block delete (default: 200)
+--block-delete-size N    Lines per block in accelerated delete (default: 3)
+--fold-unchanged         Fold unchanged regions between hunks
+--theme dark|light|high-contrast  Color scheme for highlights
+--optimize-sequence      Post-process ops to eliminate erratic movement (default: on)
+--no-optimize-sequence   Disable op-sequence optimization
+--left-to-right          Sort ops within each line left-to-right (default: on)
+--no-left-to-right       Disable left-to-right ordering
+--adaptive-word-delete   Word-by-word line deletion (few chars → words → rest)
+--rapid-identical-chars  Accelerate deletion of identical char runs (---, ===)
+--word-accel             Accelerate char-by-char word insert/delete (slow→fast→pause)
+--word-accel-delete-pct N  Deletion speedup percentage (default: 20)
+--auto-precompute        Auto-run external compute tool (uses DIFFVIM_COMPUTE_TOOL)
+--compute-tool c|cpp|rust|go  Which compute tool for --auto-precompute (default: c)
+--preset NAME            Apply named preset (fast-delete, review, present, ai-code, custom)
+--no-log-timing          Disable timing info in log output
+--log-mode 1|2           Generate log file without starting vim
+--log-file FILE          Write log to FILE (default: diffvim.log)
 --version, -V            Print version and dependency info
 --help, -h               Show help
 ```

@@ -1494,3 +1494,70 @@ The "kitchen sink" — all post-processing and visual features at once:
 - Inline char highlight (green type, red delete)
 - Dim unchanged lines
 - Hunk + word highlighting
+
+## Presets and Advanced Options (v1.6.0+)
+
+### 124. Use a preset for fast deletion
+
+```bash
+diffvim --preset fast-delete old.py new.py
+```
+
+Sets: --accel-delete, --adaptive-word-delete, --rapid-identical-chars,
+--rapid-eol-delete, --optimize-sequence, --left-to-right, --semantic-cleanup.
+
+### 125. Use a preset for code review
+
+```bash
+diffvim --preset review old.py new.py
+```
+
+Sets: --highlight-hunk, --highlight-word, --highlight-inline, --dim-unchanged,
+--pause-after-lines 5, --optimize-sequence, --left-to-right, --semantic-cleanup.
+
+### 126. Auto-precompute with the C tool
+
+```bash
+diffvim --auto-precompute --compute-tool c old.py new.py
+```
+
+Automatically runs `compute/bin/diffvim-compute-c` to generate the diff,
+then launches vim with `--precomputed`. No need to manually specify the
+precomputed file path.
+
+### 127. Word acceleration for natural typing
+
+```bash
+diffvim --word-accel --word-accel-delete-pct 30 old.py new.py
+```
+
+When inserting/deleting words char by char: starts slow, accelerates,
+then pauses. Deletion is 30% faster than insertion. Total time equals
+uniform char-by-char.
+
+### 128. Combine presets
+
+```bash
+diffvim --preset fast-delete,review old.py new.py
+```
+
+Applies both presets: fast deletion + review highlighting.
+
+### 129. Custom preset via environment variable
+
+```bash
+export DIFFVIM_PRESET_CUSTOM="--speed 0.8 --highlight-hunk --word-accel --dim-unchanged"
+diffvim --preset custom old.py new.py
+```
+
+Defines a personal preferred set of options that can be reused.
+
+### 130. Log with timing for analysis
+
+```bash
+diffvim --log-mode 2 --log-file analysis.txt --accel-delete --word-accel old.py new.py
+cat analysis.txt
+```
+
+Generates a detailed log with all timing parameters and per-char delays,
+for verifying the acceleration profile is optimal.

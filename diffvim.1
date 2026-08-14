@@ -429,6 +429,59 @@ diff2html).
 .BR \-\-help ,\  \-h
 Show help message and exit.
 
+.TP
+.B \-\-auto-precompute
+Automatically run the external compute tool (default: C, set via
+.B DIFFVIM_COMPUTE_TOOL
+or
+.B \-\-compute-tool
+) and use a temp file for
+.B \-\-precomputed
+without having to manually specify the file path.
+
+.TP
+.BI \-\-compute-tool\  c|cpp|rust|go
+Which external compute tool to use with
+.BR \-\-auto-precompute .
+Default: c.
+
+.TP
+.B \-\-preset NAME
+Apply a named preset that sets multiple options at once. Available
+presets: fast-delete, review, present, ai-code, custom. Multiple
+presets can be comma-separated. Also settable via
+.B DIFFVIM_PRESET
+environment variable. The custom preset reads options from
+.BR DIFFVIM_PRESET_CUSTOM .
+
+.TP
+.B \-\-left-to-right
+(Default: on) Sort ops within each line so deletes and inserts go from
+left to right. Use
+.B \-\-no-left-to-right
+to disable.
+
+.TP
+.B \-\-word-accel
+When inserting or deleting a word character by character, start slowly
+and accelerate, then pause slightly. Total time equals uniform
+char-by-char. Deletion is 20% faster by default (configurable via
+.BR \-\-word-accel-delete-pct ).
+
+.TP
+.B \-\-rapid-identical-chars
+Accelerate deletion of identical character runs (e.g. \-\-\-\-\-\-\-)
+exponentially. Options:
+.B \-\-rapid-identical-min
+(default: 5),
+.B \-\-rapid-identical-accel
+(default: 50, lower=faster).
+
+.TP
+.B \-\-no-log-timing
+Disable timing parameter info in log output. By default, all timing
+parameters are included in the log.
+
 .SH CONTROLS
 During animation, the following keys are active in vim normal mode:
 
@@ -470,6 +523,15 @@ Slow down: divide the current speed by 1.5.
 .TP
 .B =
 Reset speed to 1.0x.
+
+.SS Multi-File Navigation
+.TP
+.B ]
+Next file (in multi-file mode). Applies all remaining hunks instantly
+and loads the next file pair.
+.TP
+.B [
+Previous file (in multi-file mode). Loads the previous file pair.
 
 .SS Granular Navigation
 .TP

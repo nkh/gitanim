@@ -203,6 +203,40 @@ same character (e.g., `delete 'a', insert 'a'`) are merged into a single
 **Effect:** Reduces the total number of operations. Characters that
 don't actually change are not animated.
 
+### 11. `--word-accel` (accelerated char-by-char word insert/delete)
+
+**What happens:** When a word is inserted or deleted character by
+character, the delay starts at 2x the base delay and decreases to 0.5x
+by the end of the word. A short pause (10% of total word time) follows.
+Total time equals uniform char-by-char. Deletion is 20% faster by
+default (configurable via `--word-accel-delete-pct`).
+
+**Effect:** The viewer sees the word being typed/deleted with a natural
+acceleration — slow start lets them see the beginning, then it speeds up.
+The pause at the end gives time to read the complete word.
+
+### 12. `--rapid-identical-chars` (accelerate identical char runs)
+
+**What happens:** When a run of identical characters (e.g. `---------`)
+is being deleted, each char is deleted with exponentially decreasing
+delay (`delay * accel^count`). Default accel=0.5 (50%), so delays go
+40ms → 20ms → 10ms → 5ms → 2ms → 1ms.
+
+**Effect:** Long runs of identical chars vanish rapidly instead of
+boring the viewer with uniform deletion.
+
+### 13. `--preset NAME` (named option sets)
+
+**What happens:** Applies a named preset that sets multiple options:
+- `fast-delete`: all acceleration + optimization features
+- `review`: all highlighting + pause features
+- `present`: slow speed + dramatic highlighting
+- `ai-code`: optimized for AI-generated diffs
+- `custom`: reads from `DIFFVIM_PRESET_CUSTOM` env var
+
+**Effect:** One flag sets 5-10 options at once. No need to remember
+long command lines.
+
 ---
 
 ## Combining Options

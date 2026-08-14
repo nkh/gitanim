@@ -110,6 +110,8 @@ let g:diffvim = extend({
     \ 'rapid_identical_chars': !empty($DIFFVIM_RAPID_IDENTICAL_CHARS) ? 1 : 0,
     \ 'rapid_identical_min': !empty($DIFFVIM_RAPID_IDENTICAL_MIN) ? str2nr($DIFFVIM_RAPID_IDENTICAL_MIN) : 5,
     \ 'rapid_identical_accel': !empty($DIFFVIM_RAPID_IDENTICAL_ACCEL) ? str2nr($DIFFVIM_RAPID_IDENTICAL_ACCEL) * 1.0 / 100.0 : 0.5,
+    \ 'word_accel':          !empty($DIFFVIM_WORD_ACCEL)           ? 1 : 0,
+    \ 'word_accel_delete_pct': !empty($DIFFVIM_WORD_ACCEL_DELETE_PCT) ? str2nr($DIFFVIM_WORD_ACCEL_DELETE_PCT) : 20,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -148,6 +150,9 @@ let s:state = {
     \ 'awd_phase': 0,
     \ 'awd_delay': 0,
     \ 'awd_word_count': 0,
+    \ 'word_accel_idx': 0,
+    \ 'word_accel_total': 0,
+    \ 'word_accel_base_delay': 0,
     \ }
 
 " --- Diff: LCS at line level and char level -------------------------------
@@ -1317,6 +1322,74 @@ function! s:ProcessCharOp() abort
             call s:ScheduleNext(float2nr(g:diffvim.word_pause_ms / s:state.runtime_speed))
             return
         endif
+    endif
+
+    " --word-accel: when inserting/deleting a word char by char, start slowly
+    " and accelerate, then pause slightly. Total time with acceleration + pause
+    " equals uniform char-by-char time. Deletion is word_accel_delete_pct%
+    " faster by default (configurable).
+    if g:diffvim.word_accel && (l:op[0] ==# 'insert' || l:op[0] ==# 'delete')
+            \ && l:op[1] !=# "\n" && l:op[1] !=# ' ' && l:op[1] !=# "\t"
+        " Check if we're starting a new word run
+        if s:state.word_accel_total == 0
+            let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+            if l:run_len >= 2
+                let s:state.word_accel_total = l:run_len
+                let s:state.word_accel_idx = 0
+                " Compute base delay: for inserts, use type_delay_ms;
+                " for deletes, use delete_delay_ms * (1 - delete_pct/100)
+                if l:op[0] ==# 'insert'
+                    let s:state.word_accel_base_delay = g:diffvim.type_delay_ms
+                else
+                    let l:reduction = g:diffvim.word_accel_delete_pct / 100.0
+                    let s:state.word_accel_base_delay = float2nr(g:diffvim.delete_delay_ms * (1.0 - l:reduction))
+                endif
+            endif
+        endif
+        " If we're in a word acceleration run
+        if s:state.word_accel_total > 0
+            " Apply the op
+            if l:op[0] ==# 'insert'
+                call s:InsertCharAtCursor(l:op[1])
+                call s:InlineHighlight(s:cur_l, s:cur_c, 'insert')
+            else
+                call s:DeleteCharAtCursor()
+                call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
+            endif
+            redraw
+            if g:diffvim.sign_column
+                call s:PlaceSign(l:op[0] ==# 'insert' ? 'dv_add' : 'dv_del', s:cur_l)
+            endif
+            let s:state.op_idx += 1
+            let s:state.word_accel_idx += 1
+            " Compute accelerating delay: start at 2x base, decrease to 0.5x
+            " The profile is: delay = base * (2.0 - 1.5 * progress)
+            " where progress = idx / total. So first char = 2x, last char = 0.5x.
+            " Total = sum(base * (2 - 1.5*k/N)) for k=0..N-1
+            "       = base * (2N - 1.5*(N-1)/2) ≈ base * N * 1.25
+            " We want total = base * N, so scale by 1/1.25 = 0.8
+            let l:progress = s:state.word_accel_idx * 1.0 / s:state.word_accel_total
+            let l:delay = s:state.word_accel_base_delay * (2.0 - 1.5 * l:progress) * 0.8
+            if l:delay < 1 | let l:delay = 1 | endif
+            let l:delay = s:GaussianJitter(float2nr(l:delay))
+            " Check if word is done
+            if s:state.word_accel_idx >= s:state.word_accel_total
+                let l:word_total = s:state.word_accel_total
+                let s:state.word_accel_total = 0
+                let s:state.word_accel_idx = 0
+                " Short pause after the word (10% of total word time)
+                let l:pause = float2nr(s:state.word_accel_base_delay * l:word_total * 0.1)
+                if l:pause < 10 | let l:pause = 10 | endif
+                call s:ScheduleNext(l:pause)
+                return
+            endif
+            call s:ScheduleNext(l:delay)
+            return
+        endif
+    else
+        " Reset word accel state when we hit a non-word op
+        let s:state.word_accel_total = 0
+        let s:state.word_accel_idx = 0
     endif
 
     " --word-diff: batch contiguous delete/insert runs (non-space, non-newline)

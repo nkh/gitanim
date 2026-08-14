@@ -217,3 +217,78 @@ All requests have been implemented or are in progress. The project has
 grown from a simple vimscript animation to a multi-language, multi-tool
 ecosystem with external compute tools, comprehensive test coverage, and
 extensive documentation.
+
+---
+
+## Session 13: Next/Prev File, Log Mode Fixes, License
+
+87. **Add shortcuts to jump to next/previous file** — `]` and `[` keys.
+88. **Log mode 1 and mode marker are the same** — remove duplicate names.
+89. **Log mode 2 is useless and broken, unreadable** — rewrite to show:
+    line, then marker at position, then resulting line (3 lines per op).
+90. **Change license to Artistic License 2.0 and GPL 3.0** (dual license).
+91. **Log mode 2: one line per character operation** — each char gets
+    its own 3-line block (current line, marker, result).
+
+---
+
+## Session 14: Deletion Optimization, Highlight, Dim, Post-Processing
+
+92. **`--highlight-hunk` doesn't highlight all changed lines** — whole
+    blocks disappear without highlight. Fix to highlight ALL lines.
+93. **`--fold-unchanged` documented but not implemented** — diffvim says
+    "unknown option". Implement it.
+94. **In `--word-diff`, characters are deleted one by one** — fix to
+    batch word runs.
+95. **When deleting multiple lines, take a short pause before and after** —
+    add option.
+96. **Block-based multi-line deletion** — delete in blocks of 3 lines,
+    pause, accelerate, decelerate.
+97. **Create a document containing everything typed in this project.**
+98. **Is the combination document up to date?** Add what is missing.
+99. **Delete-end-first consolidation** — change all words till EOL, then
+    delete the end. Don't modify here and there forcing the user to follow
+    multiple changes.
+100. **Characters deleted in different places, jumping back and forth** —
+     add option to post-process and optimize the sequence. Write a document.
+101. **Log mode 1** — markers showing deleted positions.
+102. **Log mode 2** — progressive: line, marker, result per operation.
+
+---
+
+## Session 15: Whitespace, Left-to-Right, Auto-Precompute, Presets, AI
+
+103. **Deletion should always start at non-space characters** — whitespace
+     (space, tab) deleted last, not first. No reason to change indentation
+     first.
+104. **`--left-to-right` should be the default** — add `--no-left-to-right`
+     instead.
+105. **Add `--auto-precompute`** — runs the C external command automatically
+     using a temp file, without having to tell what file to use.
+106. **Rapid acceleration for identical character sequences** — like
+     `---------------------------`, accelerate deletion rapidly.
+107. **Timing parameters always added to log** — except if `--no-log-timing`.
+108. **Rule: always update USER_REQUESTS.md.**
+109. **Add a `--preset` option** — sets all options to maximize non-char
+     delete and optimize acceleration. Also handle `DIFFVIM_PRESET` env
+     var for user-defined preferred options.
+110. **Word-level acceleration for char-by-char insert/delete** — start
+     slowly, accelerate, then pause slightly. Total time same as char-by-
+     char. Deletion 20% faster by default (configurable).
+111. **Is the mdbook documentation updated? The manpage?** — update all.
+112. **AI-generated code diffing** — write a thorough, detailed, large
+     document about how diffvim can be made better for AI-generated code.
+     List 100 things. Note: real-time AI calls per hunk are NOT acceptable.
+113. **`--inline-highlight` should start with `--highlight-`** like other
+     highlight options. Rename to `--highlight-inline`.
+114. **`--inline-highlight-duration-ms` not used** even when set on CLI.
+115. **`--dim-unchanged-pct` not implemented or makes no difference.**
+116. **Check if there is code to back all options.**
+117. **Post-processing must also be coded in the external diff commands.**
+118. **Update all documents.**
+
+---
+
+## Summary
+
+**Total user requests: 118** (and counting)
