@@ -2301,7 +2301,7 @@ function! s:ShowConfig() abort
 endfunction
 
 
-" Public entry point — called by the :Diffvim command in plugin/diffvim.vim
+" Public entry point
 function! diffvim#engine#Start() abort
     call s:StartAnimation()
 endfunction

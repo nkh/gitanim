@@ -573,10 +573,10 @@ fi
 
 # ---------------------------------------------------------------------------
 # --log-mode: generate a log file showing what happens to each line.
-# Mode 1: show the original line, then a line with 'd' at each deleted position,
+# Mode 1: show the original line, then a line with d at each deleted position,
 #         then a line with inserted text at the insertion position.
-# Mode 2: progressive — show the line state after each operation:
-#         original line, then for each delete: line with 'd' at that position,
+# Mode 2: progressive -- one line per character operation (precise debugging)
+#         original line, then for each delete: line with d at that position,
 #         then for each insert: line with the inserted char at that position.
 # Does NOT start vim.
 # ---------------------------------------------------------------------------
@@ -713,82 +713,51 @@ if [[ -n "$LOG_MODE" ]]; then
                     print $out "  Ins   : $ins_text (at col $ins_pos)\n";
                 }
             } elsif ($mode eq "2") {
-                # Mode 2: progressive — show the line, then for each phase
-                # (deletions, then insertions), show:
-                #   1. The line with markers at the positions that will change
-                #   2. The line after the change is applied
+                # Mode 2: progressive -- one line per character operation.
+                # Shows the original line, then after EACH individual op
+                # (one char delete or one char insert), a new line showing
+                # the state of the line. For precise debugging.
                 #
-                # Example output:
-                #   def load_json(self, filepath: str | Path) -> bool:
-                #            d
-                #   def load_son(self, filepath: str | Path) -> bool:
-                #                        dddddddd
-                #   def load_son(self, : str | Path) -> bool:
-                #                      the_path
-                #   def load_son(self, the_path: str | Path) -> bool:
-
-                # Separate ops into delete phase and insert phase
-                my @del_ops;
-                my @ins_ops;
-                for my $op (@ops) {
-                    my ($type, $code, $pos) = @$op;
-                    if ($type eq "delete") {
-                        push @del_ops, $op;
-                    } elsif ($type eq "insert" && $code != 10) {
-                        push @ins_ops, $op;
-                    }
-                }
+                # Each delete replaces the char at the position with d.
+                # Each insert adds the char at the position.
+                # The position tracking accounts for insertions shifting
+                # subsequent positions.
+                #
+                # Example:
+                #   hello world          (original)
+                #   hello dorld          (del w at pos 7)
+                #   hello ddorld         (del o at pos 8 -- positions shift)
+                #
+                # Positions are tracked from the ORIGINAL line.
+                # Deletes mark the position with d (the char stays as d).
+                # Inserts add the new char at the cursor position.
 
                 my $state = $orig;
+                print $out "  $state\n";
 
-                # If there are deletes, show the deletion phase
-                if (@del_ops) {
-                    # Build marker line: spaces with d at each delete position
-                    my $marker_line = " " x length($state);
-                    for my $op (@del_ops) {
-                        my ($type, $code, $pos) = @$op;
-                        my $adj = $pos - 1;
-                        if ($adj >= 0 && $adj < length($marker_line)) {
-                            substr($marker_line, $adj, 1) = "d";
-                        }
-                    }
-                    print $out "  $state\n";
-                    print $out "  $marker_line\n";
+                # Track how many chars have been inserted (shifts positions)
+                my $ins_offset = 0;
 
-                    # Apply deletes: remove deleted chars from state
-                    # Process from right to left so positions do not shift
-                    my @sorted_dels = sort { $b->[2] <=> $a->[2] } @del_ops;
-                    for my $op (@sorted_dels) {
-                        my ($type, $code, $pos) = @$op;
-                        my $adj = $pos - 1;
+                for my $op (@ops) {
+                    my ($type, $code, $pos) = @$op;
+
+                    if ($type eq "delete") {
+                        # Replace the char at this position with "d"
+                        my $adj = $pos - 1 + $ins_offset;
                         if ($adj >= 0 && $adj < length($state)) {
-                            substr($state, $adj, 1) = "";
+                            substr($state, $adj, 1) = "d";
                         }
-                    }
-                    print $out "  $state\n";
-                } else {
-                    print $out "  $state\n";
-                }
-
-                # If there are inserts, show the insertion phase
-                if (@ins_ops) {
-                    # Build marker line: show inserted text at positions
-                    my $marker_line = " " x length($state);
-                    my $ins_offset = 0;
-                    for my $op (@ins_ops) {
-                        my ($type, $code, $pos) = @$op;
+                        print $out "  $state\n";
+                    } elsif ($type eq "insert" && $code != 10) {
+                        # Insert the char at this position
                         my $ch = chr($code);
                         my $adj = $pos - 1 + $ins_offset;
-                        # Clamp to valid range
                         if ($adj < 0) { $adj = 0; }
-                        if ($adj > length($marker_line)) { $adj = length($marker_line); }
                         if ($adj > length($state)) { $adj = length($state); }
-                        substr($marker_line, $adj, 0) = $ch;
                         substr($state, $adj, 0) = $ch;
                         $ins_offset++;
+                        print $out "  $state\n";
                     }
-                    print $out "  $marker_line\n";
-                    print $out "  $state\n";
                 }
                 print $out "\n";
             }

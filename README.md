@@ -467,4 +467,6 @@ gitanim/
 
 ## License
 
-MIT License. See [`LICENSE`](LICENSE) for details.
+Dual-licensed under the Artistic License 2.0 and the GNU General Public
+License v3.0. You may use this software under either license, at your
+option. See [`LICENSE`](LICENSE) for details.
