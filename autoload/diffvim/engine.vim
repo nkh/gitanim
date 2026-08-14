@@ -998,6 +998,26 @@ function! s:PlaceCursor() abort
     endif
 endfunction
 
+" Track the last line for scroll jump detection
+let s:last_scrolled_line = 1
+
+" Place cursor and detect large line jumps during typing.
+" When the cursor jumps more than N lines during a single typing op
+" (e.g., due to line insertions/deletions), add a brief delay so the
+" viewer can register the viewport change instead of seeing an
+" instantaneous jump.
+function! s:PlaceCursorWithJumpCheck() abort
+    let l:old_line = s:last_scrolled_line
+    call s:PlaceCursor()
+    let s:last_scrolled_line = s:cur_l
+    let l:delta = abs(s:cur_l - l:old_line)
+    " If the cursor jumped more than 3 lines during typing, the viewport
+    " scrolled suddenly. We can't smooth this (vim doesn't support smooth
+    " scroll), but we can add a brief delay so the viewer registers it.
+    " This is a heuristic — the actual jump detection happens in
+    " ProcessCharOp by checking if PlaceCursor caused a large scroll.
+endfunction
+
 function! s:InsertCharAtCursor(ch) abort
     let l:l = s:cur_l
     let l:c = s:cur_c
@@ -1290,6 +1310,7 @@ function! s:MoveStep() abort
         call s:PlaceCursor()
         let s:state.phase = 'typing'
         let s:state.op_idx = 0
+        let s:last_scrolled_line = s:cur_l
         call s:ScheduleNext(float2nr(g:diffvim.hunk_pause_ms / s:state.runtime_speed))
         return
     endif
@@ -1629,6 +1650,20 @@ function! s:ProcessCharOp() abort
     endif
 
     let s:state.op_idx += 1
+
+    " Detect large line jumps during typing (e.g., when insert/delete ops
+    " change the line count and the cursor shifts many lines). When the
+    " cursor jumps more than 3 lines, add a delay so the viewer can
+    " register the viewport scroll. This is the fix for "sudden jumps"
+    " during typing — the viewport scrolls instantly (vim can't smooth-
+    " scroll), but the delay gives the viewer time to reorient.
+    let l:line_delta = abs(s:cur_l - s:last_scrolled_line)
+    if l:line_delta > 3 && l:delay < g:diffvim.line_change_pause_ms
+        let l:delay = float2nr(g:diffvim.line_change_pause_ms / s:state.runtime_speed)
+    endif
+    let s:last_scrolled_line = s:cur_l
+
+    let l:delay = s:GaussianJitter(l:delay)
     call s:ScheduleNext(l:delay)
 endfunction
 
