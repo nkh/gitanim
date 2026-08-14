@@ -100,6 +100,7 @@ let g:diffvim = extend({
     \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 1,
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
+    \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -641,6 +642,96 @@ function! s:OptimizeSequence(ops) abort
     return l:result
 endfunction
 
+" Left-to-right ordering: ensures that within each line, all delete and
+" insert operations go from left to right, never jumping around.
+"
+" The standard LCS can produce ops that jump back and forth (e.g., delete
+" at col 5, insert at col 3, delete at col 8). This function groups ops
+" by line (delimited by newlines) and within each line, sorts them so
+" deletes come before inserts, and within each type, by position.
+"
+" When --left-to-right is on, this is applied as a post-processing pass
+" after OptimizeSequence.
+function! s:LeftToRight(ops) abort
+    let l:result = []
+    let l:line_ops = []
+    let l:i = 0
+    let l:col = 1
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] ==# 'keep' && l:op[1] ==# "\n"
+            " End of line — sort accumulated line_ops and flush
+            call extend(l:result, s:SortLineOps(l:line_ops))
+            call add(l:result, l:op)
+            let l:line_ops = []
+            let l:col = 1
+        elseif l:op[0] ==# 'delete' && l:op[1] ==# "\n"
+            " End of line via delete — sort and flush
+            call extend(l:result, s:SortLineOps(l:line_ops))
+            call add(l:result, l:op)
+            let l:line_ops = []
+            let l:col = 1
+        elseif l:op[0] ==# 'insert' && l:op[1] ==# "\n"
+            " End of line via insert — sort and flush
+            call extend(l:result, s:SortLineOps(l:line_ops))
+            call add(l:result, l:op)
+            let l:line_ops = []
+            let l:col = 1
+        else
+            " Track position and accumulate
+            call add(l:line_ops, [l:op, l:col])
+            if l:op[0] ==# 'keep' || l:op[0] ==# 'insert'
+                let l:col += 1
+            endif
+        endif
+        let l:i += 1
+    endwhile
+    " Flush remaining
+    call extend(l:result, s:SortLineOps(l:line_ops))
+    return l:result
+endfunction
+
+" Sort line ops: all deletes first (by position, left to right),
+" then all inserts (by position, left to right).
+function! s:SortLineOps(line_ops) abort
+    if len(a:line_ops) <= 1
+        let l:result = []
+        for l:item in a:line_ops
+            call add(l:result, l:item[0])
+        endfor
+        return l:result
+    endif
+    " Separate into keeps, deletes, inserts
+    let l:keeps = []
+    let l:dels = []
+    let l:ins = []
+    for l:item in a:line_ops
+        if l:item[0][0] ==# 'keep'
+            call add(l:keeps, l:item)
+        elseif l:item[0][0] ==# 'delete'
+            call add(l:dels, l:item)
+        else
+            call add(l:ins, l:item)
+        endif
+    endfor
+    " Sort deletes by position (ascending = left to right)
+    call sort(l:dels, {a, b -> a[1] - b[1]})
+    " Sort inserts by position (ascending = left to right)
+    call sort(l:ins, {a, b -> a[1] - b[1]})
+    " Emit: keeps first (they maintain original order), then deletes, then inserts
+    let l:result = []
+    for l:item in l:keeps
+        call add(l:result, l:item[0])
+    endfor
+    for l:item in l:dels
+        call add(l:result, l:item[0])
+    endfor
+    for l:item in l:ins
+        call add(l:result, l:item[0])
+    endfor
+    return l:result
+endfunction
+
 " Group line-level ops into hunks, then compute char-level diff per hunk.
 function! s:BuildHunks() abort
     " If --precomputed FILE was given, load hunks from that file instead of
@@ -787,6 +878,11 @@ function! s:BuildHunks() abort
         " eliminate erratic back-and-forth cursor movement. Default: on.
         if g:diffvim.optimize_sequence
             let l:h.char_ops = s:OptimizeSequence(l:h.char_ops)
+        endif
+        " --left-to-right: sort ops within each line so deletes and inserts
+        " go from left to right, never jumping around.
+        if g:diffvim.left_to_right
+            let l:h.char_ops = s:LeftToRight(l:h.char_ops)
         endif
         " --overwrite: transform delete+insert pairs into overwrite-then-
         " insert-remainder or overwrite-then-delete-extra. When a word is
@@ -1542,8 +1638,30 @@ endfunction
 "   s:state.accel_delete_block  — chars deleted in current block
 function! s:ProcessBlockDelete(hunk, total_count) abort
     let l:block_size = g:diffvim.block_delete_size
-    " Each "line" is roughly 1 newline + some chars. We delete block_size
-    " newlines worth of chars per block (i.e., block_size lines).
+
+    " On the first block of a multi-line delete run, advance the cursor
+    " past leading whitespace so the viewer sees deletion starting at the
+    " first non-space character, not at a random indent position.
+    if s:state.accel_delete_count == 0
+        let l:skipped = 0
+        while s:state.op_idx + l:skipped < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[s:state.op_idx + l:skipped]
+            if l:op[0] ==# 'delete' && (l:op[1] ==# ' ' || l:op[1] ==# "\t")
+                " Skip leading whitespace deletes — advance cursor past them
+                call s:AdvanceForKeepChar(l:op[1])
+                let l:skipped += 1
+            else
+                break
+            endif
+        endwhile
+        if l:skipped > 0
+            let s:state.op_idx += l:skipped
+            let s:state.accel_delete_count += l:skipped
+            let s:state.accel_delete_total = a:total_count
+            redraw
+        endif
+    endif
+
     " Find how many chars to delete for block_size lines.
     let l:chars_to_delete = 0
     let l:lines_in_block = 0
@@ -1557,7 +1675,6 @@ function! s:ProcessBlockDelete(hunk, total_count) abort
         endif
         let l:op_idx += 1
     endwhile
-    " If we didn't find a full block, delete what we have
     if l:chars_to_delete == 0
         let l:chars_to_delete = 1
     endif

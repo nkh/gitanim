@@ -156,6 +156,7 @@ THEME="${DIFFVIM_THEME:-}"
 OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
+LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-0}"
 
 show_help() {
     cat >&2 <<USAGE
@@ -214,8 +215,8 @@ Options:
   --delete-end-first       Delete end-of-line before inserting on patched lines
   --delete-end-first-delay-ms N  Delay between delete-end and insert (default: 100)
   --startup-feedback       Show progress in status line during diff computation
-  --inline-highlight       Paint freshly typed chars green, deleted chars red (200ms)
-  --inline-highlight-duration-ms N  Inline highlight duration in ms (default: 200)
+  --highlight-inline       Paint freshly typed chars green, deleted chars red (200ms)
+  --highlight-inline-duration-ms N  Inline highlight duration in ms (default: 200)
   --gaussian-jitter        Vary per-char delay for human-like typing
   --gaussian-jitter-pct N  Jitter percentage 0-100 (default: 20)
   --dim-unchanged          Dim unchanged anchor lines to draw eye to changes
@@ -230,6 +231,8 @@ Options:
   --theme dark|light|high-contrast  Color scheme for highlights
   --optimize-sequence      Post-process ops to eliminate erratic movement (default: on)
   --no-optimize-sequence   Disable op-sequence optimization
+  --left-to-right          Sort ops within each line left-to-right (no jumping)
+  --no-left-to-right       Disable left-to-right ordering
   --log-mode 1|2                  Generate log file (1=markers, 2=progressive) without starting vim
   --log-file FILE          Write log to FILE (default: diffvim.log)
   --git-blame              Echo git blame for the target line of each hunk
@@ -316,8 +319,8 @@ while [[ $# -gt 0 ]]; do
         --delete-end-first) DELETE_END_FIRST=1; shift ;;
         --delete-end-first-delay-ms) DELETE_END_FIRST_DELAY_MS="$2"; shift 2 ;;
         --startup-feedback) STARTUP_FEEDBACK=1; shift ;;
-        --inline-highlight) INLINE_HIGHLIGHT=1; shift ;;
-        --inline-highlight-duration-ms) INLINE_HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
+        --highlight-inline) INLINE_HIGHLIGHT=1; shift ;;
+        --highlight-inline-duration-ms) INLINE_HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
         --gaussian-jitter) GAUSSIAN_JITTER=1; shift ;;
         --gaussian-jitter-pct) GAUSSIAN_JITTER_PCT="$2"; shift 2 ;;
         --dim-unchanged) DIM_UNCHANGED=1; shift ;;
@@ -334,6 +337,8 @@ while [[ $# -gt 0 ]]; do
         --no-optimize-sequence) OPTIMIZE_SEQUENCE=0; shift ;;
         --log-mode)      LOG_MODE="$2"; shift 2 ;;
         --log-file)      LOG_FILE="$2"; shift 2 ;;
+        --left-to-right) LEFT_TO_RIGHT=1; shift ;;
+        --no-left-to-right) LEFT_TO_RIGHT=0; shift ;;
         --git-blame)     GIT_BLAME=1; shift ;;
         --highlight-hunk) HIGHLIGHT_HUNK=1; shift ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
@@ -453,6 +458,7 @@ export DIFFVIM_THEME="$THEME"
 export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
+export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -602,6 +608,16 @@ if [[ -n "$LOG_MODE" ]]; then
         my $compute = $ARGV[0];
         my @pairs = @ARGV[1 .. $#ARGV];
 
+        # Acceleration parameters (read from env so the log shows what
+        # the engine would actually use)
+        my $accel_delete = $ENV{DIFFVIM_ACCEL_DELETE} || "";
+        my $accel_start_ms = $ENV{DIFFVIM_ACCEL_DELETE_START_MS} || 80;
+        my $accel_min_ms = $ENV{DIFFVIM_ACCEL_DELETE_MIN_MS} || 10;
+        my $accel_accel = ($ENV{DIFFVIM_ACCEL_DELETE_ACCEL} || 85) / 100.0;
+        my $block_delete_size = $ENV{DIFFVIM_BLOCK_DELETE_SIZE} || 3;
+        my $pause_before = $ENV{DIFFVIM_PAUSE_BEFORE_DELETE_MS} || 200;
+        my $pause_after = $ENV{DIFFVIM_PAUSE_AFTER_DELETE_MS} || 200;
+
         open my $out, ">>", $log_file or die "Cannot write $log_file: $!";
 
         for my $pair (@pairs) {
@@ -616,7 +632,12 @@ if [[ -n "$LOG_MODE" ]]; then
             chomp @old_lines;
 
             print $out "# diffvim log: $old_f -> $new_f\n";
-            print $out "# log mode: $log_mode\n\n";
+            print $out "# log mode: $log_mode\n";
+            if ($accel_delete) {
+                print $out "# accel_delete: on (start=${accel_start_ms}ms min=${accel_min_ms}ms accel=" . sprintf("%.2f", $accel_accel) . " block=${block_delete_size})\n";
+                print $out "# pause_before=${pause_before}ms pause_after=${pause_after}ms\n";
+            }
+            print $out "\n";
 
             # Parse precomputed file
             open $fh, "<", $pc_file or next;
@@ -730,6 +751,8 @@ if [[ -n "$LOG_MODE" ]]; then
                 # in the current state, and mark it with d.
 
                 my $state = $orig;
+                my $del_count = 0;
+                my $total_ops_in_line = scalar(@ops);
 
                 for my $op (@ops) {
                     my ($type, $code, $pos) = @$op;
@@ -739,6 +762,28 @@ if [[ -n "$LOG_MODE" ]]; then
                         # Clamp
                         if ($adj < 0) { $adj = 0; }
                         if ($adj >= length($state)) { $adj = length($state) - 1; }
+                        # Compute simulated acceleration delay for this op
+                        my $delay_info = "";
+                        if ($accel_delete) {
+                            my $del_idx = $del_count;
+                            my $total = $total_ops_in_line;
+                            my $remaining = $total - $del_idx;
+                            my $delay;
+                            if ($remaining < $total * 0.3 && $remaining > 0) {
+                                # Deceleration phase
+                                $delay = $accel_min_ms;
+                                for (my $j = 0; $j < $remaining; $j++) {
+                                    $delay = $delay / $accel_accel;
+                                    if ($delay > $accel_start_ms) { $delay = $accel_start_ms; }
+                                }
+                            } else {
+                                # Acceleration phase
+                                $delay = $accel_start_ms * ($accel_accel ** $del_idx);
+                                if ($delay < $accel_min_ms) { $delay = $accel_min_ms; }
+                            }
+                            $delay_info = sprintf("  # delay=%dms", $delay);
+                        }
+                        $del_count++;
                         # 1. Current line
                         print $out "  $state\n";
                         # 2. Marker: spaces with d at the position
@@ -746,7 +791,7 @@ if [[ -n "$LOG_MODE" ]]; then
                         if ($adj < length($marker)) {
                             substr($marker, $adj, 1) = "d";
                         }
-                        print $out "  $marker\n";
+                        print $out "  $marker$delay_info\n";
                         # 3. Resulting line: remove the char at cursor
                         substr($state, $adj, 1) = "";
                         print $out "  $state\n";
@@ -886,6 +931,7 @@ let g:diffvim = extend({
     \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 1,
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
+    \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -1427,6 +1473,96 @@ function! s:OptimizeSequence(ops) abort
     return l:result
 endfunction
 
+" Left-to-right ordering: ensures that within each line, all delete and
+" insert operations go from left to right, never jumping around.
+"
+" The standard LCS can produce ops that jump back and forth (e.g., delete
+" at col 5, insert at col 3, delete at col 8). This function groups ops
+" by line (delimited by newlines) and within each line, sorts them so
+" deletes come before inserts, and within each type, by position.
+"
+" When --left-to-right is on, this is applied as a post-processing pass
+" after OptimizeSequence.
+function! s:LeftToRight(ops) abort
+    let l:result = []
+    let l:line_ops = []
+    let l:i = 0
+    let l:col = 1
+    while l:i < len(a:ops)
+        let l:op = a:ops[l:i]
+        if l:op[0] ==# 'keep' && l:op[1] ==# "\n"
+            " End of line — sort accumulated line_ops and flush
+            call extend(l:result, s:SortLineOps(l:line_ops))
+            call add(l:result, l:op)
+            let l:line_ops = []
+            let l:col = 1
+        elseif l:op[0] ==# 'delete' && l:op[1] ==# "\n"
+            " End of line via delete — sort and flush
+            call extend(l:result, s:SortLineOps(l:line_ops))
+            call add(l:result, l:op)
+            let l:line_ops = []
+            let l:col = 1
+        elseif l:op[0] ==# 'insert' && l:op[1] ==# "\n"
+            " End of line via insert — sort and flush
+            call extend(l:result, s:SortLineOps(l:line_ops))
+            call add(l:result, l:op)
+            let l:line_ops = []
+            let l:col = 1
+        else
+            " Track position and accumulate
+            call add(l:line_ops, [l:op, l:col])
+            if l:op[0] ==# 'keep' || l:op[0] ==# 'insert'
+                let l:col += 1
+            endif
+        endif
+        let l:i += 1
+    endwhile
+    " Flush remaining
+    call extend(l:result, s:SortLineOps(l:line_ops))
+    return l:result
+endfunction
+
+" Sort line ops: all deletes first (by position, left to right),
+" then all inserts (by position, left to right).
+function! s:SortLineOps(line_ops) abort
+    if len(a:line_ops) <= 1
+        let l:result = []
+        for l:item in a:line_ops
+            call add(l:result, l:item[0])
+        endfor
+        return l:result
+    endif
+    " Separate into keeps, deletes, inserts
+    let l:keeps = []
+    let l:dels = []
+    let l:ins = []
+    for l:item in a:line_ops
+        if l:item[0][0] ==# 'keep'
+            call add(l:keeps, l:item)
+        elseif l:item[0][0] ==# 'delete'
+            call add(l:dels, l:item)
+        else
+            call add(l:ins, l:item)
+        endif
+    endfor
+    " Sort deletes by position (ascending = left to right)
+    call sort(l:dels, {a, b -> a[1] - b[1]})
+    " Sort inserts by position (ascending = left to right)
+    call sort(l:ins, {a, b -> a[1] - b[1]})
+    " Emit: keeps first (they maintain original order), then deletes, then inserts
+    let l:result = []
+    for l:item in l:keeps
+        call add(l:result, l:item[0])
+    endfor
+    for l:item in l:dels
+        call add(l:result, l:item[0])
+    endfor
+    for l:item in l:ins
+        call add(l:result, l:item[0])
+    endfor
+    return l:result
+endfunction
+
 " Group line-level ops into hunks, then compute char-level diff per hunk.
 function! s:BuildHunks() abort
     " If --precomputed FILE was given, load hunks from that file instead of
@@ -1573,6 +1709,11 @@ function! s:BuildHunks() abort
         " eliminate erratic back-and-forth cursor movement. Default: on.
         if g:diffvim.optimize_sequence
             let l:h.char_ops = s:OptimizeSequence(l:h.char_ops)
+        endif
+        " --left-to-right: sort ops within each line so deletes and inserts
+        " go from left to right, never jumping around.
+        if g:diffvim.left_to_right
+            let l:h.char_ops = s:LeftToRight(l:h.char_ops)
         endif
         " --overwrite: transform delete+insert pairs into overwrite-then-
         " insert-remainder or overwrite-then-delete-extra. When a word is
@@ -2328,8 +2469,30 @@ endfunction
 "   s:state.accel_delete_block  — chars deleted in current block
 function! s:ProcessBlockDelete(hunk, total_count) abort
     let l:block_size = g:diffvim.block_delete_size
-    " Each "line" is roughly 1 newline + some chars. We delete block_size
-    " newlines worth of chars per block (i.e., block_size lines).
+
+    " On the first block of a multi-line delete run, advance the cursor
+    " past leading whitespace so the viewer sees deletion starting at the
+    " first non-space character, not at a random indent position.
+    if s:state.accel_delete_count == 0
+        let l:skipped = 0
+        while s:state.op_idx + l:skipped < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[s:state.op_idx + l:skipped]
+            if l:op[0] ==# 'delete' && (l:op[1] ==# ' ' || l:op[1] ==# "\t")
+                " Skip leading whitespace deletes — advance cursor past them
+                call s:AdvanceForKeepChar(l:op[1])
+                let l:skipped += 1
+            else
+                break
+            endif
+        endwhile
+        if l:skipped > 0
+            let s:state.op_idx += l:skipped
+            let s:state.accel_delete_count += l:skipped
+            let s:state.accel_delete_total = a:total_count
+            redraw
+        endif
+    endif
+
     " Find how many chars to delete for block_size lines.
     let l:chars_to_delete = 0
     let l:lines_in_block = 0
@@ -2343,7 +2506,6 @@ function! s:ProcessBlockDelete(hunk, total_count) abort
         endif
         let l:op_idx += 1
     endwhile
-    " If we didn't find a full block, delete what we have
     if l:chars_to_delete == 0
         let l:chars_to_delete = 1
     endif
