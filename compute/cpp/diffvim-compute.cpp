@@ -462,6 +462,49 @@ vector<CharOp> semantic_cleanup(vector<CharOp> ops) {
     return out;
 }
 
+/* --- Op-sequence optimization: consolidate interleaved del/ins --- */
+vector<CharOp> optimize_sequence(vector<CharOp> ops) {
+    if (ops.size() < 4) return ops;
+    vector<CharOp> out;
+    out.reserve(ops.size());
+    size_t i = 0;
+    while (i < ops.size()) {
+        if (ops[i].type != OP_KEEP && ops[i].code != 10) {
+            while (i < ops.size()) {
+                if (ops[i].type == OP_KEEP) break;
+                if (ops[i].code == 10) break;
+                out.push_back(ops[i]);
+                i++;
+            }
+        } else {
+            out.push_back(ops[i]);
+            i++;
+        }
+    }
+    return out;
+}
+
+/* --- Left-to-right: sort ops within each line by type --- */
+vector<CharOp> left_to_right(vector<CharOp> ops) {
+    if (ops.size() < 2) return ops;
+    vector<CharOp> out;
+    out.reserve(ops.size());
+    size_t i = 0;
+    while (i < ops.size()) {
+        size_t line_start = i;
+        while (i < ops.size() && ops[i].code != 10) i++;
+        size_t line_end = i;
+        for (size_t k = line_start; k < line_end; k++)
+            if (ops[k].type == OP_KEEP) out.push_back(ops[k]);
+        for (size_t k = line_start; k < line_end; k++)
+            if (ops[k].type == OP_DELETE) out.push_back(ops[k]);
+        for (size_t k = line_start; k < line_end; k++)
+            if (ops[k].type == OP_INSERT) out.push_back(ops[k]);
+        if (i < ops.size()) { out.push_back(ops[i]); i++; }
+    }
+    return out;
+}
+
 /* --- Word-level diff --- */
 /* Splits text into tokens (maximal runs of non-whitespace + maximal runs of
  * whitespace), runs LCS at the token level, then expands each token to
@@ -587,6 +630,10 @@ int main(int argc, char** argv) {
     bool do_word_diff = wd_env && wd_env[0] == '1';
     const char* ia_env = getenv("DIFFVIM_INDENT_AWARE");
     bool do_indent_aware = ia_env && ia_env[0] == '1';
+    const char* opt_env = getenv("DIFFVIM_OPTIMIZE_SEQUENCE");
+    bool do_optimize = !opt_env || opt_env[0] != '0';  /* default on */
+    const char* l2r_env = getenv("DIFFVIM_LEFT_TO_RIGHT");
+    bool do_l2r = l2r_env && l2r_env[0] == '1';
 
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
@@ -604,6 +651,12 @@ int main(int argc, char** argv) {
             do_word_diff = true;
         } else if (strcmp(argv[i], "--indent-aware") == 0) {
             do_indent_aware = true;
+        } else if (strcmp(argv[i], "--optimize-sequence") == 0) {
+            do_optimize = true;
+        } else if (strcmp(argv[i], "--no-optimize-sequence") == 0) {
+            do_optimize = false;
+        } else if (strcmp(argv[i], "--left-to-right") == 0) {
+            do_l2r = true;
         } else if (strcmp(argv[i], "--diff") == 0) {
             diff_mode = true;
         } else {
@@ -722,6 +775,12 @@ int main(int argc, char** argv) {
             if (do_semantic) {
                 h.char_ops = semantic_cleanup(move(h.char_ops));
             }
+            if (do_optimize) {
+                h.char_ops = optimize_sequence(move(h.char_ops));
+            }
+            if (do_l2r) {
+                h.char_ops = left_to_right(move(h.char_ops));
+            }
             hunks.push_back(move(h));
         }
     }
@@ -735,6 +794,8 @@ int main(int argc, char** argv) {
     out << "# semantic_cleanup " << (do_semantic ? 1 : 0) << "\n";
     out << "# word_diff " << (do_word_diff ? 1 : 0) << "\n";
     out << "# indent_aware " << (do_indent_aware ? 1 : 0) << "\n";
+    out << "# optimize_sequence " << (do_optimize ? 1 : 0) << "\n";
+    out << "# left_to_right " << (do_l2r ? 1 : 0) << "\n";
     out << "# hunk_count " << hunks.size() << "\n";
     for (auto& h : hunks) {
         out << "HUNK " << h.target_line << " " << h.deleted_count << " "

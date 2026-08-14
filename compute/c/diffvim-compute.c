@@ -803,6 +803,53 @@ static CharOp *semantic_cleanup(CharOp *ops, int *count) {
     return out;
 }
 
+/* --- Op-sequence optimization: consolidate interleaved del/ins --- */
+static CharOp *optimize_sequence(CharOp *ops, int *count) {
+    if (*count < 4) return ops;
+    CharOp *out = malloc(*count * sizeof(CharOp));
+    int out_count = 0;
+    int i = 0;
+    while (i < *count) {
+        if (ops[i].type != OP_KEEP && ops[i].code != 10) {
+            while (i < *count) {
+                if (ops[i].type == OP_KEEP) break;
+                if (ops[i].code == 10) break;
+                out[out_count++] = ops[i];
+                i++;
+            }
+        } else {
+            out[out_count++] = ops[i];
+            i++;
+        }
+    }
+    free(ops);
+    *count = out_count;
+    return out;
+}
+
+/* --- Left-to-right: sort ops within each line by type --- */
+static CharOp *left_to_right(CharOp *ops, int *count) {
+    if (*count < 2) return ops;
+    CharOp *out = malloc(*count * sizeof(CharOp));
+    int out_count = 0;
+    int i = 0;
+    while (i < *count) {
+        int line_start = i;
+        while (i < *count && ops[i].code != 10) i++;
+        int line_end = i;
+        for (int k = line_start; k < line_end; k++)
+            if (ops[k].type == OP_KEEP) out[out_count++] = ops[k];
+        for (int k = line_start; k < line_end; k++)
+            if (ops[k].type == OP_DELETE) out[out_count++] = ops[k];
+        for (int k = line_start; k < line_end; k++)
+            if (ops[k].type == OP_INSERT) out[out_count++] = ops[k];
+        if (i < *count) { out[out_count++] = ops[i]; i++; }
+    }
+    free(ops);
+    *count = out_count;
+    return out;
+}
+
 int main(int argc, char **argv) {
     double t_start = now_ms();
 
@@ -811,6 +858,8 @@ int main(int argc, char **argv) {
     int do_semantic = getenv("DIFFVIM_SEMANTIC_CLEANUP") && getenv("DIFFVIM_SEMANTIC_CLEANUP")[0] == '1';
     int do_word_diff = getenv("DIFFVIM_WORD_DIFF") && getenv("DIFFVIM_WORD_DIFF")[0] == '1';
     int do_indent_aware = getenv("DIFFVIM_INDENT_AWARE") && getenv("DIFFVIM_INDENT_AWARE")[0] == '1';
+    int do_optimize = !getenv("DIFFVIM_OPTIMIZE_SEQUENCE") || getenv("DIFFVIM_OPTIMIZE_SEQUENCE")[0] != '0';  /* default on */
+    int do_l2r = getenv("DIFFVIM_LEFT_TO_RIGHT") && getenv("DIFFVIM_LEFT_TO_RIGHT")[0] == '1';
 
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
@@ -831,6 +880,12 @@ int main(int argc, char **argv) {
             do_word_diff = 1;
         } else if (strcmp(argv[i], "--indent-aware") == 0) {
             do_indent_aware = 1;
+        } else if (strcmp(argv[i], "--optimize-sequence") == 0) {
+            do_optimize = 1;
+        } else if (strcmp(argv[i], "--no-optimize-sequence") == 0) {
+            do_optimize = 0;
+        } else if (strcmp(argv[i], "--left-to-right") == 0) {
+            do_l2r = 1;
         } else if (strcmp(argv[i], "--diff") == 0) {
             diff_mode = 1;
         } else if (n_positionals < 3) {
@@ -989,6 +1044,12 @@ int main(int argc, char **argv) {
             if (do_semantic) {
                 h->char_ops = semantic_cleanup(h->char_ops, &h->char_op_count);
             }
+            if (do_optimize) {
+                h->char_ops = optimize_sequence(h->char_ops, &h->char_op_count);
+            }
+            if (do_l2r) {
+                h->char_ops = left_to_right(h->char_ops, &h->char_op_count);
+            }
             free(old_text);
             free(new_text);
             hunk_count++;
@@ -1007,6 +1068,8 @@ int main(int argc, char **argv) {
     fprintf(out, "# semantic_cleanup %d\n", do_semantic ? 1 : 0);
     fprintf(out, "# word_diff %d\n", do_word_diff ? 1 : 0);
     fprintf(out, "# indent_aware %d\n", do_indent_aware ? 1 : 0);
+    fprintf(out, "# optimize_sequence %d\n", do_optimize ? 1 : 0);
+    fprintf(out, "# left_to_right %d\n", do_l2r ? 1 : 0);
     fprintf(out, "# hunk_count %d\n", hunk_count);
     for (int h = 0; h < hunk_count; h++) {
         Hunk *hk = &hunks[h];

@@ -157,6 +157,12 @@ OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
 LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-0}"
+ADAPTIVE_WORD_DELETE="${DIFFVIM_ADAPTIVE_WORD_DELETE:-0}"
+ADAPTIVE_WORD_DELETE_START_CHARS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS:-3}"
+ADAPTIVE_WORD_DELETE_START_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS:-80}"
+ADAPTIVE_WORD_DELETE_MIN_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS:-15}"
+ADAPTIVE_WORD_DELETE_ACCEL="${DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL:-0.85}"
+ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS:-100}"
 
 show_help() {
     cat >&2 <<USAGE
@@ -233,6 +239,12 @@ Options:
   --no-optimize-sequence   Disable op-sequence optimization
   --left-to-right          Sort ops within each line left-to-right (no jumping)
   --no-left-to-right       Disable left-to-right ordering
+  --adaptive-word-delete   Word-by-word line deletion (few chars → words → rest)
+  --adaptive-word-delete-start-chars N  Chars before word phase (default: 3)
+  --adaptive-word-delete-start-ms N  Delay per char in start phase (default: 80)
+  --adaptive-word-delete-min-ms N  Min delay (max speed) for word phase (default: 15)
+  --adaptive-word-delete-accel N  Word accel factor 0-100 (default: 85)
+  --adaptive-word-delete-word-pause-ms N  Pause after each word (default: 100)
   --log-mode 1|2                  Generate log file (1=markers, 2=progressive) without starting vim
   --log-file FILE          Write log to FILE (default: diffvim.log)
   --git-blame              Echo git blame for the target line of each hunk
@@ -339,6 +351,12 @@ while [[ $# -gt 0 ]]; do
         --log-file)      LOG_FILE="$2"; shift 2 ;;
         --left-to-right) LEFT_TO_RIGHT=1; shift ;;
         --no-left-to-right) LEFT_TO_RIGHT=0; shift ;;
+        --adaptive-word-delete) ADAPTIVE_WORD_DELETE=1; shift ;;
+        --adaptive-word-delete-start-chars) ADAPTIVE_WORD_DELETE_START_CHARS="$2"; shift 2 ;;
+        --adaptive-word-delete-start-ms) ADAPTIVE_WORD_DELETE_START_MS="$2"; shift 2 ;;
+        --adaptive-word-delete-min-ms) ADAPTIVE_WORD_DELETE_MIN_MS="$2"; shift 2 ;;
+        --adaptive-word-delete-accel) ADAPTIVE_WORD_DELETE_ACCEL="$2"; shift 2 ;;
+        --adaptive-word-delete-word-pause-ms) ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$2"; shift 2 ;;
         --git-blame)     GIT_BLAME=1; shift ;;
         --highlight-hunk) HIGHLIGHT_HUNK=1; shift ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
@@ -459,6 +477,12 @@ export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || 
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
 export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ADAPTIVE_WORD_DELETE="$([[ $ADAPTIVE_WORD_DELETE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS="$ADAPTIVE_WORD_DELETE_START_CHARS"
+export DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS="$ADAPTIVE_WORD_DELETE_START_MS"
+export DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS="$ADAPTIVE_WORD_DELETE_MIN_MS"
+export DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL="$ADAPTIVE_WORD_DELETE_ACCEL"
+export DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -932,6 +956,12 @@ let g:diffvim = extend({
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
     \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
+    \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
+    \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
+    \ 'adaptive_word_delete_start_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) : 80,
+    \ 'adaptive_word_delete_min_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) : 15,
+    \ 'adaptive_word_delete_accel': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
+    \ 'adaptive_word_delete_word_pause_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) : 100,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -967,6 +997,9 @@ let s:state = {
     \ 'accel_delete_count': 0,
     \ 'accel_delete_total': 0,
     \ 'pause_after_count': 0,
+    \ 'awd_phase': 0,
+    \ 'awd_delay': 0,
+    \ 'awd_word_count': 0,
     \ }
 
 " --- Diff: LCS at line level and char level -------------------------------
@@ -2179,6 +2212,18 @@ function! s:ProcessCharOp() abort
             let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
             call s:HighlightCurrentWord('delete', l:run_len)
         endif
+        " --adaptive-word-delete: word-by-word line deletion with acceleration.
+        " Each line: few chars slow → word by word (accelerating) → rest rapid.
+        if g:diffvim.adaptive_word_delete
+            let l:ml_count = s:LookaheadMultiLineDelete(l:hunk.char_ops, s:state.op_idx)
+            if l:ml_count >= 2
+                if s:state.accel_delete_count == 0
+                    let s:state.accel_delete_total = l:ml_count
+                endif
+                call s:ProcessAdaptiveWordDelete(l:hunk, l:ml_count)
+                return
+            endif
+        endif
         " --accel-delete: accelerated block-based multi-line deletion.
         " Deletes in blocks of block_delete_size lines, with accel/decel
         " and pause before/after.
@@ -2542,6 +2587,174 @@ function! s:ProcessBlockDelete(hunk, total_count) abort
     call s:ScheduleNext(l:delay)
 endfunction
 
+" Adaptive word-by-word line deletion.
+"
+" When --adaptive-word-delete is on and a multi-line delete run is detected,
+" each line is deleted in 3 phases:
+"   Phase 1 (start): delete the first N chars slowly (start_chars chars
+"     at start_ms delay each). Lets the user see what is being deleted.
+"   Phase 2 (word-by-word): delete word by word. Each word (non-space run)
+"     is deleted instantly, followed by a pause. The pause accelerates:
+"     word_pause_ms * accel^word_count (decreasing). After each word,
+"     word_pause_ms delay.
+"   Phase 3 (rest): delete remaining chars (spaces, last partial word)
+"     rapidly at min_ms delay.
+"
+" State tracking:
+"   s:state.awd_phase: 0=not started, 1=start chars, 2=word-by-word, 3=rest
+"   s:state.awd_delay: current delay for acceleration
+"   s:state.awd_word_count: words deleted so far
+function! s:ProcessAdaptiveWordDelete(hunk, total_count) abort
+    " Skip leading whitespace (advance cursor past indent)
+    if s:state.awd_phase == 0
+        let l:skipped = 0
+        while s:state.op_idx + l:skipped < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[s:state.op_idx + l:skipped]
+            if l:op[0] ==# 'delete' && (l:op[1] ==# ' ' || l:op[1] ==# "\t")
+                call s:AdvanceForKeepChar(l:op[1])
+                let l:skipped += 1
+            else
+                break
+            endif
+        endwhile
+        if l:skipped > 0
+            let s:state.op_idx += l:skipped
+            let s:state.accel_delete_count += l:skipped
+            redraw
+        endif
+        let s:state.awd_phase = 1
+    endif
+
+    " Count remaining delete ops on the current line (until newline or end)
+    let l:line_remaining = 0
+    let l:op_idx = s:state.op_idx
+    while l:op_idx < len(a:hunk.char_ops)
+        let l:op = a:hunk.char_ops[l:op_idx]
+        if l:op[0] !=# 'delete' | break | endif
+        if l:op[1] ==# "\n" | break | endif
+        let l:line_remaining += 1
+        let l:op_idx += 1
+    endwhile
+
+    if l:line_remaining == 0
+        " Line done — delete the newline and move to next line
+        if s:state.op_idx < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[s:state.op_idx]
+            if l:op[0] ==# 'delete'
+                call s:DeleteCharAtCursor()
+                let s:state.op_idx += 1
+                let s:state.accel_delete_count += 1
+                redraw
+            endif
+        endif
+        " Reset for next line
+        let s:state.awd_phase = 0
+        let s:state.awd_delay = 0
+        let s:state.awd_word_count = 0
+        " Check if done
+        if s:state.accel_delete_count >= a:total_count
+            let s:state.accel_delete_count = 0
+            let s:state.accel_delete_total = 0
+            let l:delay = g:diffvim.pause_after_delete_ms
+        else
+            let l:delay = g:diffvim.adaptive_word_delete_word_pause_ms
+        endif
+        let l:delay = s:GaussianJitter(l:delay)
+        call s:ScheduleNext(l:delay)
+        return
+    endif
+
+    " Phase 1: delete start_chars one by one, slowly
+    if s:state.awd_phase == 1
+        let l:start_chars = g:diffvim.adaptive_word_delete_start_chars
+        if l:line_remaining <= l:start_chars
+            " Line is short — go straight to rest phase
+            let s:state.awd_phase = 3
+        else
+            call s:DeleteCharAtCursor()
+            redraw
+            let s:state.op_idx += 1
+            let s:state.accel_delete_count += 1
+            " Count how many start chars we have deleted in this line
+            let l:phase1_count = 0
+            let l:check_idx = s:state.op_idx - 1
+            while l:check_idx >= 0
+                let l:check_op = a:hunk.char_ops[l:check_idx]
+                if l:check_op[0] ==# 'delete' && l:check_op[1] !=# "\n" && l:check_op[1] !=# ' ' && l:check_op[1] !=# "\t"
+                    let l:phase1_count += 1
+                    let l:check_idx -= 1
+                else
+                    break
+                endif
+            endwhile
+            if l:phase1_count >= l:start_chars
+                let s:state.awd_phase = 2
+                let s:state.awd_delay = g:diffvim.adaptive_word_delete_start_ms
+            endif
+            let l:delay = s:GaussianJitter(g:diffvim.adaptive_word_delete_start_ms)
+            call s:ScheduleNext(l:delay)
+            return
+        endif
+    endif
+
+    " Phase 2: word-by-word deletion with acceleration
+    if s:state.awd_phase == 2
+        " Find the next word boundary: count non-space chars until space or end
+        let l:word_len = 0
+        let l:op_idx2 = s:state.op_idx
+        while l:op_idx2 < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[l:op_idx2]
+            if l:op[0] !=# 'delete' | break | endif
+            if l:op[1] ==# "\n" | break | endif
+            if l:op[1] ==# ' ' || l:op[1] ==# "\t" | break | endif
+            let l:word_len += 1
+            let l:op_idx2 += 1
+        endwhile
+
+        if l:word_len == 0
+            " No more words — go to rest phase
+            let s:state.awd_phase = 3
+        else
+            " Delete the whole word instantly
+            for l:i in range(l:word_len)
+                call s:DeleteCharAtCursor()
+            endfor
+            redraw
+            let s:state.op_idx += l:word_len
+            let s:state.accel_delete_count += l:word_len
+            let s:state.awd_word_count += 1
+            " Compute accelerating delay
+            let l:delay = s:state.awd_delay
+            if l:delay <= 0
+                let l:delay = g:diffvim.adaptive_word_delete_start_ms
+            else
+                let l:delay = l:delay * g:diffvim.adaptive_word_delete_accel
+                if l:delay < g:diffvim.adaptive_word_delete_min_ms
+                    let l:delay = g:diffvim.adaptive_word_delete_min_ms
+                endif
+            endif
+            let s:state.awd_delay = l:delay
+            let l:delay = s:GaussianJitter(float2nr(l:delay))
+            if g:diffvim.sign_column
+                call s:PlaceSign('dv_del', s:cur_l)
+            endif
+            call s:ScheduleNext(l:delay)
+            return
+        endif
+    endif
+
+    " Phase 3: delete rest rapidly
+    if s:state.awd_phase == 3
+        call s:DeleteCharAtCursor()
+        redraw
+        let s:state.op_idx += 1
+        let s:state.accel_delete_count += 1
+        let l:delay = s:GaussianJitter(g:diffvim.adaptive_word_delete_min_ms)
+        call s:ScheduleNext(l:delay)
+        return
+    endif
+endfunction
+
 " Look ahead to count consecutive delete ops that span whole lines (i.e.,
 " the deletes include newlines). Returns the count, or 0 if not a multi-
 " line delete run.
@@ -2581,37 +2794,53 @@ endfunction
 
 " --- Inline char highlight ------------------------------------------------
 " Highlight freshly typed/deleted chars for a short duration.
-let s:inline_highlight_ids = []
-let s:inline_highlight_timer = -1
+" Each highlight has its own ID and its own timer. When the timer fires,
+" only that specific highlight is cleared. This lets multiple highlights
+" coexist and fade independently, so the user can see a trail of recent
+" changes instead of only the latest one.
+let s:inline_highlights = []  " list of [match_id, timer_id]
 
 function! s:InlineHighlight(line, col, type) abort
     if !g:diffvim.inline_highlight | return | endif
-    " Clear previous highlight
-    for l:id in s:inline_highlight_ids
-        try | call matchdelete(l:id) | catch | endtry
-    endfor
-    let s:inline_highlight_ids = []
     let l:color = a:type ==# 'insert' ? 'DiffAdd' : 'DiffDelete'
     let l:pos = [[a:line, a:col, 1]]
-    let l:id = matchaddpos(l:color, l:pos)
-    call add(s:inline_highlight_ids, l:id)
-    if s:inline_highlight_timer != -1
-        call timer_stop(s:inline_highlight_timer)
-    endif
-    let s:inline_highlight_timer = timer_start(
+    let l:match_id = matchaddpos(l:color, l:pos)
+    " Schedule this specific highlight to be cleared after the duration
+    let l:timer_id = timer_start(
         \ g:diffvim.inline_highlight_duration,
-        \ function('s:ClearInlineHighlight'))
+        \ function('s:ClearOneInlineHighlight', [l:match_id]))
+    call add(s:inline_highlights, [l:match_id, l:timer_id])
+    " Clean up old cleared entries
+    call filter(s:inline_highlights, 'v:val[0] != -1')
+    " Limit to 50 concurrent highlights to avoid performance issues
+    while len(s:inline_highlights) > 50
+        let l:old = remove(s:inline_highlights, 0)
+        try | call matchdelete(l:old[0]) | catch | endtry
+        if l:old[1] != -1
+            call timer_stop(l:old[1])
+        endif
+    endwhile
+endfunction
+
+function! s:ClearOneInlineHighlight(match_id, ...) abort
+    try | call matchdelete(a:match_id) | catch | endtry
+    " Mark as cleared in the list
+    for l:h in s:inline_highlights
+        if l:h[0] == a:match_id
+            let l:h[0] = -1
+            let l:h[1] = -1
+        endif
+    endfor
 endfunction
 
 function! s:ClearInlineHighlight(...) abort
-    for l:id in s:inline_highlight_ids
-        try | call matchdelete(l:id) | catch | endtry
+    for l:h in s:inline_highlights
+        try | call matchdelete(l:h[0]) | catch | endtry
+        if l:h[1] != -1
+            call timer_stop(l:h[1])
+        endif
     endfor
-    let s:inline_highlight_ids = []
-    if s:inline_highlight_timer != -1
-        call timer_stop(s:inline_highlight_timer)
-        let s:inline_highlight_timer = -1
-    endif
+    let s:inline_highlights = []
 endfunction
 
 " --- Dim unchanged lines --------------------------------------------------
@@ -2620,18 +2849,38 @@ let s:dim_match_ids = []
 function! s:SetupDimUnchanged() abort
     if !g:diffvim.dim_unchanged | return | endif
     call s:ClearDimUnchanged()
-    " Define a dim highlight group based on the percentage
+    " Define a dim highlight group. The percentage controls how dim:
+    " higher = more dim (more gray). We map pct to a ctermfg color:
+    " 0-20: color 7 (light gray), 21-40: color 8 (dark gray),
+    " 41-60: color 240, 61-80: color 242, 81-100: color 245.
+    " For gui, we use a gray hex value interpolated from the pct.
     let l:pct = g:diffvim.dim_unchanged_pct
-    let l:fg = synIDattr(synIDtrans(hlID('Normal')), 'fg', 'cterm')
-    let l:bg = synIDattr(synIDtrans(hlID('Normal')), 'bg', 'cterm')
-    " Create a dimmed version using Comment-like appearance
-    execute 'highlight diffvimDimUnchanged ctermfg=8 guifg=Gray' . l:pct
+    let l:cterm = 8
+    if l:pct <= 20
+        let l:cterm = 7
+    elseif l:pct <= 40
+        let l:cterm = 8
+    elseif l:pct <= 60
+        let l:cterm = 240
+    elseif l:pct <= 80
+        let l:cterm = 242
+    else
+        let l:cterm = 245
+    endif
+    " For gui, interpolate gray: 0% = normal, 100% = gray80
+    let l:gray_val = float2nr(80 + (255 - 80) * (100 - l:pct) / 100)
+    let l:hex = printf('#%02x%02x%02x', l:gray_val, l:gray_val, l:gray_val)
+    execute 'highlight diffvimDimUnchanged ctermfg=' . l:cterm . ' guifg=' . l:hex
     " Find all unchanged lines (lines not in any hunk) and dim them
     let l:changed_lines = {}
     for l:h in s:state.hunks
         let l:start = l:h.target_line_old
-        let l:end = l:start + l:h.deleted_count - 1
-        if l:h.deleted_count == 0 | let l:end = l:start | endif
+        " Also include inserted lines in the changed set
+        let l:end = l:start + l:h.deleted_count
+        if l:h.inserted_count > l:h.deleted_count
+            let l:end = l:start + l:h.inserted_count
+        endif
+        if l:end < l:start | let l:end = l:start | endif
         for l:l in range(l:start, l:end)
             let l:changed_lines[l:l] = 1
         endfor
@@ -2642,7 +2891,7 @@ function! s:SetupDimUnchanged() abort
             call add(l:positions, [l:l])
         endif
     endfor
-    " Batch in groups of 8
+    " Batch in groups of 8 (matchaddpos limit)
     let l:batch = []
     for l:pos in l:positions
         call add(l:batch, l:pos)
@@ -2656,6 +2905,7 @@ function! s:SetupDimUnchanged() abort
         let l:id = matchaddpos('diffvimDimUnchanged', l:batch)
         call add(s:dim_match_ids, l:id)
     endif
+    redraw
 endfunction
 
 function! s:ClearDimUnchanged(...) abort

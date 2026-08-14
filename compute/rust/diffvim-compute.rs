@@ -473,6 +473,50 @@ fn semantic_cleanup(ops: Vec<CharOp>) -> Vec<CharOp> {
     out
 }
 
+/* --- Op-sequence optimization: consolidate interleaved del/ins --- */
+fn optimize_sequence(ops: Vec<CharOp>) -> Vec<CharOp> {
+    if ops.len() < 4 { return ops; }
+    let mut out: Vec<CharOp> = Vec::with_capacity(ops.len());
+    let mut i = 0;
+    while i < ops.len() {
+        if ops[i].typ != OpType::Keep && ops[i].code != 10 {
+            while i < ops.len() {
+                if ops[i].typ == OpType::Keep { break; }
+                if ops[i].code == 10 { break; }
+                out.push(ops[i].clone());
+                i += 1;
+            }
+        } else {
+            out.push(ops[i].clone());
+            i += 1;
+        }
+    }
+    out
+}
+
+/* --- Left-to-right: sort ops within each line by type --- */
+fn left_to_right(ops: Vec<CharOp>) -> Vec<CharOp> {
+    if ops.len() < 2 { return ops; }
+    let mut out: Vec<CharOp> = Vec::with_capacity(ops.len());
+    let mut i = 0;
+    while i < ops.len() {
+        let line_start = i;
+        while i < ops.len() && ops[i].code != 10 { i += 1; }
+        let line_end = i;
+        for k in line_start..line_end {
+            if ops[k].typ == OpType::Keep { out.push(ops[k].clone()); }
+        }
+        for k in line_start..line_end {
+            if ops[k].typ == OpType::Delete { out.push(ops[k].clone()); }
+        }
+        for k in line_start..line_end {
+            if ops[k].typ == OpType::Insert { out.push(ops[k].clone()); }
+        }
+        if i < ops.len() { out.push(ops[i].clone()); i += 1; }
+    }
+    out
+}
+
 /* --- Word-level diff --- */
 /* Splits text into tokens (maximal runs of non-whitespace + maximal runs of
  * whitespace), runs LCS at the token level, then expands each token to
@@ -612,6 +656,12 @@ fn main() {
     let mut do_indent_aware = env::var("DIFFVIM_INDENT_AWARE")
         .map(|v| v.starts_with('1'))
         .unwrap_or(false);
+    let mut do_optimize = env::var("DIFFVIM_OPTIMIZE_SEQUENCE")
+        .map(|v| !v.starts_with('0'))
+        .unwrap_or(true);  /* default on */
+    let mut do_l2r = env::var("DIFFVIM_LEFT_TO_RIGHT")
+        .map(|v| v.starts_with('1'))
+        .unwrap_or(false);
 
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
@@ -633,6 +683,15 @@ fn main() {
             i += 1;
         } else if args[i] == "--indent-aware" {
             do_indent_aware = true;
+            i += 1;
+        } else if args[i] == "--optimize-sequence" {
+            do_optimize = true;
+            i += 1;
+        } else if args[i] == "--no-optimize-sequence" {
+            do_optimize = false;
+            i += 1;
+        } else if args[i] == "--left-to-right" {
+            do_l2r = true;
             i += 1;
         } else if args[i] == "--diff" {
             diff_mode = true;
@@ -759,6 +818,12 @@ fn main() {
             if do_semantic {
                 h.char_ops = semantic_cleanup(h.char_ops);
             }
+            if do_optimize {
+                h.char_ops = optimize_sequence(h.char_ops);
+            }
+            if do_l2r {
+                h.char_ops = left_to_right(h.char_ops);
+            }
             hunks.push(h);
         }
     }
@@ -774,6 +839,8 @@ fn main() {
     writeln!(out, "# semantic_cleanup {}", if do_semantic { 1 } else { 0 }).unwrap();
     writeln!(out, "# word_diff {}", if do_word_diff { 1 } else { 0 }).unwrap();
     writeln!(out, "# indent_aware {}", if do_indent_aware { 1 } else { 0 }).unwrap();
+    writeln!(out, "# optimize_sequence {}", if do_optimize { 1 } else { 0 }).unwrap();
+    writeln!(out, "# left_to_right {}", if do_l2r { 1 } else { 0 }).unwrap();
     writeln!(out, "# hunk_count {}", hunks.len()).unwrap();
     for h in &hunks {
         write!(out, "HUNK {} {} {} {} {}\n",

@@ -493,6 +493,69 @@ func semanticCleanup(ops []charOp) []charOp {
         return out
 }
 
+/* --- Op-sequence optimization: consolidate interleaved del/ins --- */
+func optimizeSequence(ops []charOp) []charOp {
+        if len(ops) < 4 {
+                return ops
+        }
+        out := make([]charOp, 0, len(ops))
+        i := 0
+        for i < len(ops) {
+                if ops[i].typ != opKeep && ops[i].code != 10 {
+                        for i < len(ops) {
+                                if ops[i].typ == opKeep {
+                                        break
+                                }
+                                if ops[i].code == 10 {
+                                        break
+                                }
+                                out = append(out, ops[i])
+                                i++
+                        }
+                } else {
+                        out = append(out, ops[i])
+                        i++
+                }
+        }
+        return out
+}
+
+/* --- Left-to-right: sort ops within each line by type --- */
+func leftToRight(ops []charOp) []charOp {
+        if len(ops) < 2 {
+                return ops
+        }
+        out := make([]charOp, 0, len(ops))
+        i := 0
+        for i < len(ops) {
+                lineStart := i
+                for i < len(ops) && ops[i].code != 10 {
+                        i++
+                }
+                lineEnd := i
+                for k := lineStart; k < lineEnd; k++ {
+                        if ops[k].typ == opKeep {
+                                out = append(out, ops[k])
+                        }
+                }
+                for k := lineStart; k < lineEnd; k++ {
+                        if ops[k].typ == opDelete {
+                                out = append(out, ops[k])
+                        }
+                }
+                for k := lineStart; k < lineEnd; k++ {
+                        if ops[k].typ == opInsert {
+                                out = append(out, ops[k])
+                        }
+                }
+                if i < len(ops) {
+                        out = append(out, ops[i])
+                        i++
+                }
+        }
+        return out
+}
+
 /* --- Word-level diff --- */
 /* Splits text into tokens (maximal runs of non-whitespace + maximal runs of
  * whitespace), runs LCS at the token level, then expands each token to
@@ -653,6 +716,9 @@ func main() {
         doSemantic := strings.HasPrefix(os.Getenv("DIFFVIM_SEMANTIC_CLEANUP"), "1")
         doWordDiff := strings.HasPrefix(os.Getenv("DIFFVIM_WORD_DIFF"), "1")
         doIndentAware := strings.HasPrefix(os.Getenv("DIFFVIM_INDENT_AWARE"), "1")
+        /* DIFFVIM_OPTIMIZE_SEQUENCE defaults on; only "0" turns it off */
+        doOptimize := !strings.HasPrefix(os.Getenv("DIFFVIM_OPTIMIZE_SEQUENCE"), "0")
+        doL2R := strings.HasPrefix(os.Getenv("DIFFVIM_LEFT_TO_RIGHT"), "1")
 
         /* Parse args:
          *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
@@ -671,6 +737,12 @@ func main() {
                         doWordDiff = true
                 } else if os.Args[i] == "--indent-aware" {
                         doIndentAware = true
+                } else if os.Args[i] == "--optimize-sequence" {
+                        doOptimize = true
+                } else if os.Args[i] == "--no-optimize-sequence" {
+                        doOptimize = false
+                } else if os.Args[i] == "--left-to-right" {
+                        doL2R = true
                 } else if os.Args[i] == "--diff" {
                         diffMode = true
                 } else {
@@ -799,6 +871,12 @@ func main() {
                 if doSemantic {
                         h.charOps = semanticCleanup(h.charOps)
                 }
+                if doOptimize {
+                        h.charOps = optimizeSequence(h.charOps)
+                }
+                if doL2R {
+                        h.charOps = leftToRight(h.charOps)
+                }
                 hunks = append(hunks, h)
         }
         tDiffEnd := time.Now()
@@ -815,6 +893,8 @@ func main() {
         fmt.Fprintf(w, "# semantic_cleanup %d\n", semanticBoolToInt(doSemantic))
         fmt.Fprintf(w, "# word_diff %d\n", semanticBoolToInt(doWordDiff))
         fmt.Fprintf(w, "# indent_aware %d\n", semanticBoolToInt(doIndentAware))
+        fmt.Fprintf(w, "# optimize_sequence %d\n", semanticBoolToInt(doOptimize))
+        fmt.Fprintf(w, "# left_to_right %d\n", semanticBoolToInt(doL2R))
         fmt.Fprintf(w, "# hunk_count %d\n", len(hunks))
         for _, h := range hunks {
                 ei, ed := 0, 0
