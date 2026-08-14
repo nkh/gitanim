@@ -1175,6 +1175,10 @@ let s:state = {
     \ 'word_accel_idx': 0,
     \ 'word_accel_total': 0,
     \ 'word_accel_base_delay': 0,
+    \ 'scroll_from_l': 1,
+    \ 'scroll_to_l': 1,
+    \ 'scroll_elapsed': 0,
+    \ 'scroll_duration': 0,
     \ }
 
 " --- Diff: LCS at line level and char level -------------------------------
@@ -2149,6 +2153,8 @@ function! s:Tick(timer) abort
         call s:StartNextHunk()
     elseif s:state.phase ==# 'moving'
         call s:MoveStep()
+    elseif s:state.phase ==# 'scrolling'
+        call s:ScrollStep()
     elseif s:state.phase ==# 'typing'
         call s:ProcessCharOp()
     elseif s:state.phase ==# 'done'
@@ -2364,6 +2370,51 @@ function! s:MoveStep() abort
         normal! zb
     endif
     redraw
+    call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
+endfunction
+
+" Smooth scroll step: scrolls the viewport one line at a time with
+" ease-in-out acceleration. Used when the cursor jumps many lines
+" during typing (e.g., due to insert/delete ops changing line count).
+" Instead of jumping instantly, we scroll through each intermediate line.
+function! s:ScrollStep() abort
+    let s:state.scroll_elapsed += float2nr(g:diffvim.tick_ms / s:state.runtime_speed)
+    let l:t = s:state.scroll_elapsed * 1.0 / s:state.scroll_duration
+    if l:t >= 1.0
+        " Scroll done — resume typing
+        let s:cur_l = s:state.scroll_to_l
+        call s:PlaceCursor()
+        let s:state.phase = 'typing'
+        let s:last_scrolled_line = s:cur_l
+        call s:ScheduleNext(1)
+        return
+    endif
+    let l:eased = s:EaseInOut(l:t)
+    let l:cur_l = float2nr(round(s:state.scroll_from_l
+        \ + (s:state.scroll_to_l - s:state.scroll_from_l) * l:eased))
+    if l:cur_l < 1 | let l:cur_l = 1 | endif
+    if l:cur_l > line('$') | let l:cur_l = line('$') | endif
+    " Move cursor and scroll viewport
+    call cursor(l:cur_l, 1)
+    if g:diffvim.scroll ==# 'zz'
+        normal! zz
+    elseif g:diffvim.scroll ==# 'zt'
+        normal! zt
+    elseif g:diffvim.scroll ==# 'zb'
+        normal! zb
+    endif
+    redraw
+    call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
+endfunction
+
+" Start a smooth scroll from one line to another.
+" Called when a typing op causes a large line jump (> 3 lines).
+function! s:StartSmoothScroll(from_line, to_line) abort
+    let s:state.scroll_from_l = a:from_line
+    let s:state.scroll_to_l = a:to_line
+    let s:state.scroll_elapsed = 0
+    let s:state.scroll_duration = s:ComputeMoveDuration(a:from_line, 1, a:to_line, 1)
+    let s:state.phase = 'scrolling'
     call s:ScheduleNext(float2nr(g:diffvim.tick_ms / s:state.runtime_speed))
 endfunction
 
@@ -2673,13 +2724,15 @@ function! s:ProcessCharOp() abort
 
     " Detect large line jumps during typing (e.g., when insert/delete ops
     " change the line count and the cursor shifts many lines). When the
-    " cursor jumps more than 3 lines, add a delay so the viewer can
-    " register the viewport scroll. This is the fix for "sudden jumps"
-    " during typing — the viewport scrolls instantly (vim can't smooth-
-    " scroll), but the delay gives the viewer time to reorient.
+    " cursor jumps more than 3 lines, start a smooth scroll through each
+    " intermediate line with ease-in-out acceleration, instead of jumping
+    " instantly. The viewer sees line+1, line+2, line+3... accelerating
+    " and decelerating before reaching the target line.
     let l:line_delta = abs(s:cur_l - s:last_scrolled_line)
-    if l:line_delta > 3 && l:delay < g:diffvim.line_change_pause_ms
-        let l:delay = float2nr(g:diffvim.line_change_pause_ms / s:state.runtime_speed)
+    if l:line_delta > 3
+        " Start smooth scroll from the old line to the new line
+        call s:StartSmoothScroll(s:last_scrolled_line, s:cur_l)
+        return
     endif
     let s:last_scrolled_line = s:cur_l
 
