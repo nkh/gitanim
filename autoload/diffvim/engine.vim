@@ -97,10 +97,10 @@ let g:diffvim = extend({
     \ 'pause_after_delete_ms': !empty($DIFFVIM_PAUSE_AFTER_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_AFTER_DELETE_MS) : 200,
     \ 'block_delete_size':  !empty($DIFFVIM_BLOCK_DELETE_SIZE)   ? str2nr($DIFFVIM_BLOCK_DELETE_SIZE) : 3,
     \ 'theme':              !empty($DIFFVIM_THEME)              ? $DIFFVIM_THEME                   : '',
-    \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 1,
+    \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 0,
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      empty($DIFFVIM_LEFT_TO_RIGHT)       ? 1 : ($DIFFVIM_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
+    \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
     \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
     \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
     \ 'adaptive_word_delete_start_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) : 80,
@@ -1702,18 +1702,9 @@ function! s:ProcessCharOp() abort
 
     let s:state.op_idx += 1
 
-    " Detect large line jumps during typing (e.g., when insert/delete ops
-    " change the line count and the cursor shifts many lines). When the
-    " cursor jumps more than 3 lines, start a smooth scroll through each
-    " intermediate line with ease-in-out acceleration, instead of jumping
-    " instantly. The viewer sees line+1, line+2, line+3... accelerating
-    " and decelerating before reaching the target line.
-    let l:line_delta = abs(s:cur_l - s:last_scrolled_line)
-    if l:line_delta > 3
-        " Start smooth scroll from the old line to the new line
-        call s:StartSmoothScroll(s:last_scrolled_line, s:cur_l)
-        return
-    endif
+    " Track line changes during typing for scroll purposes.
+    " We do NOT smooth-scroll during typing (it breaks the char op sequence).
+    " Smooth scrolling only happens between hunks (in the 'moving' phase).
     let s:last_scrolled_line = s:cur_l
 
     let l:delay = s:GaussianJitter(l:delay)
