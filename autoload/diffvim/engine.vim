@@ -215,8 +215,18 @@ endfunction
 "   ['delete', ch]
 "   ['insert', ch]
 function! s:CharDiff(a, b) abort
-    let l:a = split(a:a, '\zs')
-    let l:b = split(a:b, '\zs')
+    " Use str2list() for UTF-8 aware character splitting (vim 8.2+).
+    " str2list returns a list of code points, not bytes.
+    " Fall back to split('\zs') for older vim versions.
+    if exists('*str2list')
+        let l:a_codes = str2list(a:a)
+        let l:b_codes = str2list(a:b)
+        let l:a = map(l:a_codes, 'nr2char(v:val)')
+        let l:b = map(l:b_codes, 'nr2char(v:val)')
+    else
+        let l:a = split(a:a, '\zs')
+        let l:b = split(a:b, '\zs')
+    endif
     let l:na = len(l:a)
     let l:nb = len(l:b)
     let l:dp = []
@@ -985,11 +995,15 @@ function! s:PlaceCursor() abort
     if l:ll < 1 | let l:ll = 1 | endif
     if l:ll > line('$') | let l:ll = line('$') | endif
     let l:line = getline(l:ll)
-    let l:len = len(l:line)
+    " Use character count, not byte length, for clamping
+    let l:len = strchars(l:line)
     let l:actual = l:lc
     if l:actual > l:len + 1 | let l:actual = l:len + 1 | endif
     if l:actual < 1 | let l:actual = 1 | endif
-    call cursor(l:ll, l:actual)
+    " cursor() accepts byte positions, so convert character col to byte col
+    let l:byte_col = byteidx(l:line, l:actual - 1) + 1
+    if l:byte_col < 1 | let l:byte_col = 1 | endif
+    call cursor(l:ll, l:byte_col)
     " Scroll cursor to center/top/bottom if configured
     if g:diffvim.scroll ==# 'zz'
         normal! zz
@@ -1020,12 +1034,27 @@ function! s:PlaceCursorWithJumpCheck() abort
     " ProcessCharOp by checking if PlaceCursor caused a large scroll.
 endfunction
 
+" Convert a character column (1-indexed) to a byte offset (0-indexed)
+" for use with strpart(). Uses byteidx() which is available in vim 8+.
+function! s:CharToByte(line, char_col) abort
+    " byteidx(line, char_idx) returns the byte index of the char_idx-th
+    " character (0-indexed). We need char_col-1 (0-indexed char).
+    let l:byte = byteidx(a:line, a:char_col - 1)
+    if l:byte < 0
+        " Past end of string — return the byte length
+        return len(a:line)
+    endif
+    return l:byte
+endfunction
+
 function! s:InsertCharAtCursor(ch) abort
     let l:l = s:cur_l
     let l:c = s:cur_c
     let l:line = getline(l:l)
-    let l:before = strpart(l:line, 0, l:c - 1)
-    let l:after  = strpart(l:line, l:c - 1)
+    " Convert character position to byte position
+    let l:byte_pos = s:CharToByte(l:line, l:c)
+    let l:before = strpart(l:line, 0, l:byte_pos)
+    let l:after  = strpart(l:line, l:byte_pos)
     if a:ch ==# "\n"
         call setline(l:l, l:before)
         call append(l:l, l:after)
@@ -1033,7 +1062,7 @@ function! s:InsertCharAtCursor(ch) abort
         let s:cur_c = 1
     else
         call setline(l:l, l:before . a:ch . l:after)
-        let s:cur_c = l:c + strlen(a:ch)
+        let s:cur_c = l:c + strchars(a:ch)
     endif
     call s:PlaceCursor()
 endfunction
@@ -1042,8 +1071,9 @@ function! s:DeleteCharAtCursor() abort
     let l:l = s:cur_l
     let l:c = s:cur_c
     let l:line = getline(l:l)
-    let l:line_len = len(l:line)
-    if l:c > l:line_len
+    " Use character count, not byte length, for "past end" check
+    let l:line_chars = strchars(l:line)
+    if l:c > l:line_chars
         " past end -> join with next line (delete the newline)
         if l:l < line('$')
             let l:next = getline(l:l + 1)
@@ -1052,8 +1082,11 @@ function! s:DeleteCharAtCursor() abort
             " logical cursor stays at same col on the joined line
         endif
     else
-        let l:before = strpart(l:line, 0, l:c - 1)
-        let l:after  = strpart(l:line, l:c)
+        " Convert character positions to byte positions
+        let l:byte_start = s:CharToByte(l:line, l:c)
+        let l:byte_next = s:CharToByte(l:line, l:c + 1)
+        let l:before = strpart(l:line, 0, l:byte_start)
+        let l:after  = strpart(l:line, l:byte_next)
         call setline(l:l, l:before . l:after)
         " logical cursor stays at same col
     endif
@@ -1069,7 +1102,7 @@ function! s:AdvanceForKeepChar(ch) abort
         endif
         let s:cur_c = 1
     else
-        let s:cur_c += strlen(a:ch)
+        let s:cur_c += strchars(a:ch)
     endif
     call s:PlaceCursor()
 endfunction
