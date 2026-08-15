@@ -1977,7 +1977,7 @@ function! s:BuildHunks() abort
         " --delete-end-first: when a line has both inserts and end-of-line
         " deletes, move the end-deletes before the inserts (with a short
         " pause) so the viewer sees the tail disappear first.
-        if g:diffvim.delete_end_first
+        if g:diffvim.delete_end_first || g:diffvim.delete_end_first_smart
             let l:h.char_ops = s:DeleteEndFirst(l:h.char_ops)
         endif
         let l:h.deleted_count = len(l:deleted)
@@ -2633,6 +2633,18 @@ function! s:ProcessCharOp() abort
         if g:diffvim.highlight_word
             let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
             call s:HighlightCurrentWord('delete', l:run_len)
+        endif
+        " --delete-end-first-smart: when smart mode is on, use accelerated
+        " word-by-word deletion for trailing deletes. First 3 chars slow,
+        " then words with acceleration, then rest rapid. This makes the
+        " trailing text disappear progressively instead of char-by-char.
+        if g:diffvim.delete_end_first_smart && s:state.awd_phase == 0
+            let l:ml_count = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
+            if l:ml_count >= 2
+                let s:state.accel_delete_total = l:ml_count
+                call s:ProcessAdaptiveWordDelete(l:hunk, l:ml_count)
+                return
+            endif
         endif
         " --rapid-identical-chars: accelerate deletion of identical char runs
         " like "---------------------------" rapidly. Each char deleted with
