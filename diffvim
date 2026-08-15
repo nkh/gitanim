@@ -62,9 +62,9 @@ set -euo pipefail
 export DIFFVIM_TICK_MS=${DIFFVIM_TICK_MS:-16}
 export DIFFVIM_TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-50}
 export DIFFVIM_DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-40}
-export DIFFVIM_MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-250}
-export DIFFVIM_MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-1600}
-export DIFFVIM_MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-6}
+export DIFFVIM_MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-200}
+export DIFFVIM_MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-2000}
+export DIFFVIM_MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-1}
 export DIFFVIM_HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-250}
 export DIFFVIM_WORD_PAUSE_MS=${DIFFVIM_WORD_PAUSE_MS:-150}
 export DIFFVIM_RAPID_EOL_DELAY_MS=${DIFFVIM_RAPID_EOL_DELAY_MS:-80}
@@ -155,10 +155,10 @@ PAUSE_AFTER_DELETE_MS="${DIFFVIM_PAUSE_AFTER_DELETE_MS:-200}"
 BLOCK_DELETE_SIZE="${DIFFVIM_BLOCK_DELETE_SIZE:-3}"
 FOLD_UNCHANGED=0
 THEME="${DIFFVIM_THEME:-}"
-OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-0}"
+OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
-LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-0}"
+LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-1}"
 ADAPTIVE_WORD_DELETE="${DIFFVIM_ADAPTIVE_WORD_DELETE:-0}"
 ADAPTIVE_WORD_DELETE_START_CHARS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS:-3}"
 ADAPTIVE_WORD_DELETE_START_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS:-80}"
@@ -1056,9 +1056,9 @@ endif
 let g:diffvim = extend({
     \ 'type_delay_ms':      !empty($DIFFVIM_TYPE_DELAY_MS)    ? str2nr($DIFFVIM_TYPE_DELAY_MS)    : 50,
     \ 'delete_delay_ms':    !empty($DIFFVIM_DELETE_DELAY_MS)  ? str2nr($DIFFVIM_DELETE_DELAY_MS)  : 40,
-    \ 'move_min_ms':        !empty($DIFFVIM_MOVE_MIN_MS)      ? str2nr($DIFFVIM_MOVE_MIN_MS)      : 250,
-    \ 'move_max_ms':        !empty($DIFFVIM_MOVE_MAX_MS)      ? str2nr($DIFFVIM_MOVE_MAX_MS)      : 1600,
-    \ 'move_ms_per_unit':   !empty($DIFFVIM_MOVE_MS_PER_UNIT) ? str2nr($DIFFVIM_MOVE_MS_PER_UNIT) : 6,
+    \ 'move_min_ms':        !empty($DIFFVIM_MOVE_MIN_MS)      ? str2nr($DIFFVIM_MOVE_MIN_MS)      : 200,
+    \ 'move_max_ms':        !empty($DIFFVIM_MOVE_MAX_MS)      ? str2nr($DIFFVIM_MOVE_MAX_MS)      : 2000,
+    \ 'move_ms_per_unit':   !empty($DIFFVIM_MOVE_MS_PER_UNIT) ? str2nr($DIFFVIM_MOVE_MS_PER_UNIT) : 1,
     \ 'hunk_pause_ms':      !empty($DIFFVIM_HUNK_PAUSE_MS)    ? str2nr($DIFFVIM_HUNK_PAUSE_MS)    : 250,
     \ 'tick_ms':            !empty($DIFFVIM_TICK_MS)          ? str2nr($DIFFVIM_TICK_MS)          : 16,
     \ 'word_pause_ms':      !empty($DIFFVIM_WORD_PAUSE_MS)    ? str2nr($DIFFVIM_WORD_PAUSE_MS)    : 150,
@@ -1117,10 +1117,10 @@ let g:diffvim = extend({
     \ 'pause_after_delete_ms': !empty($DIFFVIM_PAUSE_AFTER_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_AFTER_DELETE_MS) : 200,
     \ 'block_delete_size':  !empty($DIFFVIM_BLOCK_DELETE_SIZE)   ? str2nr($DIFFVIM_BLOCK_DELETE_SIZE) : 3,
     \ 'theme':              !empty($DIFFVIM_THEME)              ? $DIFFVIM_THEME                   : '',
-    \ 'optimize_sequence':  !empty($DIFFVIM_OPTIMIZE_SEQUENCE)  ? 1 : 0,
+    \ 'optimize_sequence':  empty($DIFFVIM_OPTIMIZE_SEQUENCE) ? 1 : ($DIFFVIM_OPTIMIZE_SEQUENCE ==# '0' ? 0 : 1),
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      !empty($DIFFVIM_LEFT_TO_RIGHT)      ? 1 : 0,
+    \ 'left_to_right':      empty($DIFFVIM_LEFT_TO_RIGHT) ? 1 : ($DIFFVIM_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
     \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
     \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
     \ 'adaptive_word_delete_start_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) : 80,
@@ -1734,8 +1734,12 @@ function! s:LeftToRight(ops) abort
     return l:result
 endfunction
 
-" Sort line ops: all deletes first (by position, left to right),
-" then all inserts (by position, left to right).
+" Sort line ops: preserve the keep/delete/insert interleaving (keeps must
+" stay in their original positions relative to deletes and inserts, because
+" keeps advance the cursor and the cursor position determines which char
+" gets deleted/inserted). Within contiguous runs of same-type ops, sort by
+" position (left to right). For delete runs, non-whitespace deletes come
+" before whitespace deletes.
 function! s:SortLineOps(line_ops) abort
     if len(a:line_ops) <= 1
         let l:result = []
@@ -1744,47 +1748,38 @@ function! s:SortLineOps(line_ops) abort
         endfor
         return l:result
     endif
-    " Separate into keeps, deletes, inserts
-    let l:keeps = []
-    let l:dels = []
-    let l:ins = []
-    for l:item in a:line_ops
-        if l:item[0][0] ==# 'keep'
-            call add(l:keeps, l:item)
-        elseif l:item[0][0] ==# 'delete'
-            call add(l:dels, l:item)
-        else
-            call add(l:ins, l:item)
-        endif
-    endfor
-    " Sort deletes: non-whitespace first (by position, left to right),
-    " then whitespace deletes last. Whitespace = space (32) or tab (9).
-    " This ensures the user sees content being deleted first, not indentation.
-    let l:dels_nonws = []
-    let l:dels_ws = []
-    for l:item in l:dels
-        if l:item[0][1] ==# ' ' || l:item[0][1] ==# "\t"
-            call add(l:dels_ws, l:item)
-        else
-            call add(l:dels_nonws, l:item)
-        endif
-    endfor
-    call sort(l:dels_nonws, {a, b -> a[1] - b[1]})
-    call sort(l:dels_ws, {a, b -> a[1] - b[1]})
-    let l:dels = l:dels_nonws + l:dels_ws
-    " Sort inserts by position (ascending = left to right)
-    call sort(l:ins, {a, b -> a[1] - b[1]})
-    " Emit: keeps first, then deletes (non-ws then ws), then inserts
+    " We need to preserve the interleaving of keeps with dels/ins.
+    " Only sort within contiguous runs of the same type.
     let l:result = []
-    for l:item in l:keeps
-        call add(l:result, l:item[0])
-    endfor
-    for l:item in l:dels
-        call add(l:result, l:item[0])
-    endfor
-    for l:item in l:ins
-        call add(l:result, l:item[0])
-    endfor
+    let l:i = 0
+    while l:i < len(a:line_ops)
+        let l:cur_type = a:line_ops[l:i][0][0]
+        " Collect a run of same-type ops
+        let l:run = []
+        while l:i < len(a:line_ops) && a:line_ops[l:i][0][0] ==# l:cur_type
+            call add(l:run, a:line_ops[l:i])
+            let l:i += 1
+        endwhile
+        " Sort within the run by position (left to right)
+        call sort(l:run, {a, b -> a[1] - b[1]})
+        " For delete runs, put non-whitespace before whitespace
+        if l:cur_type ==# 'delete'
+            let l:nonws = []
+            let l:ws = []
+            for l:item in l:run
+                if l:item[0][1] ==# ' ' || l:item[0][1] ==# "\t"
+                    call add(l:ws, l:item)
+                else
+                    call add(l:nonws, l:item)
+                endif
+            endfor
+            let l:run = l:nonws + l:ws
+        endif
+        " Emit the sorted run
+        for l:item in l:run
+            call add(l:result, l:item[0])
+        endfor
+    endwhile
     return l:result
 endfunction
 
@@ -1976,8 +1971,11 @@ endfunction
 function! s:ComputeMoveDuration(start_l, start_c, end_l, end_c) abort
     let l:dl = abs(a:end_l - a:start_l)
     let l:dc = abs(a:end_c - a:start_c)
-    let l:dist = l:dl * 80 + l:dc   " weight lines much more than columns
-    let l:dur = l:dist * g:diffvim.move_ms_per_unit
+    " Formula: T = clamp(D_lines × 8ms, 200ms, 2000ms)
+    " D=10→200ms(min), D=50→400ms, D=100→800ms, D=250→1500ms, D=500+→2000ms(max)
+    " At start/end of glide, step=1 line (ease-in-out ensures this).
+    " In middle, step>1 for large D (e.g. D=500 → peak step ~10 lines/tick).
+    let l:dur = l:dl * 8 + l:dc * g:diffvim.move_ms_per_unit
     if l:dur < g:diffvim.move_min_ms
         let l:dur = g:diffvim.move_min_ms
     endif
