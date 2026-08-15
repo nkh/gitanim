@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+# diffvim-jogger — Generate test cases with different insertion/deletion
+# patterns, run them through diffvim with various option combinations,
+# and produce a visual inspection report.
+#
+# Usage:
+#   ./diffvim-jogger [output_dir]
+#
+# Creates test file pairs that exercise common insertion/deletion patterns,
+# then runs diffvim with different option combinations to produce log files
+# for visual inspection.
+
+set -euo pipefail
+
+OUTDIR="${1:-/tmp/diffvim-jogger}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+mkdir -p "$OUTDIR"
+
+# ---------------------------------------------------------------------------
+# Generate test file pairs covering different insertion/deletion patterns
+# ---------------------------------------------------------------------------
+generate_test_cases() {
+    local DIR="$OUTDIR/test_cases"
+    mkdir -p "$DIR"
+
+    # Pattern 1: Mid-line word replacement (same length)
+    printf 'hello world\n' > "$DIR/01_mid_replace_same_old.txt"
+    printf 'hello there\n' > "$DIR/01_mid_replace_same_new.txt"
+
+    # Pattern 2: Mid-line word replacement (shorter)
+    printf 'hello world\n' > "$DIR/02_mid_replace_shorter_old.txt"
+    printf 'hello hi\n' > "$DIR/02_mid_replace_shorter_new.txt"
+
+    # Pattern 3: Mid-line word replacement (longer)
+    printf 'hello hi\n' > "$DIR/03_mid_replace_longer_old.txt"
+    printf 'hello world\n' > "$DIR/03_mid_replace_longer_new.txt"
+
+    # Pattern 4: Insert at beginning of line
+    printf 'world\n' > "$DIR/04_insert_start_old.txt"
+    printf 'hello world\n' > "$DIR/04_insert_start_new.txt"
+
+    # Pattern 5: Insert at end of line
+    printf 'hello\n' > "$DIR/05_insert_end_old.txt"
+    printf 'hello world\n' > "$DIR/05_insert_end_new.txt"
+
+    # Pattern 6: Insert in middle
+    printf 'hello world\n' > "$DIR/06_insert_middle_old.txt"
+    printf 'hello big world\n' > "$DIR/06_insert_middle_new.txt"
+
+    # Pattern 7: Delete at beginning
+    printf 'hello world\n' > "$DIR/07_delete_start_old.txt"
+    printf 'world\n' > "$DIR/07_delete_start_new.txt"
+
+    # Pattern 8: Delete at end
+    printf 'hello world\n' > "$DIR/08_delete_end_old.txt"
+    printf 'hello\n' > "$DIR/08_delete_end_new.txt"
+
+    # Pattern 9: Delete in middle
+    printf 'hello big world\n' > "$DIR/09_delete_middle_old.txt"
+    printf 'hello world\n' > "$DIR/09_delete_middle_new.txt"
+
+    # Pattern 10: Insert + trailing delete (the delete-end-first case)
+    printf '    print("Hello, " + name)\n' > "$DIR/10_insert_plus_eol_del_old.txt"
+    printf '    print(f"Hello, {name}!")\n' > "$DIR/10_insert_plus_eol_del_new.txt"
+
+    # Pattern 11: Multiple changes on same line
+    printf 'foo bar baz\n' > "$DIR/11_multi_change_old.txt"
+    printf 'fox bat boz\n' > "$DIR/11_multi_change_new.txt"
+
+    # Pattern 12: Complete line replacement
+    printf 'old line content here\n' > "$DIR/12_full_replace_old.txt"
+    printf 'completely new text\n' > "$DIR/12_full_replace_new.txt"
+
+    # Pattern 13: Identical char run deletion
+    printf 'x = ---------------------------\n' > "$DIR/13_identical_run_old.txt"
+    printf 'x = ---\n' > "$DIR/13_identical_run_new.txt"
+
+    # Pattern 14: Multi-line block deletion
+    printf 'line1\nline2\nline3\nline4\nline5\nline6\nline7\n' > "$DIR/14_block_del_old.txt"
+    printf 'line1\nline7\n' > "$DIR/14_block_del_new.txt"
+
+    # Pattern 15: Multi-line block insertion
+    printf 'line1\nline7\n' > "$DIR/15_block_ins_old.txt"
+    printf 'line1\nline2\nline3\nline4\nline5\nline6\nline7\n' > "$DIR/15_block_ins_new.txt"
+
+    # Pattern 16: Unicode characters
+    printf 'x = "café — résumé"\n' > "$DIR/16_unicode_old.txt"
+    printf 'x = "coffee — summary"\n' > "$DIR/16_unicode_new.txt"
+
+    # Pattern 17: Indent change only
+    printf 'def foo():\n    x = 1\n    return x\n' > "$DIR/17_indent_old.txt"
+    printf 'def foo():\n        x = 1\n        return x\n' > "$DIR/17_indent_new.txt"
+
+    # Pattern 18: Mixed insert+delete across multiple positions
+    printf 'function old_name(arg1, arg2) {\n  return arg1 + arg2;\n}\n' > "$DIR/18_mixed_old.txt"
+    printf 'function new_name(a, b) {\n  return a + b;\n}\n' > "$DIR/18_mixed_new.txt"
+
+    echo "Generated 18 test cases in $DIR"
+}
+
+# ---------------------------------------------------------------------------
+# Option combinations to jog
+# ---------------------------------------------------------------------------
+OPTION_COMBOS=(
+    # Baseline
+    "--no-optimize-sequence --no-left-to-right"
+
+    # Post-processing only
+    "--optimize-sequence"
+    "--left-to-right"
+    "--optimize-sequence --left-to-right"
+    "--semantic-cleanup --optimize-sequence --left-to-right"
+
+    # Deletion speed
+    "--rapid-eol-delete"
+    "--accel-delete"
+    "--adaptive-word-delete"
+    "--rapid-identical-chars"
+    "--word-accel"
+
+    # Highlight
+    "--highlight-inline"
+    "--highlight-hunk"
+    "--highlight-word"
+    "--dim-unchanged"
+
+    # Overwrite + delete-end-first
+    "--overwrite"
+    "--delete-end-first"
+    "--delete-end-first-smart"
+    "--overwrite --delete-end-first-smart"
+
+    # Presets
+    "--preset fast-delete"
+    "--preset review"
+    "--preset ai-code"
+
+    # Combined
+    "--preset fast-delete --highlight-inline --dim-unchanged"
+    "--word-accel --highlight-inline --word-end-pause-ms 200"
+    "--optimize-sequence --left-to-right --semantic-cleanup --word-accel --highlight-inline"
+)
+
+# ---------------------------------------------------------------------------
+# Run each test case with each option combination
+# ---------------------------------------------------------------------------
+run_jogger() {
+    local DIR="$OUTDIR/test_cases"
+    local RESULTS="$OUTDIR/results"
+    mkdir -p "$RESULTS"
+
+    local combo_idx=0
+    for combo in "${OPTION_COMBOS[@]}"; do
+        local combo_name=$(echo "$combo" | tr ' ' '_' | tr -d '-')
+        local combo_dir="$RESULTS/combo_${combo_idx}_${combo_name}"
+        mkdir -p "$combo_dir"
+
+        for old_file in "$DIR"/*_old.txt; do
+            local base=$(basename "$old_file" _old.txt)
+            local new_file="$DIR/${base}_new.txt"
+            local log_file="$combo_dir/${base}.log"
+
+            # Run diffvim in log mode 2 with this combo
+            "$SCRIPT_DIR/diffvim" $combo --log-mode 2 --log-file "$log_file" \
+                "$old_file" "$new_file" 2>/dev/null || true
+        done
+
+        combo_idx=$((combo_idx + 1))
+    done
+
+    echo "Generated logs for ${combo_idx} option combinations in $RESULTS"
+}
+
+# ---------------------------------------------------------------------------
+# Generate summary report
+# ---------------------------------------------------------------------------
+generate_report() {
+    local REPORT="$OUTDIR/REPORT.md"
+    {
+        echo "# diffvim Jogger Results"
+        echo ""
+        echo "Generated $(date)"
+        echo ""
+        echo "## Test Cases"
+        echo ""
+        local DIR="$OUTDIR/test_cases"
+        for old_file in "$DIR"/*_old.txt; do
+            local base=$(basename "$old_file" _old.txt)
+            local new_file="$DIR/${base}_new.txt"
+            echo "### $base"
+            echo ""
+            echo '```'
+            echo "OLD: $(cat "$old_file")"
+            echo "NEW: $(cat "$new_file")"
+            echo '```'
+            echo ""
+        done
+
+        echo "## Option Combinations"
+        echo ""
+        local idx=0
+        for combo in "${OPTION_COMBOS[@]}"; do
+            echo "$idx. \`$combo\`"
+            idx=$((idx + 1))
+        done
+        echo ""
+        echo "## How to Read Results"
+        echo ""
+        echo "Each \`results/combo_N_NAME/\` directory contains one .log file"
+        echo "per test case. Each log file shows:"
+        echo "- The timing parameters used"
+        echo "- For each hunk: the original line, a marker line showing"
+        echo "  where the operation happens, and the resulting line"
+        echo "- Acceleration delays for delete operations (when applicable)"
+        echo ""
+        echo "Compare logs across combinations to see how different options"
+        echo "affect the animation for the same input."
+    } > "$REPORT"
+
+    echo "Report written to $REPORT"
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+echo "=== diffvim Jogger ==="
+echo ""
+generate_test_cases
+run_jogger
+generate_report
+echo ""
+echo "Done. Results in: $OUTDIR"
+echo "Open $OUTDIR/REPORT.md for the summary."

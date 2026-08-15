@@ -83,6 +83,8 @@ let g:diffvim = extend({
     \ 'overwrite_mode':     !empty($DIFFVIM_OVERWRITE_MODE)      ? 1 : 0,
     \ 'delete_end_first':   !empty($DIFFVIM_DELETE_END_FIRST)    ? 1 : 0,
     \ 'delete_end_first_delay_ms': !empty($DIFFVIM_DELETE_END_FIRST_DELAY_MS) ? str2nr($DIFFVIM_DELETE_END_FIRST_DELAY_MS) : 100,
+    \ 'delete_end_first_smart': !empty($DIFFVIM_DELETE_END_FIRST_SMART) ? 1 : 0,
+    \ 'delete_end_first_highlight_ms': !empty($DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS) ? str2nr($DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS) : 300,
     \ 'startup_feedback':   !empty($DIFFVIM_STARTUP_FEEDBACK)    ? 1 : 0,
     \ 'inline_highlight':   !empty($DIFFVIM_INLINE_HIGHLIGHT)    ? 1 : 0,
     \ 'inline_highlight_duration': !empty($DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS) : 200,
@@ -546,10 +548,6 @@ function! s:DeleteEndFirst(ops) abort
                     " Move the deletes before the inserts.
                     " Remove the inserts we just added, add deletes first,
                     " then pause marker, then inserts.
-                    let l:ins_count = l:i - l:ins_start - (l:i - l:del_start)
-                    " Actually, let's just rebuild this segment properly.
-                    " We added (del_start - ins_start) inserts to result.
-                    " Remove them.
                     let l:ins_run = []
                     let l:to_remove = l:del_start - l:ins_start
                     while len(l:result) > 0 && l:to_remove > 0
@@ -564,11 +562,26 @@ function! s:DeleteEndFirst(ops) abort
                         call add(l:del_run, a:ops[l:j])
                         let l:j += 1
                     endwhile
+                    " If smart mode: highlight the text to be deleted, pause,
+                    " then delete progressively (first few chars, then words).
+                    " The highlighting and progressive deletion are handled by
+                    " special op types that ProcessCharOp recognizes.
+                    if g:diffvim.delete_end_first_smart
+                        " Highlight the trailing text that will be deleted
+                        call add(l:result, ['highlight_eol_delete', len(l:del_run)])
+                        " Pause to let the user see the highlight
+                        call add(l:result, ['pause_smart', g:diffvim.delete_end_first_highlight_ms])
+                    endif
                     " Emit: deletes, pause marker, inserts
                     for l:d in l:del_run
                         call add(l:result, l:d)
                     endfor
-                    call add(l:result, ['pause_end_first', g:diffvim.delete_end_first_delay_ms])
+                    if g:diffvim.delete_end_first_smart
+                        " Short pause after deletion before inserting
+                        call add(l:result, ['pause_smart', g:diffvim.delete_end_first_delay_ms])
+                    else
+                        call add(l:result, ['pause_end_first', g:diffvim.delete_end_first_delay_ms])
+                    endif
                     for l:ins in l:ins_run
                         call add(l:result, l:ins)
                     endfor
@@ -1717,6 +1730,32 @@ function! s:ProcessCharOp() abort
         let s:state.op_idx += 1
         call s:ScheduleNext(l:delay)
         return
+    elseif l:op[0] ==# 'pause_smart'
+        " --delete-end-first-smart: pause for highlight or between phases.
+        redraw
+        let l:delay = float2nr(l:op[1])
+        let s:state.op_idx += 1
+        call s:ScheduleNext(l:delay)
+        return
+    elseif l:op[0] ==# 'highlight_eol_delete'
+        " --delete-end-first-smart: highlight the trailing text that will
+        " be deleted with a red background, so the user sees what will
+        " disappear before it does.
+        let l:del_count = l:op[1]
+        let l:line = getline(s:cur_l)
+        let l:byte_pos = s:CharToByte(l:line, s:cur_c)
+        let l:byte_end = s:CharToByte(l:line, s:cur_c + l:del_count)
+        let l:len = l:byte_end - l:byte_pos
+        if l:len > 0
+            let l:pos = [[s:cur_l, s:cur_c, l:del_count]]
+            let l:id = matchaddpos('DiffDelete', l:pos)
+            " Store the highlight ID so we can clear it after the deletes
+            let s:smart_highlight_id = l:id
+        endif
+        redraw
+        let s:state.op_idx += 1
+        call s:ScheduleNext(1)
+        return
     endif
 
     " --adaptive mode: accelerate (decrease delay) after each op
@@ -2243,20 +2282,73 @@ endfunction
 " coexist and fade independently, so the user can see a trail of recent
 " changes instead of only the latest one.
 let s:inline_highlights = []  " list of [match_id, timer_id]
+" Track the current run for consecutive same-type highlights
+let s:inline_run_type = ''
+let s:inline_run_start_line = 0
+let s:inline_run_start_col = 0
+let s:inline_run_len = 0
+let s:inline_run_match_id = -1
+let s:inline_run_timer = -1
+let s:smart_highlight_id = -1
 
 function! s:InlineHighlight(line, col, type) abort
     if !g:diffvim.inline_highlight | return | endif
+    " Check if this continues the current run (same type, same line,
+    " consecutive column)
+    if a:type ==# s:inline_run_type && a:line ==# s:inline_run_start_line
+        " Check if column is consecutive (inserts advance cursor by 1,
+        " deletes keep cursor in place, so next char is at same col)
+        if a:type ==# 'insert' && a:col ==# s:inline_run_start_col + s:inline_run_len
+            " Extend the current run
+            let s:inline_run_len += 1
+            " Update the match to cover the full run
+            if s:inline_run_match_id != -1
+                try | call matchdelete(s:inline_run_match_id) | catch | endtry
+            endif
+            let l:color = a:type ==# 'insert' ? 'DiffAdd' : 'DiffDelete'
+            let s:inline_run_match_id = matchaddpos(l:color, [[a:line, s:inline_run_start_col, s:inline_run_len]])
+            " Reset the timer
+            if s:inline_run_timer != -1
+                call timer_stop(s:inline_run_timer)
+            endif
+            let s:inline_run_timer = timer_start(
+                \ g:diffvim.inline_highlight_duration,
+                \ function('s:ClearOneInlineHighlight', [s:inline_run_match_id]))
+            return
+        elseif a:type ==# 'delete' && a:col ==# s:inline_run_start_col
+            " Deletes stay at the same column — extend
+            let s:inline_run_len += 1
+            if s:inline_run_match_id != -1
+                try | call matchdelete(s:inline_run_match_id) | catch | endtry
+            endif
+            let l:color = a:type ==# 'insert' ? 'DiffAdd' : 'DiffDelete'
+            let s:inline_run_match_id = matchaddpos(l:color, [[a:line, s:inline_run_start_col, s:inline_run_len]])
+            if s:inline_run_timer != -1
+                call timer_stop(s:inline_run_timer)
+            endif
+            let s:inline_run_timer = timer_start(
+                \ g:diffvim.inline_highlight_duration,
+                \ function('s:ClearOneInlineHighlight', [s:inline_run_match_id]))
+            return
+        endif
+    endif
+    " New run — flush the old one first
+    if s:inline_run_match_id != -1
+        call add(s:inline_highlights, [s:inline_run_match_id, s:inline_run_timer])
+    endif
+    " Start a new run
+    let s:inline_run_type = a:type
+    let s:inline_run_start_line = a:line
+    let s:inline_run_start_col = a:col
+    let s:inline_run_len = 1
     let l:color = a:type ==# 'insert' ? 'DiffAdd' : 'DiffDelete'
-    let l:pos = [[a:line, a:col, 1]]
-    let l:match_id = matchaddpos(l:color, l:pos)
-    " Schedule this specific highlight to be cleared after the duration
-    let l:timer_id = timer_start(
+    let s:inline_run_match_id = matchaddpos(l:color, [[a:line, a:col, 1]])
+    let s:inline_run_timer = timer_start(
         \ g:diffvim.inline_highlight_duration,
-        \ function('s:ClearOneInlineHighlight', [l:match_id]))
-    call add(s:inline_highlights, [l:match_id, l:timer_id])
+        \ function('s:ClearOneInlineHighlight', [s:inline_run_match_id]))
     " Clean up old cleared entries
     call filter(s:inline_highlights, 'v:val[0] != -1')
-    " Limit to 50 concurrent highlights to avoid performance issues
+    " Limit to 50 concurrent highlights
     while len(s:inline_highlights) > 50
         let l:old = remove(s:inline_highlights, 0)
         try | call matchdelete(l:old[0]) | catch | endtry
