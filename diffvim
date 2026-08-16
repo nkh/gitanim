@@ -184,6 +184,11 @@ ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS
 RAPID_IDENTICAL_CHARS="${DIFFVIM_RAPID_IDENTICAL_CHARS:-0}"
 RAPID_IDENTICAL_MIN="${DIFFVIM_RAPID_IDENTICAL_MIN:-5}"
 RAPID_IDENTICAL_ACCEL="${DIFFVIM_RAPID_IDENTICAL_ACCEL:-0.5}"
+# --insert-pacing: unified insertion strategy selector.
+# Replaces --max-word-chars, --word-accel. Old flags still work.
+INSERT_PACING="${DIFFVIM_INSERT_PACING:-char}"
+# --insert-speed: speed for inserts (slow|normal|fast)
+INSERT_SPEED="${DIFFVIM_INSERT_SPEED:-normal}"
 WORD_ACCEL="${DIFFVIM_WORD_ACCEL:-0}"
 WORD_ACCEL_DELETE_PCT="${DIFFVIM_WORD_ACCEL_DELETE_PCT:-20}"
 WORD_END_PAUSE_MS="${DIFFVIM_WORD_END_PAUSE_MS:-150}"
@@ -208,6 +213,11 @@ Options:
   --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
   --max-word-chars N       Type words <=N chars instantly, pause after
   --word-pause-ms N        Pause after instant word (default: 150)
+  --insert-pacing MODE     Unified insertion strategy: char|word|accel (default: char).
+                           Replaces --max-word-chars, --word-accel.
+                           'word' batches short words (<=8 chars); 'accel' accelerates
+                           char-by-char inserts (slow start, fast end, pause).
+  --insert-speed MODE      Insertion speed: slow|normal|fast (default: normal)
   --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
   --multi (-m)             Treat args as old:new pairs for multi-file animation
   --replay (-r)            Animate git history for given file(s)
@@ -350,6 +360,26 @@ while [[ $# -gt 0 ]]; do
         --max-hunk-chars) MAX_HUNK_CHARS="$2"; shift 2 ;;
         --max-word-chars) MAX_WORD_CHARS="$2"; shift 2 ;;
         --word-pause-ms) export DIFFVIM_WORD_PAUSE_MS="$2"; shift 2 ;;
+        --insert-pacing)
+            INSERT_PACING="$2"; shift 2
+            case "$INSERT_PACING" in
+                char|word|accel) : ;;
+                *)
+                    echo "diffvim: invalid --insert-pacing value '$INSERT_PACING'" >&2
+                    echo "  valid: char | word | accel" >&2
+                    exit 1 ;;
+            esac
+            ;;
+        --insert-speed)
+            INSERT_SPEED="$2"; shift 2
+            case "$INSERT_SPEED" in
+                slow|normal|fast) : ;;
+                *)
+                    echo "diffvim: invalid --insert-speed value '$INSERT_SPEED'" >&2
+                    echo "  valid: slow | normal | fast" >&2
+                    exit 1 ;;
+            esac
+            ;;
         --scroll)          SCROLL_MODE="$2"; shift 2 ;;
         --multi|-m)         MULTI_MODE=1; shift ;;
         --replay|-r)        REPLAY_MODE=1; shift ;;
@@ -595,7 +625,7 @@ fi
 # so we must export "" for false, not "0")
 export DIFFVIM_SCROLL="$SCROLL_MODE"
 export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
-export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
+# MAX_WORD_CHARS is exported after --insert-pacing resolution (below)
 export DIFFVIM_OUTPUT="$OUTPUT_FILE"
 export DIFFVIM_CONTEXT="$CONTEXT_LINES"
 export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
@@ -778,6 +808,47 @@ export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || 
 export DIFFVIM_DELETE_PACING="$DELETE_PACING"
 export DIFFVIM_DELETE_SPEED="$DELETE_SPEED"
 export DIFFVIM_DELETE_THRESHOLD="$DELETE_THRESHOLD"
+
+# Resolve --insert-pacing into the individual insertion-strategy variables.
+# --insert-pacing is the unified selector; the individual flags
+# (--max-word-chars, --word-accel) override the pacing default.
+#
+# Mapping:
+#   char   -> max_word_chars=0, word_accel=0 (one char at a time, default)
+#   word   -> max_word_chars=8, word_accel=0 (batch short words <= 8 chars)
+#   accel  -> max_word_chars=0, word_accel=1 (accelerate char-by-char inserts)
+case "$INSERT_PACING" in
+    char)
+        : ;; # keep defaults (MAX_WORD_CHARS=0, WORD_ACCEL=0)
+    word)
+        # Only set MAX_WORD_CHARS if not explicitly set on CLI
+        if [[ -z "$MAX_WORD_CHARS" || "$MAX_WORD_CHARS" == "0" ]]; then
+            MAX_WORD_CHARS=8
+        fi
+        ;;
+    accel)
+        WORD_ACCEL=1
+        ;;
+esac
+
+# Apply --insert-speed (scales the insert timing parameters)
+case "$INSERT_SPEED" in
+    slow)
+        : ;; # keep defaults
+    normal)
+        : ;; # keep defaults
+    fast)
+        DIFFVIM_TYPE_DELAY_MS=$((DIFFVIM_TYPE_DELAY_MS / 2))
+        export DIFFVIM_TYPE_DELAY_MS
+        DIFFVIM_WORD_PAUSE_MS=$((DIFFVIM_WORD_PAUSE_MS / 2))
+        export DIFFVIM_WORD_PAUSE_MS
+        ;;
+esac
+
+export DIFFVIM_INSERT_PACING="$INSERT_PACING"
+export DIFFVIM_INSERT_SPEED="$INSERT_SPEED"
+# Re-export MAX_WORD_CHARS since it may have been changed by --insert-pacing word
+export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
 export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
