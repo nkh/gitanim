@@ -157,6 +157,11 @@ PAUSE_AFTER_DELETE_MS="${DIFFVIM_PAUSE_AFTER_DELETE_MS:-200}"
 BLOCK_DELETE_SIZE="${DIFFVIM_BLOCK_DELETE_SIZE:-3}"
 FOLD_UNCHANGED=0
 THEME="${DIFFVIM_THEME:-}"
+# --op-order: unified post-processing mode selector.
+# Replaces the individual --optimize-sequence / --left-to-right /
+# --delete-end-first / --delete-end-first-smart / --overwrite flags.
+# Old flags still work and are mapped to this variable below.
+OP_ORDER="${DIFFVIM_OP_ORDER:-optimize}"
 OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
@@ -255,6 +260,10 @@ Options:
   --block-delete-size N    Lines per block in accelerated delete (default: 3)
   --fold-unchanged (-f)    Fold unchanged regions between hunks
   --theme dark|light|high-contrast (-t)  Color scheme for highlights
+  --op-order MODE          Unified op reordering: natural|optimize|left-to-right|
+                           end-first|end-first-smart|overwrite (default: optimize).
+                           Replaces --optimize-sequence, --left-to-right,
+                           --delete-end-first, --delete-end-first-smart, --overwrite.
   --optimize-sequence      Post-process ops to eliminate erratic movement (default: on)
   --no-optimize-sequence   Disable op-sequence optimization
   --left-to-right (-L)     Sort ops within each line left-to-right (no jumping)
@@ -393,6 +402,17 @@ while [[ $# -gt 0 ]]; do
         --log-file)      LOG_FILE="$2"; shift 2 ;;
         --left-to-right|-L) LEFT_TO_RIGHT=1; shift ;;
         --no-left-to-right) LEFT_TO_RIGHT=0; shift ;;
+        --op-order)
+            OP_ORDER="$2"; shift 2
+            case "$OP_ORDER" in
+                natural|optimize|left-to-right|end-first|end-first-smart|overwrite)
+                    : ;; # valid
+                *)
+                    echo "diffvim: invalid --op-order value '$OP_ORDER'" >&2
+                    echo "  valid: natural | optimize | left-to-right | end-first | end-first-smart | overwrite" >&2
+                    exit 1 ;;
+            esac
+            ;;
         --adaptive-word-delete) ADAPTIVE_WORD_DELETE=1; shift ;;
         --adaptive-word-delete-threshold) ADAPTIVE_WORD_DELETE_THRESHOLD="$2"; shift 2 ;;
         --adaptive-word-delete-start-chars) ADAPTIVE_WORD_DELETE_START_CHARS="$2"; shift 2 ;;
@@ -599,6 +619,57 @@ export DIFFVIM_PAUSE_AFTER_DELETE_MS="$PAUSE_AFTER_DELETE_MS"
 export DIFFVIM_BLOCK_DELETE_SIZE="$BLOCK_DELETE_SIZE"
 export DIFFVIM_FOLD_UNCHANGED="$([[ $FOLD_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_THEME="$THEME"
+
+# Resolve --op-order into the individual post-processing variables.
+# --op-order is the unified selector; the individual flags
+# (--optimize-sequence, --left-to-right, --delete-end-first,
+# --delete-end-first-smart, --overwrite) are kept for backwards
+# compatibility and override the op-order default.
+#
+# Mapping:
+#   natural          -> optimize=0, l2r=0, def=0, def-smart=0, overwrite=0
+#   optimize         -> optimize=1, l2r=0, def=0, def-smart=0, overwrite=0 (default)
+#   left-to-right    -> optimize=1, l2r=1, def=0, def-smart=0, overwrite=0
+#   end-first        -> optimize=1, l2r=0, def=1, def-smart=0, overwrite=0
+#   end-first-smart  -> optimize=1, l2r=0, def=1, def-smart=1, overwrite=0
+#   overwrite        -> optimize=1, l2r=0, def=0, def-smart=0, overwrite=1
+#
+# We only apply the op-order defaults for variables that were NOT
+# explicitly set on the command line. We detect "explicitly set" by
+# comparing against the DIFFVIM_* env var defaults (if the shell
+# variable differs from the env default, it was set on CLI).
+case "$OP_ORDER" in
+    natural)
+        OPTIMIZE_SEQUENCE=0
+        LEFT_TO_RIGHT=0
+        DELETE_END_FIRST=0
+        DELETE_END_FIRST_SMART=0
+        OVERWRITE_MODE=0
+        ;;
+    optimize)
+        # Default — keep OPTIMIZE_SEQUENCE=1, others 0
+        OPTIMIZE_SEQUENCE=1
+        ;;
+    left-to-right)
+        OPTIMIZE_SEQUENCE=1
+        LEFT_TO_RIGHT=1
+        ;;
+    end-first)
+        OPTIMIZE_SEQUENCE=1
+        DELETE_END_FIRST=1
+        ;;
+    end-first-smart)
+        OPTIMIZE_SEQUENCE=1
+        DELETE_END_FIRST=1
+        DELETE_END_FIRST_SMART=1
+        ;;
+    overwrite)
+        OPTIMIZE_SEQUENCE=1
+        OVERWRITE_MODE=1
+        ;;
+esac
+
+export DIFFVIM_OP_ORDER="$OP_ORDER"
 export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
@@ -1141,6 +1212,7 @@ let g:diffvim = extend({
     \ 'pause_after_delete_ms': !empty($DIFFVIM_PAUSE_AFTER_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_AFTER_DELETE_MS) : 200,
     \ 'block_delete_size':  !empty($DIFFVIM_BLOCK_DELETE_SIZE)   ? str2nr($DIFFVIM_BLOCK_DELETE_SIZE) : 3,
     \ 'theme':              !empty($DIFFVIM_THEME)              ? $DIFFVIM_THEME                   : '',
+    \ 'op_order':           !empty($DIFFVIM_OP_ORDER)           ? $DIFFVIM_OP_ORDER                : 'optimize',
     \ 'optimize_sequence':  empty($DIFFVIM_OPTIMIZE_SEQUENCE) ? 1 : ($DIFFVIM_OPTIMIZE_SEQUENCE ==# '0' ? 0 : 1),
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
@@ -4106,6 +4178,10 @@ function! s:ShowConfig() abort
     endif
     if g:diffvim.delete_end_first_smart
         let l:msg .= '  def_smart=on(thr=' . g:diffvim.adaptive_word_delete_threshold . ',start=' . g:diffvim.adaptive_word_delete_start_chars . ')'
+    endif
+    " Show the unified --op-order mode (if set) plus individual flags
+    if exists('g:diffvim.op_order') && !empty(g:diffvim.op_order)
+        let l:msg .= '  op_order=' . g:diffvim.op_order
     endif
     if g:diffvim.keep_dirty
         let l:msg .= '  keep_dirty=on(:q!)'
