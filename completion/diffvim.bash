@@ -42,6 +42,23 @@ _diffvim_complete() {
               --rapid-eol-delete --no-rapid-eol-delete --rapid-eol-delay-ms --rapid-eol-min-chars
               --keep-dirty --highlight-word --highlight-word-color
               --highlight-word-duration-ms --highlight-word-min-chars
+              --delete-end-first --delete-end-first-smart --delete-end-first-delay-ms
+              --delete-end-first-highlight-ms
+              --adaptive-word-delete --adaptive-word-delete-threshold
+              --adaptive-word-delete-start-chars --adaptive-word-delete-start-ms
+              --adaptive-word-delete-min-ms --adaptive-word-delete-accel
+              --adaptive-word-delete-word-pause-ms
+              --accel-delete --accel-delete-start-ms --accel-delete-min-ms --accel-delete-accel
+              --rapid-identical-chars --rapid-identical-min --rapid-identical-accel
+              --word-accel --word-accel-delete-pct --word-end-pause-ms
+              --line-change-pause-ms --overwrite --optimize-sequence --no-optimize-sequence
+              --left-to-right --no-left-to-right --semantic-cleanup --indent-aware
+              --algorithm --preset --auto-precompute --precomputed --diff
+              --highlight-inline --highlight-hunk --highlight-inline-duration-ms
+              --dim-unchanged --dim-unchanged-pct --fold-unchanged
+              --startup-feedback --no-vimrc --no-log-timing
+              --pause-after-lines --pause-after-ms --pause-after-threshold
+              --pause-after-delete-ms --theme --debug
               --version --help"
         COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
         return 0
