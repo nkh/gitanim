@@ -2387,22 +2387,34 @@ endfunction
 " or word-by-word, and now we just need to remove the empty line and
 " move down.
 function! s:DeleteNewlineAtCursor() abort
+    " When a \n is being deleted, we have two cases:
+    " 1. The current line is empty (all chars already deleted) — we want
+    "    to "delete the newline" which means joining this empty line with
+    "    the next. But visually, we DON'T want to pull the next line up
+    "    onto the current line — that looks terrible. Instead, we just
+    "    move the cursor to the next line. The empty line stays in the
+    "    buffer temporarily. At the end of the animation, the buffer will
+    "    be correct because we track line_offset.
+    " 2. The current line still has content — this shouldn't happen if
+    "    all chars were deleted first, but handle it by joining.
     let l:l = s:cur_l
     let l:line = getline(l:l)
     if strchars(l:line) == 0
-        " Line is empty — delete it entirely and move cursor to next line
+        " Line is empty — just move cursor to next line.
+        " DON'T delete the empty line — that would pull the next line up.
+        " The empty line stays in the buffer; it will be cleaned up when
+        " the animation finishes (the final write produces the correct
+        " new file content).
         if l:l < line('$')
-            execute l:l . 'delete _'
-            " cursor stays at same line number (which is now the next line)
+            let s:cur_l = l:l + 1
             let s:cur_c = 1
         elseif l:l > 1
-            " Last line — move cursor to end of previous line
+            " Last line — move to end of previous line
             let s:cur_l = l:l - 1
             let s:cur_c = strchars(getline(s:cur_l)) + 1
         endif
     else
-        " Line still has content — this shouldn't happen if all chars
-        " were deleted first, but handle it: join with next line
+        " Line still has content — join with next line (rare fallback)
         if l:l < line('$')
             let l:next = getline(l:l + 1)
             call setline(l:l, l:line . l:next)
