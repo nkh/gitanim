@@ -25,15 +25,78 @@
 
 set -euo pipefail
 
-OLD="${1:?Usage: $0 <oldfile> <newfile> [output_dir]}"
-NEW="${2:?Usage: $0 <oldfile> <newfile> [output_dir]}"
+# ---------------------------------------------------------------------------
+# Show help and exit
+# ---------------------------------------------------------------------------
+show_help() {
+    cat <<'EOF'
+diffvim-compare — Generate a matrix of precomputed diffs with every
+combination of algorithm and post-processing option, then print a
+comparison table so you can pick the most efficient combination for
+your file pair.
+
+USAGE
+    diffvim-compare <oldfile> <newfile> [output_dir]
+    diffvim-compare -h | --help
+
+ARGUMENTS
+    <oldfile>            Old version of the file to compare.
+    <newfile>            New version of the file to compare.
+    [output_dir]         Where to write the .diff files.
+                         Defaults to /tmp/diffvim-compare.
+
+OPTIONS
+    -h, --help           Show this help and exit.
+
+WHAT IT DOES
+    For each (algorithm, options) pair, runs the C compute tool and
+    records hunk count, total ops, delete/insert counts, and compute
+    time. Algorithms: lcs, myers, patience. Option flags exercised:
+    --word-diff, --semantic-cleanup, --indent-aware, and their
+    combinations (8 combos total). Output files are written as
+    <algorithm>-<options>.diff in the output directory.
+
+ENVIRONMENT
+    DIFFVIM_COMPUTE_BIN  Override the path to the compute binary
+                         (default: compute/bin/diffvim-compute-c).
+
+EXAMPLES
+    diffvim-compare examples/01_small_python/old.py examples/01_small_python/new.py
+    diffvim-compare a.py b.py /tmp/mycompare
+    diffvim-compare --help
+
+SEE ALSO
+    diffvim(1), diffvim-compute(1), diffvim-jogger(1)
+    Full docs: docs/OPTION_COMBINATIONS.md, docs/DIFF_STUDY.md
+EOF
+}
+
+# Parse -h / --help (must come before positional validation)
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+    esac
+done
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: $0 <oldfile> <newfile> [output_dir]" >&2
+    echo "Run '$0 --help' for details." >&2
+    exit 1
+fi
+
+OLD="$1"
+NEW="$2"
 OUTDIR="${3:-/tmp/diffvim-compare}"
 
 mkdir -p "$OUTDIR"
 
-COMPUTE="compute/bin/diffvim-compute-c"
+COMPUTE="${DIFFVIM_COMPUTE_BIN:-compute/bin/diffvim-compute-c}"
 if [[ ! -f "$COMPUTE" ]]; then
     echo "Error: $COMPUTE not found. Run 'make -C compute' first." >&2
+    echo "Tip: set DIFFVIM_COMPUTE_BIN to point at another variant." >&2
     exit 1
 fi
 

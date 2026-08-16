@@ -1,0 +1,142 @@
+.TH DIFFVIM-TMUX 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.SH NAME
+diffvim-tmux \- animate a code diff in vim inside a tmux pane (bash + tmux variant)
+.SH SYNOPSIS
+.B diffvim-tmux
+.RI [ options ]
+.RI <oldfile>
+.RI <newfile>
+.br
+.B diffvim-tmux
+.RI [ options ]
+.B \-\-multi
+.RI <old1:new1>
+.RI <old2:new2>
+\&...
+.br
+.B diffvim-tmux
+.RI [ options ]
+.B \-\-replay
+.RI <file>
+.RB [ \-\-from
+.IR REV ]
+.RB [ \-\-to
+.IR REV ]
+.br
+.B diffvim-tmux
+.B \-\-version
+.br
+.B diffvim-tmux
+.B \-\-help
+.SH DESCRIPTION
+.B diffvim-tmux
+is the tmux-based variant of
+.BR diffvim (1).
+It runs vim inside a tmux pane and orchestrates the animation from a
+separate bash process. The bash orchestrator computes the diff, drives the
+animation state machine, and sends Ex commands to vim via
+.BR "tmux send-keys" .
+User input is delivered from vim to bash via a named pipe (FIFO).
+
+This variant is useful when you want to script or extend the animation in
+bash, or when you need the animation to run in a detachable tmux session.
+
+Because the orchestrator and vim run in separate processes,
+.B diffvim-tmux
+can exhibit race conditions if bash queues keys faster than vim can
+process them. For race-free animation, use
+.B diffvim
+instead.
+
+.SH OPTIONS
+.B diffvim-tmux
+accepts the same options as
+.BR diffvim (1),
+with the same semantics. See
+.BR diffvim (1)
+for the full list. The only differences are:
+
+.TP
+.B \-\-scroll zz|zt|zb|none
+Default is
+.B none
+in
+.B diffvim-tmux
+(because tmux already provides its own scrolling), versus
+.B zz
+in
+.BR diffvim .
+
+.TP
+.B \-\-tmux-session NAME
+Override the tmux session name (default: a unique name based on PID).
+
+.SH CONTROLS
+During the animation, the following normal-mode keys are available in vim:
+.TP
+.B Space
+Pause / resume the animation.
+.TP
+.B n
+Skip the current hunk (apply instantly, move to next).
+.TP
+.B b
+Back to the previous hunk (revert and restart it).
+.TP
+.B q
+Stop the animation (leave the buffer in its current state).
+.TP
+.B +
+Speed up (multiply speed by 1.5).
+.TP
+.B \-
+Slow down (divide speed by 1.5).
+.TP
+.B =
+Reset speed to 1.0x.
+.TP
+.B ?
+Show in-vim help.
+
+.SH ENVIRONMENT
+The same environment variables as
+.BR diffvim (1)
+apply. In addition:
+.TP
+.B DIFFVIM_TMUX_BIN
+Path to the
+.BR tmux (1)
+binary (default:
+.BR tmux ).
+
+.SH FILES
+.TP
+.I /tmp/diffvim-fifo-$$
+Named pipe used for vim \(->bash user input. Cleaned up on exit.
+
+.SH EXAMPLES
+.TP
+.B diffvim-tmux old.py new.py
+Animate the diff between
+.I old.py
+and
+.I new.py
+inside a fresh tmux session.
+.TP
+.B diffvim-tmux --speed 2 --word-diff a.py b.py
+Animate at 2x speed with word-level diffing.
+.TP
+.B diffvim-tmux --replay main.py --from HEAD~10 --to HEAD
+Animate the last 10 commits' changes to
+.IR main.py .
+
+.SH SEE ALSO
+.BR diffvim (1),
+.BR diffvim.pl (1),
+.BR diffvim-precomputed (1),
+.BR tmux (1)
+.br
+Full documentation in
+.I docs/ARCHITECTURE.md
+and the mdBook at
+.IR docs/src/ .

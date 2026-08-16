@@ -85,10 +85,12 @@ sudo cp -r DiffVim /usr/local/lib/perl5/
 # or:
 export PERL5LIB="$(pwd):$PERL5LIB"
 
-# Install the man page:
-sudo cp diffvim.1 /usr/local/share/man/man1/
+# Install the man pages:
+sudo mkdir -p /usr/local/share/man/man1
+sudo cp man/*.1 /usr/local/share/man/man1/
 sudo mandb
 man diffvim
+man diffvim-compute
 
 # Install shell completions (optional):
 # Bash:
@@ -442,7 +444,12 @@ gitanim/
 ├── diffvim                       # Bash + Vimscript (no tmux needed)
 ├── diffvim-tmux                  # Bash + tmux
 ├── diffvim.pl                    # Perl + tmux (pluggable parsers)
-├── diffvim.1                     # Man page
+├── diffvim-compare               # Diff algorithm benchmark matrix
+├── diffvim-jogger                # Test-case exerciser (25+ option combos)
+├── diffvim-precomputed           # Wrapper: native compute + diffvim
+├── jq_filter                     # difft JSON → HUNK/DEL/ADD/CTX text
+├── difft_json_to_lcs             # HUNK/DEL/ADD/CTX → LCS string
+├── set_config                    # Source-able timing env var defaults
 ├── DiffVim/
 │   └── Parser/
 │       ├── Perl.pm               # Pure-Perl LCS diff parser
@@ -456,22 +463,49 @@ gitanim/
 │   ├── diffvim.bash             # Bash completion
 │   ├── _diffvim                 # Zsh completion
 │   └── diffvim.fish             # Fish completion
-├── tests/
-│   ├── test_parsers.pl           # Parser tests (18 assertions)
-│   ├── test_features.pl          # Feature tests (52 assertions)
-│   ├── test_integration.pl       # Integration tests (62 assertions)
-│   └── test_e2e_perl.pl          # End-to-end tmux tests
+├── compute/                     # External diff compute tools (4 langs)
+│   ├── c/diffvim-compute.c      # C reference (1.4MB binary)
+│   ├── cpp/diffvim-compute.cpp  # C++17 port
+│   ├── rust/diffvim-compute.rs  # Rust port
+│   ├── go/diffvim-compute.go    # Go port
+│   └── Makefile                 # `make c|cpp|rust|go` or `make` (all)
+├── man/                         # Manpages for every executable
+│   ├── diffvim.1
+│   ├── diffvim-tmux.1
+│   ├── diffvim-compare.1
+│   ├── diffvim-jogger.1
+│   ├── diffvim-precomputed.1
+│   └── diffvim-compute.1
+├── tests/                       # 378+ test assertions across 20+ files
 ├── docs/
-│   ├── src/                      # mdbook documentation
-│   ├── FOLLOW_IMPROVEMENTS.md    # 50 UX improvements for following patches
-│   └── OPTION_COMBINATIONS.md    # 100 option combination examples
-├── examples/                     # 32 example file pairs in 15+ languages
+│   ├── src/                     # mdBook documentation (15+ pages)
+│   ├── presentation.html        # One-page HTML overview
+│   ├── VISUAL_GUIDE.md          # Graphical ASCII-art walkthrough (NEW)
+│   ├── ADOPTION_GUIDE.md        # Onboarding guide for teams (NEW)
+│   ├── ARCHITECTURE.md          # Architecture deep-dive with diagrams
+│   ├── POST_PROCESSING.md       # Post-processing pipeline reference
+│   ├── AI_CODE_DIFFING.md       # 100 ideas for AI-generated code
+│   ├── FOLLOW_IMPROVEMENTS.md   # 50 UX followability improvements
+│   ├── OPTION_COMBINATIONS.md   # 100+ option combination examples
+│   ├── USER_REQUESTS.md         # Complete feature-request log
+│   └── ...                      # 16 docs in total
+├── examples/                    # 42 example file pairs in 15+ languages
 ├── README.md
 ├── CHANGELOG.md
-├── LICENSE
-└── IMPROVEMENTS.md               # 100 improvements (52 implemented)
-└── docs/FOLLOW_IMPROVEMENTS.md    # 50 UX followability improvements
+├── LICENSE                      # Artistic 2.0 / GPL 3.0 (dual)
+└── IMPROVEMENTS.md              # 100 improvements (52 implemented)
 ```
+
+### Where to Start Reading
+
+| If you want to...                 | Read this                                              |
+| --------------------------------- | ------------------------------------------------------ |
+| Understand what diffvim does      | [`docs/VISUAL_GUIDE.md`](docs/VISUAL_GUIDE.md)        |
+| Bring diffvim to your team        | [`docs/ADOPTION_GUIDE.md`](docs/ADOPTION_GUIDE.md)    |
+| See the one-page HTML overview    | [`docs/presentation.html`](docs/presentation.html)    |
+| Read the structured docs          | [`docs/src/SUMMARY.md`](docs/src/SUMMARY.md)          |
+| Read a manpage                    | [`man/diffvim.1`](man/diffvim.1)                       |
+| See every option combination      | [`docs/OPTION_COMBINATIONS.md`](docs/OPTION_COMBINATIONS.md) |
 
 ---
 

@@ -14,6 +14,69 @@ set -euo pipefail
 
 OUTDIR="${1:-/tmp/diffvim-jogger}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ---------------------------------------------------------------------------
+# Show help and exit
+# ---------------------------------------------------------------------------
+show_help() {
+    cat <<EOF
+diffvim-jogger — Exercise diffvim across many option combinations on a
+fixed set of synthetic test cases (mid-line replacement, insert at start,
+delete at end, block delete, unicode, indent change, etc.) so you can
+visually inspect how each option changes the animation.
+
+USAGE
+    diffvim-jogger [output_dir]
+    diffvim-jogger -h | --help
+
+ARGUMENTS
+    [output_dir]      Where to write test cases, logs, and the report.
+                      Defaults to /tmp/diffvim-jogger.
+
+OPTIONS
+    -h, --help        Show this help and exit.
+
+WHAT IT DOES
+    1. Generates 18 small test file pairs covering common
+       insertion/deletion patterns in <output_dir>/test_cases/.
+    2. Runs diffvim in log mode 2 with each of ~25 option
+       combinations on every test pair, writing one .log file
+       per (combo, case) into <output_dir>/results/combo_N_NAME/.
+    3. Writes a Markdown report at <output_dir>/REPORT.md
+       listing all test cases and option combinations.
+
+OPTION COMBOS EXERCISED
+    Baseline, --optimize-sequence, --left-to-right, --semantic-cleanup,
+    --rapid-eol-delete, --accel-delete, --adaptive-word-delete,
+    --word-accel, --highlight-inline, --highlight-hunk, --dim-unchanged,
+    --overwrite, --delete-end-first, --delete-end-first-smart,
+    --preset fast-delete, --preset review, --preset ai-code, and several
+    combined combos. See OPTION_COMBOS in the source for the full list.
+
+ENVIRONMENT
+    DIFFVIM_BIN       Override the diffvim binary
+                      (default: <script_dir>/diffvim).
+
+EXAMPLES
+    diffvim-jogger
+    diffvim-jogger /tmp/myjog
+    diffvim-jogger --help
+
+SEE ALSO
+    diffvim(1), diffvim-compare(1)
+    Full docs: docs/OPTION_COMBINATIONS.md, docs/POST_PROCESSING.md
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+    esac
+done
+
 mkdir -p "$OUTDIR"
 
 # ---------------------------------------------------------------------------

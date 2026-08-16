@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-16
+
+### Added — Documentation overhaul
+
+#### `-h` / `--help` on every executable
+Every binary in the project now responds to `-h` and `--help` with a
+full usage message, options, environment variables, examples, and
+cross-references. Previously only `diffvim`, `diffvim-tmux`, and
+`diffvim.pl` had it; now `diffvim-compare`, `diffvim-jogger`,
+`diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
+`set_config`, and all four `diffvim-compute-{c,cpp,rust,go}` variants
+support it too.
+
+#### Manpages for every executable
+New `man/` directory with six manpages:
+- `man/diffvim.1` (moved from repo root)
+- `man/diffvim-tmux.1` (new)
+- `man/diffvim-compare.1` (new)
+- `man/diffvim-jogger.1` (new)
+- `man/diffvim-precomputed.1` (new)
+- `man/diffvim-compute.1` (new — covers all four language variants)
+
+Install with `sudo cp man/*.1 /usr/local/share/man/man1/ && sudo mandb`.
+
+#### Visual Guide
+New `docs/VISUAL_GUIDE.md` — the canonical "explain diffvim in 5
+minutes" reference with ASCII art. Covers the input → diff → hunks →
+char ops → animation → output pipeline, the three implementations,
+the post-processing pipeline, the cursor glide geometry, presets,
+controls, multi-file, git replay, and end-to-end examples. 16
+sections.
+
+#### Adoption Guide
+New `docs/ADOPTION_GUIDE.md` — concrete onboarding steps for teams:
+why adoption is hard, presets as on-ramp, external compute as
+default, editor + git integration, recording and sharing, shared
+team config, a 45-minute workshop plan, measuring adoption, common
+pushback (with answers), anti-patterns to avoid, and a 30-day
+checklist.
+
+#### mdBook expansion
+- New `docs/src/presets.md` — the six built-in presets with usage
+  examples, comparison table, and custom preset instructions.
+- New `docs/src/compute.md` — the four external compute tools
+  (C/C++/Rust/Go) with quick start, options, environment, output
+  format, benchmark, and when to use each variant.
+- New `docs/src/manpages.md` — how to install and read the manpages,
+  plus the difference between `--help` and the manpages.
+- Updated `docs/src/SUMMARY.md` to reference all 16 docs in `docs/`,
+  plus the new pages.
+- Updated `docs/src/introduction.md` with the new feature list
+  (presets, external compute, post-processing pipeline) and a
+  "Where to Go Next" section.
+
+#### presentation.html expansion
+Added five new sections to the one-page HTML overview:
+- Six built-in presets (interactive card grid)
+- Post-processing pipeline (visualized as ASCII flowchart)
+- External compute tools (card grid for C/C++/Rust/Go + benchmark)
+- Cursor glide geometry (ASCII ease-in-out chart)
+- Documentation map (link grid to all major docs)
+
+Also fixed the footer to reflect the current state (6 presets, 4
+compute tools, 42 examples, 6 manpages, dual Artistic 2.0 / GPL 3.0
+license).
+
+### Changed
+- `README.md` "Project Structure" section rewritten with the full
+  file tree (now includes `compute/`, `man/`, and all new docs).
+- `README.md` manpage install instructions updated to copy
+  `man/*.1` instead of just `diffvim.1`.
+- `README.md` new "Where to Start Reading" table linking to the
+  visual guide, adoption guide, presentation, mdBook, manpages, and
+  option combinations.
+- `USER_REQUESTS.md` — added Session 16 (requests 119-124).
+
+---
+
 ## [1.5.0] — 2026-08-13
 
 ### Added — 10 new features

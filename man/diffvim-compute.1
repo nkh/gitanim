@@ -1,0 +1,211 @@
+.TH DIFFVIM-COMPUTE 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.SH NAME
+diffvim-compute \- external diff computer for diffvim (C, C++, Rust, Go variants)
+.SH SYNOPSIS
+.B diffvim-compute-<lang>
+.RI <oldfile>
+.RI <newfile>
+.RI <outputfile>
+.RI [ options ]
+.br
+.B diffvim-compute-<lang>
+.B \-\-diff
+.RI <patchfile>
+.RI <outputfile>
+.RI [ options ]
+.br
+.B diffvim-compute-<lang>
+.B \-\-diff
+.B \-
+.RI <outputfile>
+.RI [ options ]
+.br
+.B diffvim-compute-<lang>
+.B \-h | \-\-help
+.SH DESCRIPTION
+.B diffvim-compute
+is the external diff computer used by
+.BR diffvim-precomputed (1).
+Four implementations exist, all producing byte-for-byte identical output:
+
+.TP
+.B diffvim-compute-c
+C reference implementation. The others are validated against this one.
+.TP
+.B diffvim-compute-cpp
+C++ port. Identical algorithm, modern C++ data structures.
+.TP
+.B diffvim-compute-rust
+Rust port. Identical algorithm, Rust idioms.
+.TP
+.B diffvim-compute-go
+Go port. Identical algorithm, Go idioms.
+
+All four read two files (or a unified diff) and write a precomputed
+diff file in the line-oriented format that
+.B "diffvim --precomputed FILE"
+consumes.
+
+.SH ARGUMENTS
+.TP
+.I oldfile
+Old version of the file (two-file mode).
+.TP
+.I newfile
+New version of the file (two-file mode).
+.TP
+.I outputfile
+Where to write the precomputed diff.
+.TP
+.I patchfile
+A unified diff file to read instead of two separate files (with
+.BR \-\-diff ).
+Use
+.B \-
+to read the diff from stdin.
+
+.SH OPTIONS
+.TP
+.B \-\-algorithm lcs|myers|patience
+Diff algorithm (default:
+.BR lcs ).
+.TP
+.B \-\-semantic-cleanup
+Merge adjacent delete/insert pairs into keeps where possible.
+.TP
+.B \-\-word-diff
+Batch word runs in char ops (instead of one char per op).
+.TP
+.B \-\-indent-aware
+Treat indent-only changes specially (preserve indentation).
+.TP
+.B \-\-optimize-sequence
+Reorder ops within a line so deletes come before inserts (default:
+.IR on ).
+.TP
+.B \-\-no-optimize-sequence
+Disable op reordering within a line.
+.TP
+.B \-\-left-to-right
+Within each line, emit keeps (in original order), then deletes,
+then inserts. Useful for left-to-right reading flow.
+.TP
+.B \-\-diff
+Read a unified diff instead of two files. Positional args become
+(patchfile, outputfile).
+.TP
+.B \-h, \-\-help
+Show help and exit.
+
+.SH ENVIRONMENT
+.TP
+.B DIFFVIM_ALGORITHM
+Same as
+.B \-\-algorithm.
+.TP
+.B DIFFVIM_SEMANTIC_CLEANUP
+Set to
+.I 1
+to enable by default.
+.TP
+.B DIFFVIM_WORD_DIFF
+Set to
+.I 1
+to enable by default.
+.TP
+.B DIFFVIM_INDENT_AWARE
+Set to
+.I 1
+to enable by default.
+.TP
+.B DIFFVIM_OPTIMIZE_SEQUENCE
+Default
+.IR 1 ;
+set to
+.I 0
+to disable.
+.TP
+.B DIFFVIM_LEFT_TO_RIGHT
+Set to
+.I 1
+to enable by default.
+
+.SH OUTPUT FORMAT
+The output file is line-oriented:
+.PP
+.RS
+.nf
+# algorithm <name>
+# semantic_cleanup <0|1>
+# word_diff <0|1>
+# indent_aware <0|1>
+# optimize_sequence <0|1>
+# left_to_right <0|1>
+# hunk_count <N>
+HUNK <line>
+keep|delete|insert <code>
+HUNK <line>
+keep|delete|insert <code>
+...
+.fi
+.RE
+.PP
+Where
+.I code
+is the Unicode code point of the character (e.g. 97 for 'a', 10 for
+newline). See
+.I docs/PARSERS.md
+for a full description of the format.
+
+.SH TIMING OUTPUT
+Timing information is printed to stderr:
+.PP
+.RS
+.nf
+compute: <ms> ms (total)
+startup: <ms> ms (process start to first byte read)
+.fi
+.RE
+
+.SH BUILD
+.PP
+.RS
+.nf
+make -C compute c       # build only the C variant
+make -C compute cpp     # build only the C++ variant
+make -C compute rust    # build only the Rust variant (requires rustc)
+make -C compute go      # build only the Go variant (requires go)
+make -C compute         # build all four
+.fi
+.RE
+
+.SH EXAMPLES
+.TP
+.B diffvim-compute-c old.py new.py /tmp/diff.txt
+Compute the diff and write to
+.IR /tmp/diff.txt .
+.TP
+.B diffvim-compute-c --algorithm patience --semantic-cleanup old.py new.py out.txt
+Use Patience algorithm with semantic cleanup.
+.TP
+.B diffvim-compute-c --diff patch.diff out.txt
+Read a unified diff and convert to diffvim format.
+.TP
+.B diffvim-compute-c --diff - out.txt < patch.diff
+Read the diff from stdin.
+.TP
+.B diffvim-precomputed --tool c old.py new.py
+Use the convenience wrapper instead of calling the compute tool directly.
+
+.SH SEE ALSO
+.BR diffvim (1),
+.BR diffvim-precomputed (1),
+.BR diffvim-compare (1)
+.br
+.I docs/PARALLEL_COMPUTE.md
+covers the architecture, parallelism opportunities, and benchmark
+results.
+.I docs/PARSERS.md
+documents the output file format in detail.
+.I docs/src/architecture.md
+has the mdBook version.

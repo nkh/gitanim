@@ -1,0 +1,128 @@
+.TH DIFFVIM-JOGGER 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.SH NAME
+diffvim-jogger \- exercise diffvim across many option combinations on synthetic test cases
+.SH SYNOPSIS
+.B diffvim-jogger
+.RI [ output_dir ]
+.br
+.B diffvim-jogger
+.B \-h | \-\-help
+.SH DESCRIPTION
+.B diffvim-jogger
+generates 18 small synthetic test file pairs covering common
+insertion/deletion patterns (mid-line replacement, insert at start,
+delete at end, block delete, unicode, indent change, etc.), then runs
+.B diffvim
+in log mode 2 with each of ~25 option combinations on every test pair,
+writing one log file per (combination, case) into the results directory.
+A Markdown report is also written summarising the test cases and the
+option combinations.
+
+The tool is useful for visual inspection: open any two log files in the
+same combo directory to compare how a single option changes the
+animation for the same input.
+
+.SH ARGUMENTS
+.TP
+.I output_dir
+Where to write test cases, logs, and the report (default:
+.IR /tmp/diffvim-jogger ).
+
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show help and exit.
+
+.SH OUTPUT STRUCTURE
+.PP
+.RS
+.nf
+<output_dir>/
+\fBtest_cases/\fP    18 pairs of <name>_old.txt / <name>_new.txt
+\fBresults/\fP
+    combo_0_<combo_name>/
+        01_mid_replace_same.log
+        02_mid_replace_shorter.log
+        ...
+    combo_1_<combo_name>/
+        ...
+\fBREPORT.md\fP       summary of all test cases and option combos
+.fi
+.RE
+
+.SH TEST CASES
+The 18 test cases cover:
+.RS
+.IP \(bu 3
+Mid-line replacement (same / shorter / longer)
+.IP \(bu 3
+Insert at beginning / end / middle
+.IP \(bu 3
+Delete at beginning / end / middle
+.IP \(bu 3
+Insert + trailing delete (the delete-end-first case)
+.IP \(bu 3
+Multiple changes on the same line
+.IP \(bu 3
+Complete line replacement
+.IP \(bu 3
+Identical char run deletion (e.g. \-\-\-\-\-\-\-)
+.IP \(bu 3
+Multi-line block deletion / insertion
+.IP \(bu 3
+Unicode characters
+.IP \(bu 3
+Indent-only change
+.IP \(bu 3
+Mixed insert+delete across multiple positions
+.RE
+
+.SH OPTION COMBINATIONS
+Around 25 combinations are exercised, including:
+.RS
+.IP \(bu 3
+Baseline (no flags)
+.IP \(bu 3
+Post-processing: --optimize-sequence, --left-to-right, --semantic-cleanup
+.IP \(bu 3
+Deletion speed: --rapid-eol-delete, --accel-delete, --word-accel,
+--adaptive-word-delete, --rapid-identical-chars
+.IP \(bu 3
+Highlight: --highlight-inline, --highlight-hunk, --highlight-word,
+--dim-unchanged
+.IP \(bu 3
+Overwrite + delete-end-first: --overwrite, --delete-end-first,
+--delete-end-first-smart, and their combinations
+.IP \(bu 3
+Presets: --preset fast-delete, --preset review, --preset ai-code
+.IP \(bu 3
+Several combined combos
+.RE
+
+.SH ENVIRONMENT
+.TP
+.B DIFFVIM_BIN
+Override the
+.B diffvim
+binary to invoke (default:
+.IR <script_dir>/diffvim ).
+
+.SH EXAMPLES
+.TP
+.B diffvim-jogger
+Run with default output directory.
+.TP
+.B diffvim-jogger /tmp/myjog
+Use a custom output directory.
+.TP
+.B diffvim-jogger && open /tmp/diffvim-jogger/REPORT.md
+Run and immediately open the report.
+
+.SH SEE ALSO
+.BR diffvim (1),
+.BR diffvim-compare (1)
+.br
+.I docs/OPTION_COMBINATIONS.md
+and
+.I docs/POST_PROCESSING.md
+describe the option semantics in detail.

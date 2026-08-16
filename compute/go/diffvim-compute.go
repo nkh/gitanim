@@ -728,7 +728,25 @@ func main() {
         diffMode := false
         var positionals []string
         for i := 1; i < len(os.Args); i++ {
-                if os.Args[i] == "--algorithm" && i+1 < len(os.Args) {
+                if os.Args[i] == "-h" || os.Args[i] == "--help" {
+                        fmt.Printf(`diffvim-compute-go — External diff computer for diffvim (Go port).
+
+USAGE
+    diffvim-compute-go <oldfile> <newfile> <outputfile> [options]
+    diffvim-compute-go --diff <patchfile> <outputfile> [options]
+    diffvim-compute-go --diff - <outputfile> [options]   (read diff from stdin)
+    diffvim-compute-go -h | --help
+
+Behavior is identical to diffvim-compute-c; this is a Go port. See
+` + "`diffvim-compute-c --help`" + ` for the full option list, environment
+variables, output format, and examples.
+
+SEE ALSO
+    diffvim-compute-c(1), diffvim(1), diffvim-precomputed(1)
+    Full docs: docs/PARALLEL_COMPUTE.md, docs/src/architecture.md
+`)
+                        os.Exit(0)
+                } else if os.Args[i] == "--algorithm" && i+1 < len(os.Args) {
                         algorithm = os.Args[i+1]
                         i++
                 } else if os.Args[i] == "--semantic-cleanup" {

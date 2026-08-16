@@ -872,7 +872,67 @@ int main(int argc, char **argv) {
     const char *positionals[3] = {NULL, NULL, NULL};
     int n_positionals = 0;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            printf(
+"diffvim-compute-c — External diff computer for diffvim (C reference).\n"
+"\n"
+"USAGE\n"
+"    diffvim-compute-c <oldfile> <newfile> <outputfile> [options]\n"
+"    diffvim-compute-c --diff <patchfile> <outputfile> [options]\n"
+"    diffvim-compute-c --diff - <outputfile> [options]   (read diff from stdin)\n"
+"    diffvim-compute-c -h | --help\n"
+"\n"
+"Reads two files (or a unified diff), computes a line-level + char-level\n"
+"LCS diff, and writes the result in the format that `diffvim --precomputed\n"
+"FILE` consumes. Compiled to native code for speed (10-100x faster than\n"
+"vimscript LCS).\n"
+"\n"
+"OPTIONS\n"
+"    --algorithm lcs|myers|patience   Diff algorithm (default: lcs).\n"
+"    --semantic-cleanup               Merge adjacent delete/insert pairs.\n"
+"    --word-diff                      Batch word runs in char ops.\n"
+"    --indent-aware                   Treat indent-only changes specially.\n"
+"    --optimize-sequence              Reorder ops within a line (default on).\n"
+"    --no-optimize-sequence           Disable op reordering.\n"
+"    --left-to-right                  Emit keeps, then deletes, then inserts.\n"
+"    --diff                           Read a unified diff instead of two files.\n"
+"    -h, --help                       Show this help and exit.\n"
+"\n"
+"ENVIRONMENT\n"
+"    DIFFVIM_ALGORITHM          Same as --algorithm.\n"
+"    DIFFVIM_SEMANTIC_CLEANUP   Set to 1 to enable by default.\n"
+"    DIFFVIM_WORD_DIFF          Set to 1 to enable by default.\n"
+"    DIFFVIM_INDENT_AWARE       Set to 1 to enable by default.\n"
+"    DIFFVIM_OPTIMIZE_SEQUENCE  Default 1; set to 0 to disable.\n"
+"    DIFFVIM_LEFT_TO_RIGHT      Set to 1 to enable by default.\n"
+"\n"
+"OUTPUT FORMAT (written to <outputfile>)\n"
+"    # algorithm <name>\n"
+"    # semantic_cleanup <0|1>\n"
+"    # word_diff <0|1>\n"
+"    # indent_aware <0|1>\n"
+"    # optimize_sequence <0|1>\n"
+"    # left_to_right <0|1>\n"
+"    # hunk_count <N>\n"
+"    HUNK <line>\n"
+"    keep|delete|insert <code>\n"
+"    ...\n"
+"\n"
+"Timing is printed to stderr:\n"
+"    compute: <ms> ms (total)\n"
+"    startup: <ms> ms (process start to first byte read)\n"
+"\n"
+"EXAMPLES\n"
+"    diffvim-compute-c old.py new.py /tmp/diff.txt\n"
+"    diffvim-compute-c --algorithm patience --semantic-cleanup old.py new.py out.txt\n"
+"    diffvim-compute-c --diff patch.diff out.txt\n"
+"    diffvim-precomputed --tool c old.py new.py\n"
+"\n"
+"SEE ALSO\n"
+"    diffvim(1), diffvim-precomputed(1), diffvim-compare(1)\n"
+"    Full docs: docs/PARALLEL_COMPUTE.md, docs/src/architecture.md\n");
+            return 0;
+        } else if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
             algorithm = argv[++i];
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
             do_semantic = 1;

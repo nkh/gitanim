@@ -1,0 +1,124 @@
+.TH DIFFVIM-COMPARE 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.SH NAME
+diffvim-compare \- benchmark diff algorithms and option combinations
+.SH SYNOPSIS
+.B diffvim-compare
+.RI <oldfile>
+.RI <newfile>
+.RI [ output_dir ]
+.br
+.B diffvim-compare
+.B \-h | \-\-help
+.SH DESCRIPTION
+.B diffvim-compare
+generates a matrix of precomputed diff files using every combination of
+diff algorithm and post-processing option, then prints a comparison
+table so you can pick the most efficient and most readable combination
+for your file pair.
+
+It uses the C reference compute tool
+.RI ( compute/bin/diffvim-compute-c )
+under the hood. For each combination it records hunk count, total ops,
+delete/insert counts, and compute time, then writes the diff file to the
+output directory for offline inspection.
+
+.SH ARGUMENTS
+.TP
+.I oldfile
+Old version of the file to compare (required).
+.TP
+.I newfile
+New version of the file to compare (required).
+.TP
+.I output_dir
+Where to write the .diff files (default:
+.IR /tmp/diffvim-compare ).
+
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show help and exit.
+
+.SH ALGORITHMS
+Three algorithms are exercised:
+.BR lcs ,
+.BR myers ,
+.BR patience .
+See
+.BR diffvim (1)
+for the semantics of each.
+
+.SH OPTION COMBINATIONS
+Eight combinations of post-processing flags are exercised:
+.RS
+.IP \(bu 3
+(default — no flags)
+.IP \(bu 3
+\-\-word-diff
+.IP \(bu 3
+\-\-semantic-cleanup
+.IP \(bu 3
+\-\-indent-aware
+.IP \(bu 3
+\-\-word-diff \-\-semantic-cleanup
+.IP \(bu 3
+\-\-word-diff \-\-indent-aware
+.IP \(bu 3
+\-\-semantic-cleanup \-\-indent-aware
+.IP \(bu 3
+\-\-word-diff \-\-semantic-cleanup \-\-indent-aware
+.RE
+
+This produces 3 \(mu 8 = 24 diff files in the output directory, named
+.IR <algorithm>-<options>.diff .
+
+.SH OUTPUT
+For each combination, a single line is printed to stdout:
+.IP
+.B
+<algorithm> <options>  hunks=<N>  ops=<N>  changed=<N>  (del=<N> ins=<N>)  compute: <ms> ms
+.PP
+Lower
+.I changed
+= more efficient (fewer insert/delete ops for the viewer).
+Lower
+.I ops
+= shorter animation.
+Fewer
+.I hunks
+= more coherent changes (less cursor movement).
+
+.SH ENVIRONMENT
+.TP
+.B DIFFVIM_COMPUTE_BIN
+Override the path to the compute binary (default:
+.IR compute/bin/diffvim-compute-c ).
+Use this to point at the
+.IR cpp ,
+.IR rust ,
+or
+.I go
+variants.
+
+.SH EXAMPLES
+.TP
+.B diffvim-compare examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py
+Compare all algorithm/option combinations on a large Python file pair.
+.TP
+.B diffvim-compare a.py b.py /tmp/mycompare
+Write diff files to
+.I /tmp/mycompare
+instead of the default.
+.TP
+.B DIFFVIM_COMPUTE_BIN=compute/bin/diffvim-compute-rust diffvim-compare a.py b.py
+Use the Rust compute tool instead of C.
+
+.SH SEE ALSO
+.BR diffvim (1),
+.BR diffvim-compute (1),
+.BR diffvim-jogger (1)
+.br
+.I docs/OPTION_COMBINATIONS.md
+and
+.I docs/DIFF_STUDY.md
+contain detailed analysis.

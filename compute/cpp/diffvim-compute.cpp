@@ -643,7 +643,25 @@ int main(int argc, char** argv) {
     bool diff_mode = false;
     vector<string> positionals;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            printf(
+"diffvim-compute-cpp — External diff computer for diffvim (C++ port).\n"
+"\n"
+"USAGE\n"
+"    diffvim-compute-cpp <oldfile> <newfile> <outputfile> [options]\n"
+"    diffvim-compute-cpp --diff <patchfile> <outputfile> [options]\n"
+"    diffvim-compute-cpp --diff - <outputfile> [options]   (read diff from stdin)\n"
+"    diffvim-compute-cpp -h | --help\n"
+"\n"
+"Behavior is identical to diffvim-compute-c; this is a C++ port. See\n"
+"`diffvim-compute-c --help` for the full option list, environment\n"
+"variables, output format, and examples.\n"
+"\n"
+"SEE ALSO\n"
+"    diffvim-compute-c(1), diffvim(1), diffvim-precomputed(1)\n"
+"    Full docs: docs/PARALLEL_COMPUTE.md, docs/src/architecture.md\n");
+            return 0;
+        } else if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
             algorithm = argv[++i];
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
             do_semantic = true;

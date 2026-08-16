@@ -672,7 +672,24 @@ fn main() {
     let mut positionals: Vec<String> = Vec::new();
     let mut i = 1;
     while i < args.len() {
-        if args[i] == "--algorithm" && i + 1 < args.len() {
+        if args[i] == "-h" || args[i] == "--help" {
+            println!("diffvim-compute-rust — External diff computer for diffvim (Rust port).");
+            println!();
+            println!("USAGE");
+            println!("    diffvim-compute-rust <oldfile> <newfile> <outputfile> [options]");
+            println!("    diffvim-compute-rust --diff <patchfile> <outputfile> [options]");
+            println!("    diffvim-compute-rust --diff - <outputfile> [options]   (read diff from stdin)");
+            println!("    diffvim-compute-rust -h | --help");
+            println!();
+            println!("Behavior is identical to diffvim-compute-c; this is a Rust port.");
+            println!("See `diffvim-compute-c --help` for the full option list, environment");
+            println!("variables, output format, and examples.");
+            println!();
+            println!("SEE ALSO");
+            println!("    diffvim-compute-c(1), diffvim(1), diffvim-precomputed(1)");
+            println!("    Full docs: docs/PARALLEL_COMPUTE.md, docs/src/architecture.md");
+            std::process::exit(0);
+        } else if args[i] == "--algorithm" && i + 1 < args.len() {
             algorithm = args[i + 1].clone();
             i += 2;
         } else if args[i] == "--semantic-cleanup" {

@@ -1,0 +1,126 @@
+.TH DIFFVIM-PRECOMPUTED 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.SH NAME
+diffvim-precomputed \- run diffvim with a diff computed by an external native tool
+.SH SYNOPSIS
+.B diffvim-precomputed
+.RI [ options ]
+.RI <oldfile>
+.RI <newfile>
+.br
+.B diffvim-precomputed
+.B \-h | \-\-help
+.SH DESCRIPTION
+.B diffvim-precomputed
+is a convenience wrapper that computes the diff between
+.I oldfile
+and
+.I newfile
+using one of the native compute tools (C, C++, Rust, or Go), then
+launches
+.B diffvim
+with
+.B \-\-precomputed
+so the in-vim LCS computation is skipped.
+
+This is 10-100x faster than the in-vim LCS for large files where the
+vimscript LCS would take seconds or more. The compute tool runs in a
+separate process and writes the precomputed diff to a temporary file,
+which
+.B diffvim
+then reads.
+
+.SH ARGUMENTS
+.TP
+.I oldfile
+Old version of the file to animate.
+.TP
+.I newfile
+New version of the file to animate.
+
+.SH OPTIONS
+.TP
+.B \-\-tool c|cpp|rust|go
+Which native compute tool to use (default:
+.BR c ,
+or
+.BR $DIFFVIM_COMPUTE_TOOL ).
+.TP
+.B \-\-keep
+Keep the precomputed diff file on exit (default: delete it).
+.TP
+.B \-\-time
+Print compute + diffvim timing to stderr.
+.TP
+.B \-\-diffvim PATH
+Override the
+.B diffvim
+binary to invoke (default:
+.IR <script_dir>/diffvim ,
+or
+.BR $DIFFVIM_BIN ).
+.TP
+.B \-h, \-\-help
+Show help and exit.
+
+.SH PASSTHROUGH OPTIONS
+Any other option is forwarded verbatim to
+.BR diffvim .
+Common ones:
+.RS
+.IP \(bu 3
+\fB\-\-algorithm\fR lcs|myers|patience
+.IP \(bu 3
+\fB\-\-semantic-cleanup\fR, \fB\-\-word-diff\fR, \fB\-\-indent-aware\fR
+.IP \(bu 3
+\fB\-\-optimize-sequence\fR, \fB\-\-no-optimize-sequence\fR, \fB\-\-left-to-right\fR
+.IP \(bu 3
+\fB\-\-preset\fR NAME
+.IP \(bu 3
+\fB\-\-speed\fR N, \fB\-\-output\fR FILE, \fB\-\-scroll\fR zz|zt|zb|none
+.IP \(bu 3
+\fB\-\-highlight-inline\fR, \fB\-\-highlight-hunk\fR, \fB\-\-dim-unchanged\fR
+.RE
+.PP
+See
+.BR diffvim (1)
+for the full option list.
+
+.SH ENVIRONMENT
+.TP
+.B DIFFVIM_COMPUTE_TOOL
+Default
+.B \-\-tool
+value (c, cpp, rust, go).
+.TP
+.B DIFFVIM_COMPUTE_DIR
+Directory containing
+.I compute/bin/
+(default: auto-detected from the script's location).
+.TP
+.B DIFFVIM_BIN
+Override the
+.B diffvim
+binary (same as
+.BR \-\-diffvim ).
+
+.SH EXAMPLES
+.TP
+.B diffvim-precomputed old.py new.py
+Use the default C compute tool.
+.TP
+.B diffvim-precomputed --tool rust --time --semantic-cleanup old.py new.py
+Use the Rust tool, print timing, enable semantic cleanup.
+.TP
+.B diffvim-precomputed --preset review --highlight-inline a.py b.py
+Apply the \fBreview\fR preset and inline highlighting.
+.TP
+.B diffvim-precomputed --keep --time big_old.py big_new.py
+Keep the precomputed file for inspection, print timing.
+
+.SH SEE ALSO
+.BR diffvim (1),
+.BR diffvim-compute (1),
+.BR diffvim-compare (1)
+.br
+.I docs/PARALLEL_COMPUTE.md
+covers the architecture and timing of the compute tools.

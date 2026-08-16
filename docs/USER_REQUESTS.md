@@ -292,3 +292,43 @@ extensive documentation.
 ## Summary
 
 **Total user requests: 118** (and counting)
+
+---
+
+## Session 16: Documentation, Manpages, Visual Guide, Adoption
+
+119. **All executables must have a -h option, a manpage, documentation** —
+     every binary in the project (`diffvim`, `diffvim-tmux`,
+     `diffvim.pl`, `diffvim-compare`, `diffvim-jogger`,
+     `diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
+     `set_config`, and the four `diffvim-compute-{c,cpp,rust,go}`
+     variants) must respond to `-h` / `--help`, must have a manpage in
+     `man/`, and must be documented in the mdBook.
+120. **USER_REQUESTS.md must be updated** — every session adds entries
+     here (rule from request 108).
+121. **mdBook documentation must be complete** — every topic in
+     `docs/*.md` must have an entry in `docs/src/SUMMARY.md`; every
+     mdBook page must exist and not be a stub.
+122. **A document that graphically explains what diffvim does** —
+     promised earlier with ASCII drawings. Where is it? Is it up to
+     date? Create `docs/VISUAL_GUIDE.md` as the canonical "explain
+     diffvim in 5 minutes" reference with ASCII art showing the input
+     → diff → hunks → char ops → animation → output pipeline, the
+     three implementations, the post-processing passes, the cursor
+     glide geometry, and end-to-end examples.
+123. **Update and expand `presentation.html`** — add sections for the
+     six presets, the post-processing pipeline, the four external
+     compute tools, the cursor glide geometry, and a documentation
+     map. Make it the one-page overview that links to everything else.
+124. **diffvim has become complex; suggest ways to ease its
+     introduction to developers** — write `docs/ADOPTION_GUIDE.md`
+     with concrete onboarding steps (presets as on-ramp, external
+     compute as default, editor integration, shared team config,
+     45-minute workshop, 30-day checklist, common pushback and
+     answers, anti-patterns to avoid).
+
+---
+
+## Summary
+
+**Total user requests: 124** (and counting)

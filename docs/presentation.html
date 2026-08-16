@@ -335,6 +335,125 @@
     opacity: 0.6;
     font-size: 0.85rem;
   }
+
+  /* Preset grid (new in 1.4) */
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .preset-card {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .preset-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .preset-name {
+    color: var(--accent);
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+  .preset-tag {
+    display: inline-block;
+    background: var(--purple);
+    color: var(--bg);
+    padding: 0.1rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin: 0.3rem 0 0.6rem;
+  }
+  .preset-cmd {
+    background: #0d1117;
+    border-left: 3px solid var(--green);
+    padding: 0.4rem 0.7rem;
+    margin: 0.4rem 0;
+    font-size: 0.82rem;
+    color: var(--fg);
+    overflow-x: auto;
+  }
+  .preset-card p {
+    font-size: 0.85rem;
+    color: var(--fg);
+    opacity: 0.8;
+    margin: 0.4rem 0 0;
+  }
+
+  /* Compute grid (new in 1.4) */
+  .compute-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .compute-card {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    text-align: center;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .compute-card:hover {
+    border-color: var(--green);
+    transform: translateY(-2px);
+  }
+  .compute-lang {
+    font-family: monospace;
+    font-size: 1.5rem;
+    color: var(--green);
+    font-weight: 700;
+  }
+  .compute-file {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+    margin: 0.4rem 0;
+  }
+  .compute-note {
+    font-size: 0.82rem;
+    opacity: 0.75;
+  }
+
+  /* Doc grid (new in 1.4) */
+  .doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .doc-card {
+    display: block;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    text-decoration: none;
+    color: var(--fg);
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .doc-card:hover {
+    border-color: var(--purple);
+    transform: translateY(-2px);
+  }
+  .doc-title {
+    color: var(--purple);
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+  .doc-desc {
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
 </style>
 </head>
 <body>
@@ -793,6 +912,227 @@ diffvim --algorithm patience --word-diff --semantic-cleanup old.py new.py
 </div>
 
 <!-- ================================================================ -->
+<!-- PRESETS -->
+<!-- ================================================================ -->
+
+<h2>Six built-in presets</h2>
+
+<p>Skip the option soup — pick a preset and you're done. Each preset
+bundles a sensible combination of post-processing, timing, and
+highlighting flags tuned for one common use case.</p>
+
+<div class="preset-grid">
+  <div class="preset-card">
+    <div class="preset-name">default</div>
+    <div class="preset-tag">Everyday use</div>
+    <pre class="preset-cmd">diffvim old.py new.py</pre>
+    <p>Raw LCS with optimize_sequence. No surprises.</p>
+  </div>
+  <div class="preset-card">
+    <div class="preset-name">fast-delete</div>
+    <div class="preset-tag">Refactors</div>
+    <pre class="preset-cmd">diffvim --preset fast-delete old.py new.py</pre>
+    <p>Rapid-EOL + accel-delete + word-accel. Burns through long deletion blocks.</p>
+  </div>
+  <div class="preset-card">
+    <div class="preset-name">review</div>
+    <div class="preset-tag">Code review</div>
+    <pre class="preset-cmd">diffvim --preset review --git-blame old.py new.py</pre>
+    <p>Step-mode, hunk highlight, dim-unchanged, top-aligned. Press <code>n</code> to advance.</p>
+  </div>
+  <div class="preset-card">
+    <div class="preset-name">ai-code</div>
+    <div class="preset-tag">AI diffs</div>
+    <pre class="preset-cmd">diffvim --preset ai-code --tool rust old.py new.py</pre>
+    <p>Semantic cleanup + left-to-right + word-diff. Tames messy AI-generated diffs.</p>
+  </div>
+  <div class="preset-card">
+    <div class="preset-name">demo</div>
+    <div class="preset-tag">Live demos</div>
+    <pre class="preset-cmd">diffvim --preset demo old.py new.py</pre>
+    <p>0.7x speed, inline highlight, word pause. For audience-friendly walkthroughs.</p>
+  </div>
+  <div class="preset-card">
+    <div class="preset-name">presentation</div>
+    <div class="preset-tag">Screencasts</div>
+    <pre class="preset-cmd">diffvim --preset presentation --output out.py old.py new.py</pre>
+    <p>1.2x speed, no rapid-EOL, centered scroll. For recording smooth video.</p>
+  </div>
+</div>
+
+<p style="margin-top:1.5rem;color:var(--fg);opacity:0.7">
+  Define your own with <code>DIFFVIM_PRESET="review --highlight-word"</code>.
+</p>
+
+<!-- ================================================================ -->
+<!-- POST-PROCESSING PIPELINE -->
+<!-- ================================================================ -->
+
+<h2>Post-processing pipeline</h2>
+
+<p>Raw LCS diffs can be confusing — characters deleted here, inserted
+there, then more deletes elsewhere on the same line. diffvim's
+post-processing passes reorder ops for human readability.</p>
+
+<div class="arch-diagram">
+<pre style="margin:0">
+   raw char_ops
+        │
+        ▼
+   ┌─────────────────┐
+   │ semantic_cleanup│  ← merge adjacent del/ins pairs into keeps
+   └────────┬────────┘
+            ▼
+   ┌─────────────────┐
+   │ optimize_seq    │  ← within each line, deletes before inserts
+   └────────┬────────┘
+            ▼
+   ┌─────────────────┐
+   │ left_to_right   │  ← within each line: keeps, then dels, then ins
+   └────────┬────────┘
+            ▼
+   ┌─────────────────┐
+   │ delete_end_first│  ← move trailing deletes to the end of the line
+   └────────┬────────┘
+            ▼
+   ┌─────────────────┐
+   │ overwrite       │  ← replace delete+insert with in-place overwrite
+   └────────┬────────┘
+            ▼
+   final char_ops (what the animator consumes)
+</pre>
+</div>
+
+<p style="margin-top:1rem;color:var(--fg);opacity:0.8">
+  Each pass is independently toggleable. See
+  <code>docs/POST_PROCESSING.md</code> for the full reference.
+</p>
+
+<!-- ================================================================ -->
+<!-- EXTERNAL COMPUTE -->
+<!-- ================================================================ -->
+
+<h2>External compute tools</h2>
+
+<p>For files larger than a few hundred lines, the in-vim LCS can take
+seconds. The external compute tools solve this — 10-100x faster,
+implemented in four languages with byte-for-byte identical output.</p>
+
+<div class="compute-grid">
+  <div class="compute-card">
+    <div class="compute-lang">C</div>
+    <div class="compute-file">diffvim-compute-c</div>
+    <div class="compute-note">Reference implementation. Smallest binary, fastest startup.</div>
+  </div>
+  <div class="compute-card">
+    <div class="compute-lang">C++</div>
+    <div class="compute-file">diffvim-compute-cpp</div>
+    <div class="compute-note">Modern C++17. Same speed as C.</div>
+  </div>
+  <div class="compute-card">
+    <div class="compute-lang">Rust</div>
+    <div class="compute-file">diffvim-compute-rust</div>
+    <div class="compute-note">Same speed as C/C++. Safest to extend.</div>
+  </div>
+  <div class="compute-card">
+    <div class="compute-lang">Go</div>
+    <div class="compute-file">diffvim-compute-go</div>
+    <div class="compute-note">Same speed. Best if your team uses Go.</div>
+  </div>
+</div>
+
+<div class="terminal">
+<pre style="margin:0">
+<span style="color:#3fb950"># Build all four variants</span>
+make -C compute
+
+<span style="color:#3fb950"># Use the C variant via the wrapper script</span>
+diffvim-precomputed old.py new.py
+
+<span style="color:#3fb950"># Pick a specific language</span>
+diffvim-precomputed --tool rust --time --semantic-cleanup old.py new.py
+
+<span style="color:#3fb950"># Benchmark on a 1000-line Python file:</span>
+<span style="color:var(--yellow)">  vimscript LCS:        ~3500 ms</span>
+<span style="color:var(--green)">  diffvim-compute-c:       11 ms   (318x faster)</span>
+<span style="color:var(--green)">  diffvim-compute-rust:    13 ms   (270x faster)</span>
+</pre>
+</div>
+
+<!-- ================================================================ -->
+<!-- CURSOR GLIDE -->
+<!-- ================================================================ -->
+
+<h2>Cursor glide geometry</h2>
+
+<p>The cursor doesn't jump between hunks. It glides with ease-in-out
+cubic acceleration, so the viewer's eye can follow even long jumps.</p>
+
+<div class="arch-diagram">
+<pre style="margin:0">
+   Position
+       ▲
+   100 │                                ▄██████████▄
+       │                            ▄███▘          ▀███▄
+       │                         ▄███▘                ▀███▄
+       │                      ▄███▘                      ▀███▄
+       │                   ▄███▘                            ▀███▄
+       │                ▄███▘                                  ▀███▄
+       │             ▄███▘                                        ▀███▄
+       │          ▄███▘                                              ▀███▄
+       │       ▄███▘                                                    ▀███▄
+       │    ▄███▘                                                          ▀███▄
+       │ ▄███▘                                                                ▀███▄
+     0 └────────────────────────────────────────────────────────────────────────▶ Time
+       0ms                250ms                              1600ms            1850ms
+                          (min)                              (max)
+</pre>
+</div>
+
+<!-- ================================================================ -->
+<!-- DOCUMENTATION MAP -->
+<!-- ================================================================ -->
+
+<h2>Documentation map</h2>
+
+<p>Not sure where to look? Here's the map.</p>
+
+<div class="doc-grid">
+  <a class="doc-card" href="../VISUAL_GUIDE.md">
+    <div class="doc-title">Visual Guide</div>
+    <div class="doc-desc">Graphical overview with ASCII art. Start here if you're new.</div>
+  </a>
+  <a class="doc-card" href="src/SUMMARY.md">
+    <div class="doc-title">mdBook</div>
+    <div class="doc-desc">Full structured documentation (installation, options, controls, architecture).</div>
+  </a>
+  <a class="doc-card" href="../man/diffvim.1">
+    <div class="doc-title">Manpages</div>
+    <div class="doc-desc">Offline reference for every executable (diffvim, diffvim-tmux, compute tools).</div>
+  </a>
+  <a class="doc-card" href="../ADOPTION_GUIDE.md">
+    <div class="doc-title">Adoption Guide</div>
+    <div class="doc-desc">How to introduce diffvim to your team and make it part of daily workflow.</div>
+  </a>
+  <a class="doc-card" href="../OPTION_COMBINATIONS.md">
+    <div class="doc-title">100 Option Combos</div>
+    <div class="doc-desc">Worked examples covering every common use case.</div>
+  </a>
+  <a class="doc-card" href="../AI_CODE_DIFFING.md">
+    <div class="doc-title">AI Code Diffing</div>
+    <div class="doc-desc">100 ways to make diffvim better for AI-generated code.</div>
+  </a>
+  <a class="doc-card" href="../POST_PROCESSING.md">
+    <div class="doc-title">Post-Processing</div>
+    <div class="doc-desc">How each post-processing pass works and when to use it.</div>
+  </a>
+  <a class="doc-card" href="../FOLLOW_IMPROVEMENTS.md">
+    <div class="doc-title">50 UX Improvements</div>
+    <div class="doc-desc">Ways to reduce cognitive load while watching patches.</div>
+  </a>
+</div>
+
+<!-- ================================================================ -->
 <!-- CALL TO ACTION -->
 <!-- ================================================================ -->
 
@@ -809,8 +1149,8 @@ diffvim --algorithm patience --word-diff --semantic-cleanup old.py new.py
 <!-- ================================================================ -->
 
 <footer>
-  <p>diffvim v1.4 — MIT License — <a href="https://github.com/nkh/gitanim" style="color:var(--accent)">GitHub</a></p>
-  <p>52/100 features implemented · 378+ test assertions · 32 example file pairs · 15+ languages</p>
+  <p>diffvim v1.4 — Artistic License 2.0 / GPL 3.0 (dual) — <a href="https://github.com/nkh/gitanim" style="color:var(--accent)">GitHub</a></p>
+  <p>6 presets · 4 native compute tools (C/C++/Rust/Go) · 50+ CLI options · 42 example file pairs · 15+ languages · 6 manpages</p>
 </footer>
 
 </body>

@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
+# jq_filter — Pipe difftastic (difft) JSON output through this filter to
+# convert it into the line-oriented "HUNK / DEL / ADD / CTX" format that
+# difft_json_to_lcs consumes.
+#
+# Usage:
+#   difft --json old new | jq_filter
+#   difft --json old new | jq_filter | difft_json_to_lcs
+#   jq_filter -h | --help
+#
+# Output format (one line per record):
+#   HUNK <header>          Start of a hunk
+#   DEL <oldNum> <content> Deleted line (old side)
+#   ADD <newNum> <content> Added line (new side)
+#   CTX <oldNum> <newNum> <content>  Context line (both sides)
+#
+# Options:
+#   -h, --help    Show this help and exit.
 
-# jq -r '
-#   .[0].blocks[] |
-#     (
-#       .lines[] |
-#         if .type == "delete" then
-#           "DEL \(.oldNumber) \(.content)"
-#         elif .type == "insert" then
-#           "ADD \(.newNumber) \(.content)"
-#         else
-#           "CTX \(.oldNumber) \(.newNumber) \(.content)"
-#         end
-#     )
-# '
+# Check for -h / --help before invoking jq so the user doesn't need a
+# diff piped in just to read the help text.
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help)
+            sed -n '2,17p' "$0"
+            exit 0
+            ;;
+    esac
+done
 
 jq -r '
   .[0].blocks[] |
