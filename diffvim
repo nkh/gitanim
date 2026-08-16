@@ -150,6 +150,10 @@ STARTUP_FEEDBACK=0
 # Inline char highlight: paint freshly typed chars green, deleted chars red
 INLINE_HIGHLIGHT=0
 INLINE_HIGHLIGHT_DURATION_MS="${DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS:-200}"
+# --pacing: unified timing/pacing mode selector.
+# Replaces --adaptive, --adaptive-timing, --gaussian-jitter, --pause-after-lines.
+# Old flags still work and override this.
+PACING="${DIFFVIM_PACING:-uniform}"
 # Gaussian jitter: vary per-char delay for human-like typing
 GAUSSIAN_JITTER=0
 GAUSSIAN_JITTER_PCT="${DIFFVIM_GAUSSIAN_JITTER_PCT:-20}"
@@ -235,6 +239,11 @@ Options:
   --adaptive-pause-lines N Pause every N lines in large hunks (default: 15)
   --adaptive-pause-ms N    Duration of mid-hunk pauses (default: 500)
   --adaptive-timing (-A)   Slow down on complex regions (±10 op window)
+  --pacing MODE            Unified timing mode: uniform|adaptive|gaussian|review
+                           (default: uniform). Replaces --adaptive, --adaptive-timing,
+                           --gaussian-jitter, --pause-after-lines.
+                           'adaptive' slows in complex regions; 'gaussian' adds
+                           human-like jitter; 'review' pauses every 5 lines.
   --sign-column            Show +/- signs in the sign column during animation
   --delete-pacing MODE     Unified deletion strategy: char|rapid-eol|rapid-identical|
                            accel|word|instant (default: rapid-eol).
@@ -398,6 +407,16 @@ while [[ $# -gt 0 ]]; do
         --adaptive-pause-lines) ADAPTIVE_PAUSE_LINES="$2"; shift 2 ;;
         --adaptive-pause-ms) ADAPTIVE_PAUSE_MS="$2"; shift 2 ;;
         --adaptive-timing|-A) ADAPTIVE_TIMING=1; shift ;;
+        --pacing)
+            PACING="$2"; shift 2
+            case "$PACING" in
+                uniform|adaptive|gaussian|review) : ;;
+                *)
+                    echo "diffvim: invalid --pacing value '$PACING'" >&2
+                    echo "  valid: uniform | adaptive | gaussian | review" >&2
+                    exit 1 ;;
+            esac
+            ;;
         --sign-column)      SIGN_COLUMN=1; shift ;;
         --rapid-eol-delete) RAPID_EOL_DELETE=1; shift ;;
         --no-rapid-eol-delete) RAPID_EOL_DELETE=0; shift ;;
@@ -849,6 +868,35 @@ export DIFFVIM_INSERT_PACING="$INSERT_PACING"
 export DIFFVIM_INSERT_SPEED="$INSERT_SPEED"
 # Re-export MAX_WORD_CHARS since it may have been changed by --insert-pacing word
 export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
+
+# Resolve --pacing into the individual timing variables.
+# --pacing is the unified selector; the individual flags
+# (--adaptive, --adaptive-timing, --gaussian-jitter, --pause-after-lines)
+# override the pacing default.
+#
+# Mapping:
+#   uniform  -> adaptive_timing=0, gaussian_jitter=0, adaptive_mode=0, pause_after=0 (default)
+#   adaptive -> adaptive_timing=1, adaptive_mode=1 (slow down in complex regions)
+#   gaussian -> gaussian_jitter=1 (human-like timing jitter)
+#   review   -> adaptive_mode=1, pause_after_lines=5, pause_after_threshold=20 (pause every 5 lines)
+case "$PACING" in
+    uniform)
+        : ;; # keep defaults
+    adaptive)
+        ADAPTIVE_TIMING=1
+        ADAPTIVE_MODE=1
+        ;;
+    gaussian)
+        GAUSSIAN_JITTER=1
+        ;;
+    review)
+        ADAPTIVE_MODE=1
+        PAUSE_AFTER_LINES=5
+        PAUSE_AFTER_THRESHOLD=20
+        ;;
+esac
+
+export DIFFVIM_PACING="$PACING"
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
 export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
