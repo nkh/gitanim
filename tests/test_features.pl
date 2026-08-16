@@ -129,7 +129,7 @@ ok('--to accepted', `perl diffvim.pl --to HEAD --help 2>&1` =~ /--to/);
 # ---------------------------------------------------------------------------
 print "\n=== Test: Parser tests ===\n";
 my $parser_output = `perl tests/test_parsers.pl 2>&1`;
-ok('Parser tests pass', $parser_output =~ /18 passed, 0 failed/);
+ok('Parser tests pass', $parser_output =~ /9 passed, 0 failed/);
 
 # ---------------------------------------------------------------------------
 # Test 9: diffvim (bash) --help

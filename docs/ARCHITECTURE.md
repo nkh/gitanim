@@ -268,11 +268,10 @@ architecture:
 │  │ │ Perl.pm      │ │  │ phase machine   │  │
 │  │ │ (LCS diff)   │ │  │ send_ex()       │  │
 │  │ └──────────────┘ │  │ query_vim()     │  │
-│  │ ┌──────────────┐ │  │                 │  │
-│  │ │ Diff2Html.pm │ │  │ User input:     │  │
-│  │ │ (diff2html   │ │  │ sysread(FIFO)   │  │
-│  │ │  + LCS)      │ │  │                 │  │
-│  │ └──────────────┘ │  │                 │  │
+│  │                  │  │                 │  │
+│  │                  │  │ User input:     │  │
+│  │                  │  │ sysread(FIFO)   │  │
+│  │                  │  │                 │  │
 │  └──────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────┘
                       │
@@ -285,9 +284,8 @@ architecture:
 
 ### Key characteristics
 
-- **Pluggable parsers** — `DiffVim::Parser::Perl` and
-  `DiffVim::Parser::Diff2Html` produce identical output, selected via
-  `--parser` flag
+- **Single parser** — `DiffVim::Parser::Perl` (pure-Perl LCS, no
+  external dependencies)
 - **Better data structures** — Perl's arrays-of-hashes are more natural
   for hunk data than bash's parallel associative arrays
 - **Same tmux+FIFO communication** — and the same race condition issues
@@ -320,23 +318,21 @@ Returns:
             new_text       => $string,
         },
     ],
-    parser => $string,   # 'perl' or 'diff2html'
+    parser => $string,   # always 'perl'
 }
 ```
 
 ### Pros
 
-- Pluggable parser architecture (easy to add new parsers)
+- Single parser, no external dependencies (pure-Perl LCS)
 - Perl's data structures are cleaner than bash's
 - `Algorithm::Diff` integration for faster line-level diff
-- `JSON::PP` is core (no external JSON dependency)
 - Better error handling (`eval`, `die`, `warn`)
 
 ### Cons
 
 - Same tmux race conditions as `diffvim-tmux`
 - Perl is less commonly available than bash
-- `diff2html` parser adds a Node.js dependency
 
 ---
 
@@ -348,14 +344,13 @@ Returns:
 | **Vim communication**      | Native (timer)   | tmux send-keys   | tmux send-keys   |
 | **User input**             | Native mappings  | FIFO             | FIFO             |
 | **Race conditions**        | No               | Yes              | Yes              |
-| **Parser pluggability**    | No               | No               | Yes (2 parsers)  |
 | **External dependencies**  | Vim only         | tmux, diff, sed, awk | tmux, diff    |
 | **Diff algorithm**         | LCS (Vimscript)  | LCS (diff+sed)   | LCS (Perl)       |
 | **Char-level diff**        | LCS (Vimscript)  | LCS (diff+sed)   | LCS (Perl)       |
 | **Easing**                 | ease-in-out cubic| ease-in-out cubic| ease-in-out cubic|
 | **Snapshots**              | In-memory        | Temp files       | Temp files       |
-| **Test coverage**          | Manual           | Manual           | 18 parser tests  |
-| **Best for**               | Quick use, no deps | Bash scripting | Parser research  |
+| **Test coverage**          | Manual           | Manual           | 9 parser tests   |
+| **Best for**               | Quick use, no deps | Bash scripting | Perl scripting   |
 
 ---
 

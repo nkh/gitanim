@@ -9,9 +9,8 @@
 #   - Vim normal-mode mappings write user commands (p/n/b/q/+/=/</>) to a FIFO.
 #   - Perl reads the FIFO (non-blocking) between animation steps.
 #
-# Two diff parsers are available:
+# One diff parser is available:
 #   --parser perl       Pure-Perl LCS diff (default, no external deps)
-#   --parser diff2html  Shells out to `diff2html -f json` for line-level parsing
 #
 # Usage:
 #   diffvim.pl [options] <oldfile> <newfile>
@@ -19,7 +18,7 @@
 #   diffvim.pl [options] --replay <file> [--from REV] [--to REV]
 #
 # Options:
-#   --parser perl|diff2html  Diff parser (default: perl)
+#   --parser perl            Diff parser (default: perl)
 #   --speed N                Speed multiplier (0.5=half, 1=normal, 2=double)
 #   --output FILE            Write result to FILE after animation
 #   --context N              Fold unchanged regions >2N lines, keep N context
@@ -43,7 +42,6 @@
 #   =        reset speed to 1.0
 #
 # Requires: Perl 5.10+, tmux 3+, vim 8+, diff.
-# Optional: diff2html-cli (npm install -g diff2html-cli) for the diff2html parser.
 
 use strict;
 use warnings;
@@ -59,7 +57,6 @@ use Time::HiRes qw(sleep time);
 # Ensure we can find our modules
 use lib dirname(__FILE__);
 use DiffVim::Parser::Perl qw(parse_diff);
-use DiffVim::Parser::Diff2Html;
 
 binmode(STDOUT, ':utf8');
 binmode(STDERR, ':utf8');
@@ -111,7 +108,6 @@ my $adaptive_timing= 0;
 my $word_diff_mode = 0;
 my $diff_input     = '';
 my $semantic_cleanup = 0;
-my $parser_compare   = 0;
 my $diff_algorithm   = 'lcs';
 my $use_remote       = 0;
 my $indent_aware     = 0;
@@ -147,7 +143,6 @@ GetOptions(
     'word-diff'        => \$word_diff_mode,
     'diff=s'           => \$diff_input,
     'semantic-cleanup' => \$semantic_cleanup,
-    'parser-compare'   => \$parser_compare,
     'algorithm=s'      => \$diff_algorithm,
     'remote'           => \$use_remote,
     'indent-aware'     => \$indent_aware,
@@ -210,7 +205,7 @@ if ($version_flag) {
     print "diffvim.pl version $version\n";
     print "  parser: $parser_name\n";
     print "  perl: $]\n";
-    for my $cmd (qw(vim tmux diff git diff2html)) {
+    for my $cmd (qw(vim tmux diff git)) {
         if (_which($cmd)) {
             my $v = `$cmd --version 2>&1 | head -1`;
             chomp $v;
@@ -234,7 +229,7 @@ Usage: $0 [options] <oldfile> <newfile>
 Animate a code diff in vim (inside a tmux pane), as if a human were typing it.
 
 Options:
-  --parser perl|diff2html  Diff parser (default: perl)
+  --parser perl            Diff parser (default: perl)
   --speed N                Speed multiplier: 0.5=half speed, 2=double, 5=5x
   --output FILE            Write result to FILE after animation, then quit
   --context N              Fold unchanged regions >2N lines, keep N context lines
@@ -257,7 +252,6 @@ Options:
   --word-diff              Use word-level diff (groups changes by word)
   --diff FILE              Animate a unified diff file (- for stdin)
   --semantic-cleanup       Merge adjacent insert/delete pairs that cancel out
-  --parser-compare         Run both parsers and report differences
   --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
   --remote                 Use vim --remote-send instead of tmux (#2)
   --indent-aware           Detect indent changes separately (#22)
@@ -483,68 +477,6 @@ for my $pair (@file_pairs) {
 # Forward-declare variables used by compute_diff and the dry-run block
 my @hunks;
 my $parser_used = '';
-
-# --parser-compare: run both parsers and report differences (#30)
-if ($parser_compare) {
-    _which('diff2html') or die "Error: --parser-compare requires 'diff2html' in PATH\n" .
-        "Install with: npm install -g diff2html-cli\n";
-    my $mismatches = 0;
-    for my $pair (@file_pairs) {
-        my ($old, $new) = @$pair;
-        print "=== Comparing parsers: $old -> $new ===\n";
-        my $r_perl = DiffVim::Parser::Perl::parse_diff($old, $new);
-        my $r_d2h  = DiffVim::Parser::Diff2Html::parse_diff($old, $new);
-
-        my @h_perl = @{$r_perl->{hunks}};
-        my @h_d2h  = @{$r_d2h->{hunks}};
-
-        if (scalar(@h_perl) != scalar(@h_d2h)) {
-            print "  MISMATCH: hunk count differs (perl=" . scalar(@h_perl) .
-                  ", diff2html=" . scalar(@h_d2h) . ")\n";
-            $mismatches++;
-            next;
-        }
-
-        for my $i (0 .. $#h_perl) {
-            my $hp = $h_perl[$i];
-            my $hd = $h_d2h[$i];
-            if ($hp->{target_line} != $hd->{target_line}) {
-                print "  MISMATCH hunk $i: target_line (perl=$hp->{target_line}, d2h=$hd->{target_line})\n";
-                $mismatches++;
-            }
-            if ($hp->{deleted_count} != $hd->{deleted_count}) {
-                print "  MISMATCH hunk $i: deleted_count (perl=$hp->{deleted_count}, d2h=$hd->{deleted_count})\n";
-                $mismatches++;
-            }
-            if ($hp->{inserted_count} != $hd->{inserted_count}) {
-                print "  MISMATCH hunk $i: inserted_count (perl=$hp->{inserted_count}, d2h=$hd->{inserted_count})\n";
-                $mismatches++;
-            }
-            # Compare char_ops
-            my @ops_p = @{$hp->{char_ops}};
-            my @ops_d = @{$hd->{char_ops}};
-            if (scalar(@ops_p) != scalar(@ops_d)) {
-                print "  MISMATCH hunk $i: char_ops count (perl=" . scalar(@ops_p) .
-                      ", d2h=" . scalar(@ops_d) . ")\n";
-                $mismatches++;
-            } else {
-                for my $j (0 .. $#ops_p) {
-                    if ($ops_p[$j]{op} ne $ops_d[$j]{op} || $ops_p[$j]{code} != $ops_d[$j]{code}) {
-                        print "  MISMATCH hunk $i op $j: perl=$ops_p[$j]{op}($ops_p[$j]{code})" .
-                              " d2h=$ops_d[$j]{op}($ops_d[$j]{code})\n";
-                        $mismatches++;
-                        last;
-                    }
-                }
-            }
-        }
-        if ($mismatches == 0) {
-            print "  OK: " . scalar(@h_perl) . " hunk(s) match\n";
-        }
-    }
-    print "\n=== Parser comparison: $mismatches mismatch(es) found ===\n";
-    exit($mismatches == 0 ? 0 : 1);
-}
 
 # --dry-run: compute and print diff ops without launching vim (#9)
 if ($dry_run) {
@@ -1181,7 +1113,7 @@ sub compute_diff {
     my ($old, $new) = @_;
 
     # If --precomputed FILE is set, load the diff from that file instead
-    # of computing it with the Perl/diff2html parser.
+    # of computing it with the Perl parser.
     if (defined $ENV{DIFFVIM_PRECOMPUTED} && $ENV{DIFFVIM_PRECOMPUTED} ne '') {
         my $pc_file = $ENV{DIFFVIM_PRECOMPUTED};
         my $r = load_precomputed($pc_file);
@@ -1190,15 +1122,8 @@ sub compute_diff {
         return;
     }
 
-    my $result;
     my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup, algorithm => $diff_algorithm, indent_aware => $indent_aware };
-    if ($parser_name eq 'diff2html') {
-        _which('diff2html') or die "Error: 'diff2html' not found in PATH\n" .
-            "Install with: npm install -g diff2html-cli\n";
-        $result = DiffVim::Parser::Diff2Html::parse_diff($old, $new);
-    } else {
-        $result = DiffVim::Parser::Perl::parse_diff($old, $new, $options);
-    }
+    my $result = DiffVim::Parser::Perl::parse_diff($old, $new, $options);
     @hunks = @{$result->{hunks}};
     $parser_used = $result->{parser};
 }

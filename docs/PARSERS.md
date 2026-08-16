@@ -1,24 +1,22 @@
 # Diff Parsers
 
-This document describes the two diff parser modules used by `diffvim.pl`
+This document describes the diff parser module used by `diffvim.pl`
 and how to write your own parser.
 
 ---
 
 ## Overview
 
-`diffvim.pl` supports pluggable diff parsers. A parser is a Perl module
-that takes two file paths and returns a structured representation of the
-diff (hunks + char-level operations). Two parsers are included:
+`diffvim.pl` uses a single built-in parser:
 
-| Parser                       | File             | Algorithm                          |
-| ---------------------------- | ----------------- | ---------------------------------- |
-| `DiffVim::Parser::Perl`      | `DiffVim/Parser/Perl.pm`      | Pure-Perl LCS (line + char level) |
-| `DiffVim::Parser::Diff2Html` | `DiffVim/Parser/Diff2Html.pm` | diff2html CLI (line) + Perl LCS (char) |
+| Parser                  | File                       | Algorithm                          |
+| ----------------------- | -------------------------- | ---------------------------------- |
+| `DiffVim::Parser::Perl` | `DiffVim/Parser/Perl.pm`   | Pure-Perl LCS (line + char level)  |
 
-Both parsers produce **identical output** — they just use different
-line-level diff backends. The char-level diff is always computed in
-Perl (LCS dynamic programming).
+The parser uses LCS dynamic programming at both the line level and the
+character level, with optional Myers and Patience algorithms at the
+line level. It has no external dependencies beyond Perl 5.10+ and the
+core `Algorithm::Diff` module (optional, for faster line-level diff).
 
 ---
 
@@ -174,73 +172,6 @@ for my $hunk (@{$result->{hunks}}) {
 - Perl 5.10+ (uses `//` operator)
 - `Algorithm::Diff` (optional, for faster line-level diff)
 
----
-
-## Parser 2: `DiffVim::Parser::Diff2Html`
-
-### Algorithm
-
-1. **Generate unified diff** — uses the system `diff -u` command
-2. **Run diff2html** — `diff2html -f json -o stdout -i file -d char`
-   parses the unified diff into a JSON structure with line-level
-   operations
-3. **Parse JSON** — uses `JSON::PP` (core module) to decode the JSON
-4. **Hunk grouping** — groups consecutive delete+insert lines from the
-   diff2html output
-5. **Char-level diff** — same LCS DP as the Perl parser
-
-### diff2html JSON format
-
-diff2html produces an array of file objects:
-
-```json
-[
-  {
-    "oldName": "file.txt",
-    "newName": "file.txt",
-    "blocks": [
-      {
-        "oldStartLine": 1,
-        "newStartLine": 1,
-        "lines": [
-          {"content": " context line", "type": "context", "oldNumber": 1, "newNumber": 1},
-          {"content": "-deleted line", "type": "delete",  "oldNumber": 2},
-          {"content": "+inserted line","type": "insert",  "newNumber": 2}
-        ]
-      }
-    ]
-  }
-]
-```
-
-The parser extracts the `type` and `content` fields, strips the diff
-prefix character (` `, `-`, or `+`), and groups consecutive
-delete+insert lines into hunks.
-
-### Handling identical files
-
-If the files are identical, `diff -u` produces no output, and
-`diff2html` produces an empty JSON array `[]`. The parser handles
-this gracefully and returns `{ hunks => [], parser => 'diff2html' }`.
-
-### Usage
-
-```perl
-use DiffVim::Parser::Diff2Html;
-
-my $result = DiffVim::Parser::Diff2Html::parse_diff('old.txt', 'new.txt');
-print "Parser used: $result->{parser}\n";
-print "Hunk count: " . scalar(@{$result->{hunks}}) . "\n";
-```
-
-### Dependencies
-
-- Perl 5.10+
-- `JSON::PP` (core since Perl 5.14)
-- `diff2html` CLI (`npm install -g diff2html-cli`)
-- `diff` command (system)
-
----
 
 ## Writing a Custom Parser
 
@@ -302,7 +233,7 @@ suite:
 perl tests/test_parsers.pl
 ```
 
-This tests 9 cases (18 assertions) and verifies that applying the char
+This tests 9 cases (9 assertions) and verifies that applying the char
 ops to the old file produces exactly the new file.
 
 You can also compare your parser's output against the Perl parser:
@@ -328,8 +259,6 @@ my $r2 = Your::Parser::parse_diff('old.txt', 'new.txt');
   text (usually a few hundred characters), not the whole file.
 - **`Algorithm::Diff`** uses a C implementation and is ~10x faster than
   the pure-Perl LCS fallback for large files.
-- **`diff2html` parser** adds overhead from spawning a Node.js process
-  (~200-500ms per invocation). For repeated runs, cache the JSON output.
 - **Memory usage** for the LCS DP table: `N * M * sizeof(int)` bytes.
   For two 10,000-line files, this is ~400MB. Consider streaming diff
   algorithms for very large files.

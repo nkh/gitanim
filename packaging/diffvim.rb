@@ -5,7 +5,7 @@
 # This formula installs all three diffvim implementations:
 #   - diffvim       (Bash + Vimscript, no tmux needed)
 #   - diffvim-tmux  (Bash + tmux)
-#   - diffvim.pl    (Perl + tmux, pluggable parsers)
+#   - diffvim.pl    (Perl + tmux, pure-Perl LCS parser)
 
 class Diffvim < Formula
   desc "Animate a code diff in vim as if a human were typing it"
@@ -26,16 +26,15 @@ class Diffvim < Formula
     bin.install "diffvim-tmux"
     bin.install "diffvim.pl"
 
-    # Install the Perl modules
+    # Install the Perl module (pure-Perl LCS parser)
     (lib/"perl5"/"DiffVim"/"Parser").install "DiffVim/Parser/Perl.pm"
-    (lib/"perl5"/"DiffVim"/"Parser").install "DiffVim/Parser/Diff2Html.pm"
 
     # Install the vim plugin
     (prefix/"plugin").install "plugin/diffvim.vim"
     (prefix/"autoload"/"diffvim").install "autoload/diffvim/engine.vim"
 
-    # Install the man page
-    man1.install "diffvim.1"
+    # Install the man pages
+    man1.install Dir["man/*.1"]
 
     # Install shell completions
     bash_completion.install "completion/diffvim.bash" => "diffvim"

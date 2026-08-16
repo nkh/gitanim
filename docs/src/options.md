@@ -35,10 +35,9 @@ around each hunk. Default: 0 (no folding).
 
 ## Diff Options
 
-### `--parser perl|diff2html` *(diffvim.pl only)*
-Diff parser to use:
-- `perl` — pure-Perl LCS (default, no deps)
-- `diff2html` — shells out to `diff2html -f json` CLI
+### `--parser perl` *(diffvim.pl only)*
+Diff parser to use. Only `perl` is supported (pure-Perl LCS, no
+external dependencies).
 
 ### `--word-diff`
 Use word-level diff instead of char-level. Groups changes by word

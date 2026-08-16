@@ -20,8 +20,7 @@ This document describes how to test the `diffvim` implementations.
 
 The parser tests verify that:
 
-1. Both parsers (`DiffVim::Parser::Perl` and
-   `DiffVim::Parser::Diff2Html`) produce correct char ops
+1. The parser (`DiffVim::Parser::Perl`) produces correct char ops
 2. Applying the char ops to the old file produces exactly the new file
 3. Edge cases are handled correctly
 
@@ -39,15 +38,11 @@ The parser tests verify that:
 | 8  | mid-line insertion          | Insert text in the middle of a line          |
 | 9  | delete middle lines         | Remove lines from the middle                 |
 
-Each case is tested with both parsers, for a total of **18 assertions**.
+Each case is tested with the Perl parser, for a total of **9 assertions**.
 
 ### Running the tests
 
 ```bash
-# Ensure PATH includes diff2html (for the diff2html parser tests)
-export PATH="/home/z/.local/bin:/home/z/.npm-global/bin:$PATH"
-export LD_LIBRARY_PATH="/home/z/.local/lib:${LD_LIBRARY_PATH:-}"
-
 # Run the tests
 perl tests/test_parsers.pl
 ```
@@ -56,25 +51,16 @@ perl tests/test_parsers.pl
 
 ```
 PASS (perl):      simple modification
-PASS (diff2html): simple modification
 PASS (perl):      multi-hunk python
-PASS (diff2html): multi-hunk python
 PASS (perl):      pure insertion at start
-PASS (diff2html): pure insertion at start
 PASS (perl):      pure deletion at end
-PASS (diff2html): pure deletion at end
 PASS (perl):      identical files
-PASS (diff2html): identical files
 PASS (perl):      empty old file
-PASS (diff2html): empty old file
 PASS (perl):      insertion at end
-PASS (diff2html): insertion at end
 PASS (perl):      mid-line insertion
-PASS (diff2html): mid-line insertion
 PASS (perl):      delete middle lines
-PASS (diff2html): delete middle lines
 
-Results: 18 passed, 0 failed
+Results: 9 passed, 0 failed
 ```
 
 ### How the tests work
@@ -82,11 +68,11 @@ Results: 18 passed, 0 failed
 The test script (`tests/test_parsers.pl`):
 
 1. Writes the old and new content to temp files
-2. Calls `parse_diff()` with both parsers
+2. Calls `parse_diff()` with the Perl parser
 3. Applies the returned char ops to the old file content (simulating
    the animation)
 4. Compares the result with the expected new content
-5. Reports PASS/FAIL for each parser
+5. Reports PASS/FAIL for each case
 
 The char op application simulates what vim would do:
 
@@ -116,14 +102,10 @@ completes.
 - tmux 3+ installed and in PATH
 - vim 8+ installed and in PATH
 - Perl 5.10+
-- For the diff2html test: `diff2html-cli` installed
 
 ### Running the tests
 
 ```bash
-export PATH="/home/z/.local/bin:/home/z/.npm-global/bin:$PATH"
-export LD_LIBRARY_PATH="/home/z/.local/lib:${LD_LIBRARY_PATH:-}"
-
 # Run the E2E test
 perl tests/test_e2e_perl.pl
 ```
@@ -139,15 +121,7 @@ Launching vim in tmux...
 Animation done: 1
 RESULT (perl): MATCH
 
-==================================================
-Testing parser: diff2html
-==================================================
-diffvim: 2 hunk(s) to animate (parser: diff2html).
-Launching vim in tmux...
-Animation done: 1
-RESULT (diff2html): MATCH
-
-Results: 2 passed, 0 failed
+Results: 1 passed, 0 failed
 ```
 
 ### Known issues
@@ -291,7 +265,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get install -y vim tmux
-          npm install -g diff2html-cli
       - name: Parser tests
         run: perl tests/test_parsers.pl
       - name: End-to-end tests

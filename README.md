@@ -114,12 +114,6 @@ cp -r plugin autoload ~/.vim/
 | tmux | 3+ | `diffvim-tmux`, `diffvim.pl` |
 | diff | any | All |
 | git | any | `--replay`, `--git-rev`, `--git-blame` |
-| diff2html-cli | any | `--parser diff2html` (optional) |
-
-Install diff2html-cli (optional):
-```bash
-npm install -g diff2html-cli
-```
 
 ### Verification
 
@@ -141,9 +135,8 @@ man diffvim
 # Bash + tmux + vim
 ./diffvim-tmux old.py new.py
 
-# Perl + tmux + vim (with pluggable parsers)
+# Perl + tmux + vim
 perl diffvim.pl old.py new.py
-perl diffvim.pl --parser diff2html old.py new.py
 ```
 
 ### Plugin Mode (inside existing vim)
@@ -262,8 +255,6 @@ All three implementations support these options:
 --version, -V            Print version and dependency info
 --help, -h               Show help
 ```
-
-`diffvim.pl` also supports `--parser perl|diff2html`.
 
 ### Buffer State After Animation
 
@@ -452,8 +443,7 @@ gitanim/
 ├── set_config                    # Source-able timing env var defaults
 ├── DiffVim/
 │   └── Parser/
-│       ├── Perl.pm               # Pure-Perl LCS diff parser
-│       └── Diff2Html.pm          # diff2html CLI-based parser
+│       └── Perl.pm               # Pure-Perl LCS diff parser
 ├── plugin/
 │   └── diffvim.vim              # :Diffvim command for plugin mode
 ├── autoload/

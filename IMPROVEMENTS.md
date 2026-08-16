@@ -70,9 +70,9 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 28. ✅ **Add `--git-rev` option** — accept `HEAD~3..HEAD` syntax to animate a git commit range across multiple files.
 
-29. ⬜ **Cache diff2html JSON output** — for repeated runs on the same files, cache the diff2html output to avoid re-running the Node.js CLI.
+29. ❌ **Cache diff2html JSON output** — REMOVED: diff2html dependency was removed entirely; only the pure-Perl parser remains.
 
-30. ✅ **Add a `--parser-compare` flag** — run both parsers and report any differences in the computed hunks, for continuous validation.
+30. ❌ **Add a `--parser-compare` flag** — REMOVED along with diff2html; only one parser remains, so comparison is moot.
 
 ## Animation & Easing (31-45)
 
@@ -196,7 +196,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 86. ✅ **Write a comprehensive man page** — document all flags, env vars, controls, and architecture with examples. *(diffvim.1)*
 
-87. ✅ **Add a `--version` flag** — print version, parser info, and dependency versions (vim, tmux, perl, diff2html).
+87. ✅ **Add a `--version` flag** — print version, parser info, and dependency versions (vim, tmux, perl, diff, git).
 
 88. ⬜ **Package as a CPAN module** — `DiffVim::` namespace with proper `Makefile.PL`, tests, and dependency declaration.
 

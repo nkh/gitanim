@@ -188,9 +188,9 @@ my $plain_ops = `perl diffvim.pl --dry-run examples/15_swift/old.swift examples/
 my $clean_ops = `perl diffvim.pl --semantic-cleanup --dry-run examples/15_swift/old.swift examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
 ok("Test 19: semantic cleanup ops <= plain ops", $clean_ops <= $plain_ops);
 
-# Test 20: --parser-compare works (if diff2html available)
-my $compare_out = `perl diffvim.pl --parser-compare examples/16_ruby/old.rb examples/16_ruby/new.rb 2>&1`;
-ok("Test 20: parser-compare runs", $compare_out =~ /Comparing parsers|diff2html.*not found/i);
+# Test 20: --parser perl is accepted (the only parser now)
+my $parser_out = `perl diffvim.pl --parser perl --dry-run examples/16_ruby/old.rb examples/16_ruby/new.rb 2>&1`;
+ok("Test 20: --parser perl works", $parser_out =~ /Parser: perl/i);
 
 # Cleanup
 unlink '/tmp/dv_test_result.txt';

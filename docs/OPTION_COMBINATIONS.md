@@ -335,17 +335,7 @@ semantic cleanup to remove canceling ops. The Python classes expansion (from
 simple inheritance to ABC, dataclass, and type hints) gets the most
 human-readable diff possible.
 
-### 29. Compare parsers
-
-```bash
-perl diffvim.pl --parser-compare examples/01_small_python/old.py examples/01_small_python/new.py
-```
-
-Runs both the Perl LCS parser and the diff2html CLI parser, then compares the
-hunks and char ops. Exits 0 if they match, 1 if any difference is found.
-Useful for continuous validation.
-
-### 30. Dry run to inspect ops
+### 29. Dry run to inspect ops
 
 ```bash
 perl diffvim.pl --dry-run examples/08_rust_code/old.rs examples/08_rust_code/new.rs
@@ -668,7 +658,7 @@ diffvim --version
 ```
 
 Prints the version number, parser info, and dependency versions (vim, tmux,
-perl, diff, git, diff2html). Useful for bug reports and troubleshooting.
+perl, diff, git). Useful for bug reports and troubleshooting.
 
 ### 60. Sign column display
 
@@ -1124,7 +1114,7 @@ diffvim --<TAB>
 diffvim --scroll <TAB>
 # Shows: zz zt zb none
 diffvim --parser <TAB>
-# Shows: perl diff2html
+# Shows: perl
 ```
 
 Bash completion for all options, option values, and file paths.

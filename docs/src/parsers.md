@@ -1,10 +1,10 @@
 # Diff Parsers
 
-The `diffvim.pl` implementation supports pluggable diff parsers.
+The `diffvim.pl` implementation uses a single built-in diff parser.
 
 ## Parser API
 
-Every parser module must export a `parse_diff` function:
+The parser module exports a `parse_diff` function:
 
 ```perl
 parse_diff($old_file, $new_file, \%options)
@@ -13,6 +13,9 @@ parse_diff($old_file, $new_file, \%options)
 ### Options
 
 - `word_diff => 1` — use word-level diff instead of char-level
+- `semantic_cleanup => 1` — merge adjacent delete/insert pairs
+- `algorithm => 'myers'|'patience'|'lcs'` — line-level algorithm
+- `indent_aware => 1` — handle indent-only changes specially
 
 ### Return Value
 
@@ -38,33 +41,29 @@ parse_diff($old_file, $new_file, \%options)
 }
 ```
 
-## Included Parsers
-
-### DiffVim::Parser::Perl
+## The Built-in Parser: DiffVim::Parser::Perl
 
 Pure-Perl LCS diff. No external dependencies beyond Perl core.
 
-- Line-level: LCS dynamic programming (O(N×M))
+- Line-level: LCS dynamic programming (O(N×M)), with optional
+  Myers (O(ND)) and Patience algorithms
 - Char-level: LCS on character arrays
 - Word-level: LCS on word/whitespace tokens (with `--word-diff`)
+- Semantic cleanup: merges adjacent delete/insert pairs that cancel
+- Indent-aware: detects indent-only changes and treats them as keeps
 
-### DiffVim::Parser::Diff2Html
+## Selecting the Parser
 
-Shells out to `diff2html -f json` CLI for line-level parsing, then
-computes char-level LCS in Perl.
-
-- Requires `diff2html-cli` (`npm install -g diff2html-cli`)
-- Produces identical output to the Perl parser
-- Handles identical files (empty diff) gracefully
-
-## Selecting a Parser
+The Perl parser is the default and only parser. The `--parser perl`
+flag is accepted for backwards compatibility but has no effect (it
+was the only value even before the diff2html removal):
 
 ```bash
 # Default (perl)
 perl diffvim.pl old.py new.py
 
-# diff2html
-perl diffvim.pl --parser diff2html old.py new.py
+# Explicit (same as default)
+perl diffvim.pl --parser perl old.py new.py
 
 # With word-level diff
 perl diffvim.pl --word-diff old.py new.py
@@ -89,4 +88,5 @@ sub parse_diff {
 1;
 ```
 
-Then add it to `diffvim.pl`'s `compute_diff` function.
+Then add it to `diffvim.pl`'s `compute_diff` function. See
+`docs/PARSERS.md` for the full reference.

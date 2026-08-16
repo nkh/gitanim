@@ -73,7 +73,7 @@ Diff Computation → Hunk Grouping → Char-level LCS → Animate in Vim
 ### diffvim.pl (Perl + tmux)
 
 Same architecture as diffvim-tmux but written in Perl with:
-- Pluggable parser modules (`DiffVim::Parser::Perl`, `DiffVim::Parser::Diff2Html`)
+- Single parser module (`DiffVim::Parser::Perl`, pure-Perl LCS, no deps)
 - `IPC::Open3` for vim communication (when using `--no-tmux`)
 - `File::Temp` with `CLEANUP => 1` for automatic temp file cleanup
 

@@ -97,7 +97,7 @@ for cmd in diffvim diffvim-tmux diffvim.pl
     complete -c $cmd -f -a "$diffvim_flags"
 
     # Options with values
-    complete -c $cmd -f -r -a "perl diff2html" -d "Diff parser" -n '__fish_seen_argument --parser -c $cmd'
+    complete -c $cmd -f -r -a "perl" -d "Diff parser" -n '__fish_seen_argument --parser -c $cmd'
     complete -c $cmd -f -r -a "zz zt zb none" -d "Scroll position" -n '__fish_seen_argument --scroll -c $cmd'
     complete -c $cmd -f -r -a "0.5 1 2 3 5" -d "Speed multiplier" -n '__fish_seen_argument --speed -c $cmd'
 

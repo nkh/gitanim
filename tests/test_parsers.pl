@@ -1,13 +1,12 @@
 #!/usr/bin/env perl
-# Test that both parsers produce identical hunk data, and that the char ops
-# correctly transform old into new when applied to a vim buffer.
+# Test that the Perl parser produces correct hunk data, and that the char
+# ops correctly transform old into new when applied to a vim buffer.
 
 use strict;
 use warnings;
 use lib '/home/z/my-project/download';
 
 use DiffVim::Parser::Perl qw(parse_diff);
-use DiffVim::Parser::Diff2Html;
 
 my @test_cases = (
     {
@@ -181,36 +180,6 @@ sub run_test {
         print "  expected: " . join('|', @expected_lines) . "\n";
         print "  got:      " . join('|', @perl_result) . "\n";
         $fail++;
-    }
-
-    # Test diff2html parser
-    my $result_d2h = DiffVim::Parser::Diff2Html::parse_diff($old_file, $new_file);
-    my @d2h_result = apply_ops($result_d2h->{hunks}, \@old_lines);
-
-    my $d2h_ok = 1;
-    if (@d2h_result != @expected_lines) {
-        $d2h_ok = 0;
-    } else {
-        for my $i (0 .. $#d2h_result) {
-            $d2h_ok = 0, last if $d2h_result[$i] ne $expected_lines[$i];
-        }
-    }
-
-    if ($d2h_ok) {
-        print "PASS (diff2html): $name\n";
-        $pass++;
-    } else {
-        print "FAIL (diff2html): $name\n";
-        print "  expected: " . join('|', @expected_lines) . "\n";
-        print "  got:      " . join('|', @d2h_result) . "\n";
-        $fail++;
-    }
-
-    # Compare parser outputs (they should produce similar hunks)
-    my $perl_hunk_count = scalar(@{$result_perl->{hunks}});
-    my $d2h_hunk_count = scalar(@{$result_d2h->{hunks}});
-    if ($perl_hunk_count != $d2h_hunk_count) {
-        print "WARN: hunk count mismatch (perl=$perl_hunk_count, d2h=$d2h_hunk_count) for $name\n";
     }
 }
 

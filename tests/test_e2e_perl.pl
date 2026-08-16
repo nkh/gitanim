@@ -17,7 +17,7 @@ open $fh, '>', "$test_dir/new.txt"; print $fh $new_content; close $fh;
 my $pass = 0;
 my $fail = 0;
 
-for my $parser ('perl', 'diff2html') {
+for my $parser ('perl') {
     print "=" x 50, "\nTesting parser: $parser\n", "=" x 50, "\n";
 
     # Set fast config

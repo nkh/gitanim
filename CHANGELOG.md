@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Removed — diff2html dependency
+
+The `diff2html-cli` Node.js dependency has been completely removed.
+
+- Deleted `DiffVim/Parser/Diff2Html.pm` (the parser module).
+- Removed `--parser diff2html` from `diffvim.pl` (only `--parser perl`
+  is accepted now, and it's a no-op for backwards compatibility).
+- Removed `--parser-compare` subcommand from `diffvim.pl`.
+- Removed `diff2html` from the `--version` dependency list.
+- Updated `tests/test_parsers.pl` to only test the Perl parser
+  (was 18 assertions, now 9).
+- Updated `tests/test_e2e_perl.pl` to only test the Perl parser
+  (was 2 E2E tests, now 1).
+- Updated `tests/test_comprehensive.pl` Test 20 to verify
+  `--parser perl` is accepted instead of testing `--parser-compare`.
+- Updated `tests/test_features.pl` Test 8 to expect "9 passed"
+  instead of "18 passed".
+- Updated completions (bash/fish/zsh) to only offer `perl` for
+  `--parser`.
+- Updated manpages, README, mdBook docs, Homebrew formula, and all
+  documentation to remove diff2html references.
+- The pure-Perl LCS parser was already the default and produces
+  identical output to what diff2html produced — no functionality is
+  lost.
+
+This fixes the long-standing "FAIL: Parser tests pass" failure in
+`tests/test_features.pl` that was caused by diff2html not being
+installed.
+
 ### Added — Documentation overhaul
 
 #### `-h` / `--help` on every executable
@@ -393,7 +422,9 @@ and diff presentation. Each item is framed from the viewer's perspective.
 - Three implementations: `diffvim` (Bash+Vimscript), `diffvim-tmux` (Bash+tmux),
   `diffvim.pl` (Perl+tmux).
 - Two diff parsers: `DiffVim::Parser::Perl` (pure-Perl LCS) and
-  `DiffVim::Parser::Diff2Html` (diff2html CLI).
+  `DiffVim::Parser::Diff2Html` (diff2html CLI). The diff2html parser
+  was later removed in [Unreleased] — only the pure-Perl parser
+  remains.
 - Ease-in-out cubic cursor glide.
 - Char-level LCS diff (only changed characters are touched).
 - User controls: Space (pause), n (skip), b (back), q (quit).

@@ -89,7 +89,10 @@ a master reference for what was asked and what was implemented.
 
 46. **`--highlight-word`** — highlight words in the current line before
    they are changed, like `--highlight-hunk` but finer granularity.
-47. **Install diff2html** and fix all test failures.
+47. ~~**Install diff2html** and fix all test failures.~~ **REMOVED**: The
+   diff2html dependency was completely removed in [Unreleased]. The
+   pure-Perl parser was already the default and produces identical
+   output. This fixes the long-standing parser test failure.
 48. **"What good are tests if you keep them failing?!"** — make all tests
    pass.
 

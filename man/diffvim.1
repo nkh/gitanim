@@ -140,16 +140,12 @@ around each hunk. Default: 0 (no folding).
 .SS Diff Options
 
 .TP
-.BR \-\-parser\  perl | diff2html
-(diffvim.pl only) Diff parser to use.
+.BR \-\-parser\  perl
+(diffvim.pl only) Diff parser to use. Only
 .B perl
-uses a pure-Perl LCS algorithm (default, no deps).
-.B diff2html
-shells out to the
-.B diff2html
-CLI with
-.B \-f json
-for line-level parsing.
+is supported (pure-Perl LCS algorithm, no external dependencies).
+The flag is accepted for backwards compatibility but has no effect
+since the diff2html parser was removed.
 
 .TP
 .B \-\-word-diff
@@ -423,7 +419,7 @@ Useful for debugging race conditions and timing issues.
 .TP
 .BR \-\-version ,\  \-V
 Print version, parser info, and dependency versions (vim, tmux, perl,
-diff2html).
+diff, git).
 
 .TP
 .BR \-\-help ,\  \-h
@@ -802,9 +798,6 @@ diffvim \-\-parser-compare old.py new.py
 .TP
 .I DiffVim/Parser/Perl.pm
 Pure-Perl LCS diff parser module (used by diffvim.pl).
-.TP
-.I DiffVim/Parser/Diff2Html.pm
-diff2html CLI-based parser module (used by diffvim.pl).
 .TP
 .I plugin/diffvim.vim
 Vim plugin providing the

@@ -25,7 +25,6 @@ vim --version | grep -E 'timers|float'
 - **tmux 3+**
 - **Vim 8+**
 - **diff**
-- Optional: **diff2html-cli** (for the `--parser diff2html` mode)
 - Optional: **git** (for `--replay` and `--git-rev`)
 
 ## Installation Methods
@@ -49,13 +48,6 @@ cp -r DiffVim /usr/local/lib/perl5/          # for diffvim.pl
 cp diffvim.1 /usr/local/share/man/man1/
 mandb
 man diffvim
-```
-
-### diff2html CLI (optional, for `--parser diff2html`)
-
-```bash
-npm install -g diff2html-cli
-diff2html --version
 ```
 
 ### Vim Plugin (for `:Diffvim` command)

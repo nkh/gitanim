@@ -9,7 +9,7 @@
 _diffvim() {
     local -a opts
     opts=(
-        '--parser[Diff parser]:parser:(perl diff2html)'
+        '--parser[Diff parser]:parser:(perl)'
         '--speed[Speed multiplier]:speed:(0.5 1 2 3 5)'
         '--output[Write result to FILE]:file:_files'
         '--context[Fold unchanged regions]:n:'

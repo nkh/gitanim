@@ -15,7 +15,7 @@ _diffvim_complete() {
     # Options that take arguments
     case "$prev" in
         --parser)
-            COMPREPLY=( $(compgen -W "perl diff2html" -- "$cur") )
+            COMPREPLY=( $(compgen -W "perl" -- "$cur") )
             return 0
             ;;
         --scroll)

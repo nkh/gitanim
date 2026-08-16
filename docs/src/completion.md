@@ -42,7 +42,7 @@ cp completion/diffvim.fish ~/.config/fish/completions/
 
 The completion scripts provide tab completion for:
 - All `--options` (`--speed`, `--output`, `--scroll`, `--preset`, etc.)
-- `--parser perl|diff2html`
+- `--parser perl`
 - `--scroll zz|zt|zb|none`
 - `--algorithm lcs|myers|patience`
 - `--compute-tool c|cpp|rust|go`

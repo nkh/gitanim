@@ -4,7 +4,7 @@
 
 ### Parser Tests (`tests/test_parsers.pl`)
 
-Tests both parsers (Perl and diff2html) with 9 test cases each (18 total).
+Tests the Perl parser with 9 test cases.
 
 ```bash
 perl tests/test_parsers.pl
@@ -49,7 +49,7 @@ perl tests/test_integration.pl
 
 ## Test Coverage
 
-- **Parser tests**: 18 assertions (diff correctness)
+- **Parser tests**: 9 assertions (diff correctness)
 - **Feature tests**: 52 assertions (CLI options, help, man page)
 - **Integration tests**: 7 assertions (full pipeline on example files)
 
