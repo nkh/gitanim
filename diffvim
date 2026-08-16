@@ -3492,36 +3492,74 @@ function! s:ProcessAdaptiveWordDelete(hunk, total_count) abort
         return
     endif
 
-    " Phase 1: delete start_chars one by one, slowly
+    " Phase 1: delete start_chars one by one, slowly.
+    " Spaces and tabs are deleted instantly (not counted toward start_chars)
+    " so that leading whitespace doesn't waste time in phase 1.
     if s:state.awd_phase == 1
         let l:start_chars = g:diffvim.adaptive_word_delete_start_chars
-        if l:line_remaining <= l:start_chars
+        " Count non-space chars remaining on this line
+        let l:non_space_remaining = 0
+        let l:ns_idx = s:state.op_idx
+        while l:ns_idx < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[l:ns_idx]
+            if l:op[0] !=# 'delete' | break | endif
+            if l:op[1] ==# "\n" | break | endif
+            if l:op[1] !=# ' ' && l:op[1] !=# "\t"
+                let l:non_space_remaining += 1
+            endif
+            let l:ns_idx += 1
+        endwhile
+        if l:non_space_remaining <= l:start_chars
             " Line is short — go straight to rest phase
             let s:state.awd_phase = 3
         else
-            call s:DeleteCharAtCursor()
-            redraw
-            let s:state.op_idx += 1
-            let s:state.accel_delete_count += 1
-            " Count how many start chars we have deleted in this line
-            let l:phase1_count = 0
-            let l:check_idx = s:state.op_idx - 1
-            while l:check_idx >= 0
-                let l:check_op = a:hunk.char_ops[l:check_idx]
-                if l:check_op[0] ==# 'delete' && l:check_op[1] !=# "\n" && l:check_op[1] !=# ' ' && l:check_op[1] !=# "\t"
-                    let l:phase1_count += 1
-                    let l:check_idx -= 1
-                else
-                    break
+            " Check if current op is a space — if so, delete it instantly
+            " and stay in phase 1 (don't count it toward start_chars)
+            let l:cur_op = a:hunk.char_ops[s:state.op_idx]
+            if l:cur_op[1] ==# ' ' || l:cur_op[1] ==# "\t"
+                " Delete all consecutive spaces instantly
+                let l:space_count = 0
+                while s:state.op_idx < len(a:hunk.char_ops)
+                    let l:op = a:hunk.char_ops[s:state.op_idx]
+                    if l:op[0] !=# 'delete' | break | endif
+                    if l:op[1] !=# ' ' && l:op[1] !=# "\t" | break | endif
+                    if l:op[1] ==# "\n" | break | endif
+                    call s:DeleteCharAtCursor()
+                    let l:space_count += 1
+                    let s:state.op_idx += 1
+                    let s:state.accel_delete_count += 1
+                endwhile
+                redraw
+                " Stay in phase 1 — don't transition to phase 2 yet
+                let l:delay = s:GaussianJitter(g:diffvim.adaptive_word_delete_min_ms)
+                call s:ScheduleNext(l:delay)
+                return
+            else
+                " Non-space char — delete slowly, count toward start_chars
+                call s:DeleteCharAtCursor()
+                redraw
+                let s:state.op_idx += 1
+                let s:state.accel_delete_count += 1
+                " Count how many non-space start chars we have deleted in this line
+                let l:phase1_count = 0
+                let l:check_idx = s:state.op_idx - 1
+                while l:check_idx >= 0
+                    let l:check_op = a:hunk.char_ops[l:check_idx]
+                    if l:check_op[0] ==# 'delete' && l:check_op[1] !=# "\n" && l:check_op[1] !=# ' ' && l:check_op[1] !=# "\t"
+                        let l:phase1_count += 1
+                        let l:check_idx -= 1
+                    else
+                        break
+                    endif
+                endwhile
+                if l:phase1_count >= l:start_chars
+                    let s:state.awd_phase = 2
+                    let s:state.awd_delay = g:diffvim.adaptive_word_delete_start_ms
                 endif
-            endwhile
-            if l:phase1_count >= l:start_chars
-                let s:state.awd_phase = 2
-                let s:state.awd_delay = g:diffvim.adaptive_word_delete_start_ms
+                let l:delay = s:GaussianJitter(g:diffvim.adaptive_word_delete_start_ms)
+                call s:ScheduleNext(l:delay)
+                return
             endif
-            let l:delay = s:GaussianJitter(g:diffvim.adaptive_word_delete_start_ms)
-            call s:ScheduleNext(l:delay)
-            return
         endif
     endif
 
