@@ -1,242 +1,233 @@
 # Command-Line Options
 
-All three implementations support these options (unless noted):
-
 ## Core Options
 
-### `--speed N`
-Speed multiplier. `0.5` = half speed, `2` = double speed, `5` = 5x speed.
-All timing delays are divided by this value.
+### `--speed N` / `-s`
+Speed multiplier. `0.5` = half speed, `2` = double, `5` = 5x. All
+timing delays are divided by this value.
 
-Also settable via `DIFFVIM_SPEED` environment variable.
+### `--output FILE` / `-o`
+Write the animation result to FILE after the animation completes, then
+quit vim automatically.
 
-### `--output FILE`
-After the animation completes, write the buffer to FILE and quit vim.
-Also works with `q` (quit) — the buffer is written before stopping.
-
-### `--scroll zz|zt|zb|none`
-Scroll the cursor to the specified position during animation:
-- `zz` — center cursor on screen
-- `zt` — cursor at top of screen
-- `zb` — cursor at bottom of screen
-- `none` — don't force scroll (default)
-
-### `--multi`
-Treat arguments as `old:new` pairs for multi-file animation.
-After finishing one file, the animation transitions to the next.
-
-```bash
-diffvim --multi old1.py:new1.py old2.py:new2.py
-```
-
-### `--context N`
-Fold unchanged regions longer than 2*N lines, keeping N lines of context
-around each hunk. Default: 0 (no folding).
-
-## Diff Options
-
-### `--parser perl` *(diffvim.pl only)*
-Diff parser to use. Only `perl` is supported (pure-Perl LCS, no
-external dependencies).
-
-### `--word-diff`
-Use word-level diff instead of char-level. Groups changes by word
-(non-space sequences), producing more natural typing patterns.
+### `--context N` / `-c`
+Fold unchanged regions longer than 2*N lines, keeping N lines of
+context around each hunk. Default: 0 (no folding). Use `--context 0`
+to fold all unchanged regions.
 
 ### `--max-hunk-chars N`
 If a hunk has more than N changed characters, skip the char-by-char
 animation and apply the entire hunk instantly.
 
-### `--max-word-chars N`
-If a contiguous word (non-space chars terminated by space/newline) has
-<= N characters, type the entire word instantly, then pause.
+### `--scroll zz|zt|zb|none`
+Scroll cursor to center (`zz`), top (`zt`), bottom (`zb`), or no
+scrolling (`none`). Default: `zz`.
 
-### `--word-pause-ms N`
-Pause in milliseconds after an instant word is applied (only relevant
-with `--max-word-chars`). Default: 150.
+### `--multi` / `-m`
+Treat arguments as `old:new` pairs for multi-file animation.
 
-### `--max-line-len N`
-Warn if any line exceeds N characters (char-level diff may be slow).
-Default: 10000.
+### `--replay` / `-r`
+Animate git history for the given file(s).
 
-## Git Options
+### `--git-rev REV..REV` / `-R`
+Animate a git commit range (e.g. `HEAD~3..HEAD`).
 
-### `--replay`
-Animate git history for the given file(s). For each commit in the range,
-extracts the old version and animates the transformation to the next commit.
+### `--dry-run` / `-d`
+Print diff hunks without launching vim.
 
-```bash
-diffvim --replay src/main.py
-diffvim --replay src/main.py --from v1.0 --to HEAD
-```
-
-### `--from REV`
-Git revision to start replay from. Default: `HEAD~5`.
-
-### `--to REV`
-Git revision to end replay at. Default: `HEAD`.
-
-### `--git-rev REV..REV`
-Animate a git commit range using `REV..REV` syntax.
-
-```bash
-diffvim --git-rev HEAD~3..HEAD src/main.py
-```
-
-### `--git-blame`
-Show git blame information for each changed line.
-
-## Animation Options
+### `--word-diff` / `-w`
+Use word-level diff (groups changes by word tokens).
 
 ### `--step-mode`
-Space advances one char op at a time instead of toggling pause/resume,
-for detailed inspection.
-
-### `--adaptive-timing`
-Automatically slow down for complex hunks (many char ops close together)
-and speed up for simple ones.
-
-### `--rapid-eol-delete` *(default: on)*
-When the cursor is at the end of the line and all the text after the cursor
-is being deleted, apply those deletes in one rapid shot rather than one char
-at a time. This makes tail-of-line deletions feel snappy instead of
-laborious.
-
-The single rapid delay is governed by `--rapid-eol-delay-ms` (default 80ms)
-and the minimum trailing-char threshold by `--rapid-eol-min-chars`
-(default 3).
-
-```bash
-# Default behavior — rapid EOL on
-diffvim old.py new.py
-
-# Disable rapid EOL (delete one char at a time)
-diffvim --no-rapid-eol-delete old.py new.py
-
-# Tune: 50ms delay, only trigger for 5+ trailing chars
-diffvim --rapid-eol-delay-ms 50 --rapid-eol-min-chars 5 old.py new.py
-```
-
-### `--no-rapid-eol-delete`
-Disable rapid end-of-line deletion. Every character is deleted individually
-with `DIFFVIM_DELETE_DELAY_MS` between deletes.
-
-### `--rapid-eol-delay-ms N`
-Delay in milliseconds for a rapid end-of-line deletion (default: 80).
-The whole trailing run of deletes is applied in one shot, followed by this
-delay. Lower values make tail deletions feel faster.
-
-### `--rapid-eol-min-chars N`
-Minimum number of trailing characters required to trigger rapid end-of-line
-deletion (default: 3). Runs shorter than this are animated char by char,
-preserving the visual detail of small edits.
-
-### `--keep-dirty`
-Leave the buffer marked as modified after the animation finishes (or after
-the user presses `q`). By default diffvim runs `:set nomodified` so that
-`:q` quits cleanly; with `--keep-dirty` the user must type `:q!` to quit.
-
-```bash
-# Default: ':q' quits cleanly
-diffvim old.py new.py
-
-# Keep buffer modified; ':q!' required
-diffvim --keep-dirty old.py new.py
-```
-
-The startup config echo shows which mode is active:
-`keep_dirty=off(:q)` or `keep_dirty=on(:q!)`.
-
-### `--highlight-word`
-Highlight the word at the cursor position before each delete or insert op
-is applied. Finer-grained than `--highlight-hunk`: instead of highlighting
-the whole hunk region (a line range), `--highlight-word` highlights just
-the token (maximal run of non-whitespace chars) that is about to change.
-
-Useful for following the animation on long lines where the eye needs help
-locking onto the exact word being modified. The highlight is shown for
-`--highlight-word-duration-ms` milliseconds (default: 300), then cleared.
-Words shorter than `--highlight-word-min-chars` (default: 2) are not
-highlighted.
-
-```bash
-# Highlight the word at cursor before each change
-diffvim --highlight-word old.py new.py
-
-# Use Visual group, 500ms duration, highlight words of 3+ chars
-diffvim --highlight-word \
-  --highlight-word-color Visual \
-  --highlight-word-duration-ms 500 \
-  --highlight-word-min-chars 3 \
-  old.py new.py
-```
-
-### `--highlight-word-color COLOR`
-Vim highlight group for word highlighting. Default: `Search`. Also:
-`Visual`, `IncSearch`, `DiffAdd`, `DiffDelete`, `DiffChange`.
-
-### `--highlight-word-duration-ms N`
-Word highlight duration in milliseconds. Default: 300. Lower values make
-the highlight flash briefly; higher values leave it visible longer (useful
-with `--step-mode` or slow animation speeds).
-
-### `--highlight-word-min-chars N`
-Minimum word length (in characters) to trigger word highlighting.
-Default: 2. Words shorter than this are not highlighted (they change too
-fast to be worth the visual flash). Set to 1 to highlight every single-char
-change.
+Space advances one char op at a time (starts paused).
 
 ### `--sign-column`
-Show `+`/`-` signs in vim's sign column to indicate deleted/added lines.
+Show +/- signs in vim's sign column during animation.
 
-### `--left-to-right` (default: on)
-Sort ops within each line so deletes and inserts go from left to right,
-never jumping around. Whitespace deletes come after non-whitespace deletes.
-Use `--no-left-to-right` to disable.
+### `--git-blame` / `-g`
+Show git blame for the target line of each hunk.
 
-### `--word-accel`
-When inserting or deleting a word character by character, start slowly
-and accelerate, then pause slightly. Total time equals uniform char-by-char.
-Deletion is 20% faster by default (configurable via `--word-accel-delete-pct`).
+### `--max-line-len N`
+Warn threshold for long lines (default: 10000).
 
-### `--rapid-identical-chars`
-Accelerate deletion of identical character runs (like `-----------`)
-exponentially. Options: `--rapid-identical-min` (5), `--rapid-identical-accel` (50).
+### `--keep-dirty`
+Leave buffer modified after animation; require `:q!` to quit.
 
-### `--adaptive-word-delete`
-Word-by-word line deletion: few chars slow, then word by word accelerating,
-then rest rapid. Options: `--adaptive-word-delete-start-chars` (3),
-`-start-ms` (80), `-min-ms` (15), `-accel` (85), `-word-pause-ms` (100).
+### `--no-vimrc` / `-N`
+Don't load user's `~/.vimrc` (isolated vim).
 
-### `--auto-precompute`
-Automatically run the external compute tool and use a temp file for
-`--precomputed`. Uses `DIFFVIM_COMPUTE_TOOL` (default: c) or `--compute-tool`.
+### `--precomputed FILE`
+Use pre-computed diff from FILE (see `compute/` directory).
 
-### `--preset NAME`
-Apply named preset: `fast-delete`, `review`, `present`, `ai-code`, `custom`.
-Multiple presets can be comma-separated. Also set via `DIFFVIM_PRESET`.
+### `--preset NAME` / `-p`
+Apply named preset: `fast-delete`, `review`, `demo`, `ai-code`, or
+`custom`.
 
-### `--log-mode 1|2`
-Generate a log file without starting vim. Mode 1: markers. Mode 2: progressive
-(3 lines per char op). Use `--log-file FILE` to set output path.
-Use `--no-log-timing` to disable timing info in the log.
-
-## Utility Options
-
-### `--no-tmux` *(diffvim.pl only)*
-Run vim directly in the terminal (no tmux wrapper). Simpler single-shot
-use, but no FIFO-based user input.
-
-### `--dry-run`
-Compute and print the diff ops without launching vim. Useful for
-debugging parser issues.
-
-```bash
-perl diffvim.pl --dry-run old.py new.py
-```
+### `--theme dark|light|high-contrast` / `-t`
+Color scheme for highlights.
 
 ### `--version` / `-V`
-Print version, parser info, and dependency versions.
+Print version and exit.
 
 ### `--help` / `-h`
-Show help message and exit.
+Show help and exit.
+
+---
+
+## Diff Algorithm
+
+### `--algorithm lcs|myers|patience` / `-a`
+Line-level diff algorithm (default: `lcs`).
+
+### `--semantic-cleanup` / `-S`
+Merge adjacent delete+insert pairs that cancel out, reducing
+unnecessary typing.
+
+### `--indent-aware` / `-i`
+Normalize indentation before line-level diff, so lines that differ
+only in indentation are treated as "keep" at the line level.
+
+---
+
+## Op Order (Post-Processing)
+
+### `--op-order MODE`
+Controls how char ops within a line are ordered. Default: `optimize`.
+
+| Mode              | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `natural`         | No post-processing (raw LCS order)                   |
+| `optimize`        | Deletes before inserts (default)                     |
+| `left-to-right`   | Keeps, then deletes, then inserts per line           |
+| `end-first`       | Trailing deletes before inserts                      |
+| `end-first-smart` | Trailing deletes + word batching                     |
+| `overwrite`       | In-place replacement instead of delete+insert        |
+
+```bash
+diffvim --op-order left-to-right old.py new.py
+diffvim --op-order end-first-smart old.py new.py
+```
+
+---
+
+## Deletion Pacing
+
+### `--delete-pacing MODE`
+Deletion strategy. Default: `rapid-eol`.
+
+| Mode              | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `char`            | One char at a time (no acceleration)                 |
+| `rapid-eol`       | Rapid shot at end of line (default)                  |
+| `rapid-identical` | Accelerate identical char runs (---, ===)            |
+| `accel`           | Accelerate through long runs (slow→fast→slow)        |
+| `word`            | Word-by-word with acceleration                       |
+| `instant`         | All strategies enabled (fastest)                     |
+
+### `--delete-speed MODE`
+Deletion speed: `slow|normal|fast|instant` (default: `normal`).
+`fast` halves all delete delays; `instant` sets them to 1ms.
+
+### `--delete-threshold N`
+Minimum chars to trigger rapid/word modes (default: 3).
+
+```bash
+diffvim --delete-pacing word old.py new.py
+diffvim --delete-pacing instant --delete-speed fast old.py new.py
+```
+
+---
+
+## Insertion Pacing
+
+### `--insert-pacing MODE`
+Insertion strategy. Default: `char`.
+
+| Mode    | Description                                          |
+| ------- | ---------------------------------------------------- |
+| `char`  | One char at a time (default)                         |
+| `word`  | Batch short words (<=8 chars) instantly              |
+| `accel` | Accelerate char-by-char inserts (slow→fast→pause)   |
+
+### `--insert-speed MODE`
+Insertion speed: `slow|normal|fast` (default: `normal`).
+
+```bash
+diffvim --insert-pacing word old.py new.py
+diffvim --insert-pacing accel --insert-speed fast old.py new.py
+```
+
+---
+
+## Timing
+
+### `--pacing MODE`
+Timing mode. Default: `uniform`.
+
+| Mode       | Description                                          |
+| ---------- | ---------------------------------------------------- |
+| `uniform`  | Fixed delays, no jitter (default)                    |
+| `adaptive` | Slow down in complex regions                         |
+| `gaussian` | Add human-like timing jitter                         |
+| `review`   | Pause every 5 lines in large hunks                   |
+
+```bash
+diffvim --pacing gaussian old.py new.py
+diffvim --pacing review old.py new.py
+```
+
+---
+
+## Highlighting
+
+### `--highlight MODE`
+Highlight mode. Default: `none`.
+
+| Mode     | Description                                          |
+| -------- | ---------------------------------------------------- |
+| `none`   | No highlighting (default)                            |
+| `inline` | Paint freshly typed/deleted chars (200ms fade)       |
+| `word`   | Highlight the word at cursor before change           |
+| `hunk`   | Highlight the entire hunk before animating           |
+
+### `--highlight-color COLOR`
+Highlight group (default: `DiffChange`).
+
+### `--highlight-duration-ms N`
+Highlight duration in ms (default: 1000).
+
+### `--dim-unchanged` / `-D`
+Dim unchanged anchor lines to draw eye to changes.
+
+### `--dim-unchanged-pct N`
+Dimming percentage 0-100 (default: 60).
+
+```bash
+diffvim --highlight inline old.py new.py
+diffvim --highlight hunk --dim-unchanged old.py new.py
+```
+
+---
+
+## Environment Variables
+
+All options can be set via `DIFFVIM_<OPTION_NAME>` environment
+variables. For example:
+
+```bash
+DIFFVIM_OP_ORDER=left-to-right diffvim old.py new.py
+DIFFVIM_DELETE_PACING=word diffvim old.py new.py
+DIFFVIM_PACING=gaussian diffvim old.py new.py
+DIFFVIM_HIGHLIGHT=inline diffvim old.py new.py
+```
+
+Core timing env vars:
+
+| Variable                  | Default | Description                          |
+| ------------------------- | ------- | ------------------------------------ |
+| `DIFFVIM_TICK_MS`         | 16      | Animation frame interval (~60fps)    |
+| `DIFFVIM_TYPE_DELAY_MS`   | 50      | Delay between typed characters       |
+| `DIFFVIM_DELETE_DELAY_MS` | 40      | Delay between deleted characters     |
+| `DIFFVIM_MOVE_MIN_MS`     | 250     | Minimum cursor glide duration        |
+| `DIFFVIM_MOVE_MAX_MS`     | 1600    | Maximum cursor glide duration        |
+| `DIFFVIM_HUNK_PAUSE_MS`   | 250     | Pause between hunks                  |

@@ -191,8 +191,8 @@ runs_ok("--op-order optimize + --semantic-cleanup",
 runs_ok("--delete-pacing word + --word-diff",
     "--delete-pacing word --word-diff");
 
-runs_ok("--insert-pacing word + --max-word-chars 5",
-    "--insert-pacing word --max-word-chars 5");
+runs_ok("--insert-pacing word + --word-diff",
+    "--insert-pacing word --word-diff");
 
 runs_ok("--pacing adaptive + --speed 2",
     "--pacing adaptive --speed 2");

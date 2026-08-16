@@ -54,21 +54,18 @@ ok('--delete-speed invalid rejected', $bad_speed =~ /invalid --delete-speed valu
 my $out_thr = `$DIFFVIM --delete-threshold 5 --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
 ok('--delete-threshold accepted', $out_thr =~ /---/);
 
-# Test 7: Old flags still work (backwards compat)
-my $out_old_reol = `$DIFFVIM --rapid-eol-delete --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--rapid-eol-delete still works', $out_old_reol =~ /---/);
+# Test 7: Old flags are rejected (removed)
+my $out_old_reol = `$DIFFVIM --rapid-eol-delete examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--rapid-eol-delete rejected', $out_old_reol =~ /Unknown option: --rapid-eol-delete/);
 
-my $out_old_no_reol = `$DIFFVIM --no-rapid-eol-delete --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--no-rapid-eol-delete still works', $out_old_no_reol =~ /---/);
+my $out_old_accel = `$DIFFVIM --accel-delete examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--accel-delete rejected', $out_old_accel =~ /Unknown option: --accel-delete/);
 
-my $out_old_accel = `$DIFFVIM --accel-delete --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--accel-delete still works', $out_old_accel =~ /---/);
+my $out_old_awd = `$DIFFVIM --adaptive-word-delete examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--adaptive-word-delete rejected', $out_old_awd =~ /Unknown option: --adaptive-word-delete/);
 
-my $out_old_awd = `$DIFFVIM --adaptive-word-delete --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--adaptive-word-delete still works', $out_old_awd =~ /---/);
-
-my $out_old_ric = `$DIFFVIM --rapid-identical-chars --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--rapid-identical-chars still works', $out_old_ric =~ /---/);
+my $out_old_ric = `$DIFFVIM --rapid-identical-chars examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--rapid-identical-chars rejected', $out_old_ric =~ /Unknown option: --rapid-identical-chars/);
 
 # Test 8: Env vars work
 $ENV{DIFFVIM_DELETE_PACING} = 'word';

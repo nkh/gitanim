@@ -47,15 +47,15 @@ for my $speed (qw(slow normal fast)) {
 my $bad_speed = `$DIFFVIM --insert-speed invalid examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
 ok('--insert-speed invalid rejected', $bad_speed =~ /invalid --insert-speed value/);
 
-# Test 6: Old flags still work (backwards compat)
-my $out_old_mwc = `$DIFFVIM --max-word-chars 5 --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--max-word-chars still works', $out_old_mwc =~ /---/);
+# Test 6: Old flags are rejected (removed)
+my $out_old_mwc = `$DIFFVIM --max-word-chars 5 examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--max-word-chars rejected', $out_old_mwc =~ /Unknown option: --max-word-chars/);
 
-my $out_old_wpm = `$DIFFVIM --word-pause-ms 200 --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--word-pause-ms still works', $out_old_wpm =~ /---/);
+my $out_old_wpm = `$DIFFVIM --word-pause-ms 200 examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--word-pause-ms rejected', $out_old_wpm =~ /Unknown option: --word-pause-ms/);
 
-my $out_old_wa = `$DIFFVIM --word-accel --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--word-accel still works', $out_old_wa =~ /---/);
+my $out_old_wa = `$DIFFVIM --word-accel examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--word-accel rejected', $out_old_wa =~ /Unknown option: --word-accel/);
 
 # Test 7: Env vars work
 $ENV{DIFFVIM_INSERT_PACING} = 'word';

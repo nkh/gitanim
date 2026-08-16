@@ -1,12 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Bash completion for diffvim / diffvim-tmux / diffvim.pl
 #
 # Install:
-#   sudo cp completion/diffvim.bash /etc/bash_completion.d/diffvim
-#   # or
-#   source completion/diffvim.bash
+#   cp completion/diffvim.bash /etc/bash_completion.d/diffvim
+# or:
+#   cp completion/diffvim.bash ~/.bash_completion.d/diffvim
 
-_diffvim_complete() {
+_diffvim() {
     local cur prev opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -22,12 +22,51 @@ _diffvim_complete() {
             COMPREPLY=( $(compgen -W "zz zt zb none" -- "$cur") )
             return 0
             ;;
-        --speed)
-            COMPREPLY=( $(compgen -W "0.5 1 2 3 5" -- "$cur") )
+        --algorithm|-a)
+            COMPREPLY=( $(compgen -W "lcs myers patience" -- "$cur") )
             return 0
             ;;
-        --output|--from|--to|--git-rev|--max-hunk-chars|--max-word-chars|--word-pause-ms|--context|--max-line-len|--rapid-eol-delay-ms|--rapid-eol-min-chars|--highlight-word-duration-ms|--highlight-word-min-chars)
-            # File path or value
+        --op-order)
+            COMPREPLY=( $(compgen -W "natural optimize left-to-right end-first end-first-smart overwrite" -- "$cur") )
+            return 0
+            ;;
+        --delete-pacing)
+            COMPREPLY=( $(compgen -W "char rapid-eol rapid-identical accel word instant" -- "$cur") )
+            return 0
+            ;;
+        --delete-speed)
+            COMPREPLY=( $(compgen -W "slow normal fast instant" -- "$cur") )
+            return 0
+            ;;
+        --insert-pacing)
+            COMPREPLY=( $(compgen -W "char word accel" -- "$cur") )
+            return 0
+            ;;
+        --insert-speed)
+            COMPREPLY=( $(compgen -W "slow normal fast" -- "$cur") )
+            return 0
+            ;;
+        --pacing)
+            COMPREPLY=( $(compgen -W "uniform adaptive gaussian review" -- "$cur") )
+            return 0
+            ;;
+        --highlight)
+            COMPREPLY=( $(compgen -W "none inline word hunk" -- "$cur") )
+            return 0
+            ;;
+        --theme|-t)
+            COMPREPLY=( $(compgen -W "dark light high-contrast" -- "$cur") )
+            return 0
+            ;;
+        --preset|-p)
+            COMPREPLY=( $(compgen -W "fast-delete review demo ai-code custom" -- "$cur") )
+            return 0
+            ;;
+        --log-mode)
+            COMPREPLY=( $(compgen -W "1 2" -- "$cur") )
+            return 0
+            ;;
+        --output|-o|--precomputed|--log-file|--diff|--language)
             COMPREPLY=( $(compgen -f -- "$cur") )
             return 0
             ;;
@@ -35,33 +74,18 @@ _diffvim_complete() {
 
     # Options
     if [[ "$cur" == --* ]]; then
-        opts="--parser --speed --output --context --max-hunk-chars --max-word-chars
-              --word-pause-ms --scroll --multi --replay --git-rev
-              --no-tmux --dry-run --sign-column --git-blame --step-mode
-              --max-line-len --adaptive-timing --word-diff
-              --rapid-eol-delete --no-rapid-eol-delete --rapid-eol-delay-ms --rapid-eol-min-chars
-              --keep-dirty --highlight-word --highlight-word-color
-              --highlight-word-duration-ms --highlight-word-min-chars
-              --delete-end-first --delete-end-first-smart --delete-end-first-delay-ms
-              --delete-end-first-highlight-ms
-              --adaptive-word-delete --adaptive-word-delete-threshold
-              --adaptive-word-delete-start-chars --adaptive-word-delete-start-ms
-              --adaptive-word-delete-min-ms --adaptive-word-delete-accel
-              --adaptive-word-delete-word-pause-ms
-              --accel-delete --accel-delete-start-ms --accel-delete-min-ms --accel-delete-accel
-              --rapid-identical-chars --rapid-identical-min --rapid-identical-accel
-              --word-accel --word-accel-delete-pct --word-end-pause-ms
-              --line-change-pause-ms --overwrite --optimize-sequence --no-optimize-sequence
-              --left-to-right --no-left-to-right --semantic-cleanup --indent-aware
-              --algorithm --preset --precomputed --diff
-              --highlight-inline --highlight-hunk --highlight-inline-duration-ms
-              --dim-unchanged --dim-unchanged-pct --fold-unchanged
-              --startup-feedback --no-vimrc --no-log-timing
-              --pause-after-lines --pause-after-ms --pause-after-threshold
-              --pause-after-delete-ms --theme --debug
+        opts="--speed -s --output -o --context -c --max-hunk-chars --scroll
+              --multi -m --replay -r --git-rev -R --version -V --dry-run -d
+              --word-diff -w --step-mode --no-startup-pause --language
+              --sign-column --git-blame -g --max-line-len --keep-dirty
+              --no-vimrc -N --precomputed --startup-pause --startup-feedback -F
+              --algorithm -a --semantic-cleanup -S --indent-aware -i
               --op-order --delete-pacing --delete-speed --delete-threshold
               --insert-pacing --insert-speed --pacing --highlight
-              --version --help"
+              --highlight-color --highlight-duration-ms
+              --dim-unchanged -D --dim-unchanged-pct
+              --theme -t --preset -p --log-mode --log-file --no-log-timing
+              --diff --debug --help -h"
         COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
         return 0
     fi
@@ -69,6 +93,7 @@ _diffvim_complete() {
     # File paths
     COMPREPLY=( $(compgen -f -- "$cur") )
 }
-complete -F _diffvim_complete diffvim
-complete -F _diffvim_complete diffvim-tmux
-complete -F _diffvim_complete diffvim.pl
+
+complete -F _diffvim diffvim
+complete -F _diffvim diffvim-tmux
+complete -F _diffvim diffvim.pl

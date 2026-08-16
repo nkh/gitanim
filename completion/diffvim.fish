@@ -7,37 +7,37 @@
 set -l diffvim_flags \
     --multi \
     --replay \
-    --no-tmux \
     --dry-run \
     --sign-column \
     --git-blame \
     --step-mode \
-    --adaptive-timing \
+    --no-startup-pause \
     --word-diff \
-    --rapid-eol-delete \
-    --no-rapid-eol-delete \
     --keep-dirty \
-    --highlight-word \
-    --highlight-inline \
-    --highlight-hunk \
-    --dim-unchanged \
-    --fold-unchanged \
-    --delete-end-first \
-    --delete-end-first-smart \
-    --overwrite \
-    --adaptive-word-delete \
-    --accel-delete \
-    --rapid-identical-chars \
-    --word-accel \
-    --optimize-sequence \
-    --no-optimize-sequence \
-    --left-to-right \
-    --no-left-to-right \
-    --semantic-cleanup \
-    --indent-aware \
     --startup-feedback \
+    --startup-pause \
     --no-vimrc \
     --no-log-timing \
+    --debug \
+    --version \
+    --help \
+    -h \
+    -V
+
+# Options that take arguments
+set -l diffvim_opts \
+    --speed \
+    --output \
+    --context \
+    --max-hunk-chars \
+    --scroll \
+    --git-rev \
+    --language \
+    --max-line-len \
+    --precomputed \
+    --algorithm \
+    --semantic-cleanup \
+    --indent-aware \
     --op-order \
     --delete-pacing \
     --delete-speed \
@@ -46,56 +46,15 @@ set -l diffvim_flags \
     --insert-speed \
     --pacing \
     --highlight \
-    --version \
-    --help \
-    -h \
-    -V
-
-# Options that take arguments
-set -l diffvim_opts \
-    --parser \
-    --speed \
-    --output \
-    --context \
-    --max-hunk-chars \
-    --max-word-chars \
-    --word-pause-ms \
-    --scroll \
-    --git-rev \
-    --max-line-len \
-    --rapid-eol-delay-ms \
-    --rapid-eol-min-chars \
-    --highlight-word-color \
-    --highlight-word-duration-ms \
-    --highlight-word-min-chars \
-    --highlight-inline-duration-ms \
+    --highlight-color \
+    --highlight-duration-ms \
+    --dim-unchanged \
     --dim-unchanged-pct \
-    --delete-end-first-delay-ms \
-    --delete-end-first-highlight-ms \
-    --adaptive-word-delete-threshold \
-    --adaptive-word-delete-start-chars \
-    --adaptive-word-delete-start-ms \
-    --adaptive-word-delete-min-ms \
-    --adaptive-word-delete-accel \
-    --adaptive-word-delete-word-pause-ms \
-    --accel-delete-start-ms \
-    --accel-delete-min-ms \
-    --accel-delete-accel \
-    --rapid-identical-min \
-    --rapid-identical-accel \
-    --word-accel-delete-pct \
-    --word-end-pause-ms \
-    --line-change-pause-ms \
-    --pause-after-lines \
-    --pause-after-ms \
-    --pause-after-threshold \
-    --pause-after-delete-ms \
-    --algorithm \
-    --preset \
-    --precomputed \
-    --diff \
     --theme \
-    --debug
+    --preset \
+    --log-mode \
+    --log-file \
+    --diff
 
 # Complete flags
 for cmd in diffvim diffvim-tmux diffvim.pl
@@ -104,10 +63,20 @@ for cmd in diffvim diffvim-tmux diffvim.pl
     # Options with values
     complete -c $cmd -f -r -a "perl" -d "Diff parser" -n '__fish_seen_argument --parser -c $cmd'
     complete -c $cmd -f -r -a "zz zt zb none" -d "Scroll position" -n '__fish_seen_argument --scroll -c $cmd'
+    complete -c $cmd -f -r -a "lcs myers patience" -d "Diff algorithm" -n '__fish_seen_argument --algorithm -c $cmd'
+    complete -c $cmd -f -r -a "natural optimize left-to-right end-first end-first-smart overwrite" -d "Op order mode" -n '__fish_seen_argument --op-order -c $cmd'
+    complete -c $cmd -f -r -a "char rapid-eol rapid-identical accel word instant" -d "Delete pacing" -n '__fish_seen_argument --delete-pacing -c $cmd'
+    complete -c $cmd -f -r -a "slow normal fast instant" -d "Delete speed" -n '__fish_seen_argument --delete-speed -c $cmd'
+    complete -c $cmd -f -r -a "char word accel" -d "Insert pacing" -n '__fish_seen_argument --insert-pacing -c $cmd'
+    complete -c $cmd -f -r -a "slow normal fast" -d "Insert speed" -n '__fish_seen_argument --insert-speed -c $cmd'
+    complete -c $cmd -f -r -a "uniform adaptive gaussian review" -d "Timing mode" -n '__fish_seen_argument --pacing -c $cmd'
+    complete -c $cmd -f -r -a "none inline word hunk" -d "Highlight mode" -n '__fish_seen_argument --highlight -c $cmd'
+    complete -c $cmd -f -r -a "dark light high-contrast" -d "Color theme" -n '__fish_seen_argument --theme -c $cmd'
+    complete -c $cmd -f -r -a "fast-delete review demo ai-code custom" -d "Preset" -n '__fish_seen_argument --preset -c $cmd'
     complete -c $cmd -f -r -a "0.5 1 2 3 5" -d "Speed multiplier" -n '__fish_seen_argument --speed -c $cmd'
 
     # Options that take file paths
-    for opt in --output
+    for opt in --output --precomputed --log-file --diff
         complete -c $cmd -f -r -F -n "__fish_seen_argument $opt -c $cmd"
     end
 

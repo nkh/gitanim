@@ -137,10 +137,10 @@ transitions to the next.
 Fold unchanged regions longer than 2*N lines, keeping N lines of context
 around each hunk. Default: 0 (no folding).
 
-.SS Unified Options (recommended)
+.SS Unified Options
 
-These unified selectors replace the individual flags in the sections
-below. Old flags still work for backwards compatibility.
+These are the recommended option selectors. Each replaces multiple
+individual flags from earlier versions.
 
 .TP
 .BR \-\-op-order\  natural | optimize | left-to-right | end-first | end-first-smart | overwrite
@@ -290,19 +290,6 @@ If a hunk has more than N changed characters, skip the char-by-char
 animation and apply the entire hunk instantly.
 
 .TP
-.BI \-\-max-word-chars\  N
-If a contiguous sequence of modified (non-space) characters is LONGER
-than N, apply the whole sequence in one shot with a pause, so the user
-can read the change. Sequences <= N are animated character by character.
-
-.TP
-.BI \-\-word-pause-ms\  N
-Pause in milliseconds after an instant word is applied (only relevant
-with
-.BR \-\-max-word-chars ).
-Default: 150.
-
-.TP
 .BI \-\-max-line-len\  N
 Warn if any line exceeds N characters (char-level diff may be slow).
 Default: 10000.
@@ -344,261 +331,6 @@ syntax. Shorthand for
 .TP
 .B \-\-git-blame
 Show git blame information for each changed line.
-
-.SS Animation Options
-
-.TP
-.B \-\-step-mode
-Space advances one char op at a time instead of toggling pause/resume,
-for detailed inspection.
-
-.TP
-.B \-\-adaptive-timing
-Automatically slow down for complex hunks (many char ops close together)
-and speed up for simple ones.
-
-.TP
-.B \-\-rapid-eol-delete
-(Default: on) When the cursor is at the end of the line and all the text
-after the cursor is being deleted, apply those deletes in one rapid shot
-rather than one char at a time. The single rapid delay is governed by
-.B \-\-rapid-eol-delay-ms
-and the minimum trailing-char threshold by
-.BR \-\-rapid-eol-min-chars .
-This makes tail-of-line deletions feel snappy instead of laborious.
-
-.TP
-.B \-\-no-rapid-eol-delete
-Disable rapid end-of-line deletion. Every character is deleted
-individually with
-.B DIFFVIM_DELETE_DELAY_MS
-between deletes.
-
-.TP
-.BI \-\-rapid-eol-delay-ms\  N
-Delay in milliseconds for a rapid end-of-line deletion (default: 80).
-The whole trailing run of deletes is applied in one shot, followed by this
-delay. Lower values make tail deletions feel faster.
-
-.TP
-.BI \-\-rapid-eol-min-chars\  N
-Minimum number of trailing characters required to trigger rapid end-of-line
-deletion (default: 3). Runs shorter than this are animated char by char.
-
-.TP
-.B \-\-keep-dirty
-Leave the buffer marked as modified after the animation finishes (or after
-the user presses
-.BR q ).
-By default diffvim runs
-.B :set nomodified
-so that
-.B :q
-quits cleanly; with
-.B \-\-keep-dirty
-the user must type
-.B :q!
-to quit. Useful when you want vim's normal "unsaved changes" protection
-to remain active.
-
-.TP
-.B \-\-highlight-word
-Highlight the word at the cursor position before each delete or insert op
-is applied. Finer-grained than
-.BR \-\-highlight-hunk :
-instead of highlighting the whole hunk region (a line range),
-.B \-\-highlight-word
-highlights just the token (maximal run of non-whitespace chars) that is
-about to change. Useful for following the animation on long lines where
-the eye needs help locking onto the exact word being modified.
-
-The highlight is shown for
-.B \-\-highlight-word-duration-ms
-milliseconds (default: 300), then cleared. Words shorter than
-.B \-\-highlight-word-min-chars
-(default: 2) are not highlighted.
-
-.TP
-.BI \-\-highlight-word-color\  COLOR
-Vim highlight group for word highlighting. Default:
-.BR Search .
-Also:
-.BR Visual ,
-.BR IncSearch ,
-.BR DiffAdd ,
-.BR DiffDelete ,
-.BR DiffChange .
-
-.TP
-.BI \-\-highlight-word-duration-ms\  N
-Word highlight duration in milliseconds. Default: 300. Lower values make
-the highlight flash briefly; higher values leave it visible longer (useful
-with
-.B \-\-step-mode
-or slow animation speeds).
-
-.TP
-.BI \-\-highlight-word-min-chars\  N
-Minimum word length (in characters) to trigger word highlighting.
-Default: 2. Words shorter than this are not highlighted (they change too
-fast to be worth the visual flash). Set to 1 to highlight every single-char
-change.
-
-.TP
-.B \-\-sign-column
-Show
-.B +/-
-signs in vim's sign column to indicate deleted/added lines.
-
-.TP
-.B \-\-highlight-hunk
-Visually highlight the hunk region before animating it. The highlight
-is shown for
-.B \-\-highlight-duration-ms
-milliseconds, then cleared.
-
-.TP
-.BI \-\-highlight-color\  COLOR
-Vim highlight group for hunk highlighting. Default:
-.BR DiffChange .
-Also:
-.BR DiffAdd ,
-.BR DiffDelete ,
-.BR Search ,
-.BR Visual ,
-.BR IncSearch .
-
-.TP
-.BI \-\-highlight-duration-ms\  N
-Highlight duration in milliseconds. Default: 1000.
-
-.TP
-.BI \-\-highlight-min-chars\  N
-Minimum changed chars to trigger hunk highlighting. Default: 10.
-Hunks with fewer changed chars are animated without highlighting.
-
-.TP
-.B \-\-fold-unchanged
-Fold unchanged regions between hunks so the user only sees the changes.
-Press
-.B f
-during animation to toggle folding on/off.
-
-.TP
-.BR \-\-theme\  dark | light | high-contrast
-Color scheme for animation highlights:
-.RS
-.TP 4
-.B dark
-Set background=dark
-.TP 4
-.B light
-Set background=light
-.TP 4
-.B high-contrast
-Vivid green/red/yellow diff highlights
-.RE
-
-.SS Utility Options
-
-.TP
-.B \-\-no-tmux
-(diffvim.pl only) Run vim directly in the terminal (no tmux wrapper).
-Simpler single-shot use, but no FIFO-based user input.
-
-.TP
-.B \-\-remote
-(diffvim.pl only) Use
-.B vim \-\-remote-send
-with
-.B \-\-servername
-instead of tmux send-keys. Eliminates tmux race conditions.
-
-.TP
-.B \-\-dry-run
-Compute and print the diff ops without launching vim. Useful for
-debugging parser issues.
-
-.TP
-.B \-\-diff\  FILE
-Accept a unified diff/patch file as input instead of requiring two files.
-Use
-.B \-
-for stdin. Enables:
-.B git diff | diffvim \-\-diff \-
-
-.TP
-.B \-\-parser-compare
-(diffvim.pl only) Run both parsers and report any differences in the
-computed hunks. Exit code 0 if all match, 1 if any mismatch.
-
-.TP
-.B \-\-debug
-Enable verbose logging of all Ex commands sent, with timestamps, to
-.BR /tmp/diffvim-debug.log .
-Useful for debugging race conditions and timing issues.
-
-.TP
-.BR \-\-version ,\  \-V
-Print version, parser info, and dependency versions (vim, tmux, perl,
-diff, git).
-
-.TP
-.BR \-\-help ,\  \-h
-Show help message and exit.
-
-.TP
-.B \-\-auto-precompute
-Automatically run the external compute tool (default: C, set via
-.B DIFFVIM_COMPUTE_TOOL
-or
-.B \-\-compute-tool
-) and use a temp file for
-.B \-\-precomputed
-without having to manually specify the file path.
-
-.TP
-.BI \-\-compute-tool\  c|cpp|rust|go
-Which external compute tool to use with
-.BR \-\-auto-precompute .
-Default: c.
-
-.TP
-.B \-\-preset NAME
-Apply a named preset that sets multiple options at once. Available
-presets: fast-delete, review, present, ai-code, custom. Multiple
-presets can be comma-separated. Also settable via
-.B DIFFVIM_PRESET
-environment variable. The custom preset reads options from
-.BR DIFFVIM_PRESET_CUSTOM .
-
-.TP
-.B \-\-left-to-right
-(Default: on) Sort ops within each line so deletes and inserts go from
-left to right. Use
-.B \-\-no-left-to-right
-to disable.
-
-.TP
-.B \-\-word-accel
-When inserting or deleting a word character by character, start slowly
-and accelerate, then pause slightly. Total time equals uniform
-char-by-char. Deletion is 20% faster by default (configurable via
-.BR \-\-word-accel-delete-pct ).
-
-.TP
-.B \-\-rapid-identical-chars
-Accelerate deletion of identical character runs (e.g. \-\-\-\-\-\-\-)
-exponentially. Options:
-.B \-\-rapid-identical-min
-(default: 5),
-.B \-\-rapid-identical-accel
-(default: 50, lower=faster).
-
-.TP
-.B \-\-no-log-timing
-Disable timing parameter info in log output. By default, all timing
-parameters are included in the log.
 
 .SH CONTROLS
 During animation, the following keys are active in vim normal mode:
@@ -680,7 +412,7 @@ Toggle full-screen help overlay.
 .TP
 .B f
 Toggle fold on/off (with
-.BR \-\-fold-unchanged ).
+.BR \-\-context ).
 
 .SS Progress
 A progress message is shown in the vim status line:
@@ -692,9 +424,12 @@ diffvim: hunk 3/7 (42%) | speed 2.3x | PAUSED
 .RE
 
 .SH ENVIRONMENT VARIABLES
-All timing values can be set via environment variables. Command-line
-options override environment variables, which override built-in defaults.
+All options can be set via
+.B DIFFVIM_<OPTION_NAME>
+environment variables. Command-line options override environment
+variables, which override built-in defaults.
 
+.SS Core Timing
 .TP
 .B DIFFVIM_TICK_MS
 Animation frame interval in milliseconds (default: 16, ~60fps).
@@ -717,18 +452,40 @@ Milliseconds per unit of glide distance (default: 6). Lines are weighted
 .TP
 .B DIFFVIM_HUNK_PAUSE_MS
 Pause between hunks in milliseconds (default: 250).
+
+.SS Unified Selectors
 .TP
-.B DIFFVIM_WORD_PAUSE_MS
-Pause after instant word in milliseconds (default: 150).
+.B DIFFVIM_OP_ORDER
+Op reordering mode (default: optimize).
 .TP
-.B DIFFVIM_RAPID_EOL_DELAY_MS
-Delay for rapid end-of-line deletion in milliseconds (default: 80).
-Only relevant when
-.B \-\-rapid-eol-delete
-is on (which is the default).
+.B DIFFVIM_DELETE_PACING
+Deletion strategy (default: rapid-eol).
 .TP
-.B DIFFVIM_RAPID_EOL_MIN_CHARS
-Minimum trailing characters to trigger rapid EOL deletion (default: 3).
+.B DIFFVIM_DELETE_SPEED
+Deletion speed (default: normal).
+.TP
+.B DIFFVIM_DELETE_THRESHOLD
+Min chars to trigger rapid/word modes (default: 3).
+.TP
+.B DIFFVIM_INSERT_PACING
+Insertion strategy (default: char).
+.TP
+.B DIFFVIM_INSERT_SPEED
+Insertion speed (default: normal).
+.TP
+.B DIFFVIM_PACING
+Timing mode (default: uniform).
+.TP
+.B DIFFVIM_HIGHLIGHT
+Highlight mode (default: none).
+.TP
+.B DIFFVIM_HIGHLIGHT_COLOR
+Highlight group (default: DiffChange).
+.TP
+.B DIFFVIM_HIGHLIGHT_DURATION_MS
+Highlight duration in ms (default: 1000).
+
+.SS Other
 .TP
 .B DIFFVIM_SPEED
 Speed multiplier (default: 1.0). Same as
@@ -737,38 +494,14 @@ Speed multiplier (default: 1.0). Same as
 .B DIFFVIM_MAX_LINE_LEN
 Warn threshold for long lines (default: 10000).
 .TP
-.B DIFFVIM_HIGHLIGHT_COLOR
-Highlight group for
-.B \-\-highlight-hunk
-(default: DiffChange).
-.TP
-.B DIFFVIM_HIGHLIGHT_DURATION_MS
-Highlight duration in ms (default: 1000).
-.TP
-.B DIFFVIM_HIGHLIGHT_MIN_CHARS
-Min changed chars to trigger highlight (default: 10).
-.TP
 .B DIFFVIM_KEEP_DIRTY
 Set to
 .B 1
-to leave the buffer modified after animation; vim will then refuse
-.B :q
-and require
-.BR :q! .
-Default: unset (buffer is marked not modified, so
-.B :q
-works).
+to leave the buffer modified after animation.
 .TP
-.B DIFFVIM_HIGHLIGHT_WORD_COLOR
-Highlight group for
-.B \-\-highlight-word
-(default: Search).
-.TP
-.B DIFFVIM_HIGHLIGHT_WORD_DURATION_MS
-Word highlight duration in ms (default: 300).
-.TP
-.B DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS
-Min word length to trigger highlight (default: 2).
+.B DIFFVIM_PRESET
+Default preset to apply (same as
+.BR \-\-preset ).
 
 .SH EXAMPLES
 
@@ -799,7 +532,7 @@ diffvim \-\-output result.py old.py new.py
 .PP
 .nf
 # Center cursor, highlight hunks, fold unchanged regions
-diffvim \-\-scroll zz \-\-highlight-hunk \-\-fold-unchanged old.py new.py
+diffvim \-\-scroll zz \-\-highlight hunk \-\-context 0 old.py new.py
 
 # High-contrast theme
 diffvim \-\-theme high-contrast old.py new.py
@@ -818,24 +551,35 @@ diffvim \-\-word-diff old.py new.py
 diffvim \-\-semantic-cleanup old.py new.py
 .fi
 
-.SS Word Batching
+.SS Unified Options
 .PP
 .nf
-# Sequences > 5 chars are applied in one shot with a pause
-diffvim \-\-max-word-chars 5 old.py new.py
-.fi
+# Op reordering: deletes before inserts (default)
+diffvim \-\-op-order optimize old.py new.py
 
-.SS Rapid End-of-Line Deletion
-.PP
-.nf
-# Default behavior: trailing line deletes applied in one rapid shot
-diffvim old.py new.py
+# Left-to-right reading order
+diffvim \-\-op-order left-to-right old.py new.py
 
-# Disable rapid EOL (delete one char at a time)
-diffvim \-\-no-rapid-eol-delete old.py new.py
+# Deletion strategy: word-by-word with acceleration
+diffvim \-\-delete-pacing word old.py new.py
 
-# Tune rapid EOL timing
-diffvim \-\-rapid-eol-delay-ms 50 \-\-rapid-eol-min-chars 5 old.py new.py
+# Fast deletion for large refactors
+diffvim \-\-delete-pacing instant \-\-delete-speed fast old.py new.py
+
+# Insertion strategy: batch short words
+diffvim \-\-insert-pacing word old.py new.py
+
+# Timing: human-like jitter
+diffvim \-\-pacing gaussian old.py new.py
+
+# Timing: pause every 5 lines for review
+diffvim \-\-pacing review old.py new.py
+
+# Highlight freshly typed/deleted chars
+diffvim \-\-highlight inline old.py new.py
+
+# Highlight the entire hunk before animating
+diffvim \-\-highlight hunk old.py new.py
 .fi
 
 .SS Buffer State After Animation
@@ -846,20 +590,6 @@ diffvim old.py new.py
 
 # Keep buffer modified; ':q!' required to quit
 diffvim \-\-keep-dirty old.py new.py
-.fi
-
-.SS Word Highlighting
-.PP
-.nf
-# Highlight the word at cursor before each change
-diffvim \-\-highlight-word old.py new.py
-
-# Use Visual group, 500ms duration, highlight words of 3+ chars
-diffvim \-\-highlight-word \\
-  \-\-highlight-word-color Visual \\
-  \-\-highlight-word-duration-ms 500 \\
-  \-\-highlight-word-min-chars 3 \\
-  old.py new.py
 .fi
 
 .SS Multi-file Animation

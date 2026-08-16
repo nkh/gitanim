@@ -35,18 +35,18 @@ for my $mode (qw(uniform adaptive gaussian review)) {
 my $bad = `$DIFFVIM --pacing invalid examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
 ok('--pacing invalid rejected', $bad =~ /invalid --pacing value/);
 
-# Test 4: Old flags still work (backwards compat)
-my $out_old_adapt = `$DIFFVIM --adaptive --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--adaptive still works', $out_old_adapt =~ /---/);
+# Test 4: Old flags are rejected (removed)
+my $out_old_adapt = `$DIFFVIM --adaptive examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--adaptive rejected', $out_old_adapt =~ /Unknown option: --adaptive/);
 
-my $out_old_at = `$DIFFVIM --adaptive-timing --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--adaptive-timing still works', $out_old_at =~ /---/);
+my $out_old_at = `$DIFFVIM --adaptive-timing examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--adaptive-timing rejected', $out_old_at =~ /Unknown option: --adaptive-timing/);
 
-my $out_old_gj = `$DIFFVIM --gaussian-jitter --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--gaussian-jitter still works', $out_old_gj =~ /---/);
+my $out_old_gj = `$DIFFVIM --gaussian-jitter examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--gaussian-jitter rejected', $out_old_gj =~ /Unknown option: --gaussian-jitter/);
 
-my $out_old_pal = `$DIFFVIM --pause-after-lines 5 --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--pause-after-lines still works', $out_old_pal =~ /---/);
+my $out_old_pal = `$DIFFVIM --pause-after-lines 5 examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--pause-after-lines rejected', $out_old_pal =~ /Unknown option: --pause-after-lines/);
 
 # Test 5: Env var works
 $ENV{DIFFVIM_PACING} = 'adaptive';

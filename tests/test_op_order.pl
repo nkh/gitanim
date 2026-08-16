@@ -12,7 +12,7 @@
 # 1. All 6 modes are accepted
 # 2. Invalid modes are rejected
 # 3. Each mode sets the correct underlying variables
-# 4. The old flags still work (backwards compat)
+# 4. The old flags are rejected (removed)
 # 5. --op-order is exposed in --help
 
 use strict;
@@ -58,18 +58,18 @@ ok('--op-order overwrite runs', $out_overwrite =~ /---/);
 my $out_smart = `$DIFFVIM --op-order end-first-smart --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
 ok('--op-order end-first-smart runs', $out_smart =~ /---/);
 
-# Test 7: Old flags still work (backwards compat)
-my $out_old_opt = `$DIFFVIM --optimize-sequence --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--optimize-sequence still works', $out_old_opt =~ /---/);
+# Test 7: Old flags are rejected (removed)
+my $out_old_opt = `$DIFFVIM --optimize-sequence examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--optimize-sequence rejected', $out_old_opt =~ /Unknown option: --optimize-sequence/);
 
-my $out_old_l2r = `$DIFFVIM --left-to-right --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--left-to-right still works', $out_old_l2r =~ /---/);
+my $out_old_l2r = `$DIFFVIM --left-to-right examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--left-to-right rejected', $out_old_l2r =~ /Unknown option: --left-to-right/);
 
-my $out_old_def = `$DIFFVIM --delete-end-first --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--delete-end-first still works', $out_old_def =~ /---/);
+my $out_old_def = `$DIFFVIM --delete-end-first examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--delete-end-first rejected', $out_old_def =~ /Unknown option: --delete-end-first/);
 
-my $out_old_ovw = `$DIFFVIM --overwrite --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--overwrite still works', $out_old_ovw =~ /---/);
+my $out_old_ovw = `$DIFFVIM --overwrite examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--overwrite rejected', $out_old_ovw =~ /Unknown option: --overwrite/);
 
 # Test 8: DIFFVIM_OP_ORDER env var works
 $ENV{DIFFVIM_OP_ORDER} = 'natural';

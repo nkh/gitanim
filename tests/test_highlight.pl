@@ -35,25 +35,25 @@ for my $mode (qw(none inline word hunk)) {
 my $bad = `$DIFFVIM --highlight invalid examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
 ok('--highlight invalid rejected', $bad =~ /invalid --highlight value/);
 
-# Test 4: Old flags still work (backwards compat)
-my $out_old_hw = `$DIFFVIM --highlight-word --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--highlight-word still works', $out_old_hw =~ /---/);
+# Test 4: Old flags are rejected (removed)
+my $out_old_hw = `$DIFFVIM --highlight-word examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--highlight-word rejected', $out_old_hw =~ /Unknown option: --highlight-word/);
 
-my $out_old_hh = `$DIFFVIM --highlight-hunk --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--highlight-hunk still works', $out_old_hh =~ /---/);
+my $out_old_hh = `$DIFFVIM --highlight-hunk examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--highlight-hunk rejected', $out_old_hh =~ /Unknown option: --highlight-hunk/);
 
-my $out_old_hi = `$DIFFVIM --highlight-inline --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--highlight-inline still works', $out_old_hi =~ /---/);
+my $out_old_hi = `$DIFFVIM --highlight-inline examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--highlight-inline rejected', $out_old_hi =~ /Unknown option: --highlight-inline/);
 
-# Test 5: Short options -W, -H, -I still work
-my $out_short_w = `$DIFFVIM -W --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('-W still works', $out_short_w =~ /---/);
+# Test 5: Short options -W, -H, -I are rejected (removed)
+my $out_short_w = `$DIFFVIM -W examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('-W rejected', $out_short_w =~ /Unknown option: -W/);
 
-my $out_short_h = `$DIFFVIM -H --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('-H still works', $out_short_h =~ /---/);
+my $out_short_h = `$DIFFVIM -H examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('-H rejected', $out_short_h =~ /Unknown option: -H/);
 
-my $out_short_i = `$DIFFVIM -I --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('-I still works', $out_short_i =~ /---/);
+my $out_short_i = `$DIFFVIM -I examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('-I rejected', $out_short_i =~ /Unknown option: -I/);
 
 # Test 6: Env var works
 $ENV{DIFFVIM_HIGHLIGHT} = 'word';

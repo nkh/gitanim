@@ -9,10 +9,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Removed — All old individual flags
+
+All old individual flags that were replaced by unified selectors have
+been removed. Only the unified selectors remain. This is a breaking
+change — old flags are now rejected with "Unknown option" errors.
+
+Removed flags (use the unified selector instead):
+- --optimize-sequence / --no-optimize-sequence → --op-order
+- --left-to-right / --no-left-to-right → --op-order left-to-right
+- --delete-end-first → --op-order end-first
+- --delete-end-first-smart → --op-order end-first-smart
+- --overwrite → --op-order overwrite
+- --rapid-eol-delete / --no-rapid-eol-delete → --delete-pacing
+- --rapid-identical-chars → --delete-pacing rapid-identical
+- --accel-delete → --delete-pacing accel
+- --adaptive-word-delete → --delete-pacing word
+- --max-word-chars → --insert-pacing word
+- --word-accel → --insert-pacing accel
+- --adaptive / --adaptive-timing → --pacing adaptive
+- --gaussian-jitter → --pacing gaussian
+- --pause-after-lines → --pacing review
+- --highlight-word → --highlight word
+- --highlight-hunk → --highlight hunk
+- --highlight-inline → --highlight inline
+- --fold-unchanged → --context 0
+
+Removed sub-parameters (env vars still available for tuning):
+- --rapid-eol-delay-ms, --rapid-eol-min-chars
+- --rapid-identical-min, --rapid-identical-accel
+- --accel-delete-start-ms, --accel-delete-min-ms, --accel-delete-accel
+- --adaptive-word-delete-threshold, --adaptive-word-delete-start-chars,
+  --adaptive-word-delete-start-ms, --adaptive-word-delete-min-ms,
+  --adaptive-word-delete-accel, --adaptive-word-delete-word-pause-ms
+- --delete-end-first-delay-ms, --delete-end-first-highlight-ms
+- --word-accel-delete-pct, --word-end-pause-ms, --word-pause-ms
+- --block-delete-size
+- --pause-after-ms, --pause-before-delete-ms, --pause-after-delete-ms
+- --adaptive-start-ms, --adaptive-max-ms, --adaptive-accel,
+  --adaptive-pause-lines, --adaptive-pause-ms
+- --gaussian-jitter-pct
+- --line-change-pause-ms
+- --highlight-word-color, --highlight-word-duration-ms,
+  --highlight-word-min-chars, --highlight-inline-duration-ms,
+  --highlight-min-chars
+
+Removed short options (mapped to removed flags):
+- -O (--overwrite), -L (--left-to-right), -W (--highlight-word),
+  -H (--highlight-hunk), -I (--highlight-inline), -f (--fold-unchanged),
+  -A (--adaptive-timing), -G (--gaussian-jitter)
+
+Updated presets to use only unified options:
+- fast-delete: --delete-pacing word --delete-speed fast --op-order optimize
+- review: --pacing review --highlight hunk --dim-unchanged --op-order left-to-right
+- demo: --pacing gaussian --speed 0.7 --highlight inline
+- ai-code: --op-order end-first-smart --highlight inline --pacing adaptive
+
+Updated all documentation:
+- README.md: options table now shows only unified options
+- man/diffvim.1: removed Animation Options and Utility Options sections,
+  rewrote Environment Variables and Examples sections
+- docs/src/options.md: completely rewritten with only unified options
+- completion/diffvim.bash, .fish, _diffvim: rewritten with only unified options
+- diffvim --help: rewritten with categorized sections (Core, Diff, Op Order,
+  Deletion, Insertion, Timing, Highlighting)
+
+Updated tests:
+- All backwards-compat tests (which verified old flags still work) are
+  now rejection tests (verify old flags are rejected with "Unknown option")
+- test_features.pl: updated to check for unified options instead of old flags
+- test_viewport.pl: updated to verify --fold-unchanged is rejected
+
 ### Added — Unified option selectors (Phases 2-7)
 
-Six new unified selectors that replace ~30 individual flags. The old
-flags still work for backwards compatibility.
+Six new unified selectors that replace ~30 individual flags.
 
 - `--op-order MODE` — unified op reordering: `natural|optimize|left-to-right|end-first|end-first-smart|overwrite` (default: optimize). Replaces --optimize-sequence, --left-to-right, --delete-end-first, --delete-end-first-smart, --overwrite.
 - `--delete-pacing MODE` — unified deletion strategy: `char|rapid-eol|rapid-identical|accel|word|instant` (default: rapid-eol). Replaces --rapid-eol-delete, --rapid-identical-chars, --accel-delete, --adaptive-word-delete.

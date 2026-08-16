@@ -40,8 +40,7 @@ ok('--speed in help',     $help_output =~ /--speed/);
 ok('--output in help',    $help_output =~ /--output/);
 ok('--context in help',   $help_output =~ /--context/);
 ok('--max-hunk-chars in help', $help_output =~ /--max-hunk-chars/);
-ok('--max-word-chars in help', $help_output =~ /--max-word-chars/);
-ok('--word-pause-ms in help',  $help_output =~ /--word-pause-ms/);
+ok('--speed in help',  $help_output =~ /--speed/);
 ok('--scroll in help',    $help_output =~ /--scroll/);
 ok('--multi in help',     $help_output =~ /--multi/);
 ok('--replay in help',    $help_output =~ /--replay/);
@@ -106,12 +105,15 @@ $output = `perl diffvim.pl --multi /tmp/dv_multi_old1.txt:/tmp/dv_multi_new1.txt
 ok('--multi accepts valid pairs', $output !~ /not in old:new format/);
 
 # ---------------------------------------------------------------------------
-# Test 6: --max-hunk-chars and --max-word-chars
+# Test 6: --max-hunk-chars and unified pacing options
 # ---------------------------------------------------------------------------
-print "\n=== Test: --max-hunk-chars and --max-word-chars ===\n";
+print "\n=== Test: --max-hunk-chars and unified options ===\n";
 ok('--max-hunk-chars accepted', `perl diffvim.pl --max-hunk-chars 100 --help 2>&1` =~ /--max-hunk-chars/);
-ok('--max-word-chars accepted', `perl diffvim.pl --max-word-chars 5 --help 2>&1` =~ /--max-word-chars/);
-ok('--word-pause-ms accepted', `perl diffvim.pl --word-pause-ms 200 --help 2>&1` =~ /--word-pause-ms/);
+ok('--insert-pacing accepted', `bash diffvim --insert-pacing word --help 2>&1` =~ /--insert-pacing/);
+ok('--delete-pacing accepted', `bash diffvim --delete-pacing word --help 2>&1` =~ /--delete-pacing/);
+ok('--op-order accepted', `bash diffvim --op-order optimize --help 2>&1` =~ /--op-order/);
+ok('--pacing accepted', `bash diffvim --pacing uniform --help 2>&1` =~ /--pacing/);
+ok('--highlight accepted', `bash diffvim --highlight none --help 2>&1` =~ /--highlight/);
 
 # ---------------------------------------------------------------------------
 # Test 7: --replay requires git
@@ -120,9 +122,8 @@ print "\n=== Test: --replay ===\n";
 $output = `perl diffvim.pl --replay /tmp/dv_test_old.txt 2>&1`;
 ok('--replay accepted', $output =~ /git|not found|hunk|Launching/i || $? != 0);
 
-# Test --from and --to
-ok('--from accepted', `perl diffvim.pl --from HEAD~3 --help 2>&1` =~ /--from/);
-ok('--to accepted', `perl diffvim.pl --to HEAD --help 2>&1` =~ /--to/);
+# Test --git-rev (replaces --from/--to in bash diffvim)
+ok('--git-rev accepted', `bash diffvim --git-rev HEAD~1..HEAD --help 2>&1` =~ /--git-rev/);
 
 # ---------------------------------------------------------------------------
 # Test 8: Parser tests still pass
@@ -139,7 +140,7 @@ $help_output = `bash diffvim --help 2>&1`;
 ok('diffvim --speed in help',     $help_output =~ /--speed/);
 ok('diffvim --output in help',    $help_output =~ /--output/);
 ok('diffvim --max-hunk-chars in help', $help_output =~ /--max-hunk-chars/);
-ok('diffvim --max-word-chars in help', $help_output =~ /--max-word-chars/);
+ok('diffvim --insert-pacing in help', $help_output =~ /--insert-pacing/);
 ok('diffvim --scroll in help',    $help_output =~ /--scroll/);
 ok('diffvim --multi in help',     $help_output =~ /--multi/);
 ok('diffvim --replay in help',    $help_output =~ /--replay/);
@@ -153,7 +154,6 @@ $help_output = `bash diffvim-tmux --help 2>&1`;
 ok('diffvim-tmux --speed in help',     $help_output =~ /--speed/);
 ok('diffvim-tmux --output in help',    $help_output =~ /--output/);
 ok('diffvim-tmux --max-hunk-chars in help', $help_output =~ /--max-hunk-chars/);
-ok('diffvim-tmux --max-word-chars in help', $help_output =~ /--max-word-chars/);
 ok('diffvim-tmux --scroll in help',    $help_output =~ /--scroll/);
 ok('diffvim-tmux --multi in help',     $help_output =~ /--multi/);
 ok('diffvim-tmux --replay in help',    $help_output =~ /--replay/);

@@ -21,7 +21,7 @@ my $DIFFVIM = './diffvim';
 my $help = `$DIFFVIM -h 2>&1`;
 ok('--help shows --context', $help =~ /--context/);
 ok('--help shows --scroll', $help =~ /--scroll/);
-ok('--help shows --fold-unchanged as alias', $help =~ /--fold-unchanged.*alias.*--context 0/);
+ok('--help does NOT show --fold-unchanged', $help !~ /--fold-unchanged/);
 
 # Test 2: --context accepts various values
 for my $n (0, 1, 3, 5, 10) {
@@ -39,21 +39,17 @@ for my $mode (qw(zz zt zb none)) {
     ok("--scroll $mode accepted", $out =~ /---/);
 }
 
-# Test 5: --fold-unchanged still works (alias for --context 0)
-my $out_fu = `$DIFFVIM --fold-unchanged --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--fold-unchanged works', $out_fu =~ /---/);
+# Test 5: --fold-unchanged is rejected (removed, use --context 0)
+my $out_fu = `$DIFFVIM --fold-unchanged examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--fold-unchanged rejected', $out_fu =~ /Unknown option: --fold-unchanged/);
 
-# Test 6: -f short option works
-my $out_f = `$DIFFVIM -f --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('-f works', $out_f =~ /---/);
+# Test 6: -f short option is rejected (removed)
+my $out_f = `$DIFFVIM -f examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('-f rejected', $out_f =~ /Unknown option: -f/);
 
-# Test 7: --context 0 and --fold-unchanged produce the same env var
-# (both should set DIFFVIM_CONTEXT=0)
-my $out_c0 = `DIFFVIM_CONTEXT= $DIFFVIM --context 0 --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1; echo "CONTEXT=\$DIFFVIM_CONTEXT"`;
-ok('--context 0 sets context', $out_c0 =~ /---/);
-
-my $out_fu_env = `DIFFVIM_CONTEXT=99 $DIFFVIM --fold-unchanged --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-ok('--fold-unchanged overrides DIFFVIM_CONTEXT', $out_fu_env =~ /---/);
+# Test 7: --context 0 works (replaces --fold-unchanged)
+my $out_c0 = `$DIFFVIM --context 0 --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+ok('--context 0 works', $out_c0 =~ /---/);
 
 # Test 8: Env vars work
 $ENV{DIFFVIM_CONTEXT} = '3';

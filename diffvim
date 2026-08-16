@@ -7,28 +7,6 @@
 #   diffvim [options] --replay <file>
 #   diffvim [options] --git-rev REV..REV <file> [<file> ...]
 #
-# Options:
-#   --speed N                Speed multiplier (0.5=half, 2=double, 5=5x)
-#   --output FILE            Write result to FILE after animation, then quit
-#   --context N              Fold unchanged regions >2N lines, keep N context
-#   --max-hunk-chars N       Skip char-by-char for hunks > N changed chars
-#   --max-word-chars N       Type words <= N chars instantly, pause after
-#   --word-pause-ms N        Pause after instant word (default: 150)
-#   --scroll zz|zt|zb|none   Cursor scroll position (default: zz)
-#   --multi                  Treat args as old:new pairs for multi-file
-#   --replay                 Animate git history for given file(s)
-#   --git-rev REV..REV       Shorthand for --replay with a rev range
-#   --version, -V            Print version and exit
-#   --dry-run                Print diff hunks without launching vim
-#   --word-diff              Enable word-level diff flag in the engine
-#   --step-mode              Space advances one op at a time
-#   --adaptive-timing        Slow down on complex regions (±10 op window)
-#   --sign-column            Show +/- signs in the sign column
-#   --git-blame              Echo git blame for the target line of each hunk
-#   --git-rev REV..REV       Shorthand for --replay --from REV1 --to REV2
-#   --max-line-len N         Warn on lines longer than N characters
-#   --help, -h               Show help
-#
 # Opens <oldfile> in vim and animates the transformation into <newfile>.
 # The cursor glides between change locations with ease-in-out acceleration
 # and deceleration. Only the actually-changed characters are deleted and
@@ -38,9 +16,12 @@
 # quits cleanly. Use --keep-dirty to leave the buffer modified (':q!' then
 # required to quit).
 #
-# Trailing-text deletions (cursor at end of line, all text after the cursor
-# being deleted) are applied in one rapid shot. Use --no-rapid-eol-delete
-# to disable, or --rapid-eol-delay-ms / --rapid-eol-min-chars to tune.
+# Unified option selectors (run 'diffvim --help' for full list):
+#   --op-order MODE          Op reordering (natural|optimize|left-to-right|...)
+#   --delete-pacing MODE     Deletion strategy (char|rapid-eol|word|instant|...)
+#   --insert-pacing MODE     Insertion strategy (char|word|accel)
+#   --pacing MODE            Timing mode (uniform|adaptive|gaussian|review)
+#   --highlight MODE         Highlight mode (none|inline|word|hunk)
 #
 # Controls (normal mode, active during animation):
 #   <Space>   pause / resume
@@ -214,151 +195,125 @@ Usage: $(basename "$0") [options] <oldfile> <newfile>
 Animate a code diff in vim, as if a human were typing it.
 Short forms in parentheses (e.g. -s for --speed).
 
-Options:
+CORE OPTIONS:
   --speed N (-s)           Speed multiplier: 0.5=half speed, 2=double, 5=5x
   --output FILE (-o)       Write result to FILE after animation, then quit
   --context N (-c)         Fold unchanged regions >2N lines, keep N context
-                           (0 = fold all unchanged regions; same as --fold-unchanged)
+                           (0 = fold all unchanged regions)
   --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
-  --max-word-chars N       Type words <=N chars instantly, pause after
-  --word-pause-ms N        Pause after instant word (default: 150)
-  --insert-pacing MODE     Unified insertion strategy: char|word|accel (default: char).
-                           Replaces --max-word-chars, --word-accel.
-                           'word' batches short words (<=8 chars); 'accel' accelerates
-                           char-by-char inserts (slow start, fast end, pause).
-  --insert-speed MODE      Insertion speed: slow|normal|fast (default: normal)
   --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
   --multi (-m)             Treat args as old:new pairs for multi-file animation
   --replay (-r)            Animate git history for given file(s)
-  --version, -V            Print version ("diffvim 1.5.0") and exit
+  --git-rev REV..REV (-R)  Animate a git commit range (e.g. HEAD~3..HEAD)
+  --version, -V            Print version and exit
   --dry-run (-d)           Print diff hunks without launching vim
   --step-mode              Space advances one op at a time (starts paused)
   --no-startup-pause       Skip startup delay and messages, start immediately
   --language LANG          Set vim filetype for syntax highlighting (default: auto)
-  --adaptive               Adaptive speed mode (slow start, accelerate, pause at hunk end)
-  --adaptive-start-ms N    Initial delay per char in adaptive mode (default: 80)
-  --adaptive-max-ms N      Minimum delay (max speed) in adaptive mode (default: 30)
-  --adaptive-accel N       Acceleration factor 0-100, lower=faster accel (default: 92)
-  --adaptive-pause-lines N Pause every N lines in large hunks (default: 15)
-  --adaptive-pause-ms N    Duration of mid-hunk pauses (default: 500)
-  --adaptive-timing (-A)   Slow down on complex regions (±10 op window)
-  --pacing MODE            Unified timing mode: uniform|adaptive|gaussian|review
-                           (default: uniform). Replaces --adaptive, --adaptive-timing,
-                           --gaussian-jitter, --pause-after-lines.
-                           'adaptive' slows in complex regions; 'gaussian' adds
-                           human-like jitter; 'review' pauses every 5 lines.
   --sign-column            Show +/- signs in the sign column during animation
-  --delete-pacing MODE     Unified deletion strategy: char|rapid-eol|rapid-identical|
-                           accel|word|instant (default: rapid-eol).
-                           Replaces --rapid-eol-delete, --rapid-identical-chars,
-                           --accel-delete, --adaptive-word-delete.
-  --delete-speed MODE      Deletion speed: slow|normal|fast|instant (default: normal)
-  --delete-threshold N     Min chars to trigger rapid/word modes (default: 3)
-  --rapid-eol-delete       Delete trailing line text in one rapid shot (default: on)
-  --no-rapid-eol-delete    Disable rapid end-of-line deletion
-  --rapid-eol-delay-ms N   Delay for rapid EOL deletion in ms (default: 80)
-  --rapid-eol-min-chars N  Min trailing chars to trigger rapid EOL (default: 3)
+  --git-blame (-g)         Echo git blame for the target line of each hunk
+  --max-line-len N         Warn on lines longer than N characters
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
-  --startup-pause          Show config + help before starting (default: off, start immediately)
-  --algorithm lcs|myers|patience (-a)  Line-level diff algorithm (default: lcs)
-  --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
-  --indent-aware (-i)      Normalize indentation before line diff (indent-only changes = keep)
-  --word-diff (-w)         Use word-level diff (groups changes by word tokens)
-  --highlight-word (-W)    Highlight the word at cursor before each change (finer than --highlight-hunk)
-  --highlight-word-color C  Highlight group for word highlighting (default: Search)
-  --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
-  --highlight-word-min-chars N  Min word length to highlight (default: 2)
-  --highlight MODE         Unified highlight mode: none|inline|word|hunk (default: none).
-                           Replaces --highlight-word, --highlight-hunk, --highlight-inline.
-  --accel-delete           Accelerated multi-line deletion (slow start, accelerate, decelerate)
-  --accel-delete-start-ms N  Start delay for accelerated delete (default: 80)
-  --accel-delete-min-ms N  Minimum delay (max speed) for accelerated delete (default: 10)
-  --accel-delete-accel N   Acceleration factor 0-100, lower=faster accel (default: 85)
-  --overwrite (-O)         Overwrite mode: replace words in place instead of delete+insert
-  --delete-end-first       Delete end-of-line before inserting on patched lines
-  --delete-end-first-delay-ms N  Delay between delete-end and insert (default: 100)
-  --delete-end-first-smart  Highlight+pause+progressive delete before insert
-  --delete-end-first-highlight-ms N  Highlight duration before delete (default: 300)
+  --startup-pause          Show config + help before starting (default: off)
   --startup-feedback (-F)  Show progress in status line during diff computation
-  --highlight-inline (-I)  Paint freshly typed chars green, deleted chars red (200ms)
-  --highlight-inline-duration-ms N  Inline highlight duration in ms (default: 200)
-  --gaussian-jitter (-G)   Vary per-char delay for human-like typing
-  --gaussian-jitter-pct N  Jitter percentage 0-100 (default: 20)
-  --dim-unchanged (-D)     Dim unchanged anchor lines to draw eye to changes
-  --dim-unchanged-pct N    Dimming percentage 0-100, higher=more dim (default: 60)
-  --pause-after-lines N    Pause every N lines in large hunks (default: 0=off)
-  --pause-after-threshold N  Min hunk lines to trigger pausing (default: 50)
-  --pause-after-ms N       Duration of mid-hunk pauses (default: 500)
-  --pause-before-delete-ms N  Pause before multi-line block delete (default: 200)
-  --pause-after-delete-ms N  Pause after multi-line block delete (default: 200)
-  --block-delete-size N    Lines per block in accelerated delete (default: 3)
-  --fold-unchanged (-f)    Fold unchanged regions between hunks (alias for --context 0)
-  --theme dark|light|high-contrast (-t)  Color scheme for highlights
-  --op-order MODE          Unified op reordering: natural|optimize|left-to-right|
-                           end-first|end-first-smart|overwrite (default: optimize).
-                           Replaces --optimize-sequence, --left-to-right,
-                           --delete-end-first, --delete-end-first-smart, --overwrite.
-  --optimize-sequence      Post-process ops to eliminate erratic movement (default: on)
-  --no-optimize-sequence   Disable op-sequence optimization
-  --left-to-right (-L)     Sort ops within each line left-to-right (no jumping)
-  --no-left-to-right       Disable left-to-right ordering
-  --adaptive-word-delete   Word-by-word line deletion (few chars → words → rest)
-  --adaptive-word-delete-threshold N  Min delete run to trigger AWD (default: 3)
-  --adaptive-word-delete-start-chars N  Chars before word phase (default: 3)
-  --adaptive-word-delete-start-ms N  Delay per char in start phase (default: 80)
-  --adaptive-word-delete-min-ms N  Min delay (max speed) for word phase (default: 15)
-  --adaptive-word-delete-accel N  Word accel factor 0-100 (default: 85)
-  --adaptive-word-delete-word-pause-ms N  Pause after each word (default: 100)
-  --rapid-identical-chars  Accelerate deletion of identical char runs (---, ===)
-  --rapid-identical-min N  Min identical chars to trigger (default: 5)
-  --rapid-identical-accel N  Acceleration factor 0-100 (default: 50, lower=faster)
-  --word-accel              Accelerate char-by-char word insert/delete (slow start, fast end, pause)
-  --word-accel-delete-pct N  Deletion speedup percentage (default: 20, 0=same as insert)
-  --word-end-pause-ms N     Pause after completing a word (default: 150)
-  --line-change-pause-ms N  Pause when crossing a line boundary (default: 200)
-  --preset NAME (-p)       Apply named preset (fast-delete, review, present, ai-code, custom)
-  --no-log-timing          Disable timing info in log output
-  --log-mode 1|2                  Generate log file (1=markers, 2=progressive) without starting vim
+  --preset NAME (-p)       Apply named preset (fast-delete, review, demo, ai-code)
+  --log-mode 1|2           Generate log file without starting vim
   --log-file FILE          Write log to FILE (default: diffvim.log)
-  --git-blame (-g)         Echo git blame for the target line of each hunk
-  --highlight-hunk (-H)    Highlight hunk region before animating it
-  --highlight-color COLOR  Highlight group (default: DiffChange, also: DiffAdd, DiffDelete, Search, Visual)
-  --highlight-duration-ms N  Highlight duration in ms (default: 1000)
-  --highlight-min-chars N  Min changed chars to trigger highlight (default: 10)
-  --git-rev REV..REV (-R)  Animate a git commit range (e.g. HEAD~3..HEAD)
-  --max-line-len N         Warn on lines longer than N characters
+  --no-log-timing          Disable timing info in log output
+  --diff FILE              Animate a unified diff file (- for stdin)
+  --theme dark|light|high-contrast (-t)  Color scheme for highlights
+  --debug                  Enable verbose logging to /tmp/diffvim-debug.log
   --help, -h               Show this help
 
-Controls (during animation, in vim normal mode):
+DIFF ALGORITHM:
+  --algorithm lcs|myers|patience (-a)  Line-level diff algorithm (default: lcs)
+  --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
+  --indent-aware (-i)      Normalize indentation before line diff
+  --word-diff (-w)         Use word-level diff (groups changes by word tokens)
+
+OP ORDER (post-processing):
+  --op-order MODE          Op reordering: natural|optimize|left-to-right|
+                           end-first|end-first-smart|overwrite (default: optimize)
+    natural                No post-processing (raw LCS order)
+    optimize               Deletes before inserts (default)
+    left-to-right          Keeps, then deletes, then inserts per line
+    end-first              Trailing deletes before inserts
+    end-first-smart        Trailing deletes + word batching
+    overwrite              In-place replacement instead of delete+insert
+
+DELETION PACING:
+  --delete-pacing MODE     Deletion strategy: char|rapid-eol|rapid-identical|
+                           accel|word|instant (default: rapid-eol)
+    char                   One char at a time (no acceleration)
+    rapid-eol              Rapid shot at end of line (default)
+    rapid-identical        Accelerate identical char runs (---, ===)
+    accel                  Accelerate through long runs (slow→fast→slow)
+    word                   Word-by-word with acceleration
+    instant                All strategies enabled (fastest)
+  --delete-speed MODE      Deletion speed: slow|normal|fast|instant (default: normal)
+  --delete-threshold N     Min chars to trigger rapid/word modes (default: 3)
+
+INSERTION PACING:
+  --insert-pacing MODE     Insertion strategy: char|word|accel (default: char)
+    char                   One char at a time (default)
+    word                   Batch short words (<=8 chars) instantly
+    accel                  Accelerate char-by-char inserts (slow→fast→pause)
+  --insert-speed MODE      Insertion speed: slow|normal|fast (default: normal)
+
+TIMING:
+  --pacing MODE            Timing mode: uniform|adaptive|gaussian|review
+                           (default: uniform)
+    uniform                Fixed delays, no jitter (default)
+    adaptive               Slow down in complex regions
+    gaussian               Add human-like timing jitter
+    review                 Pause every 5 lines in large hunks
+
+HIGHLIGHTING:
+  --highlight MODE         Highlight mode: none|inline|word|hunk (default: none)
+    none                   No highlighting (default)
+    inline                 Paint freshly typed/deleted chars (200ms fade)
+    word                   Highlight the word at cursor before change
+    hunk                   Highlight the entire hunk before animating
+  --highlight-color COLOR  Highlight group (default: DiffChange)
+  --highlight-duration-ms N  Highlight duration in ms (default: 1000)
+  --dim-unchanged (-D)     Dim unchanged anchor lines to draw eye to changes
+  --dim-unchanged-pct N    Dimming percentage 0-100 (default: 60)
+
+CONTROLS (during animation, in vim normal mode):
   <Space>  pause / resume
   n        skip current hunk (apply instantly, move to next)
   b        back to previous hunk (revert and restart it)
-  q        stop animation — by default ':q' then quits cleanly; use
-           --keep-dirty to require ':q!' instead
+  q        stop animation — ':q' quits cleanly (use --keep-dirty for ':q!')
   +        speed up (x1.5)
   -        slow down (x0.67)
   =        reset speed to 1.0
   ?        show in-vim help
 
-Multi-file controls (only with --multi):
+MULTI-FILE CONTROLS (only with --multi):
   ]        next file (apply current file's remaining hunks, load next)
   [        previous file (revert to previous file's starting state)
 
-Git replay controls (only with --replay or --git-rev):
+GIT REPLAY CONTROLS (only with --replay or --git-rev):
   )        next commit in the replay sequence
   (        previous commit in the replay sequence
 
-Environment variables:
-  DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
-  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
-  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED,
-  DIFFVIM_WORD_DIFF, DIFFVIM_STEP_MODE, DIFFVIM_ADAPTIVE_TIMING,
-  DIFFVIM_SIGN_COLUMN, DIFFVIM_GIT_BLAME, DIFFVIM_MAX_LINE_LEN,
-  DIFFVIM_RAPID_EOL_DELAY_MS, DIFFVIM_RAPID_EOL_MIN_CHARS,
-  DIFFVIM_KEEP_DIRTY, DIFFVIM_HIGHLIGHT_WORD_COLOR,
-  DIFFVIM_HIGHLIGHT_WORD_DURATION_MS, DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS
+ENVIRONMENT VARIABLES:
+  All options can be set via DIFFVIM_<OPTION_NAME> env vars
+  (e.g. DIFFVIM_OP_ORDER, DIFFVIM_DELETE_PACING, DIFFVIM_PACING, etc.)
+  Timing: DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
+  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_HUNK_PAUSE_MS
+
+PRESETS:
+  fast-delete              --delete-pacing word --delete-speed fast --op-order optimize
+  review                   --pacing review --highlight hunk --dim-unchanged --op-order left-to-right
+  demo                     --pacing gaussian --speed 0.7 --highlight inline
+  ai-code                  --op-order end-first-smart --highlight inline --pacing adaptive
+
+SEE ALSO:
+  man diffvim, man diffvim-compute
+  docs/VISUAL_GUIDE.md, docs/ADOPTION_GUIDE.md
 USAGE
 }
 
@@ -370,8 +325,6 @@ while [[ $# -gt 0 ]]; do
         --output|-o)        OUTPUT_FILE="$2"; shift 2 ;;
         --context|-c)       CONTEXT_LINES="$2"; shift 2 ;;
         --max-hunk-chars) MAX_HUNK_CHARS="$2"; shift 2 ;;
-        --max-word-chars) MAX_WORD_CHARS="$2"; shift 2 ;;
-        --word-pause-ms) export DIFFVIM_WORD_PAUSE_MS="$2"; shift 2 ;;
         --insert-pacing)
             INSERT_PACING="$2"; shift 2
             case "$INSERT_PACING" in
@@ -401,13 +354,6 @@ while [[ $# -gt 0 ]]; do
         --step-mode)        STEP_MODE=1; shift ;;
         --no-startup-pause) NO_STARTUP_PAUSE=1; shift ;;
         --language)         LANGUAGE="$2"; shift 2 ;;
-        --adaptive)         ADAPTIVE_MODE=1; shift ;;
-        --adaptive-start-ms) ADAPTIVE_START_DELAY_MS="$2"; shift 2 ;;
-        --adaptive-max-ms) ADAPTIVE_MAX_DELAY_MS="$2"; shift 2 ;;
-        --adaptive-accel) ADAPTIVE_ACCEL="$2"; shift 2 ;;
-        --adaptive-pause-lines) ADAPTIVE_PAUSE_LINES="$2"; shift 2 ;;
-        --adaptive-pause-ms) ADAPTIVE_PAUSE_MS="$2"; shift 2 ;;
-        --adaptive-timing|-A) ADAPTIVE_TIMING=1; shift ;;
         --pacing)
             PACING="$2"; shift 2
             case "$PACING" in
@@ -419,10 +365,6 @@ while [[ $# -gt 0 ]]; do
             esac
             ;;
         --sign-column)      SIGN_COLUMN=1; shift ;;
-        --rapid-eol-delete) RAPID_EOL_DELETE=1; shift ;;
-        --no-rapid-eol-delete) RAPID_EOL_DELETE=0; shift ;;
-        --rapid-eol-delay-ms) RAPID_EOL_DELAY_MS="$2"; shift 2 ;;
-        --rapid-eol-min-chars) RAPID_EOL_MIN_CHARS="$2"; shift 2 ;;
         --delete-pacing)
             DELETE_PACING="$2"; shift 2
             case "$DELETE_PACING" in
@@ -451,40 +393,12 @@ while [[ $# -gt 0 ]]; do
         --algorithm|-a)     ALGORITHM="$2"; shift 2 ;;
         --semantic-cleanup|-S) SEMANTIC_CLEANUP=1; shift ;;
         --indent-aware|-i)  INDENT_AWARE=1; shift ;;
-        --highlight-word|-W) HIGHLIGHT_WORD=1; shift ;;
-        --highlight-word-color) HIGHLIGHT_WORD_COLOR="$2"; shift 2 ;;
-        --highlight-word-duration-ms) HIGHLIGHT_WORD_DURATION_MS="$2"; shift 2 ;;
-        --highlight-word-min-chars) HIGHLIGHT_WORD_MIN_CHARS="$2"; shift 2 ;;
-        --accel-delete)  ACCEL_DELETE=1; shift ;;
-        --accel-delete-start-ms) ACCEL_DELETE_START_MS="$2"; shift 2 ;;
-        --accel-delete-min-ms) ACCEL_DELETE_MIN_MS="$2"; shift 2 ;;
-        --accel-delete-accel) ACCEL_DELETE_ACCEL="$2"; shift 2 ;;
-        --overwrite|-O)     OVERWRITE_MODE=1; shift ;;
-        --delete-end-first) DELETE_END_FIRST=1; shift ;;
-        --delete-end-first-delay-ms) DELETE_END_FIRST_DELAY_MS="$2"; shift 2 ;;
-        --delete-end-first-smart) DELETE_END_FIRST_SMART=1; shift ;;
-        --delete-end-first-highlight-ms) DELETE_END_FIRST_HIGHLIGHT_MS="$2"; shift 2 ;;
         --startup-feedback|-F) STARTUP_FEEDBACK=1; shift ;;
-        --highlight-inline|-I) INLINE_HIGHLIGHT=1; shift ;;
-        --highlight-inline-duration-ms) INLINE_HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
-        --gaussian-jitter|-G) GAUSSIAN_JITTER=1; shift ;;
-        --gaussian-jitter-pct) GAUSSIAN_JITTER_PCT="$2"; shift 2 ;;
         --dim-unchanged|-D) DIM_UNCHANGED=1; shift ;;
         --dim-unchanged-pct) DIM_UNCHANGED_PCT="$2"; shift 2 ;;
-        --pause-after-lines) PAUSE_AFTER_LINES="$2"; shift 2 ;;
-        --pause-after-threshold) PAUSE_AFTER_THRESHOLD="$2"; shift 2 ;;
-        --pause-after-ms) PAUSE_AFTER_MS="$2"; shift 2 ;;
-        --pause-before-delete-ms) PAUSE_BEFORE_DELETE_MS="$2"; shift 2 ;;
-        --pause-after-delete-ms) PAUSE_AFTER_DELETE_MS="$2"; shift 2 ;;
-        --block-delete-size) BLOCK_DELETE_SIZE="$2"; shift 2 ;;
-        --fold-unchanged|-f) FOLD_UNCHANGED=1; CONTEXT_LINES=0; shift ;;
         --theme|-t)          THEME="$2"; shift 2 ;;
-        --optimize-sequence) OPTIMIZE_SEQUENCE=1; shift ;;
-        --no-optimize-sequence) OPTIMIZE_SEQUENCE=0; shift ;;
         --log-mode)      LOG_MODE="$2"; shift 2 ;;
         --log-file)      LOG_FILE="$2"; shift 2 ;;
-        --left-to-right|-L) LEFT_TO_RIGHT=1; shift ;;
-        --no-left-to-right) LEFT_TO_RIGHT=0; shift ;;
         --op-order)
             OP_ORDER="$2"; shift 2
             case "$OP_ORDER" in
@@ -496,24 +410,9 @@ while [[ $# -gt 0 ]]; do
                     exit 1 ;;
             esac
             ;;
-        --adaptive-word-delete) ADAPTIVE_WORD_DELETE=1; shift ;;
-        --adaptive-word-delete-threshold) ADAPTIVE_WORD_DELETE_THRESHOLD="$2"; shift 2 ;;
-        --adaptive-word-delete-start-chars) ADAPTIVE_WORD_DELETE_START_CHARS="$2"; shift 2 ;;
-        --adaptive-word-delete-start-ms) ADAPTIVE_WORD_DELETE_START_MS="$2"; shift 2 ;;
-        --adaptive-word-delete-min-ms) ADAPTIVE_WORD_DELETE_MIN_MS="$2"; shift 2 ;;
-        --adaptive-word-delete-accel) ADAPTIVE_WORD_DELETE_ACCEL="$2"; shift 2 ;;
-        --adaptive-word-delete-word-pause-ms) ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$2"; shift 2 ;;
-        --rapid-identical-chars) RAPID_IDENTICAL_CHARS=1; shift ;;
-        --rapid-identical-min) RAPID_IDENTICAL_MIN="$2"; shift 2 ;;
-        --rapid-identical-accel) RAPID_IDENTICAL_ACCEL="$2"; shift 2 ;;
-        --word-accel)      WORD_ACCEL=1; shift ;;
-        --word-accel-delete-pct) WORD_ACCEL_DELETE_PCT="$2"; shift 2 ;;
-        --word-end-pause-ms) WORD_END_PAUSE_MS="$2"; shift 2 ;;
-        --line-change-pause-ms) LINE_CHANGE_PAUSE_MS="$2"; shift 2 ;;
         --preset|-p)        PRESET="$2"; shift 2 ;;
         --no-log-timing) LOG_TIMING=0; shift ;;
         --git-blame|-g)     GIT_BLAME=1; shift ;;
-        --highlight-hunk|-H) HIGHLIGHT_HUNK=1; shift ;;
         --highlight)
             HIGHLIGHT_MODE="$2"; shift 2
             case "$HIGHLIGHT_MODE" in
@@ -526,7 +425,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
         --highlight-duration-ms) HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
-        --highlight-min-chars) HIGHLIGHT_MIN_CHARS="$2"; shift 2 ;;
         --git-rev|-R)       GIT_REV="$2"; shift 2 ;;
         --max-line-len)  MAX_LINE_LEN="$2"; shift 2 ;;
         --help|-h)       HELP=1; shift ;;
@@ -573,42 +471,28 @@ if [[ -n "$PRESET" ]]; then
     for p in "${PRESETS[@]}"; do
         case "$p" in
             fast-delete)
-                ACCEL_DELETE=1
-                ADAPTIVE_WORD_DELETE=1
-                RAPID_IDENTICAL_CHARS=1
-                RAPID_EOL_DELETE=1
-                OPTIMIZE_SEQUENCE=1
-                LEFT_TO_RIGHT=1
+                DELETE_PACING=word
+                DELETE_SPEED=fast
+                OP_ORDER=optimize
                 SEMANTIC_CLEANUP=1
                 ;;
             review)
-                HIGHLIGHT_HUNK=1
-                HIGHLIGHT_WORD=1
-                HIGHLIGHT_INLINE=1
+                PACING=review
+                HIGHLIGHT_MODE=hunk
                 DIM_UNCHANGED=1
-                PAUSE_AFTER_LINES=5
-                PAUSE_AFTER_THRESHOLD=20
-                OPTIMIZE_SEQUENCE=1
-                LEFT_TO_RIGHT=1
+                OP_ORDER=left-to-right
                 SEMANTIC_CLEANUP=1
                 ;;
-            present)
-                SPEED_MULT=0.5
-                HIGHLIGHT_HUNK=1
-                SIGN_COLUMN=1
-                WORD_DIFF=1
-                OPTIMIZE_SEQUENCE=1
+            demo)
+                PACING=gaussian
+                SPEED_MULT=0.7
+                HIGHLIGHT_MODE=inline
                 ;;
             ai-code)
-                OPTIMIZE_SEQUENCE=1
-                LEFT_TO_RIGHT=1
+                OP_ORDER=end-first-smart
+                HIGHLIGHT_MODE=inline
+                PACING=adaptive
                 SEMANTIC_CLEANUP=1
-                ACCEL_DELETE=1
-                ADAPTIVE_WORD_DELETE=1
-                RAPID_IDENTICAL_CHARS=1
-                HIGHLIGHT_INLINE=1
-                DIM_UNCHANGED=1
-                PAUSE_AFTER_LINES=7
                 ;;
             custom)
                 # Read custom options from DIFFVIM_PRESET_CUSTOM env var
@@ -624,7 +508,7 @@ if [[ -n "$PRESET" ]]; then
                 fi
                 ;;
             *)
-                echo "diffvim: unknown preset '$p' (available: fast-delete, review, present, ai-code, custom)" >&2
+                echo "diffvim: unknown preset '$p' (available: fast-delete, review, demo, ai-code, custom)" >&2
                 ;;
         esac
     done

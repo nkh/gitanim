@@ -184,76 +184,60 @@ A progress bar is shown: `hunk 3/7 (42%) | speed 2.3x | PAUSED`
 
 ## Options
 
-All three implementations support these options:
-
 ```
---speed N                Speed multiplier: 0.5=half, 2=double, 5=5x
---output FILE            Write result to FILE after animation, then quit
---context N              Fold unchanged regions >2N lines, keep N context
---max-hunk-chars N       Skip char-by-char for hunks > N changed chars
---max-word-chars N       Type words <= N chars instantly, pause after
---word-pause-ms N        Pause after instant word (default: 150)
---scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
---multi                  Animate multiple old:new file pairs
---replay                 Animate git history for given file(s)
---from REV               Git rev to start replay from (default: HEAD~5)
---to REV                 Git rev to end replay at (default: HEAD)
---git-rev REV..REV       Animate a git commit range
---no-tmux                Run vim directly in terminal (no tmux)
---dry-run                Print diff ops without launching vim
---sign-column            Show +/- signs in vim's sign column
---git-blame              Show git blame for changed lines
---step-mode              Space advances one char op at a time
---max-line-len N         Warn threshold for long lines (default: 10000)
---adaptive-timing        Auto-slow for complex hunks, speed up for simple
---word-diff              Use word-level diff (groups changes by word)
---rapid-eol-delete       (default: on) Delete trailing line text in one rapid shot
---no-rapid-eol-delete    Disable rapid end-of-line deletion
---rapid-eol-delay-ms N   Delay for rapid EOL deletion (default: 80)
---rapid-eol-min-chars N  Min trailing chars to trigger rapid EOL (default: 3)
---keep-dirty             Leave buffer modified; require :q! to quit
---highlight-word         Highlight the word at cursor before each change
---highlight-word-color C  Highlight group for word highlighting (default: Search)
---highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
---highlight-word-min-chars N  Min word length to highlight (default: 2)
---accel-delete           Accelerated multi-line deletion (slow→fast→slow)
---accel-delete-start-ms N  Start delay (default: 80)
---accel-delete-min-ms N  Min delay / max speed (default: 10)
---accel-delete-accel N   Acceleration factor 0-100 (default: 85)
---overwrite              Overwrite mode: replace words in place
---delete-end-first       Delete end-of-line before inserting
---delete-end-first-delay-ms N  Delay between delete-end and insert (default: 100)
---startup-feedback       Show progress in status line during diff computation
---inline-highlight       Paint typed chars green, deleted chars red (200ms)
---inline-highlight-duration-ms N  Inline highlight duration (default: 200)
---gaussian-jitter        Vary per-char delay for human-like typing
---gaussian-jitter-pct N  Jitter percentage 0-100 (default: 20)
---dim-unchanged          Dim unchanged anchor lines
---dim-unchanged-pct N    Dimming percentage 0-100 (default: 60)
---pause-after-lines N    Pause every N lines in large hunks (default: 0=off)
---pause-after-threshold N  Min hunk lines to trigger pausing (default: 50)
---pause-after-ms N       Duration of mid-hunk pauses (default: 500)
---pause-before-delete-ms N  Pause before multi-line block delete (default: 200)
---pause-after-delete-ms N  Pause after multi-line block delete (default: 200)
---block-delete-size N    Lines per block in accelerated delete (default: 3)
---fold-unchanged         Fold unchanged regions between hunks
---theme dark|light|high-contrast  Color scheme for highlights
---optimize-sequence      Post-process ops to eliminate erratic movement (default: on)
---no-optimize-sequence   Disable op-sequence optimization
---left-to-right          Sort ops within each line left-to-right (default: on)
---no-left-to-right       Disable left-to-right ordering
---adaptive-word-delete   Word-by-word line deletion (few chars → words → rest)
---rapid-identical-chars  Accelerate deletion of identical char runs (---, ===)
---word-accel             Accelerate char-by-char word insert/delete (slow→fast→pause)
---word-accel-delete-pct N  Deletion speedup percentage (default: 20)
---auto-precompute        Auto-run external compute tool (uses DIFFVIM_COMPUTE_TOOL)
---compute-tool c|cpp|rust|go  Which compute tool for --auto-precompute (default: c)
---preset NAME            Apply named preset (fast-delete, review, present, ai-code, custom)
---no-log-timing          Disable timing info in log output
---log-mode 1|2           Generate log file without starting vim
---log-file FILE          Write log to FILE (default: diffvim.log)
---version, -V            Print version and dependency info
---help, -h               Show help
+CORE OPTIONS:
+  --speed N (-s)           Speed multiplier: 0.5=half, 2=double, 5=5x
+  --output FILE (-o)       Write result to FILE after animation, then quit
+  --context N (-c)         Fold unchanged regions >2N lines, keep N context
+  --max-hunk-chars N       Skip char-by-char for hunks > N changed chars
+  --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
+  --multi (-m)             Animate multiple old:new file pairs
+  --replay (-r)            Animate git history for given file(s)
+  --git-rev REV..REV (-R)  Animate a git commit range
+  --dry-run (-d)           Print diff ops without launching vim
+  --word-diff (-w)         Use word-level diff (groups changes by word)
+  --step-mode              Space advances one char op at a time
+  --max-line-len N         Warn threshold for long lines (default: 10000)
+  --sign-column            Show +/- signs in vim's sign column
+  --git-blame (-g)         Show git blame for changed lines
+  --keep-dirty             Leave buffer modified; require :q! to quit
+  --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim)
+  --precomputed FILE       Use pre-computed diff from FILE
+  --preset NAME (-p)       Apply named preset (fast-delete, review, demo, ai-code)
+  --theme dark|light|high-contrast (-t)  Color scheme for highlights
+  --version, -V            Print version
+  --help, -h               Show help
+
+DIFF ALGORITHM:
+  --algorithm lcs|myers|patience (-a)  Line-level diff algorithm (default: lcs)
+  --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
+  --indent-aware (-i)      Normalize indentation before line diff
+  --word-diff (-w)         Use word-level diff (groups changes by word tokens)
+
+OP ORDER (post-processing):
+  --op-order MODE          Op reordering: natural|optimize|left-to-right|
+                           end-first|end-first-smart|overwrite (default: optimize)
+
+DELETION PACING:
+  --delete-pacing MODE     Deletion strategy: char|rapid-eol|rapid-identical|
+                           accel|word|instant (default: rapid-eol)
+  --delete-speed MODE      Deletion speed: slow|normal|fast|instant (default: normal)
+  --delete-threshold N     Min chars to trigger rapid/word modes (default: 3)
+
+INSERTION PACING:
+  --insert-pacing MODE     Insertion strategy: char|word|accel (default: char)
+  --insert-speed MODE      Insertion speed: slow|normal|fast (default: normal)
+
+TIMING:
+  --pacing MODE            Timing mode: uniform|adaptive|gaussian|review
+                           (default: uniform)
+
+HIGHLIGHTING:
+  --highlight MODE         Highlight mode: none|inline|word|hunk (default: none)
+  --highlight-color COLOR  Highlight group (default: DiffChange)
+  --highlight-duration-ms N  Highlight duration in ms (default: 1000)
+  --dim-unchanged (-D)     Dim unchanged anchor lines to draw eye to changes
+  --dim-unchanged-pct N    Dimming percentage 0-100 (default: 60)
 ```
 
 ### Buffer State After Animation
