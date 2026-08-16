@@ -105,6 +105,14 @@ HIGHLIGHT_DURATION_MS="${DIFFVIM_HIGHLIGHT_DURATION_MS:-1000}"
 HIGHLIGHT_MIN_CHARS="${DIFFVIM_HIGHLIGHT_MIN_CHARS:-10}"
 GIT_REV=""
 MAX_LINE_LEN=0
+# --delete-pacing: unified deletion strategy selector.
+# Replaces --rapid-eol-delete, --rapid-identical-chars, --accel-delete,
+# --adaptive-word-delete. Old flags still work and override this.
+DELETE_PACING="${DIFFVIM_DELETE_PACING:-rapid-eol}"
+# --delete-speed: speed multiplier for deletes (slow|normal|fast|instant)
+DELETE_SPEED="${DIFFVIM_DELETE_SPEED:-normal}"
+# --delete-threshold: min chars to trigger rapid/word modes (was rapid_eol_min_chars)
+DELETE_THRESHOLD="${DIFFVIM_DELETE_THRESHOLD:-3}"
 RAPID_EOL_DELETE=1
 RAPID_EOL_DELAY_MS="${DIFFVIM_RAPID_EOL_DELAY_MS:-80}"
 RAPID_EOL_MIN_CHARS="${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}"
@@ -218,6 +226,12 @@ Options:
   --adaptive-pause-ms N    Duration of mid-hunk pauses (default: 500)
   --adaptive-timing (-A)   Slow down on complex regions (±10 op window)
   --sign-column            Show +/- signs in the sign column during animation
+  --delete-pacing MODE     Unified deletion strategy: char|rapid-eol|rapid-identical|
+                           accel|word|instant (default: rapid-eol).
+                           Replaces --rapid-eol-delete, --rapid-identical-chars,
+                           --accel-delete, --adaptive-word-delete.
+  --delete-speed MODE      Deletion speed: slow|normal|fast|instant (default: normal)
+  --delete-threshold N     Min chars to trigger rapid/word modes (default: 3)
   --rapid-eol-delete       Delete trailing line text in one rapid shot (default: on)
   --no-rapid-eol-delete    Disable rapid end-of-line deletion
   --rapid-eol-delay-ms N   Delay for rapid EOL deletion in ms (default: 80)
@@ -359,6 +373,27 @@ while [[ $# -gt 0 ]]; do
         --no-rapid-eol-delete) RAPID_EOL_DELETE=0; shift ;;
         --rapid-eol-delay-ms) RAPID_EOL_DELAY_MS="$2"; shift 2 ;;
         --rapid-eol-min-chars) RAPID_EOL_MIN_CHARS="$2"; shift 2 ;;
+        --delete-pacing)
+            DELETE_PACING="$2"; shift 2
+            case "$DELETE_PACING" in
+                char|rapid-eol|rapid-identical|accel|word|instant) : ;;
+                *)
+                    echo "diffvim: invalid --delete-pacing value '$DELETE_PACING'" >&2
+                    echo "  valid: char | rapid-eol | rapid-identical | accel | word | instant" >&2
+                    exit 1 ;;
+            esac
+            ;;
+        --delete-speed)
+            DELETE_SPEED="$2"; shift 2
+            case "$DELETE_SPEED" in
+                slow|normal|fast|instant) : ;;
+                *)
+                    echo "diffvim: invalid --delete-speed value '$DELETE_SPEED'" >&2
+                    echo "  valid: slow | normal | fast | instant" >&2
+                    exit 1 ;;
+            esac
+            ;;
+        --delete-threshold) DELETE_THRESHOLD="$2"; shift 2 ;;
         --keep-dirty)       KEEP_DIRTY=1; shift ;;
         --no-vimrc|-N)      NO_VIMRC=1; shift ;;
         --precomputed)      PRECOMPUTED_FILE="$2"; shift 2 ;;
@@ -669,8 +704,80 @@ case "$OP_ORDER" in
         ;;
 esac
 
+# Resolve --delete-pacing into the individual deletion-strategy variables.
+# --delete-pacing is the unified selector; the individual flags
+# (--rapid-eol-delete, --rapid-identical-chars, --accel-delete,
+# --adaptive-word-delete) override the pacing default.
+#
+# Mapping:
+#   char             -> rapid_eol=0, rapid_identical=0, accel_delete=0, adaptive_word_delete=0
+#   rapid-eol        -> rapid_eol=1, rapid_identical=0, accel_delete=0, adaptive_word_delete=0 (default)
+#   rapid-identical  -> rapid_eol=1, rapid_identical=1, accel_delete=0, adaptive_word_delete=0
+#   accel            -> rapid_eol=1, rapid_identical=0, accel_delete=1, adaptive_word_delete=0
+#   word             -> rapid_eol=1, rapid_identical=0, accel_delete=0, adaptive_word_delete=1
+#   instant          -> rapid_eol=1, rapid_identical=1, accel_delete=1, adaptive_word_delete=1
+case "$DELETE_PACING" in
+    char)
+        RAPID_EOL_DELETE=0
+        RAPID_IDENTICAL_CHARS=0
+        ACCEL_DELETE=0
+        ADAPTIVE_WORD_DELETE=0
+        ;;
+    rapid-eol)
+        RAPID_EOL_DELETE=1
+        ;;
+    rapid-identical)
+        RAPID_EOL_DELETE=1
+        RAPID_IDENTICAL_CHARS=1
+        ;;
+    accel)
+        RAPID_EOL_DELETE=1
+        ACCEL_DELETE=1
+        ;;
+    word)
+        RAPID_EOL_DELETE=1
+        ADAPTIVE_WORD_DELETE=1
+        ;;
+    instant)
+        RAPID_EOL_DELETE=1
+        RAPID_IDENTICAL_CHARS=1
+        ACCEL_DELETE=1
+        ADAPTIVE_WORD_DELETE=1
+        ;;
+esac
+
+# Apply --delete-threshold (overrides rapid_eol_min_chars and adaptive_word_delete_threshold)
+if [[ -n "$DELETE_THRESHOLD" && "$DELETE_THRESHOLD" != "$RAPID_EOL_MIN_CHARS" ]]; then
+    RAPID_EOL_MIN_CHARS="$DELETE_THRESHOLD"
+    ADAPTIVE_WORD_DELETE_THRESHOLD="$DELETE_THRESHOLD"
+fi
+
+# Apply --delete-speed (scales the delete timing parameters)
+case "$DELETE_SPEED" in
+    slow)
+        : ;; # keep defaults
+    normal)
+        : ;; # keep defaults
+    fast)
+        DIFFVIM_DELETE_DELAY_MS=$((DIFFVIM_DELETE_DELAY_MS / 2))
+        ACCEL_DELETE_START_MS=$((ACCEL_DELETE_START_MS / 2))
+        ADAPTIVE_WORD_DELETE_START_MS=$((ADAPTIVE_WORD_DELETE_START_MS / 2))
+        ;;
+    instant)
+        DIFFVIM_DELETE_DELAY_MS=1
+        ACCEL_DELETE_START_MS=1
+        ACCEL_DELETE_MIN_MS=1
+        ADAPTIVE_WORD_DELETE_START_MS=1
+        ADAPTIVE_WORD_DELETE_MIN_MS=1
+        ;;
+esac
+export DIFFVIM_DELETE_DELAY_MS
+
 export DIFFVIM_OP_ORDER="$OP_ORDER"
 export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DELETE_PACING="$DELETE_PACING"
+export DIFFVIM_DELETE_SPEED="$DELETE_SPEED"
+export DIFFVIM_DELETE_THRESHOLD="$DELETE_THRESHOLD"
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
 export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
