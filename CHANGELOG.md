@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] — 2026-08-16
 
+### Added — Unified option selectors (Phases 2-7)
+
+Six new unified selectors that replace ~30 individual flags. The old
+flags still work for backwards compatibility.
+
+- `--op-order MODE` — unified op reordering: `natural|optimize|left-to-right|end-first|end-first-smart|overwrite` (default: optimize). Replaces --optimize-sequence, --left-to-right, --delete-end-first, --delete-end-first-smart, --overwrite.
+- `--delete-pacing MODE` — unified deletion strategy: `char|rapid-eol|rapid-identical|accel|word|instant` (default: rapid-eol). Replaces --rapid-eol-delete, --rapid-identical-chars, --accel-delete, --adaptive-word-delete.
+- `--delete-speed MODE` — deletion speed: `slow|normal|fast|instant` (default: normal).
+- `--delete-threshold N` — min chars to trigger rapid/word modes (default: 3).
+- `--insert-pacing MODE` — unified insertion strategy: `char|word|accel` (default: char). Replaces --max-word-chars, --word-accel.
+- `--insert-speed MODE` — insertion speed: `slow|normal|fast` (default: normal).
+- `--pacing MODE` — unified timing mode: `uniform|adaptive|gaussian|review` (default: uniform). Replaces --adaptive, --adaptive-timing, --gaussian-jitter, --pause-after-lines.
+- `--highlight MODE` — unified highlight mode: `none|inline|word|hunk` (default: none). Replaces --highlight-word, --highlight-hunk, --highlight-inline.
+
+New test files: tests/test_op_order.pl (20), tests/test_delete_pacing.pl (29),
+tests/test_insert_pacing.pl (23), tests/test_pacing.pl (27), tests/test_highlight.pl (29),
+tests/test_viewport.pl (23), tests/test_input_source.pl (14) — 165 new assertions.
+
 ### Removed — diff2html dependency
 
 The `diff2html-cli` Node.js dependency has been completely removed.
@@ -37,6 +55,30 @@ The `diff2html-cli` Node.js dependency has been completely removed.
 This fixes the long-standing "FAIL: Parser tests pass" failure in
 `tests/test_features.pl` that was caused by diff2html not being
 installed.
+
+### Removed — Input source options (Phase 8)
+
+Removed 4 input-source options from the bash diffvim:
+- `--from REV` — use `--git-rev REV..REV` instead
+- `--to REV` — use `--git-rev REV..REV` instead
+- `--auto-precompute` — use the compute tools directly with `--precomputed`
+- `--compute-tool` — use the compute tools directly
+
+`--git-rev REV..REV` already existed as a shorthand and now handles all
+git replay use cases. `--precomputed FILE` is kept as the low-level
+mechanism.
+
+### Removed — diffvim-precomputed wrapper (Phase 9)
+
+The `diffvim-precomputed` wrapper script and its manpage have been
+removed. Users should now use the compute tools directly:
+
+  # Before (removed):
+  diffvim-precomputed --tool rust old.py new.py
+
+  # After:
+  compute/bin/diffvim-compute-rust old.py new.py /tmp/diff.txt
+  diffvim --precomputed /tmp/diff.txt old.py new.py
 
 ### Added — Documentation overhaul
 

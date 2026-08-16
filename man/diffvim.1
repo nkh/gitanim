@@ -137,6 +137,128 @@ transitions to the next.
 Fold unchanged regions longer than 2*N lines, keeping N lines of context
 around each hunk. Default: 0 (no folding).
 
+.SS Unified Options (recommended)
+
+These unified selectors replace the individual flags in the sections
+below. Old flags still work for backwards compatibility.
+
+.TP
+.BR \-\-op-order\  natural | optimize | left-to-right | end-first | end-first-smart | overwrite
+Unified op reordering mode (default:
+.BR optimize ).
+Controls how char ops within a line are ordered.
+.RS
+.IP \(bu 3
+.B natural
+\(em no post-processing (raw LCS order)
+.IP \(bu 3
+.B optimize
+\(em deletes before inserts (default)
+.IP \(bu 3
+.B left-to-right
+\(em keeps, then deletes, then inserts
+.IP \(bu 3
+.B end-first
+\(em trailing deletes before inserts
+.IP \(bu 3
+.B end-first-smart
+\(em trailing deletes before inserts + word batching
+.IP \(bu 3
+.B overwrite
+\(em in-place replacement instead of delete+insert
+.RE
+
+.TP
+.BR \-\-delete-pacing\  char | rapid-eol | rapid-identical | accel | word | instant
+Unified deletion strategy (default:
+.BR rapid-eol ).
+.IP \(bu 3
+.B char
+\(em one char at a time
+.IP \(bu 3
+.B rapid-eol
+\(em rapid shot at end of line (default)
+.IP \(bu 3
+.B rapid-identical
+\(em accelerate identical char runs
+.IP \(bu 3
+.B accel
+\(em accelerate through long runs
+.IP \(bu 3
+.B word
+\(em word-by-word with acceleration
+.IP \(bu 3
+.B instant
+\(em all strategies enabled (fastest)
+
+.TP
+.BR \-\-delete-speed\  slow | normal | fast | instant
+Deletion speed multiplier (default:
+.BR normal ).
+.B fast
+halves all delete delays;
+.B instant
+sets them to 1ms.
+
+.TP
+.BI \-\-delete-threshold \ N
+Minimum chars to trigger rapid/word modes (default: 3).
+
+.TP
+.BR \-\-insert-pacing\  char | word | accel
+Unified insertion strategy (default:
+.BR char ).
+.IP \(bu 3
+.B char
+\(em one char at a time
+.IP \(bu 3
+.B word
+\(em batch short words (<=8 chars) instantly
+.IP \(bu 3
+.B accel
+\(em accelerate char-by-char inserts
+
+.TP
+.BR \-\-insert-speed\  slow | normal | fast
+Insertion speed multiplier (default:
+.BR normal ).
+.B fast
+halves TYPE_DELAY_MS and WORD_PAUSE_MS.
+
+.TP
+.BR \-\-pacing\  uniform | adaptive | gaussian | review
+Unified timing mode (default:
+.BR uniform ).
+.IP \(bu 3
+.B uniform
+\(em fixed delays, no jitter
+.IP \(bu 3
+.B adaptive
+\(em slow down in complex regions
+.IP \(bu 3
+.B gaussian
+\(em add human-like timing jitter
+.IP \(bu 3
+.B review
+\(em pause every 5 lines in large hunks
+
+.TP
+.BR \-\-highlight\  none | inline | word | hunk
+Unified highlight mode (default:
+.BR none ).
+.IP \(bu 3
+.B none
+\(em no highlighting
+.IP \(bu 3
+.B inline
+\(em paint freshly typed/deleted chars
+.IP \(bu 3
+.B word
+\(em highlight the word at cursor before change
+.IP \(bu 3
+.B hunk
+\(em highlight the entire hunk
+
 .SS Diff Options
 
 .TP

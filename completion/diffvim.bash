@@ -36,7 +36,7 @@ _diffvim_complete() {
     # Options
     if [[ "$cur" == --* ]]; then
         opts="--parser --speed --output --context --max-hunk-chars --max-word-chars
-              --word-pause-ms --scroll --multi --replay --from --to --git-rev
+              --word-pause-ms --scroll --multi --replay --git-rev
               --no-tmux --dry-run --sign-column --git-blame --step-mode
               --max-line-len --adaptive-timing --word-diff
               --rapid-eol-delete --no-rapid-eol-delete --rapid-eol-delay-ms --rapid-eol-min-chars
@@ -53,12 +53,14 @@ _diffvim_complete() {
               --word-accel --word-accel-delete-pct --word-end-pause-ms
               --line-change-pause-ms --overwrite --optimize-sequence --no-optimize-sequence
               --left-to-right --no-left-to-right --semantic-cleanup --indent-aware
-              --algorithm --preset --auto-precompute --precomputed --diff
+              --algorithm --preset --precomputed --diff
               --highlight-inline --highlight-hunk --highlight-inline-duration-ms
               --dim-unchanged --dim-unchanged-pct --fold-unchanged
               --startup-feedback --no-vimrc --no-log-timing
               --pause-after-lines --pause-after-ms --pause-after-threshold
               --pause-after-delete-ms --theme --debug
+              --op-order --delete-pacing --delete-speed --delete-threshold
+              --insert-pacing --insert-speed --pacing --highlight
               --version --help"
         COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
         return 0

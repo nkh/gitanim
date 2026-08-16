@@ -35,10 +35,17 @@ set -l diffvim_flags \
     --no-left-to-right \
     --semantic-cleanup \
     --indent-aware \
-    --auto-precompute \
     --startup-feedback \
     --no-vimrc \
     --no-log-timing \
+    --op-order \
+    --delete-pacing \
+    --delete-speed \
+    --delete-threshold \
+    --insert-pacing \
+    --insert-speed \
+    --pacing \
+    --highlight \
     --version \
     --help \
     -h \
@@ -54,8 +61,6 @@ set -l diffvim_opts \
     --max-word-chars \
     --word-pause-ms \
     --scroll \
-    --from \
-    --to \
     --git-rev \
     --max-line-len \
     --rapid-eol-delay-ms \
