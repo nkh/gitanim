@@ -2878,18 +2878,11 @@ function! s:ProcessCharOp() abort
             let l:run_len = s:LookaheadSameTypeRun(l:hunk.char_ops, s:state.op_idx)
             call s:HighlightCurrentWord('delete', l:run_len)
         endif
-        " --delete-end-first-smart: when smart mode is on, use accelerated
-        " word-by-word deletion for trailing deletes. First 3 chars slow,
-        " then words with acceleration, then rest rapid. This makes the
-        " trailing text disappear progressively instead of char-by-char.
-        "
-        " BUG FIX: Previously this only triggered when awd_phase == 0,
-        " which meant after phase 2 deleted one word and returned, the
-        " next timer callback fell through to char-by-char deletion
-        " (because awd_phase was still 2). Now we re-enter AWD whenever
-        " it's active (awd_phase > 0) OR when starting fresh with enough
-        " contiguous deletes (>= adaptive_word_delete_threshold).
-        if g:diffvim.delete_end_first_smart
+        " --delete-end-first-smart OR --delete-pacing word:
+        " use accelerated word-by-word deletion for single-line delete runs.
+        " Both delete_end_first_smart and adaptive_word_delete trigger this
+        " path so that --delete-pacing word works for single-line deletes.
+        if g:diffvim.delete_end_first_smart || g:diffvim.adaptive_word_delete
             if s:state.awd_phase > 0
                 " Continue active AWD session — don't reset accel_delete_total
                 call s:ProcessAdaptiveWordDelete(l:hunk, s:state.accel_delete_total)
@@ -3386,23 +3379,14 @@ endfunction
 "   s:state.awd_delay: current delay for acceleration
 "   s:state.awd_word_count: words deleted so far
 function! s:ProcessAdaptiveWordDelete(hunk, total_count) abort
-    " Skip leading whitespace (advance cursor past indent)
+    " Phase 0 was removed — it skipped leading whitespace delete ops by
+    " calling AdvanceForKeepChar instead of DeleteCharAtCursor, which left
+    " the whitespace in the buffer (incorrect output). Now we start
+    " directly at phase 1: delete the first few chars slowly, then
+    " word-by-word with acceleration, then the rest rapidly.
+
+    " Initialize phase on first entry
     if s:state.awd_phase == 0
-        let l:skipped = 0
-        while s:state.op_idx + l:skipped < len(a:hunk.char_ops)
-            let l:op = a:hunk.char_ops[s:state.op_idx + l:skipped]
-            if l:op[0] ==# 'delete' && (l:op[1] ==# ' ' || l:op[1] ==# "\t")
-                call s:AdvanceForKeepChar(l:op[1])
-                let l:skipped += 1
-            else
-                break
-            endif
-        endwhile
-        if l:skipped > 0
-            let s:state.op_idx += l:skipped
-            let s:state.accel_delete_count += l:skipped
-            redraw
-        endif
         let s:state.awd_phase = 1
     endif
 
