@@ -203,6 +203,7 @@ CORE OPTIONS:
   --keep-dirty             Leave buffer modified; require :q! to quit
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim)
   --precomputed FILE       Use pre-computed diff from FILE
+  --tool c|cpp|rust|go     Use external compute tool (10-100x faster for large files)
   --preset NAME (-p)       Apply named preset (fast-delete, review, demo, ai-code)
   --theme dark|light|high-contrast (-t)  Color scheme for highlights
   --version, -V            Print version
@@ -220,7 +221,8 @@ OP ORDER (post-processing):
 
 DELETION PACING:
   --delete-pacing MODE     Deletion strategy: char|rapid-eol|rapid-identical|
-                           accel|word|instant (default: rapid-eol)
+                           accel|word|instant (default: word)
+                           'word' does char→word→rapid progression with acceleration
   --delete-speed MODE      Deletion speed: slow|normal|fast|instant (default: normal)
   --delete-threshold N     Min chars to trigger rapid/word modes (default: 3)
 
@@ -350,17 +352,20 @@ perl diffvim.pl --dry-run old.py new.py
 # Keep buffer modified so :q! is required to quit
 ./diffvim --keep-dirty old.py new.py
 
-# Disable rapid end-of-line deletion (delete one char at a time)
-./diffvim --no-rapid-eol-delete old.py new.py
+# Use external Rust compute tool for large files (10-100x faster)
+./diffvim --tool rust old.py new.py
 
-# Tune rapid EOL: 50ms delay, only trigger for 5+ trailing chars
-./diffvim --rapid-eol-delay-ms 50 --rapid-eol-min-chars 5 old.py new.py
+# Word-by-word deletion with acceleration (default)
+./diffvim --delete-pacing word old.py new.py
 
-# Highlight the word at cursor before each change (finer than --highlight-hunk)
-./diffvim --highlight-word old.py new.py
+# Instant deletion for fastest review
+./diffvim --delete-pacing instant --delete-speed fast old.py new.py
 
-# Use a different color and longer duration for word highlights
-./diffvim --highlight-word --highlight-word-color Visual --highlight-word-duration-ms 500 old.py new.py
+# Highlight the word at cursor before each change
+./diffvim --highlight word old.py new.py
+
+# Highlight the entire hunk before animating
+./diffvim --highlight hunk old.py new.py
 ```
 
 ---
@@ -373,10 +378,7 @@ perl diffvim.pl --dry-run old.py new.py
 # Last 5 commits of a file
 ./diffvim --replay src/main.py
 
-# Specific commit range
-./diffvim --replay src/main.py --from v1.0 --to HEAD
-
-# Using --git-rev syntax
+# Specific commit range using --git-rev syntax
 ./diffvim --git-rev HEAD~3..HEAD src/main.py
 
 # Multiple files

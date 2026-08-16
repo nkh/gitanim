@@ -93,7 +93,7 @@ MAX_LINE_LEN=0
 # --delete-pacing: unified deletion strategy selector.
 # Replaces --rapid-eol-delete, --rapid-identical-chars, --accel-delete,
 # --adaptive-word-delete. Old flags still work and override this.
-DELETE_PACING="${DIFFVIM_DELETE_PACING:-rapid-eol}"
+DELETE_PACING="${DIFFVIM_DELETE_PACING:-word}"
 # --delete-speed: speed multiplier for deletes (slow|normal|fast|instant)
 DELETE_SPEED="${DIFFVIM_DELETE_SPEED:-normal}"
 # --delete-threshold: min chars to trigger rapid/word modes (was rapid_eol_min_chars)
@@ -216,6 +216,8 @@ CORE OPTIONS:
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
+  --tool c|cpp|rust|go     Use external compute tool (10-100x faster for large files).
+                           Builds the diff with the specified tool, then runs --precomputed.
   --startup-pause          Show config + help before starting (default: off)
   --startup-feedback (-F)  Show progress in status line during diff computation
   --preset NAME (-p)       Apply named preset (fast-delete, review, demo, ai-code)
@@ -245,12 +247,12 @@ OP ORDER (post-processing):
 
 DELETION PACING:
   --delete-pacing MODE     Deletion strategy: char|rapid-eol|rapid-identical|
-                           accel|word|instant (default: rapid-eol)
+                           accel|word|instant (default: word)
     char                   One char at a time (no acceleration)
-    rapid-eol              Rapid shot at end of line (default)
+    rapid-eol              Rapid shot at end of line
     rapid-identical        Accelerate identical char runs (---, ===)
     accel                  Accelerate through long runs (slow→fast→slow)
-    word                   Word-by-word with acceleration
+    word                   Word-by-word with acceleration (default: char→word→rapid)
     instant                All strategies enabled (fastest)
   --delete-speed MODE      Deletion speed: slow|normal|fast|instant (default: normal)
   --delete-threshold N     Min chars to trigger rapid/word modes (default: 3)
@@ -389,6 +391,19 @@ while [[ $# -gt 0 ]]; do
         --keep-dirty)       KEEP_DIRTY=1; shift ;;
         --no-vimrc|-N)      NO_VIMRC=1; shift ;;
         --precomputed)      PRECOMPUTED_FILE="$2"; shift 2 ;;
+        --tool)
+            # --tool c|cpp|rust|go: use an external compute tool to
+            # pre-compute the diff, then launch diffvim with --precomputed.
+            # This is 10-100x faster than the in-vim LCS for large files.
+            COMPUTE_TOOL="$2"; shift 2
+            case "$COMPUTE_TOOL" in
+                c|cpp|rust|go) AUTO_PRECOMPUTE=1 ;;
+                *)
+                    echo "diffvim: invalid --tool value '$COMPUTE_TOOL'" >&2
+                    echo "  valid: c | cpp | rust | go" >&2
+                    exit 1 ;;
+            esac
+            ;;
         --startup-pause)    STARTUP_PAUSE=1; shift ;;
         --algorithm|-a)     ALGORITHM="$2"; shift 2 ;;
         --semantic-cleanup|-S) SEMANTIC_CLEANUP=1; shift ;;
@@ -1230,6 +1245,27 @@ fi
 WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
+
+# --tool c|cpp|rust|go: run the external compute tool to generate the diff
+# before launching vim. This is 10-100x faster than the in-vim LCS for
+# large files. Creates a temp file in WORKDIR and passes it via the
+# existing --precomputed mechanism.
+if [[ $AUTO_PRECOMPUTE -eq 1 && -z "$PRECOMPUTED_FILE" ]]; then
+    COMPUTE_BIN=""
+    for d in "compute/bin/diffvim-compute-$COMPUTE_TOOL" \
+             "/usr/local/bin/diffvim-compute-$COMPUTE_TOOL" \
+             "$HOME/.local/bin/diffvim-compute-$COMPUTE_TOOL"; do
+        if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
+    done
+    if [[ -n "$COMPUTE_BIN" ]]; then
+        PRECOMPUTED_FILE="$WORKDIR/auto_precomputed.diff"
+        echo "diffvim: pre-computing diff with $COMPUTE_TOOL..." >&2
+        "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED_FILE" 2>&1 | grep "^compute:" >&2 || true
+        export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
+    else
+        echo "diffvim: --tool $COMPUTE_TOOL: compute tool not found, falling back to inline" >&2
+    fi
+fi
 
 cat > "$VIMSCRIPT" <<'__DIFFVIM_VIMSCRIPT_EOF__'
 " diffvim.vim - animation engine, sourced by the diffvim bash launcher.

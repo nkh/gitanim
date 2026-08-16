@@ -137,6 +137,17 @@ transitions to the next.
 Fold unchanged regions longer than 2*N lines, keeping N lines of context
 around each hunk. Default: 0 (no folding).
 
+.TP
+.BR \-\-tool\  c | cpp | rust | go
+Use an external compute tool to pre-compute the diff before launching
+vim. This is 10-100x faster than the in-vim LCS for large files. The
+tool is searched for in
+.IR compute/bin/diffvim-compute-<lang> ,
+.IR /usr/local/bin/diffvim-compute-<lang> ,
+and
+.IR ~/.local/bin/diffvim-compute-<lang> .
+If not found, falls back to the in-vim LCS with a warning on stderr.
+
 .SS Unified Options
 
 These are the recommended option selectors. Each replaces multiple
@@ -171,13 +182,13 @@ Controls how char ops within a line are ordered.
 .TP
 .BR \-\-delete-pacing\  char | rapid-eol | rapid-identical | accel | word | instant
 Unified deletion strategy (default:
-.BR rapid-eol ).
+.BR word ).
 .IP \(bu 3
 .B char
 \(em one char at a time
 .IP \(bu 3
 .B rapid-eol
-\(em rapid shot at end of line (default)
+\(em rapid shot at end of line
 .IP \(bu 3
 .B rapid-identical
 \(em accelerate identical char runs
@@ -186,7 +197,7 @@ Unified deletion strategy (default:
 \(em accelerate through long runs
 .IP \(bu 3
 .B word
-\(em word-by-word with acceleration
+\(em word-by-word with acceleration (default; char→word→rapid progression)
 .IP \(bu 3
 .B instant
 \(em all strategies enabled (fastest)
@@ -459,7 +470,7 @@ Pause between hunks in milliseconds (default: 250).
 Op reordering mode (default: optimize).
 .TP
 .B DIFFVIM_DELETE_PACING
-Deletion strategy (default: rapid-eol).
+Deletion strategy (default: word).
 .TP
 .B DIFFVIM_DELETE_SPEED
 Deletion speed (default: normal).

@@ -35,6 +35,7 @@ set -l diffvim_opts \
     --language \
     --max-line-len \
     --precomputed \
+    --tool \
     --algorithm \
     --semantic-cleanup \
     --indent-aware \
@@ -73,6 +74,7 @@ for cmd in diffvim diffvim-tmux diffvim.pl
     complete -c $cmd -f -r -a "none inline word hunk" -d "Highlight mode" -n '__fish_seen_argument --highlight -c $cmd'
     complete -c $cmd -f -r -a "dark light high-contrast" -d "Color theme" -n '__fish_seen_argument --theme -c $cmd'
     complete -c $cmd -f -r -a "fast-delete review demo ai-code custom" -d "Preset" -n '__fish_seen_argument --preset -c $cmd'
+    complete -c $cmd -f -r -a "c cpp rust go" -d "External compute tool" -n '__fish_seen_argument --tool -c $cmd'
     complete -c $cmd -f -r -a "0.5 1 2 3 5" -d "Speed multiplier" -n '__fish_seen_argument --speed -c $cmd'
 
     # Options that take file paths

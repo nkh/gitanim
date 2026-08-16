@@ -30,6 +30,7 @@ _diffvim() {
         '--keep-dirty[Leave buffer modified; require :q!]'
         '--no-vimrc[Do not load ~/.vimrc]'
         '--precomputed[Use precomputed diff]:file:_files'
+        '--tool[External compute tool]:tool:(c cpp rust go)'
         '--startup-pause[Show config before starting]'
         '--startup-feedback[Show progress during computation]'
         '--algorithm[Line-level diff algorithm]:algo:(lcs myers patience)'

@@ -59,6 +59,17 @@ Don't load user's `~/.vimrc` (isolated vim).
 ### `--precomputed FILE`
 Use pre-computed diff from FILE (see `compute/` directory).
 
+### `--tool c|cpp|rust|go`
+Use an external compute tool to pre-compute the diff before launching
+vim. This is 10-100x faster than the in-vim LCS for large files. The
+tool is searched for in `compute/bin/`, `/usr/local/bin/`, and
+`~/.local/bin/`. If not found, falls back to the in-vim LCS with a
+warning on stderr.
+
+```bash
+diffvim --tool rust old.py new.py
+```
+
 ### `--preset NAME` / `-p`
 Apply named preset: `fast-delete`, `review`, `demo`, `ai-code`, or
 `custom`.
@@ -113,15 +124,16 @@ diffvim --op-order end-first-smart old.py new.py
 ## Deletion Pacing
 
 ### `--delete-pacing MODE`
-Deletion strategy. Default: `rapid-eol`.
+Deletion strategy. Default: `word` (char→word→rapid progression with
+acceleration).
 
 | Mode              | Description                                          |
 | ----------------- | ---------------------------------------------------- |
 | `char`            | One char at a time (no acceleration)                 |
-| `rapid-eol`       | Rapid shot at end of line (default)                  |
+| `rapid-eol`       | Rapid shot at end of line                            |
 | `rapid-identical` | Accelerate identical char runs (---, ===)            |
 | `accel`           | Accelerate through long runs (slow→fast→slow)        |
-| `word`            | Word-by-word with acceleration                       |
+| `word`            | Word-by-word with acceleration (default)             |
 | `instant`         | All strategies enabled (fastest)                     |
 
 ### `--delete-speed MODE`
