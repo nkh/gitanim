@@ -172,11 +172,11 @@ runs concurrently with vim startup.
 The infrastructure is in place:
 - External compute tools produce the precomputed file format.
 - `--precomputed FILE` loads the file in the engine.
-- `diffvim-precomputed` script computes then runs diffvim sequentially.
+- the compute tool computes then diffvim animates sequentially.
 
 The **parallel** wrapper (`diffvim-parallel`) with the polling engine
 change is left as a future enhancement — it requires adding a `sleep` loop
 to the vimscript engine, which blocks the UI during the wait. For now, the
-sequential `diffvim-precomputed` script is sufficient because the external
+sequential compute+diffvim approach is sufficient because the external
 compute is so fast (sub-millisecond for typical files) that the sequential
 overhead is negligible.

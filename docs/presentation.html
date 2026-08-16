@@ -1046,11 +1046,12 @@ implemented in four languages with byte-for-byte identical output.</p>
 <span style="color:#3fb950"># Build all four variants</span>
 make -C compute
 
-<span style="color:#3fb950"># Use the C variant via the wrapper script</span>
-diffvim-precomputed old.py new.py
+<span style="color:#3fb950"># Compute the diff, then run diffvim with --precomputed</span>
+compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
+diffvim --precomputed /tmp/diff.txt old.py new.py
 
-<span style="color:#3fb950"># Pick a specific language</span>
-diffvim-precomputed --tool rust --time --semantic-cleanup old.py new.py
+<span style="color:#3fb950"># Or use the Rust variant with semantic cleanup</span>
+compute/bin/diffvim-compute-rust --semantic-cleanup old.py new.py /tmp/diff.txt
 
 <span style="color:#3fb950"># Benchmark on a 1000-line Python file:</span>
 <span style="color:var(--yellow)">  vimscript LCS:        ~3500 ms</span>

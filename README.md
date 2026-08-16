@@ -437,7 +437,6 @@ gitanim/
 ├── diffvim.pl                    # Perl + tmux (pluggable parsers)
 ├── diffvim-compare               # Diff algorithm benchmark matrix
 ├── diffvim-jogger                # Test-case exerciser (25+ option combos)
-├── diffvim-precomputed           # Wrapper: native compute + diffvim
 ├── jq_filter                     # difft JSON → HUNK/DEL/ADD/CTX text
 ├── difft_json_to_lcs             # HUNK/DEL/ADD/CTX → LCS string
 ├── set_config                    # Source-able timing env var defaults
@@ -464,7 +463,6 @@ gitanim/
 │   ├── diffvim-tmux.1
 │   ├── diffvim-compare.1
 │   ├── diffvim-jogger.1
-│   ├── diffvim-precomputed.1
 │   └── diffvim-compute.1
 ├── tests/                       # 378+ test assertions across 20+ files
 ├── docs/

@@ -297,7 +297,7 @@ new char at the cursor and advances.
 ```
 
 **Recommendation for newcomers:** start with `diffvim`. Switch to
-`diffvim-precomputed` for large files (>1000 lines) where the in-vim
+`diffvim --precomputed` (with an external compute tool) for large files (>1000 lines) where the in-vim
 LCS becomes slow.
 
 ---
@@ -306,7 +306,7 @@ LCS becomes slow.
 
 ```
    ┌────────────────────────────────────────────────────────────────┐
-   │                  diffvim-precomputed                           │
+   │                  diffvim --precomputed                          │
    │                                                                │
    │   1. Calls compute/bin/diffvim-compute-<c|cpp|rust|go>         │
    │      to pre-compute the diff into a temp file.                 │
@@ -330,7 +330,7 @@ LCS becomes slow.
    └──────────────────────┘                └──────────────────────┘
 ```
 
-Use `diffvim-precomputed --tool rust` (or `cpp`, `go`, `c`) to pick
+Use `compute/bin/diffvim-compute-rust` (then `diffvim --precomputed`) (or `cpp`, `go`, `c`) to pick
 the implementation. All four produce byte-for-byte identical output.
 
 ---
@@ -523,7 +523,7 @@ for common use cases.
 ```
 
 For multi-file on large repos, use
-`diffvim-precomputed --multi ...` to compute all diffs in parallel
+the compute tools to pre-compute all diffs, then `diffvim --multi --precomputed`
 before animating.
 
 ---

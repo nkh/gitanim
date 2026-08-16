@@ -137,7 +137,7 @@ diffvim-compute-c --algorithm patience --word-diff --semantic-cleanup old.py new
 ## Environment Variables
 
 All options can also be set via environment variables (useful for
-`diffvim-precomputed` or CI pipelines):
+the compute tools or CI pipelines):
 
 | Variable | Values | Equivalent to |
 |----------|--------|---------------|
@@ -422,13 +422,13 @@ mismatches).
 
 ```bash
 # Computes the diff with the C tool, then runs diffvim --precomputed
-./diffvim-precomputed --tool c old.py new.py
+compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
 
 # With options
-./diffvim-precomputed --algorithm myers --word-diff old.py new.py
+compute/bin/diffvim-compute-c --algorithm myers --word-diff old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
 
 # With timing
-./diffvim-precomputed --time old.py new.py
+compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt 2>&1 # shows timing
 ```
 
 ### Manually
@@ -446,7 +446,7 @@ compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
 ```bash
 export DIFFVIM_ALGORITHM=myers
 export DIFFVIM_WORD_DIFF=1
-./diffvim-precomputed old.py new.py
+compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
 ```
 
 ---

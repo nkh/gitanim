@@ -25,7 +25,8 @@ diffvim-compute \- external diff computer for diffvim (C, C++, Rust, Go variants
 .SH DESCRIPTION
 .B diffvim-compute
 is the external diff computer used by
-.BR diffvim-precomputed (1).
+.BR diffvim (1)
+(via the --precomputed flag).
 Four implementations exist, all producing byte-for-byte identical output:
 
 .TP
@@ -194,12 +195,11 @@ Read a unified diff and convert to diffvim format.
 .B diffvim-compute-c --diff - out.txt < patch.diff
 Read the diff from stdin.
 .TP
-.B diffvim-precomputed --tool c old.py new.py
-Use the convenience wrapper instead of calling the compute tool directly.
+.B compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
+Compute the diff with the C tool, then run diffvim with the precomputed file.
 
 .SH SEE ALSO
 .BR diffvim (1),
-.BR diffvim-precomputed (1),
 .BR diffvim-compare (1)
 .br
 .I docs/PARALLEL_COMPUTE.md

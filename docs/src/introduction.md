@@ -50,7 +50,8 @@ re-typed — surrounding text is never touched.
 ./diffvim --preset review --git-blame old.py new.py
 
 # Use the Rust external compute tool for large files
-./diffvim-precomputed --tool rust old.py new.py
+compute/bin/diffvim-compute-rust old.py new.py /tmp/diff.txt
+./diffvim --precomputed /tmp/diff.txt old.py new.py
 
 # Dry run (print diff without launching vim)
 perl diffvim.pl --dry-run old.py new.py

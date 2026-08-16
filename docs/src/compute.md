@@ -16,13 +16,13 @@ They are 10-100x faster.
 # Build all four variants
 make -C compute
 
-# Use the C variant via the wrapper script
-diffvim-precomputed old.py new.py
+# Compute the diff, then run diffvim with --precomputed
+compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
+diffvim --precomputed /tmp/diff.txt old.py new.py
 
-# Pick a specific language
-diffvim-precomputed --tool rust old.py new.py
-diffvim-precomputed --tool cpp --time --semantic-cleanup old.py new.py
-diffvim-precomputed --tool go old.py new.py
+# Or in one line:
+compute/bin/diffvim-compute-rust old.py new.py /tmp/diff.txt && \
+    diffvim --precomputed /tmp/diff.txt old.py new.py
 ```
 
 ## The Four Variants
@@ -38,9 +38,6 @@ Pick whichever language's toolchain you have available.
 | `compute/bin/diffvim-compute-go`  | `compute/go/diffvim-compute.go`   | `make go`         | Requires `go`                  |
 
 ## Direct Usage
-
-You normally don't need to invoke the compute tool directly —
-`diffvim-precomputed` does it for you. But you can:
 
 ```bash
 # Compute the diff and write to a file
@@ -137,8 +134,8 @@ compute: 12.3 ms (total)
 startup: 0.4 ms (process start to first byte read)
 ```
 
-Use `diffvim-precomputed --time` to see both the compute time and
-the diffvim animation startup time.
+Use `compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt 2>&1`
+to see the compute time, then run diffvim to see the animation startup.
 
 ## When to Use Each Variant
 
@@ -167,7 +164,6 @@ vimscript.
 
 ## See Also
 
-- [`diffvim-precomputed(1)`](../man/diffvim-precomputed.1) — the wrapper script manpage
 - [`diffvim-compute(1)`](../man/diffvim-compute.1) — the compute tool manpage
 - [Parallel Compute](../PARALLEL_COMPUTE.md) — architecture and parallelism opportunities
 - [Parsers](./parsers.md) — the diff file format reference

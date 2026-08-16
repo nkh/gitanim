@@ -13,7 +13,6 @@ from `man diffvim`, `man diffvim-compute`, etc.
 | [`diffvim-tmux.1`](../../man/diffvim-tmux.1)        | The `diffvim-tmux` variant (bash + tmux)        |
 | [`diffvim-compare.1`](../../man/diffvim-compare.1)  | The `diffvim-compare` benchmark tool            |
 | [`diffvim-jogger.1`](../../man/diffvim-jogger.1)    | The `diffvim-jogger` test-case exerciser        |
-| [`diffvim-precomputed.1`](../../man/diffvim-precomputed.1) | The `diffvim-precomputed` wrapper         |
 | [`diffvim-compute.1`](../../man/diffvim-compute.1)  | The `diffvim-compute-{c,cpp,rust,go}` tools     |
 
 ## Installing

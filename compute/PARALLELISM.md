@@ -121,7 +121,7 @@ for (int h = 0; h < hunk_count; h++) {
 
 ### Phase 2: Thread Pool for Multi-File (Future)
 
-For `diffvim-precomputed --multi`, a thread pool that processes file pairs
+For multi-file pre-computation, a thread pool that processes file pairs
 in parallel would give near-linear speedup for multi-file scenarios.
 
 ---

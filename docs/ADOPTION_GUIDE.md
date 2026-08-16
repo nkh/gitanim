@@ -67,12 +67,12 @@ each option does.
 ## 3. External Compute as the Default for Real Codebases
 
 The in-vim LCS is fast enough for toy examples but takes seconds on
-real codebases. **Make `diffvim-precomputed` the default**, not
+real codebases. **Make `compute/bin/diffvim-compute-c` the default**, not
 `diffvim`:
 
 ```bash
 # Recommend this alias in every team member's shell config:
-alias dv='diffvim-precomputed --tool rust'
+alias dv='compute/bin/diffvim-compute-rust'
 
 # Now `dv old.py new.py` is:
 #   1. 13ms compute (Rust) + ~50ms vim startup = 63ms total
@@ -91,11 +91,11 @@ make -C compute rust
 
 # Symlink to /usr/local/bin (or anywhere on PATH)
 sudo ln -sf "$(pwd)/compute/bin/diffvim-compute-rust" /usr/local/bin/
-sudo ln -sf "$(pwd)/diffvim-precomputed" /usr/local/bin/
+sudo ln -sf "$(pwd)/compute/bin/diffvim-compute-c" /usr/local/bin/
 sudo ln -sf "$(pwd)/diffvim" /usr/local/bin/
 ```
 
-Now `diffvim`, `diffvim-precomputed`, and `diffvim-compute-rust` are
+Now `diffvim`, `compute/bin/diffvim-compute-c`, and `diffvim-compute-rust` are
 available to everyone on the machine.
 
 ---
@@ -125,7 +125,7 @@ animate a diff. This is the **single biggest stickiness factor**.
 ```bash
 # In ~/.gitconfig
 [alias]
-    animate = "!f() { diffvim-precomputed \"$1\"^:\"$2\" \"$1\":\"$2\"; }; f"
+    animate = "!f() { compute/bin/diffvim-compute-c \"$1\"^:\"$2\" \"$1\":\"$2\"; }; f"
 ```
 
 Now `git animate HEAD src/main.py` animates the last commit's changes
@@ -137,7 +137,7 @@ to `src/main.py`.
 # .git/hooks/pre-commit (chmod +x)
 #!/bin/bash
 # After staging, run diffvim on the staged changes
-diffvim-precomputed --preset review --no-vimrc \
+compute/bin/diffvim-compute-c --preset review --no-vimrc \
     <(git show :src/main.py) src/main.py
 ```
 
@@ -358,7 +358,7 @@ animates, and `:q` quits. It's a viewer, not an editor.
 
 > **"It's too slow on large files."**
 
-Use `diffvim-precomputed --tool rust`. The Rust compute tool finishes
+Use `compute/bin/diffvim-compute-rust`. The Rust compute tool finishes
 in 13ms on a 1000-line file. The in-vim LCS is the bottleneck, not
 the animation.
 
@@ -402,7 +402,7 @@ Week 2 — Integrate into daily flow
   [ ] One PR comment includes a diffvim log
 
 Week 3 — Compute tools and large files
-  [ ] `diffvim-precomputed --tool rust` is the default for files >500 lines
+  [ ] `compute/bin/diffvim-compute-rust` is the default for files >500 lines
   [ ] `make -C compute` runs in CI to verify the binary builds
   [ ] Everyone has tried `--preset ai-code` on an AI-generated diff
 
@@ -419,7 +419,7 @@ When every box is checked, diffvim is part of your team's DNA.
 ## 11. Anti-Patterns to Avoid
 
 - **Don't** introduce raw options in the first week. Use presets only.
-- **Don't** run `diffvim` (not `diffvim-precomputed`) on files >500
+- **Don't** run `diffvim` (not `compute/bin/diffvim-compute-c`) on files >500
   lines. The 3-second startup will sour users on the tool.
 - **Don't** require a specific preset for everyone. Let each developer
   pick their own via `DIFFVIM_PRESET`.
@@ -437,7 +437,7 @@ When every box is checked, diffvim is part of your team's DNA.
 The three things that matter most:
 
 1. **Presets** — make the on-ramp trivial. Six use cases, one flag.
-2. **External compute** — make it fast. `diffvim-precomputed --tool rust`
+2. **External compute** — make it fast. `compute/bin/diffvim-compute-rust`
    is the recommended default for real codebases.
 3. **Editor integration** — make it stick. The vim plugin is the
    single biggest predictor of long-term adoption.
