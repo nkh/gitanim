@@ -100,6 +100,10 @@ NO_STARTUP_PAUSE=0
 SIGN_COLUMN=0
 GIT_BLAME=0
 HIGHLIGHT_HUNK=0
+# --highlight: unified highlight mode selector.
+# Replaces --highlight-word, --highlight-hunk, --highlight-inline.
+# Old flags still work and override this.
+HIGHLIGHT_MODE="${DIFFVIM_HIGHLIGHT:-none}"
 HIGHLIGHT_COLOR="${DIFFVIM_HIGHLIGHT_COLOR:-DiffChange}"
 HIGHLIGHT_DURATION_MS="${DIFFVIM_HIGHLIGHT_DURATION_MS:-1000}"
 HIGHLIGHT_MIN_CHARS="${DIFFVIM_HIGHLIGHT_MIN_CHARS:-10}"
@@ -269,6 +273,8 @@ Options:
   --highlight-word-color C  Highlight group for word highlighting (default: Search)
   --highlight-word-duration-ms N  Word highlight duration in ms (default: 300)
   --highlight-word-min-chars N  Min word length to highlight (default: 2)
+  --highlight MODE         Unified highlight mode: none|inline|word|hunk (default: none).
+                           Replaces --highlight-word, --highlight-hunk, --highlight-inline.
   --accel-delete           Accelerated multi-line deletion (slow start, accelerate, decelerate)
   --accel-delete-start-ms N  Start delay for accelerated delete (default: 80)
   --accel-delete-min-ms N  Minimum delay (max speed) for accelerated delete (default: 10)
@@ -515,6 +521,16 @@ while [[ $# -gt 0 ]]; do
         --no-log-timing) LOG_TIMING=0; shift ;;
         --git-blame|-g)     GIT_BLAME=1; shift ;;
         --highlight-hunk|-H) HIGHLIGHT_HUNK=1; shift ;;
+        --highlight)
+            HIGHLIGHT_MODE="$2"; shift 2
+            case "$HIGHLIGHT_MODE" in
+                none|inline|word|hunk) : ;;
+                *)
+                    echo "diffvim: invalid --highlight value '$HIGHLIGHT_MODE'" >&2
+                    echo "  valid: none | inline | word | hunk" >&2
+                    exit 1 ;;
+            esac
+            ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
         --highlight-duration-ms) HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
         --highlight-min-chars) HIGHLIGHT_MIN_CHARS="$2"; shift 2 ;;
@@ -897,6 +913,31 @@ case "$PACING" in
 esac
 
 export DIFFVIM_PACING="$PACING"
+
+# Resolve --highlight into the individual highlight variables.
+# --highlight is the unified selector; the individual flags
+# (--highlight-word, --highlight-hunk, --highlight-inline) override.
+#
+# Mapping:
+#   none    -> highlight_word=0, highlight_hunk=0, inline_highlight=0 (default)
+#   inline  -> inline_highlight=1 (paint freshly typed/deleted chars)
+#   word    -> highlight_word=1 (highlight word at cursor before change)
+#   hunk    -> highlight_hunk=1 (highlight entire hunk before animating)
+case "$HIGHLIGHT_MODE" in
+    none)
+        : ;; # keep defaults
+    inline)
+        INLINE_HIGHLIGHT=1
+        ;;
+    word)
+        HIGHLIGHT_WORD=1
+        ;;
+    hunk)
+        HIGHLIGHT_HUNK=1
+        ;;
+esac
+
+export DIFFVIM_HIGHLIGHT="$HIGHLIGHT_MODE"
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
 export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
