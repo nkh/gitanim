@@ -218,6 +218,7 @@ Options:
   --speed N (-s)           Speed multiplier: 0.5=half speed, 2=double, 5=5x
   --output FILE (-o)       Write result to FILE after animation, then quit
   --context N (-c)         Fold unchanged regions >2N lines, keep N context
+                           (0 = fold all unchanged regions; same as --fold-unchanged)
   --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
   --max-word-chars N       Type words <=N chars instantly, pause after
   --word-pause-ms N        Pause after instant word (default: 150)
@@ -297,7 +298,7 @@ Options:
   --pause-before-delete-ms N  Pause before multi-line block delete (default: 200)
   --pause-after-delete-ms N  Pause after multi-line block delete (default: 200)
   --block-delete-size N    Lines per block in accelerated delete (default: 3)
-  --fold-unchanged (-f)    Fold unchanged regions between hunks
+  --fold-unchanged (-f)    Fold unchanged regions between hunks (alias for --context 0)
   --theme dark|light|high-contrast (-t)  Color scheme for highlights
   --op-order MODE          Unified op reordering: natural|optimize|left-to-right|
                            end-first|end-first-smart|overwrite (default: optimize).
@@ -484,7 +485,7 @@ while [[ $# -gt 0 ]]; do
         --pause-before-delete-ms) PAUSE_BEFORE_DELETE_MS="$2"; shift 2 ;;
         --pause-after-delete-ms) PAUSE_AFTER_DELETE_MS="$2"; shift 2 ;;
         --block-delete-size) BLOCK_DELETE_SIZE="$2"; shift 2 ;;
-        --fold-unchanged|-f) FOLD_UNCHANGED=1; shift ;;
+        --fold-unchanged|-f) FOLD_UNCHANGED=1; CONTEXT_LINES=0; shift ;;
         --theme|-t)          THEME="$2"; shift 2 ;;
         --optimize-sequence) OPTIMIZE_SEQUENCE=1; shift ;;
         --no-optimize-sequence) OPTIMIZE_SEQUENCE=0; shift ;;
