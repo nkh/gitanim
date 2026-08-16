@@ -4,7 +4,8 @@
 # Usage:
 #   diffvim [options] <oldfile> <newfile>
 #   diffvim [options] --multi <old1:new1> <old2:new2> ...
-#   diffvim [options] --replay <file> [--from REV] [--to REV]
+#   diffvim [options] --replay <file>
+#   diffvim [options] --git-rev REV..REV <file> [<file> ...]
 #
 # Options:
 #   --speed N                Speed multiplier (0.5=half, 2=double, 5=5x)
@@ -16,8 +17,7 @@
 #   --scroll zz|zt|zb|none   Cursor scroll position (default: zz)
 #   --multi                  Treat args as old:new pairs for multi-file
 #   --replay                 Animate git history for given file(s)
-#   --from REV               Git rev to start replay from (default: HEAD~5)
-#   --to REV                 Git rev to end replay at (default: HEAD)
+#   --git-rev REV..REV       Shorthand for --replay with a rev range
 #   --version, -V            Print version and exit
 #   --dry-run                Print diff hunks without launching vim
 #   --word-diff              Enable word-level diff flag in the engine
@@ -208,7 +208,7 @@ show_help() {
     cat >&2 <<USAGE
 Usage: $(basename "$0") [options] <oldfile> <newfile>
        $(basename "$0") [options] --multi(-m) <old1:new1> <old2:new2> ...
-       $(basename "$0") [options] --replay(-r) <file> [--from REV] [--to REV]
+       $(basename "$0") [options] --replay(-r) <file>
        $(basename "$0") [options] --git-rev(-R) REV..REV <file> [<file> ...]
 
 Animate a code diff in vim, as if a human were typing it.
@@ -230,8 +230,6 @@ Options:
   --scroll zz|zt|zb|none   Scroll cursor to center/top/bottom/none (default: zz)
   --multi (-m)             Treat args as old:new pairs for multi-file animation
   --replay (-r)            Animate git history for given file(s)
-  --from REV               Git rev to start replay from (default: HEAD~5)
-  --to REV                 Git rev to end replay at (default: HEAD)
   --version, -V            Print version ("diffvim 1.5.0") and exit
   --dry-run (-d)           Print diff hunks without launching vim
   --step-mode              Space advances one op at a time (starts paused)
@@ -263,8 +261,6 @@ Options:
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
-  --auto-precompute        Auto-run external compute tool (uses DIFFVIM_COMPUTE_TOOL, default: c)
-  --compute-tool c|cpp|rust|go  Which compute tool to use with --auto-precompute
   --startup-pause          Show config + help before starting (default: off, start immediately)
   --algorithm lcs|myers|patience (-a)  Line-level diff algorithm (default: lcs)
   --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
@@ -331,7 +327,7 @@ Options:
   --highlight-color COLOR  Highlight group (default: DiffChange, also: DiffAdd, DiffDelete, Search, Visual)
   --highlight-duration-ms N  Highlight duration in ms (default: 1000)
   --highlight-min-chars N  Min changed chars to trigger highlight (default: 10)
-  --git-rev REV..REV (-R)  Shorthand for --replay --from REV1 --to REV2
+  --git-rev REV..REV (-R)  Animate a git commit range (e.g. HEAD~3..HEAD)
   --max-line-len N         Warn on lines longer than N characters
   --help, -h               Show this help
 
@@ -399,8 +395,6 @@ while [[ $# -gt 0 ]]; do
         --scroll)          SCROLL_MODE="$2"; shift 2 ;;
         --multi|-m)         MULTI_MODE=1; shift ;;
         --replay|-r)        REPLAY_MODE=1; shift ;;
-        --from)             REPLAY_FROM="$2"; shift 2 ;;
-        --to)               REPLAY_TO="$2"; shift 2 ;;
         --version|-V)       VERSION=1; shift ;;
         --dry-run|-d)       DRY_RUN=1; shift ;;
         --word-diff|-w)     WORD_DIFF=1; shift ;;
@@ -453,8 +447,6 @@ while [[ $# -gt 0 ]]; do
         --keep-dirty)       KEEP_DIRTY=1; shift ;;
         --no-vimrc|-N)      NO_VIMRC=1; shift ;;
         --precomputed)      PRECOMPUTED_FILE="$2"; shift 2 ;;
-        --auto-precompute)  AUTO_PRECOMPUTE=1; shift ;;
-        --compute-tool)     COMPUTE_TOOL="$2"; shift 2 ;;
         --startup-pause)    STARTUP_PAUSE=1; shift ;;
         --algorithm|-a)     ALGORITHM="$2"; shift 2 ;;
         --semantic-cleanup|-S) SEMANTIC_CLEANUP=1; shift ;;
@@ -956,8 +948,6 @@ export DIFFVIM_WORD_ACCEL="$([[ $WORD_ACCEL -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_WORD_ACCEL_DELETE_PCT="$WORD_ACCEL_DELETE_PCT"
 export DIFFVIM_WORD_END_PAUSE_MS="$WORD_END_PAUSE_MS"
 export DIFFVIM_LINE_CHANGE_PAUSE_MS="$LINE_CHANGE_PAUSE_MS"
-export DIFFVIM_AUTO_PRECOMPUTE="$([[ $AUTO_PRECOMPUTE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_COMPUTE_TOOL="$COMPUTE_TOOL"
 export DIFFVIM_PRESET="$PRESET"
 export DIFFVIM_LOG_TIMING="$([[ $LOG_TIMING -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_INLINE="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
@@ -1356,27 +1346,6 @@ fi
 WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
-
-# --auto-precompute: run the external compute tool to generate the diff
-# before launching vim. Uses DIFFVIM_COMPUTE_TOOL (default: c) to select
-# which tool to use. Creates a temp file in WORKDIR and passes it via
-# the existing --precomputed mechanism.
-if [[ $AUTO_PRECOMPUTE -eq 1 && -z "$PRECOMPUTED_FILE" ]]; then
-    COMPUTE_BIN=""
-    for d in "compute/bin/diffvim-compute-$COMPUTE_TOOL" \
-             "/usr/local/bin/diffvim-compute-$COMPUTE_TOOL" \
-             "$HOME/.local/bin/diffvim-compute-$COMPUTE_TOOL"; do
-        if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
-    done
-    if [[ -n "$COMPUTE_BIN" ]]; then
-        PRECOMPUTED_FILE="$WORKDIR/auto_precomputed.diff"
-        echo "diffvim: pre-computing diff with $COMPUTE_TOOL..." >&2
-        "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED_FILE" 2>&1 | grep "^compute:" >&2 || true
-        export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
-    else
-        echo "diffvim: --auto-precompute: compute tool '$COMPUTE_TOOL' not found, falling back to inline" >&2
-    fi
-fi
 
 cat > "$VIMSCRIPT" <<'__DIFFVIM_VIMSCRIPT_EOF__'
 " diffvim.vim - animation engine, sourced by the diffvim bash launcher.
