@@ -547,71 +547,6 @@ fi
 [[ $DIFFVIM_TYPE_DELAY_MS -lt 1 ]] && DIFFVIM_TYPE_DELAY_MS=1 && export DIFFVIM_TYPE_DELAY_MS
 [[ $DIFFVIM_DELETE_DELAY_MS -lt 1 ]] && DIFFVIM_DELETE_DELAY_MS=1 && export DIFFVIM_DELETE_DELAY_MS
 
-# Export config for vimscript to read
-# Boolean flags: export empty string when off (vim's !empty('0') returns 1,
-# so we must export "" for false, not "0")
-export DIFFVIM_SCROLL="$SCROLL_MODE"
-export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
-# MAX_WORD_CHARS is exported after --insert-pacing resolution (below)
-export DIFFVIM_OUTPUT="$OUTPUT_FILE"
-export DIFFVIM_CONTEXT="$CONTEXT_LINES"
-export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_NO_STARTUP_PAUSE="$([[ $NO_STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_LANGUAGE="$LANGUAGE"
-export DIFFVIM_ADAPTIVE_MODE="$([[ $ADAPTIVE_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ADAPTIVE_START_MS="$ADAPTIVE_START_DELAY_MS"
-export DIFFVIM_ADAPTIVE_MAX_MS="$ADAPTIVE_MAX_DELAY_MS"
-export DIFFVIM_ADAPTIVE_ACCEL="$ADAPTIVE_ACCEL"
-export DIFFVIM_ADAPTIVE_PAUSE_LINES="$ADAPTIVE_PAUSE_LINES"
-export DIFFVIM_ADAPTIVE_PAUSE_MS="$ADAPTIVE_PAUSE_MS"
-export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_HUNK="$([[ $HIGHLIGHT_HUNK -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_COLOR="$HIGHLIGHT_COLOR"
-export DIFFVIM_HIGHLIGHT_DURATION_MS="$HIGHLIGHT_DURATION_MS"
-export DIFFVIM_HIGHLIGHT_MIN_CHARS="$HIGHLIGHT_MIN_CHARS"
-export DIFFVIM_MAX_LINE_LEN="$([[ $MAX_LINE_LEN -gt 0 ]] && echo $MAX_LINE_LEN || echo '')"
-export DIFFVIM_RAPID_EOL_DELETE="$([[ $RAPID_EOL_DELETE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_RAPID_EOL_DELAY_MS="$RAPID_EOL_DELAY_MS"
-export DIFFVIM_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
-export DIFFVIM_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
-export DIFFVIM_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ALGORITHM="$ALGORITHM"
-export DIFFVIM_SEMANTIC_CLEANUP="$([[ $SEMANTIC_CLEANUP -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INDENT_AWARE="$([[ $INDENT_AWARE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
-export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
-export DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS="$HIGHLIGHT_WORD_MIN_CHARS"
-export DIFFVIM_ACCEL_DELETE="$([[ $ACCEL_DELETE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ACCEL_DELETE_START_MS="$ACCEL_DELETE_START_MS"
-export DIFFVIM_ACCEL_DELETE_MIN_MS="$ACCEL_DELETE_MIN_MS"
-export DIFFVIM_ACCEL_DELETE_ACCEL="$ACCEL_DELETE_ACCEL"
-export DIFFVIM_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_END_FIRST="$([[ $DELETE_END_FIRST -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_END_FIRST_DELAY_MS="$DELETE_END_FIRST_DELAY_MS"
-export DIFFVIM_DELETE_END_FIRST_SMART="$([[ $DELETE_END_FIRST_SMART -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS="$DELETE_END_FIRST_HIGHLIGHT_MS"
-export DIFFVIM_STARTUP_FEEDBACK="$([[ $STARTUP_FEEDBACK -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INLINE_HIGHLIGHT="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
-export DIFFVIM_GAUSSIAN_JITTER="$([[ $GAUSSIAN_JITTER -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_GAUSSIAN_JITTER_PCT="$GAUSSIAN_JITTER_PCT"
-export DIFFVIM_DIM_UNCHANGED="$([[ $DIM_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DIM_UNCHANGED_PCT="$DIM_UNCHANGED_PCT"
-export DIFFVIM_PAUSE_AFTER_LINES="$PAUSE_AFTER_LINES"
-export DIFFVIM_PAUSE_AFTER_THRESHOLD="$PAUSE_AFTER_THRESHOLD"
-export DIFFVIM_PAUSE_AFTER_MS="$PAUSE_AFTER_MS"
-export DIFFVIM_PAUSE_BEFORE_DELETE_MS="$PAUSE_BEFORE_DELETE_MS"
-export DIFFVIM_PAUSE_AFTER_DELETE_MS="$PAUSE_AFTER_DELETE_MS"
-export DIFFVIM_BLOCK_DELETE_SIZE="$BLOCK_DELETE_SIZE"
-export DIFFVIM_FOLD_UNCHANGED="$([[ $FOLD_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_THEME="$THEME"
-
 # Resolve --op-order into the individual post-processing variables.
 # --op-order is the unified selector; the individual flags
 # (--optimize-sequence, --left-to-right, --delete-end-first,
@@ -830,6 +765,72 @@ case "$HIGHLIGHT_MODE" in
 esac
 
 export DIFFVIM_HIGHLIGHT="$HIGHLIGHT_MODE"
+
+# Export config for vimscript to read
+# Boolean flags: export empty string when off (vim's !empty('0') returns 1,
+# so we must export "" for false, not "0")
+export DIFFVIM_SCROLL="$SCROLL_MODE"
+export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
+# MAX_WORD_CHARS is exported after --insert-pacing resolution (below)
+export DIFFVIM_OUTPUT="$OUTPUT_FILE"
+export DIFFVIM_CONTEXT="$CONTEXT_LINES"
+export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_NO_STARTUP_PAUSE="$([[ $NO_STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_LANGUAGE="$LANGUAGE"
+export DIFFVIM_ADAPTIVE_MODE="$([[ $ADAPTIVE_MODE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ADAPTIVE_START_MS="$ADAPTIVE_START_DELAY_MS"
+export DIFFVIM_ADAPTIVE_MAX_MS="$ADAPTIVE_MAX_DELAY_MS"
+export DIFFVIM_ADAPTIVE_ACCEL="$ADAPTIVE_ACCEL"
+export DIFFVIM_ADAPTIVE_PAUSE_LINES="$ADAPTIVE_PAUSE_LINES"
+export DIFFVIM_ADAPTIVE_PAUSE_MS="$ADAPTIVE_PAUSE_MS"
+export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_HUNK="$([[ $HIGHLIGHT_HUNK -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_COLOR="$HIGHLIGHT_COLOR"
+export DIFFVIM_HIGHLIGHT_DURATION_MS="$HIGHLIGHT_DURATION_MS"
+export DIFFVIM_HIGHLIGHT_MIN_CHARS="$HIGHLIGHT_MIN_CHARS"
+export DIFFVIM_MAX_LINE_LEN="$([[ $MAX_LINE_LEN -gt 0 ]] && echo $MAX_LINE_LEN || echo '')"
+export DIFFVIM_RAPID_EOL_DELETE="$([[ $RAPID_EOL_DELETE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_RAPID_EOL_DELAY_MS="$RAPID_EOL_DELAY_MS"
+export DIFFVIM_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
+export DIFFVIM_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
+export DIFFVIM_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ALGORITHM="$ALGORITHM"
+export DIFFVIM_SEMANTIC_CLEANUP="$([[ $SEMANTIC_CLEANUP -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_INDENT_AWARE="$([[ $INDENT_AWARE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
+export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
+export DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS="$HIGHLIGHT_WORD_MIN_CHARS"
+export DIFFVIM_ACCEL_DELETE="$([[ $ACCEL_DELETE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_ACCEL_DELETE_START_MS="$ACCEL_DELETE_START_MS"
+export DIFFVIM_ACCEL_DELETE_MIN_MS="$ACCEL_DELETE_MIN_MS"
+export DIFFVIM_ACCEL_DELETE_ACCEL="$ACCEL_DELETE_ACCEL"
+export DIFFVIM_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DELETE_END_FIRST="$([[ $DELETE_END_FIRST -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DELETE_END_FIRST_DELAY_MS="$DELETE_END_FIRST_DELAY_MS"
+export DIFFVIM_DELETE_END_FIRST_SMART="$([[ $DELETE_END_FIRST_SMART -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS="$DELETE_END_FIRST_HIGHLIGHT_MS"
+export DIFFVIM_STARTUP_FEEDBACK="$([[ $STARTUP_FEEDBACK -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_INLINE_HIGHLIGHT="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
+export DIFFVIM_GAUSSIAN_JITTER="$([[ $GAUSSIAN_JITTER -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_GAUSSIAN_JITTER_PCT="$GAUSSIAN_JITTER_PCT"
+export DIFFVIM_DIM_UNCHANGED="$([[ $DIM_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DIM_UNCHANGED_PCT="$DIM_UNCHANGED_PCT"
+export DIFFVIM_PAUSE_AFTER_LINES="$PAUSE_AFTER_LINES"
+export DIFFVIM_PAUSE_AFTER_THRESHOLD="$PAUSE_AFTER_THRESHOLD"
+export DIFFVIM_PAUSE_AFTER_MS="$PAUSE_AFTER_MS"
+export DIFFVIM_PAUSE_BEFORE_DELETE_MS="$PAUSE_BEFORE_DELETE_MS"
+export DIFFVIM_PAUSE_AFTER_DELETE_MS="$PAUSE_AFTER_DELETE_MS"
+export DIFFVIM_BLOCK_DELETE_SIZE="$BLOCK_DELETE_SIZE"
+export DIFFVIM_FOLD_UNCHANGED="$([[ $FOLD_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_THEME="$THEME"
+
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
 export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
@@ -2378,6 +2379,39 @@ function! s:DeleteCharAtCursor() abort
     call s:PlaceCursor()
 endfunction
 
+" Delete a newline character: removes the current line (joining it with
+" the next line) BUT only if the current line is empty. If the current
+" line still has content, we don't want to join — we want to move the
+" cursor to the next line. This is used when a whole line (including its
+" \n) is being deleted: the line content was already deleted char-by-char
+" or word-by-word, and now we just need to remove the empty line and
+" move down.
+function! s:DeleteNewlineAtCursor() abort
+    let l:l = s:cur_l
+    let l:line = getline(l:l)
+    if strchars(l:line) == 0
+        " Line is empty — delete it entirely and move cursor to next line
+        if l:l < line('$')
+            execute l:l . 'delete _'
+            " cursor stays at same line number (which is now the next line)
+            let s:cur_c = 1
+        elseif l:l > 1
+            " Last line — move cursor to end of previous line
+            let s:cur_l = l:l - 1
+            let s:cur_c = strchars(getline(s:cur_l)) + 1
+        endif
+    else
+        " Line still has content — this shouldn't happen if all chars
+        " were deleted first, but handle it: join with next line
+        if l:l < line('$')
+            let l:next = getline(l:l + 1)
+            call setline(l:l, l:line . l:next)
+            execute (l:l + 1) . 'delete _'
+        endif
+    endif
+    call s:PlaceCursor()
+endfunction
+
 " Advance logical cursor for a 'keep' char (no buffer change).
 function! s:AdvanceForKeepChar(ch) abort
     if a:ch ==# "\n"
@@ -2973,7 +3007,13 @@ function! s:ProcessCharOp() abort
                 return
             endif
         endif
-        call s:DeleteCharAtCursor()
+        " Delete the character. If it's a newline, use DeleteNewlineAtCursor
+        " to avoid pulling the next line up onto the current line.
+        if l:op[1] ==# "\n"
+            call s:DeleteNewlineAtCursor()
+        else
+            call s:DeleteCharAtCursor()
+        endif
         " Inline highlight for deleted char
         call s:InlineHighlight(s:cur_l, s:cur_c, 'delete')
         redraw
@@ -3089,7 +3129,9 @@ function! s:LookaheadEOLDelete(ops, start) abort
     let l:count = 0
     while l:i < len(a:ops)
         let l:op = a:ops[l:i]
-        if l:op[0] ==# 'delete'
+        if l:op[0] ==# 'delete' && l:op[1] !=# "\n"
+            " Count only non-newline deletes — the \n is handled separately
+            " so it doesn't pull the next line up onto the current line.
             let l:count += 1
             let l:i += 1
         else
@@ -3105,11 +3147,18 @@ function! s:LookaheadEOLDelete(ops, start) abort
         return l:count
     endif
     " Condition 2 & 3: deletes extend to end of line / end of ops.
+    " Check if the next op after our run is a keep-\n or end of ops.
     if l:i >= len(a:ops)
         return l:count
     endif
     let l:next_op = a:ops[l:i]
     if l:next_op[0] ==# 'keep' && l:next_op[1] ==# "\n"
+        return l:count
+    endif
+    " Also check if the next op is a delete-\n (the \n itself is being deleted)
+    " — in that case, we delete the text but NOT the \n here; the \n will be
+    " handled by the next ProcessCharOp call which will move the cursor down.
+    if l:next_op[0] ==# 'delete' && l:next_op[1] ==# "\n"
         return l:count
     endif
     return 0
@@ -3297,8 +3346,9 @@ function! s:ProcessBlockDelete(hunk, total_count) abort
         while s:state.op_idx + l:skipped < len(a:hunk.char_ops)
             let l:op = a:hunk.char_ops[s:state.op_idx + l:skipped]
             if l:op[0] ==# 'delete' && (l:op[1] ==# ' ' || l:op[1] ==# "\t")
-                " Skip leading whitespace deletes — advance cursor past them
-                call s:AdvanceForKeepChar(l:op[1])
+                " Delete leading whitespace (don't skip it — that would
+                " leave it in the buffer and produce incorrect output).
+                call s:DeleteCharAtCursor()
                 let l:skipped += 1
             else
                 break
@@ -3329,9 +3379,16 @@ function! s:ProcessBlockDelete(hunk, total_count) abort
         let l:chars_to_delete = 1
     endif
 
-    " Delete the block
+    " Delete the block — use DeleteNewlineAtCursor for \n to avoid
+    " pulling the next line up onto the current line.
+    let l:block_op_idx = s:state.op_idx
     for l:i in range(l:chars_to_delete)
-        call s:DeleteCharAtCursor()
+        let l:op = a:hunk.char_ops[l:block_op_idx + l:i]
+        if l:op[1] ==# "\n"
+            call s:DeleteNewlineAtCursor()
+        else
+            call s:DeleteCharAtCursor()
+        endif
     endfor
     redraw
     let s:state.op_idx += l:chars_to_delete
@@ -3402,11 +3459,17 @@ function! s:ProcessAdaptiveWordDelete(hunk, total_count) abort
     endwhile
 
     if l:line_remaining == 0
-        " Line done — delete the newline and move to next line
+        " Line done — delete the newline and move to next line.
+        " Use DeleteNewlineAtCursor (not DeleteCharAtCursor) so we don't
+        " pull the next line up onto the current line.
         if s:state.op_idx < len(a:hunk.char_ops)
             let l:op = a:hunk.char_ops[s:state.op_idx]
             if l:op[0] ==# 'delete'
-                call s:DeleteCharAtCursor()
+                if l:op[1] ==# "\n"
+                    call s:DeleteNewlineAtCursor()
+                else
+                    call s:DeleteCharAtCursor()
+                endif
                 let s:state.op_idx += 1
                 let s:state.accel_delete_count += 1
                 redraw
@@ -3508,12 +3571,26 @@ function! s:ProcessAdaptiveWordDelete(hunk, total_count) abort
         endif
     endif
 
-    " Phase 3: delete rest rapidly
+    " Phase 3: delete rest of line rapidly (all at once, like rapid-EOL)
     if s:state.awd_phase == 3
-        call s:DeleteCharAtCursor()
-        redraw
-        let s:state.op_idx += 1
-        let s:state.accel_delete_count += 1
+        " Count remaining non-newline delete ops on this line
+        let l:rest_count = 0
+        let l:rest_idx = s:state.op_idx
+        while l:rest_idx < len(a:hunk.char_ops)
+            let l:op = a:hunk.char_ops[l:rest_idx]
+            if l:op[0] !=# 'delete' | break | endif
+            if l:op[1] ==# "\n" | break | endif
+            let l:rest_count += 1
+            let l:rest_idx += 1
+        endwhile
+        if l:rest_count > 0
+            for l:i in range(l:rest_count)
+                call s:DeleteCharAtCursor()
+            endfor
+            redraw
+            let s:state.op_idx += l:rest_count
+            let s:state.accel_delete_count += l:rest_count
+        endif
         let l:delay = s:GaussianJitter(g:diffvim.adaptive_word_delete_min_ms)
         call s:ScheduleNext(l:delay)
         return
