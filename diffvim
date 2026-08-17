@@ -2366,12 +2366,14 @@ function! s:DeleteCharAtCursor() abort
     " Use character count, not byte length, for "past end" check
     let l:line_chars = strchars(l:line)
     if l:c > l:line_chars
-        " Cursor is past end of line. This means we're trying to delete
-        " the \n. Do NOT join — just move cursor to the next line.
-        " Never bring the next line's text onto the current line.
+        " Cursor is past end of line — we're trying to delete the \n
+        " (the newline between this line and the next). Join this line
+        " with the next line, which removes the \n from the buffer.
         if l:l < line('$')
-            let s:cur_l = l:l + 1
-            let s:cur_c = 1
+            let l:next = getline(l:l + 1)
+            call setline(l:l, l:line . l:next)
+            execute (l:l + 1) . 'delete _'
+            " Cursor stays at same column on the (now joined) line
         endif
     else
         " Convert character positions to byte positions
@@ -2424,11 +2426,15 @@ function! s:DeleteNewlineAtCursor() abort
             setlocal noeol
         endif
     else
-        " Line has content — do NOT delete the \n.
-        " Move cursor to the next line.
+        " Line has content — join it with the next line.
+        " A \n delete op means the \n character must be removed from the
+        " buffer. Removing the \n between line N and line N+1 means joining
+        " those two lines. The cursor stays at the same column on the
+        " (now joined) line.
         if l:l < line('$')
-            let s:cur_l = l:l + 1
-            let s:cur_c = 1
+            let l:next = getline(l:l + 1)
+            call setline(l:l, l:line . l:next)
+            execute (l:l + 1) . 'delete _'
         endif
     endif
     call s:PlaceCursor()
