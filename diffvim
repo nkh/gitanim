@@ -2387,39 +2387,28 @@ endfunction
 " or word-by-word, and now we just need to remove the empty line and
 " move down.
 function! s:DeleteNewlineAtCursor() abort
-    " When a \n is being deleted, we have two cases:
-    " 1. The current line is empty (all chars already deleted) — we want
-    "    to "delete the newline" which means joining this empty line with
-    "    the next. But visually, we DON'T want to pull the next line up
-    "    onto the current line — that looks terrible. Instead, we just
-    "    move the cursor to the next line. The empty line stays in the
-    "    buffer temporarily. At the end of the animation, the buffer will
-    "    be correct because we track line_offset.
-    " 2. The current line still has content — this shouldn't happen if
-    "    all chars were deleted first, but handle it by joining.
+    " Delete the newline at the end of the current line.
+    " This joins the current line with the next line.
+    "
+    " When the current line is empty (all its content was already
+    " deleted char-by-char or word-by-word), joining with the next
+    " line just removes the empty line — the next line's content
+    " takes its place. This is exactly how a human edits: delete the
+    " line's content, then the line break, and the next line moves up.
+    "
+    " The cursor stays at the same column on the (now joined) line.
     let l:l = s:cur_l
     let l:line = getline(l:l)
-    if strchars(l:line) == 0
-        " Line is empty — just move cursor to next line.
-        " DON'T delete the empty line — that would pull the next line up.
-        " The empty line stays in the buffer; it will be cleaned up when
-        " the animation finishes (the final write produces the correct
-        " new file content).
-        if l:l < line('$')
-            let s:cur_l = l:l + 1
-            let s:cur_c = 1
-        elseif l:l > 1
-            " Last line — move to end of previous line
-            let s:cur_l = l:l - 1
-            let s:cur_c = strchars(getline(s:cur_l)) + 1
-        endif
-    else
-        " Line still has content — join with next line (rare fallback)
-        if l:l < line('$')
-            let l:next = getline(l:l + 1)
-            call setline(l:l, l:line . l:next)
-            execute (l:l + 1) . 'delete _'
-        endif
+    if l:l < line('$')
+        let l:next = getline(l:l + 1)
+        call setline(l:l, l:line . l:next)
+        execute (l:l + 1) . 'delete _'
+        " Cursor stays at same position on the joined line
+        " (if current line was empty, cursor is at col 1 of next line's content)
+    elseif l:l > 1
+        " Last line — just move cursor to end of previous line
+        let s:cur_l = l:l - 1
+        let s:cur_c = strchars(getline(s:cur_l)) + 1
     endif
     call s:PlaceCursor()
 endfunction
