@@ -40,9 +40,10 @@ import (
 
 // VirtualBuffer represents the file being animated.
 type VirtualBuffer struct {
-        lines   []string // line content
-        cursorL int      // logical cursor line (0-indexed)
-        cursorC int      // logical cursor column (0-indexed, can exceed line length)
+        lines         []string // visible line content
+        deferredJoins []int    // line numbers that need to be joined at the end
+        cursorL       int      // logical cursor line (0-indexed)
+        cursorC       int      // logical cursor column (0-indexed, can exceed line length)
 }
 
 func newBuffer() *VirtualBuffer {
@@ -88,10 +89,27 @@ func (b *VirtualBuffer) KeepChar(code int) {
 // DeleteChar removes the character at the cursor position.
 func (b *VirtualBuffer) DeleteChar(code int) {
         if code == 10 {
-                // Delete newline = join current line with next
-                if b.cursorL < len(b.lines)-1 {
-                        b.lines[b.cursorL] = b.lines[b.cursorL] + b.lines[b.cursorL+1]
-                        b.lines = append(b.lines[:b.cursorL+1], b.lines[b.cursorL+2:]...)
+                // Delete newline: join current line with next.
+                // If current line is empty: join immediately (removes empty line).
+                // If current line has content: defer the join to avoid pulling
+                // the next line's content up during animation.
+                currentLine := b.lines[b.cursorL]
+                if len([]rune(currentLine)) == 0 {
+                        // Empty line — join immediately
+                        if b.cursorL < len(b.lines)-1 {
+                                b.lines[b.cursorL] = currentLine + b.lines[b.cursorL+1]
+                                b.lines = append(b.lines[:b.cursorL+1], b.lines[b.cursorL+2:]...)
+                        }
+                } else {
+                        // Line has content — defer the join
+                        if b.cursorL < len(b.lines)-1 {
+                                b.deferredJoins = append(b.deferredJoins, b.cursorL)
+                                b.cursorL++
+                                b.cursorC = 0
+                        } else if b.cursorL > 0 {
+                                b.cursorL--
+                                b.cursorC = len([]rune(b.lines[b.cursorL]))
+                        }
                 }
         } else {
                 line := b.lines[b.cursorL]
@@ -103,6 +121,19 @@ func (b *VirtualBuffer) DeleteChar(code int) {
                         b.lines[b.cursorL] = string(newRunes)
                 }
         }
+}
+
+// ApplyDeferredJoins merges lines that were deferred during animation.
+func (b *VirtualBuffer) ApplyDeferredJoins() {
+        // Sort in reverse order so joins don't shift line numbers
+        for i := len(b.deferredJoins) - 1; i >= 0; i-- {
+                l := b.deferredJoins[i]
+                if l < len(b.lines)-1 {
+                        b.lines[l] = b.lines[l] + b.lines[l+1]
+                        b.lines = append(b.lines[:l+1], b.lines[l+2:]...)
+                }
+        }
+        b.deferredJoins = nil
 }
 
 // InsertChar inserts a character at the cursor position and advances.
@@ -435,6 +466,8 @@ func main() {
 
                 case "snapshot":
                         if len(op.Args) >= 1 {
+                                // Apply deferred joins before writing snapshot
+                                buf.ApplyDeferredJoins()
                                 if err := buf.WriteFile(op.Args[0]); err != nil {
                                         fmt.Fprintf(os.Stderr, "Error writing snapshot: %v\n", err)
                                 }
@@ -450,7 +483,8 @@ func main() {
                         // Wait for user input (not implemented in v1)
 
                 case "done":
-                        // Animation complete
+                        // Animation complete — apply deferred joins
+                        buf.ApplyDeferredJoins()
 
                 default:
                         // Unknown op — ignore

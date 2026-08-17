@@ -92,13 +92,32 @@ sub keep_char {
     }
 }
 
+my @deferred_joins;
+
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        # Join current line with next
-        if ($cursor_l < $#lines) {
-            $lines[$cursor_l] .= $lines[$cursor_l + 1];
-            splice(@lines, $cursor_l + 1, 1);
+        # Delete newline: join current line with next.
+        # If current line is empty: join immediately (removes empty line).
+        # If current line has content: defer the join to avoid pulling
+        # the next line's content up during animation.
+        my $line = $lines[$cursor_l];
+        if (length($line) == 0) {
+            # Empty line — join immediately
+            if ($cursor_l < $#lines) {
+                $lines[$cursor_l] .= $lines[$cursor_l + 1];
+                splice(@lines, $cursor_l + 1, 1);
+            }
+        } else {
+            # Line has content — defer the join
+            if ($cursor_l < $#lines) {
+                push @deferred_joins, $cursor_l;
+                $cursor_l++;
+                $cursor_c = 0;
+            } elsif ($cursor_l > 0) {
+                $cursor_l--;
+                $cursor_c = length($lines[$cursor_l]);
+            }
         }
     } else {
         my $line = $lines[$cursor_l];
@@ -108,6 +127,18 @@ sub delete_char {
             $lines[$cursor_l] = join("", @chars);
         }
     }
+}
+
+sub apply_deferred_joins {
+    # Sort in reverse order so joins don't shift line numbers
+    my @sorted = sort { $b <=> $a } @deferred_joins;
+    for my $l (@sorted) {
+        if ($l < $#lines) {
+            $lines[$l] .= $lines[$l + 1];
+            splice(@lines, $l + 1, 1);
+        }
+    }
+    @deferred_joins = ();
 }
 
 sub insert_char {
@@ -214,15 +245,18 @@ while (my $line = <STDIN>) {
         $cursor_l = $#lines if $cursor_l > $#lines;
         render();
     } elsif ($cmd eq 'snapshot') {
+        apply_deferred_joins();
         write_buffer($parts[0]);
     } elsif ($cmd eq 'hunk_start' || $cmd eq 'hunk_end' || $cmd eq 'file_start') {
         # Metadata — no action
     } elsif ($cmd eq 'done') {
+        apply_deferred_joins();
         last;
     }
 }
 
 # Write snapshot if requested
+apply_deferred_joins();
 write_buffer($snapshot_file) if $snapshot_file;
 write_buffer($output_file) if $output_file;
 

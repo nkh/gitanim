@@ -2386,31 +2386,72 @@ endfunction
 " \n) is being deleted: the line content was already deleted char-by-char
 " or word-by-word, and now we just need to remove the empty line and
 " move down.
+" List of deferred line joins: each entry is a line number that needs
+" to be joined with the next line. These are applied at the end of the
+" animation so the final buffer is correct.
+let s:deferred_joins = []
+
 function! s:DeleteNewlineAtCursor() abort
     " Delete the newline at the end of the current line.
-    " This joins the current line with the next line.
     "
-    " When the current line is empty (all its content was already
-    " deleted char-by-char or word-by-word), joining with the next
-    " line just removes the empty line — the next line's content
-    " takes its place. This is exactly how a human edits: delete the
-    " line's content, then the line break, and the next line moves up.
+    " Two cases:
+    " 1. The current line is EMPTY (all content already deleted):
+    "    Join immediately. This just removes the empty line — the next
+    "    line's content takes its place. No visual issue because there's
+    "    no content to be "pulled up".
     "
-    " The cursor stays at the same column on the (now joined) line.
+    " 2. The current line has CONTENT (keep characters before the deletes):
+    "    DON'T join now. Just move the cursor to the next line. Defer the
+    "    join until the end of the animation. This prevents the next line's
+    "    content from being pulled up onto the current line during the
+    "    animation, which looks terrible.
+    "
+    " At the end of the animation (in StartNextHunk when all hunks are done),
+    " all deferred joins are applied so the final buffer matches the new file.
     let l:l = s:cur_l
     let l:line = getline(l:l)
-    if l:l < line('$')
-        let l:next = getline(l:l + 1)
-        call setline(l:l, l:line . l:next)
-        execute (l:l + 1) . 'delete _'
-        " Cursor stays at same position on the joined line
-        " (if current line was empty, cursor is at col 1 of next line's content)
-    elseif l:l > 1
-        " Last line — just move cursor to end of previous line
-        let s:cur_l = l:l - 1
-        let s:cur_c = strchars(getline(s:cur_l)) + 1
+
+    if strchars(l:line) == 0
+        " Line is empty — join immediately (removes the empty line)
+        if l:l < line('$')
+            let l:next = getline(l:l + 1)
+            call setline(l:l, l:line . l:next)
+            execute (l:l + 1) . 'delete _'
+            " Cursor stays at same position (col 1 of next line's content)
+        elseif l:l > 1
+            let s:cur_l = l:l - 1
+            let s:cur_c = strchars(getline(s:cur_l)) + 1
+        endif
+    else
+        " Line has content — DON'T join. Move cursor to next line.
+        " Defer the join until the end of the animation.
+        if l:l < line('$')
+            call add(s:deferred_joins, l:l)
+            let s:cur_l = l:l + 1
+            let s:cur_c = 1
+        elseif l:l > 1
+            let s:cur_l = l:l - 1
+            let s:cur_c = strchars(getline(s:cur_l)) + 1
+        endif
     endif
     call s:PlaceCursor()
+endfunction
+
+" Apply all deferred line joins at the end of the animation.
+" This merges lines that should have been joined during the animation
+" but were deferred to avoid visual issues.
+function! s:ApplyDeferredJoins() abort
+    " Sort in reverse order so joining doesn't shift line numbers
+    call sort(s:deferred_joins, {a, b -> b - a})
+    for l:l in s:deferred_joins
+        if l:l < line('$')
+            let l:cur = getline(l:l)
+            let l:next = getline(l:l + 1)
+            call setline(l:l, l:cur . l:next)
+            execute (l:l + 1) . 'delete _'
+        endif
+    endfor
+    let s:deferred_joins = []
 endfunction
 
 " Advance logical cursor for a 'keep' char (no buffer change).
@@ -2496,6 +2537,9 @@ endfunction
 function! s:StartNextHunk() abort
     if s:state.hunk_idx >= len(s:state.hunks)
         let s:state.phase = 'done'
+        " Apply deferred line joins so the final buffer is correct
+        call s:ApplyDeferredJoins()
+        redraw
         " If --output was specified, write the buffer and quit
         if !empty(g:diffvim.output_file)
             execute 'w! ' . g:diffvim.output_file
@@ -4147,6 +4191,9 @@ function! s:Quit() abort
     call s:StopTimer()
     let s:state.stopped = 1
     let s:state.paused = 0
+    " Apply deferred line joins so the buffer is correct
+    call s:ApplyDeferredJoins()
+    redraw
     " If --output was specified, write the buffer before stopping
     if !empty(g:diffvim.output_file)
         execute 'w! ' . g:diffvim.output_file
@@ -4285,6 +4332,8 @@ nnoremap <buffer> <silent> <nowait> [       :call <SID>PrevFile()<CR>
 " --- Autostart -------------------------------------------------------------
 
 function! s:StartAnimation() abort
+    " Reset deferred joins list
+    let s:deferred_joins = []
     " Set up syntax highlighting for the file
     call s:SetupSyntax()
     " Pre-compute git blame cache if --git-blame is enabled (batch, not per-hunk)

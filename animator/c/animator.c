@@ -84,27 +84,71 @@ void keep_char(int code) {
     else cursor_c++;
 }
 
+/* Deferred line joins */
+static int deferred_joins[10000];
+static int n_deferred = 0;
+
+void apply_deferred_joins(void) {
+    /* Sort in reverse order (simple bubble sort for small arrays) */
+    for (int i = 0; i < n_deferred - 1; i++)
+        for (int j = i + 1; j < n_deferred; j++)
+            if (deferred_joins[i] < deferred_joins[j]) {
+                int tmp = deferred_joins[i];
+                deferred_joins[i] = deferred_joins[j];
+                deferred_joins[j] = tmp;
+            }
+    for (int i = 0; i < n_deferred; i++) {
+        int l = deferred_joins[i];
+        if (l < n_lines - 1) {
+            int len1 = strlen(lines[l]);
+            int len2 = strlen(lines[l + 1]);
+            lines[l] = realloc(lines[l], len1 + len2 + 1);
+            strcat(lines[l], lines[l + 1]);
+            free(lines[l + 1]);
+            for (int j = l + 1; j < n_lines - 1; j++)
+                lines[j] = lines[j + 1];
+            n_lines--;
+        }
+    }
+    n_deferred = 0;
+}
+
 void delete_char(int code) {
     if (code == 10) {
-        /* Join current line with next */
-        if (cursor_l < n_lines - 1) {
-            int len1 = strlen(lines[cursor_l]);
-            int len2 = strlen(lines[cursor_l + 1]);
-            lines[cursor_l] = realloc(lines[cursor_l], len1 + len2 + 1);
-            strcat(lines[cursor_l], lines[cursor_l + 1]);
-            free(lines[cursor_l + 1]);
-            for (int i = cursor_l + 1; i < n_lines - 1; i++)
-                lines[i] = lines[i + 1];
-            n_lines--;
+        /* Delete newline: join current line with next.
+         * If current line is empty: join immediately (removes empty line).
+         * If current line has content: defer the join to avoid pulling
+         * the next line's content up during animation. */
+        char *line = lines[cursor_l];
+        if (strlen(line) == 0) {
+            /* Empty line — join immediately */
+            if (cursor_l < n_lines - 1) {
+                int len2 = strlen(lines[cursor_l + 1]);
+                lines[cursor_l] = realloc(lines[cursor_l], len2 + 1);
+                strcpy(lines[cursor_l], lines[cursor_l + 1]);
+                free(lines[cursor_l + 1]);
+                for (int i = cursor_l + 1; i < n_lines - 1; i++)
+                    lines[i] = lines[i + 1];
+                n_lines--;
+            }
+        } else {
+            /* Line has content — defer the join */
+            if (cursor_l < n_lines - 1) {
+                if (n_deferred < 10000)
+                    deferred_joins[n_deferred++] = cursor_l;
+                cursor_l++;
+                cursor_c = 0;
+            } else if (cursor_l > 0) {
+                cursor_l--;
+                cursor_c = strlen(lines[cursor_l]);
+            }
         }
     } else {
         int byte = char_to_byte(cursor_l, cursor_c);
         char *s = lines[cursor_l];
         int byte_len = strlen(s);
-        /* Find end of current char (next leading byte) */
         int next = byte + 1;
         while (next < byte_len && (s[next] & 0xC0) == 0x80) next++;
-        /* Shift remaining left */
         memmove(s + byte, s + next, byte_len - next + 1);
     }
 }
@@ -244,12 +288,15 @@ int main(int argc, char **argv) {
         } else if (strcmp(cmd, "snapshot") == 0) {
             char path[256];
             sscanf(args, "%255s", path);
+            apply_deferred_joins();
             buffer_write(path);
         } else if (strcmp(cmd, "done") == 0) {
+            apply_deferred_joins();
             break;
         }
     }
 
+    apply_deferred_joins();
     if (snapshot_file_path[0]) buffer_write(snapshot_file_path);
     if (output_file[0]) buffer_write(output_file);
     if (!no_display) { printf("\033[?25h\033[0m\n"); printf("Animation complete.\n"); }
