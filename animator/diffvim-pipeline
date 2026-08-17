@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+# diffvim-pipeline — Runs the full animator pipeline: compute → postprocess →
+# pace → animator. Routes options to each stage using prefixed option names.
+#
+# Options are routed by prefix:
+#   --compute-*   → diffvim-compute
+#   --postprocess-* → diffvim-postprocess
+#   --pace-*       → diffvim-pace
+#   --animator-*   → diffvim-animator
+#
+# Unprefixed options (--speed, --output, etc.) go to the animator.
+#
+# Usage:
+#   diffvim-pipeline [options] <oldfile> <newfile>
+#
+# Examples:
+#   diffvim-pipeline old.py new.py
+#   diffvim-pipeline --compute-algorithm patience --pace-delete-pacing word old.py new.py
+#   diffvim-pipeline --animator-no-display --animator-snapshot out.txt old.py new.py
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Find tools
+COMPUTE="${DIFFVIM_COMPUTE_BIN:-$ROOT_DIR/compute/bin/diffvim-compute-c}"
+POSTPROCESS_PERL="$ROOT_DIR/animator/perl/postprocess.pl"
+PACE_PERL="$ROOT_DIR/animator/perl/pace.pl"
+ANIMATOR_GO="$ROOT_DIR/animator/bin/diffvim-animator"
+
+# Check if C/Go tools exist and prefer them (faster)
+POSTPROCESS="$ROOT_DIR/animator/bin/diffvim-postprocess"
+[ ! -f "$POSTPROCESS" ] && POSTPROCESS="perl $POSTPROCESS_PERL"
+
+PACE="$ROOT_DIR/animator/bin/diffvim-pace"
+[ ! -f "$PACE" ] && PACE="$ROOT_DIR/animator/bin/diffvim-pace-go"
+[ ! -f "$PACE" ] && PACE="perl $PACE_PERL"
+
+ANIMATOR="$ANIMATOR_GO"
+[ ! -f "$ANIMATOR" ] && ANIMATOR="perl $ROOT_DIR/animator/perl/animator.pl"
+
+# Default language for compute tool
+COMPUTE_TOOL="${DIFFVIM_COMPUTE_TOOL:-c}"
+COMPUTE_BIN="$ROOT_DIR/compute/bin/diffvim-compute-$COMPUTE_TOOL"
+[ ! -f "$COMPUTE_BIN" ] && COMPUTE_BIN="$COMPUTE"  # fallback to C
+
+show_help() {
+    cat <<HELP
+diffvim-pipeline — Run the full animator pipeline
+
+Usage: diffvim-pipeline [options] <oldfile> <newfile>
+
+The pipeline runs 4 stages:
+  1. compute     — diffvim-compute (C/C++/Rust/Go)
+  2. postprocess  — diffvim-postprocess (Perl/C/Go)
+  3. pace         — diffvim-pace (Perl/C/Go)
+  4. animator     — diffvim-animator (Go/Perl/C)
+
+Option routing by prefix:
+  --compute-*       Options for diffvim-compute
+                    (e.g. --compute-algorithm patience)
+  --postprocess-*   Options for diffvim-postprocess
+                    (e.g. --postprocess-op-order optimize,
+                          --postprocess-semantic-cleanup)
+  --pace-*          Options for diffvim-pace
+                    (e.g. --pace-delete-pacing word,
+                          --pace-delete-speed fast,
+                          --pace-pacing gaussian)
+  --animator-*      Options for diffvim-animator
+                    (e.g. --animator-no-display,
+                          --animator-snapshot out.txt,
+                          --animator-speed 2.0)
+
+Unprefixed options go to the animator:
+  --no-display      Process without rendering
+  --speed N         Speed multiplier
+  --output FILE     Write final buffer to FILE
+  --snapshot FILE   Write buffer to FILE at end
+  --help, -h        Show this help
+
+Compute tool selection:
+  --tool c|cpp|rust|go   Which compute tool to use (default: c)
+
+Examples:
+  diffvim-pipeline old.py new.py
+  diffvim-pipeline --pace-delete-pacing word --no-display --snapshot out.txt old.py new.py
+  diffvim-pipeline --compute-algorithm patience --postprocess-semantic-cleanup --pace-pacing gaussian old.py new.py
+  diffvim-pipeline --tool rust --pace-delete-pacing instant old.py new.py
+
+Environment:
+  DIFFVIM_COMPUTE_TOOL   Default compute tool (c, cpp, rust, go)
+  DIFFVIM_COMPUTE_BIN    Override compute binary path
+HELP
+}
+
+# Parse arguments
+COMPUTE_ARGS=()
+POSTPROCESS_ARGS=()
+PACE_ARGS=()
+ANIMATOR_ARGS=()
+POSITIONAL=()
+COMPUTE_TOOL_OVERRIDE=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --tool)
+            COMPUTE_TOOL_OVERRIDE="$2"; shift 2
+            ;;
+        --compute-*)
+            # Strip --compute- prefix and pass to compute tool
+            opt="${1#--compute-}"
+            COMPUTE_ARGS+=("--$opt")
+            shift
+            # If next arg doesn't start with -, it's a value
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                COMPUTE_ARGS+=("$1"); shift
+            fi
+            ;;
+        --postprocess-*)
+            opt="${1#--postprocess-}"
+            POSTPROCESS_ARGS+=("--$opt")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                POSTPROCESS_ARGS+=("$1"); shift
+            fi
+            ;;
+        --pace-*)
+            opt="${1#--pace-}"
+            PACE_ARGS+=("--$opt")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                PACE_ARGS+=("$1"); shift
+            fi
+            ;;
+        --animator-*)
+            opt="${1#--animator-}"
+            ANIMATOR_ARGS+=("--$opt")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                ANIMATOR_ARGS+=("$1"); shift
+            fi
+            ;;
+        --no-display|--speed|--output|--snapshot|--scroll)
+            # Unprefixed animator options
+            ANIMATOR_ARGS+=("$1")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                ANIMATOR_ARGS+=("$1"); shift
+            fi
+            ;;
+        --*|-*)
+            # Unknown option — pass to animator
+            ANIMATOR_ARGS+=("$1")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                ANIMATOR_ARGS+=("$1"); shift
+            fi
+            ;;
+        *)
+            POSITIONAL+=("$1"); shift
+            ;;
+    esac
+done
+
+if [[ ${#POSITIONAL[@]} -lt 2 ]]; then
+    echo "Error: need <oldfile> <newfile>" >&2
+    echo "Run '$0 --help' for details." >&2
+    exit 1
+fi
+
+OLD="${POSITIONAL[0]}"
+NEW="${POSITIONAL[1]}"
+
+# Override compute tool if --tool was given
+if [[ -n "$COMPUTE_TOOL_OVERRIDE" ]]; then
+    COMPUTE_BIN="$ROOT_DIR/compute/bin/diffvim-compute-$COMPUTE_TOOL_OVERRIDE"
+    if [[ ! -f "$COMPUTE_BIN" ]]; then
+        echo "Error: compute tool '$COMPUTE_TOOL_OVERRIDE' not found at $COMPUTE_BIN" >&2
+        exit 1
+    fi
+fi
+
+# Create temp files
+WORKDIR=$(mktemp -d)
+trap 'rm -rf "$WORKDIR"' EXIT
+RAW_OPS="$WORKDIR/raw_ops.txt"
+TIMED_OPS="$WORKDIR/timed_ops.txt"
+
+# Stage 1: Compute
+"$COMPUTE_BIN" "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS" 2>/dev/null
+
+# Stage 2: Postprocess
+$POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" 2>/dev/null > "$WORKDIR/post_ops.txt"
+
+# Stage 3: Pace
+$PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt" 2>/dev/null > "$TIMED_OPS"
+
+# Stage 4: Animate
+$ANIMATOR "${ANIMATOR_ARGS[@]}" "$OLD" < "$TIMED_OPS"
