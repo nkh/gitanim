@@ -101,28 +101,24 @@ sub keep_char {
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        my $line = $lines[$cursor_l];
-        if (length($line) == 0) {
-            # Current line is empty. Remove it.
-            if ($cursor_l < $#lines) {
-                # Not the last line — remove, cursor stays at same index
-                splice(@lines, $cursor_l, 1);
-                $cursor_c = 0;
-            } elsif ($cursor_l > 0) {
-                # Last line — remove it and move to previous
+        # Delete newline: join current line with next.
+        # A \n delete op means the \n character must be removed from the
+        # buffer. Removing the \n between lines N and N+1 means joining
+        # those two lines. Always join, regardless of line content.
+        if ($cursor_l < $#lines) {
+            # Not the last line — join with next
+            $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
+            splice(@lines, $cursor_l + 1, 1);
+            # Cursor stays at same column on the (now joined) line
+        } else {
+            # Last line — can't join. Remove the line and move to previous.
+            if ($cursor_l > 0) {
                 pop @lines;
                 $cursor_l--;
                 $cursor_c = length($lines[$cursor_l]);
             } else {
                 # Only line — make empty
                 @lines = ("");
-                $cursor_c = 0;
-            }
-        } else {
-            # Line has content — do NOT delete the \n.
-            # Move cursor to the next line.
-            if ($cursor_l < $#lines) {
-                $cursor_l++;
                 $cursor_c = 0;
             }
         }
@@ -138,11 +134,14 @@ sub delete_char {
 
 sub insert_char {
     my ($code) = @_;
+    # Clamp cursor_c to line length to prevent slice issues
+    my $linelen = length($lines[$cursor_l]);
+    $cursor_c = $linelen if $cursor_c > $linelen;
     if ($code == 10) {
         my $line = $lines[$cursor_l];
         my @chars = split //, $line;
-        my @before = @chars[0 .. $cursor_c - 1];
-        my @after = @chars[$cursor_c .. $#chars];
+        my @before = $cursor_c > 0 ? @chars[0 .. $cursor_c - 1] : ();
+        my @after = $cursor_c <= $#chars ? @chars[$cursor_c .. $#chars] : ();
         $lines[$cursor_l] = join("", @before);
         splice(@lines, $cursor_l + 1, 0, join("", @after));
         $cursor_l++;
@@ -163,7 +162,8 @@ sub batch_delete {
     my @chars = split //, $line;
     my $end = $cursor_c + $n;
     $end = scalar(@chars) if $end > scalar(@chars);
-    splice(@chars, $cursor_c, $n);
+    my $count = $end - $cursor_c;
+    splice(@chars, $cursor_c, $count) if $count > 0;
     $lines[$cursor_l] = join("", @chars);
 }
 

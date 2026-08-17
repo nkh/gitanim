@@ -92,24 +92,21 @@ func (b *VirtualBuffer) KeepChar(code int) {
 func (b *VirtualBuffer) DeleteChar(code int) {
         if code == 10 {
                 // Delete newline: join current line with next.
-                // Rule: if the current line is NOT empty, do NOT delete the \n.
-                // Just move the cursor to the next line. Never bring the next
-                // line's text onto the current line.
-                // If the current line IS empty, deleting the \n just removes
-                // the empty line — harmless.
+                // A \n delete op means the \n character must be removed from the
+                // buffer. Removing the \n between line N and line N+1 means joining
+                // those two lines. Always join, regardless of whether the current
+                // line has content.
                 currentLine := b.lines[b.cursorL]
-                if len([]rune(currentLine)) == 0 {
-                        // Empty line — safe to join (removes empty line)
-                        if b.cursorL < len(b.lines)-1 {
-                                b.lines[b.cursorL] = currentLine + b.lines[b.cursorL+1]
-                                b.lines = append(b.lines[:b.cursorL+1], b.lines[b.cursorL+2:]...)
-                        }
+                if b.cursorL < len(b.lines)-1 {
+                        // Not the last line — join with next
+                        b.lines[b.cursorL] = currentLine + b.lines[b.cursorL+1]
+                        b.lines = append(b.lines[:b.cursorL+1], b.lines[b.cursorL+2:]...)
+                        // Cursor stays at same column on the (now joined) line
                 } else {
-                        // Line has content — do NOT delete the \n.
-                        // Move cursor to the next line.
-                        if b.cursorL < len(b.lines)-1 {
-                                b.cursorL++
-                                b.cursorC = 0
+                        // Last line — can't join, just clamp cursor
+                        if b.cursorL > 0 {
+                                b.cursorL--
+                                b.cursorC = len([]rune(b.lines[b.cursorL]))
                         }
                 }
         } else {
@@ -127,10 +124,14 @@ func (b *VirtualBuffer) DeleteChar(code int) {
 // InsertChar inserts a character at the cursor position and advances.
 func (b *VirtualBuffer) InsertChar(code int) {
         ch := rune(code)
+        // Defensive: clamp cursorC to line length to prevent slice bounds panic
+        line := b.lines[b.cursorL]
+        runes := []rune(line)
+        if b.cursorC > len(runes) {
+                b.cursorC = len(runes)
+        }
         if code == 10 {
                 // Insert newline = split current line
-                line := b.lines[b.cursorL]
-                runes := []rune(line)
                 before := string(runes[:b.cursorC])
                 after := string(runes[b.cursorC:])
                 b.lines[b.cursorL] = before
@@ -143,8 +144,6 @@ func (b *VirtualBuffer) InsertChar(code int) {
                 b.cursorL++
                 b.cursorC = 0
         } else {
-                line := b.lines[b.cursorL]
-                runes := []rune(line)
                 // Create a new slice to avoid modifying the original
                 newRunes := make([]rune, 0, len(runes)+1)
                 newRunes = append(newRunes, runes[:b.cursorC]...)
@@ -177,30 +176,25 @@ func (b *VirtualBuffer) BatchInsert(codes []int) {
 }
 
 // NewlineDelete deletes the \n (joins with next line).
-// When the line is empty, this just removes the empty line.
+// A \n delete op means the \n character must be removed from the buffer.
+// Removing the \n between lines N and N+1 means joining those two lines.
+// Always join, regardless of whether the current line has content.
 func (b *VirtualBuffer) NewlineDelete() {
-        currentLine := b.lines[b.cursorL]
-        if len([]rune(currentLine)) == 0 {
-                // Current line is empty. Remove it.
-                if b.cursorL < len(b.lines)-1 {
-                        // Not the last line — remove and cursor stays at same index
-                        b.lines = append(b.lines[:b.cursorL], b.lines[b.cursorL+1:]...)
-                        b.cursorC = 0
-                } else {
-                        // Last line — remove it and move to previous
+        if b.cursorL < len(b.lines)-1 {
+                // Not the last line — join current line with next
+                currentLine := b.lines[b.cursorL]
+                b.lines[b.cursorL] = currentLine + b.lines[b.cursorL+1]
+                b.lines = append(b.lines[:b.cursorL+1], b.lines[b.cursorL+2:]...)
+                // Cursor stays at same column on the (now joined) line
+        } else {
+                // Last line — can't join. Remove the line and move to previous.
+                if b.cursorL > 0 {
                         b.lines = b.lines[:b.cursorL]
                         b.cursorL--
-                        if b.cursorL < 0 {
-                                b.cursorL = 0
-                                b.lines = []string{""}
-                        }
                         b.cursorC = len([]rune(b.lines[b.cursorL]))
-                }
-        } else {
-                // Line has content — do NOT delete the \n.
-                // Move cursor to the next line.
-                if b.cursorL < len(b.lines)-1 {
-                        b.cursorL++
+                } else {
+                        // Only line — set to empty
+                        b.lines = []string{""}
                         b.cursorC = 0
                 }
         }

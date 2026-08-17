@@ -94,30 +94,32 @@ void keep_char(int code) {
 
 void delete_char(int code) {
     if (code == 10) {
-        char *line = lines[cursor_l];
-        if (strlen(line) == 0) {
-            /* Current line is empty. Remove it. */
-            if (cursor_l < n_lines - 1) {
-                /* Not last line — remove, cursor stays at same index */
-                free(lines[cursor_l]);
-                for (int i = cursor_l; i < n_lines - 1; i++)
-                    lines[i] = lines[i + 1];
-                n_lines--;
-                cursor_c = 0;
-            } else if (cursor_l > 0) {
-                /* Last line — remove it and move to previous */
-                free(lines[cursor_l]);
-                n_lines--;
-                cursor_l--;
-                cursor_c = strlen(lines[cursor_l]);
-            }
-        } else {
-            /* Line has content — do NOT delete the \n.
-             * Move cursor to the next line. */
-            if (cursor_l < n_lines - 1) {
-                cursor_l++;
-                cursor_c = 0;
-            }
+        /* Delete newline: join current line with next.
+         * A \n delete op means the \n character must be removed from the
+         * buffer. Removing the \n between lines N and N+1 means joining
+         * those two lines. Always join, regardless of line content. */
+        if (cursor_l < n_lines - 1) {
+            /* Not the last line — join with next */
+            char *cur = lines[cursor_l];
+            char *next = lines[cursor_l + 1];
+            int newlen = strlen(cur) + strlen(next) + 1;
+            char *joined = malloc(newlen);
+            strcpy(joined, cur);
+            strcat(joined, next);
+            free(lines[cursor_l]);
+            free(lines[cursor_l + 1]);
+            lines[cursor_l] = joined;
+            /* Shift remaining lines down */
+            for (int i = cursor_l + 1; i < n_lines - 1; i++)
+                lines[i] = lines[i + 1];
+            n_lines--;
+            /* Cursor stays at same column on the (now joined) line */
+        } else if (cursor_l > 0) {
+            /* Last line — remove it and move to previous */
+            free(lines[cursor_l]);
+            n_lines--;
+            cursor_l--;
+            cursor_c = strlen(lines[cursor_l]);
         }
     } else {
         int byte = char_to_byte(cursor_l, cursor_c);
