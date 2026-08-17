@@ -513,7 +513,11 @@ func main() {
                         }
 
                 case "glide":
-                        // For now, just position the cursor
+                        // Position the cursor at the given line:col.
+                        // If the target line is past end of buffer, clamp to
+                        // the last line and position cursor at END of that
+                        // line (col = len+1). This supports end_insert hunks
+                        // that append content after the last line.
                         if len(op.Args) >= 1 {
                                 parts := strings.Split(op.Args[0], ":")
                                 if len(parts) == 2 {
@@ -525,7 +529,11 @@ func main() {
                                                 buf.cursorL = 0
                                         }
                                         if buf.cursorL >= len(buf.lines) {
+                                                // Past end of buffer — clamp to last line
                                                 buf.cursorL = len(buf.lines) - 1
+                                                // Position cursor at END of last line
+                                                // so subsequent inserts append after content
+                                                buf.cursorC = len([]rune(buf.lines[buf.cursorL]))
                                         }
                                 }
                         }
