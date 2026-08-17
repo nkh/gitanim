@@ -201,11 +201,11 @@ sub indent_aware {
     for my $op (@$ops) {
         push @current, $op;
         if ($op->[1] == 10) {
-            push @lines, \@current;
+            push @lines, [@current];
             @current = ();
         }
     }
-    push @lines, \@current if @current;
+    push @lines, [@current] if @current;
 
     # For each line, if all deletes are whitespace and all inserts are whitespace,
     # convert to keeps
@@ -247,11 +247,11 @@ sub reorder_ops {
     for my $op (@$ops) {
         push @current, $op;
         if ($op->[1] == 10) {
-            push @lines, \@current;
+            push @lines, [@current];
             @current = ();
         }
     }
-    push @lines, \@current if @current;
+    push @lines, [@current] if @current;
 
     # Reorder each line
     my @result;

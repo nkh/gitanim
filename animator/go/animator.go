@@ -173,7 +173,11 @@ func (b *VirtualBuffer) NewlineInsert() {
 }
 
 // String returns the buffer content as a string.
+// If the buffer is a single empty line, returns empty string.
 func (b *VirtualBuffer) String() string {
+        if len(b.lines) == 1 && b.lines[0] == "" {
+                return ""
+        }
         return strings.Join(b.lines, "\n") + "\n"
 }
 
