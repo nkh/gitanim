@@ -25,6 +25,7 @@ type Op struct {
 type Hunk struct {
         Target, Del, Ins, EndIns, EndDel int
         Ops                              []Op
+        NewlineInserts, NewlineDeletes  int
 }
 
 var deletePacing = "word"
@@ -125,6 +126,13 @@ func main() {
                         code, _ := strconv.Atoi(parts[1])
                         if currentHunk != nil {
                                 currentHunk.Ops = append(currentHunk.Ops, Op{Type: parts[0], Code: code})
+                                if code == 10 {
+                                        if parts[0] == "insert" {
+                                                currentHunk.NewlineInserts++
+                                        } else if parts[0] == "delete" {
+                                                currentHunk.NewlineDeletes++
+                                        }
+                                }
                         }
                 }
         }
@@ -137,13 +145,18 @@ func main() {
         fmt.Fprintf(w, "# delete_threshold %d\n", deleteThreshold)
 
         currentLine := 1
+        lineOffset := 0  // Cumulative (inserts - deletes) from previous hunks
 
         for hunkIdx, hunk := range hunks {
                 target := hunk.Target
                 ops := hunk.Ops
 
+                // Apply cumulative line offset so glide targets the CURRENT buffer
+                // position, not the original line number in the old file.
+                actualTarget := target + lineOffset
+
                 // Compute glide
-                dl := target - currentLine
+                dl := actualTarget - currentLine
                 if dl < 0 {
                         dl = -dl
                 }
@@ -156,11 +169,11 @@ func main() {
                         }
                 }
 
-                fmt.Fprintf(w, "hunk_start %d %d %d\n", target, hunk.Del, hunk.Ins)
-                fmt.Fprintf(w, "glide %d:1\n", target)
+                fmt.Fprintf(w, "hunk_start %d %d %d\n", actualTarget, hunk.Del, hunk.Ins)
+                fmt.Fprintf(w, "glide %d:1\n", actualTarget)
                 fmt.Fprintf(w, "delay %d\n", glideMs)
 
-                currentLine = target
+                currentLine = actualTarget
                 currentCol := 1
 
                 i := 0
@@ -227,6 +240,9 @@ func main() {
                 if hunkIdx < len(hunks)-1 {
                         fmt.Fprintf(w, "delay %d\n", hunkPause)
                 }
+
+                // Update cumulative line offset
+                lineOffset += hunk.NewlineInserts - hunk.NewlineDeletes
         }
 
         if snapshotFile != "" {

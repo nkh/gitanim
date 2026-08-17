@@ -158,9 +158,17 @@ func (b *VirtualBuffer) InsertChar(code int) {
 func (b *VirtualBuffer) BatchDelete(n int) {
         line := b.lines[b.cursorL]
         runes := []rune(line)
+        // Clamp cursorC to line length
+        if b.cursorC > len(runes) {
+                b.cursorC = len(runes)
+        }
         end := b.cursorC + n
         if end > len(runes) {
                 end = len(runes)
+        }
+        if end <= b.cursorC {
+                // Nothing to delete — cursor is at/past end of line
+                return
         }
         newRunes := make([]rune, 0, len(runes)-(end-b.cursorC))
         newRunes = append(newRunes, runes[:b.cursorC]...)

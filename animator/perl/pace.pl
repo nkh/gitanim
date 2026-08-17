@@ -159,12 +159,22 @@ while (my $line = <STDIN>) {
             end_ins    => $4,
             end_del    => $5,
             ops        => [],
+            newline_inserts => 0,
+            newline_deletes => 0,
         };
         push @hunks, $current_hunk;
         next;
     }
     if ($line =~ /^(keep|delete|insert)\s+(\d+)$/) {
-        push @{$current_hunk->{ops}}, [$1, int($2)];
+        my ($type, $code) = ($1, int($2));
+        push @{$current_hunk->{ops}}, [$type, $code];
+        if ($code == 10) {
+            if ($type eq 'insert') {
+                $current_hunk->{newline_inserts}++;
+            } elsif ($type eq 'delete') {
+                $current_hunk->{newline_deletes}++;
+            }
+        }
         next;
     }
 }
@@ -177,14 +187,20 @@ print "# delete_threshold $delete_threshold\n";
 # For each hunk, produce timed ops
 my $current_line = 1;
 my $current_col = 1;
+my $line_offset = 0;  # Cumulative (inserts - deletes) from previous hunks
 
 for my $hunk_idx (0 .. $#hunks) {
     my $hunk = $hunks[$hunk_idx];
     my $target = $hunk->{target};
     my $ops = $hunk->{ops};
 
+    # Apply cumulative line offset (from previous hunks' inserts/deletes)
+    # so the glide targets the CURRENT buffer position, not the original
+    # line number in the old file.
+    my $actual_target = $target + $line_offset;
+
     # Compute glide from current position to target
-    my $dl = abs($target - $current_line);
+    my $dl = abs($actual_target - $current_line);
     my $dc = abs(1 - $current_col);
     my $distance = $dl * 80 + $dc;  # lines weighted 80x
     my $glide_ms = int($move_min_ms);
@@ -193,11 +209,11 @@ for my $hunk_idx (0 .. $#hunks) {
         $glide_ms = $move_max_ms if $glide_ms > $move_max_ms;
     }
 
-    printf "hunk_start %d %d %d\n", $target, $hunk->{del_count}, $hunk->{ins_count};
-    printf "glide %d:1\n", $target;
+    printf "hunk_start %d %d %d\n", $actual_target, $hunk->{del_count}, $hunk->{ins_count};
+    printf "glide %d:1\n", $actual_target;
     printf "delay %d\n", $glide_ms;
 
-    $current_line = $target;
+    $current_line = $actual_target;
     $current_col = 1;
 
     # Process ops with pacing
@@ -282,6 +298,11 @@ for my $hunk_idx (0 .. $#hunks) {
 
     print "hunk_end\n";
     print "delay $hunk_pause\n" if $hunk_idx < $#hunks;
+
+    # Update cumulative line offset: each newline_insert adds a line,
+    # each newline_delete removes a line. Non-newline ops don't change
+    # line count.
+    $line_offset += $hunk->{newline_inserts} - $hunk->{newline_deletes};
 }
 
 # Snapshot at end if requested

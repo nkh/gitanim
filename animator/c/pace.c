@@ -16,7 +16,7 @@
 #define MAX_LINE 8192
 
 typedef struct { char type[8]; int code; } Op;
-typedef struct { int target, del, ins, end_ins, end_del; Op *ops; int n_ops; } Hunk;
+typedef struct { int target, del, ins, end_ins, end_del; Op *ops; int n_ops; int newline_inserts, newline_deletes; } Hunk;
 
 static char delete_pacing[32] = "word";
 static char delete_speed[32] = "normal";
@@ -105,6 +105,8 @@ void read_input(void) {
                 hunks[n_hunks].end_del = ed;
                 hunks[n_hunks].ops = &all_ops[n_all_ops];
                 hunks[n_hunks].n_ops = 0;
+                hunks[n_hunks].newline_inserts = 0;
+                hunks[n_hunks].newline_deletes = 0;
                 cur_hunk = n_hunks;
                 n_hunks++;
             }
@@ -117,7 +119,13 @@ void read_input(void) {
                 strcpy(all_ops[n_all_ops].type, type);
                 all_ops[n_all_ops].code = code;
                 n_all_ops++;
-                if (cur_hunk >= 0) hunks[cur_hunk].n_ops++;
+                if (cur_hunk >= 0) {
+                    hunks[cur_hunk].n_ops++;
+                    if (code == 10) {
+                        if (strcmp(type, "insert") == 0) hunks[cur_hunk].newline_inserts++;
+                        else if (strcmp(type, "delete") == 0) hunks[cur_hunk].newline_deletes++;
+                    }
+                }
             }
         }
     }
@@ -226,14 +234,19 @@ int main(int argc, char **argv) {
     printf("# delete_threshold %d\n", delete_threshold);
 
     int current_line = 1;
+    int line_offset = 0;  /* Cumulative (inserts - deletes) from previous hunks */
 
     for (int h = 0; h < n_hunks; h++) {
         int target = hunks[h].target;
         Op *ops = hunks[h].ops;
         int n_ops = hunks[h].n_ops;
 
+        /* Apply cumulative line offset so glide targets the CURRENT buffer
+         * position, not the original line number in the old file. */
+        int actual_target = target + line_offset;
+
         /* Compute glide */
-        int dl = abs(target - current_line);
+        int dl = abs(actual_target - current_line);
         int distance = dl * 80;
         int glide_ms = move_min_ms;
         if (distance * move_ms_per_unit > move_min_ms) {
@@ -241,11 +254,11 @@ int main(int argc, char **argv) {
             if (glide_ms > move_max_ms) glide_ms = move_max_ms;
         }
 
-        printf("hunk_start %d %d %d\n", target, hunks[h].del, hunks[h].ins);
-        printf("glide %d:1\n", target);
+        printf("hunk_start %d %d %d\n", actual_target, hunks[h].del, hunks[h].ins);
+        printf("glide %d:1\n", actual_target);
         printf("delay %d\n", glide_ms);
 
-        current_line = target;
+        current_line = actual_target;
 
         int i = 0;
         while (i < n_ops) {
@@ -302,6 +315,9 @@ int main(int argc, char **argv) {
         printf("hunk_end\n");
         if (h < n_hunks - 1)
             printf("delay %d\n", hunk_pause);
+
+        /* Update cumulative line offset */
+        line_offset += hunks[h].newline_inserts - hunks[h].newline_deletes;
     }
 
     if (snapshot_file[0])
