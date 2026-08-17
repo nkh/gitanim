@@ -145,7 +145,7 @@ while [[ $# -gt 0 ]]; do
                 ANIMATOR_ARGS+=("$1"); shift
             fi
             ;;
-        --no-display|--speed|--output|--snapshot|--scroll)
+        --no-display|--speed|--output|--snapshot|--scroll|--syntax)
             # Unprefixed animator options
             ANIMATOR_ARGS+=("$1")
             shift

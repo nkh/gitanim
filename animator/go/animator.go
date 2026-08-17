@@ -33,6 +33,7 @@ import (
         "bufio"
         "fmt"
         "os"
+        "os/exec"
         "strconv"
         "strings"
         "time"
@@ -222,7 +223,7 @@ func (b *VirtualBuffer) Render() {
         // Clear screen and move cursor to top-left
         fmt.Print("\033[2J\033[H")
 
-        // Determine visible range (simple: show all lines, or first N)
+        // Determine visible range
         maxLines := len(b.lines)
         termLines := 40 // TODO: detect terminal height
         if maxLines > termLines {
@@ -232,7 +233,7 @@ func (b *VirtualBuffer) Render() {
         for i := 0; i < maxLines; i++ {
                 line := b.lines[i]
                 if i == b.cursorL {
-                        // Highlight cursor line
+                        // Highlight cursor line with reverse video at cursor position
                         cursorCol := b.cursorC
                         runes := []rune(line)
                         before := ""
@@ -245,12 +246,49 @@ func (b *VirtualBuffer) Render() {
                         } else {
                                 before = string(runes)
                         }
-                        // Render with cursor highlighted (reverse video)
                         fmt.Printf("%s\033[7m%s\033[0m%s\n", before, at, after)
                 } else {
                         fmt.Println(line)
                 }
         }
+
+        // Position cursor
+        fmt.Printf("\033[%d;%dH", b.cursorL+1, b.cursorC+1)
+}
+
+// RenderWithSyntax renders the buffer using an external syntax highlighter.
+// The highlighter command is called with the buffer content on stdin and
+// should output ANSI-colored text on stdout.
+func (b *VirtualBuffer) RenderWithSyntax(highlighter string) {
+        if highlighter == "" {
+                b.Render()
+                return
+        }
+
+        // Clear screen
+        fmt.Print("\033[2J\033[H")
+
+        // Write buffer to temp file
+        tmpFile, err := os.CreateTemp("", "diffvim-syntax-*")
+        if err != nil {
+                b.Render()
+                return
+        }
+        defer os.Remove(tmpFile.Name())
+        tmpFile.WriteString(b.String())
+        tmpFile.Close()
+
+        // Run highlighter and capture output
+        cmd := exec.Command("sh", "-c", highlighter+" "+tmpFile.Name())
+        output, err := cmd.Output()
+        if err != nil {
+                // Fallback to plain render
+                b.Render()
+                return
+        }
+
+        // Print highlighted output
+        fmt.Print(string(output))
 
         // Position cursor
         fmt.Printf("\033[%d;%dH", b.cursorL+1, b.cursorC+1)
@@ -290,6 +328,7 @@ func main() {
         var snapshotFile string
         var scrollMode = "zz"
         var showHelp bool
+        var syntaxHighlighter string
 
         // Simple arg parsing
         args := os.Args[1:]
@@ -313,6 +352,9 @@ func main() {
                 case "--scroll":
                         i++
                         scrollMode = args[i]
+                case "--syntax":
+                        i++
+                        syntaxHighlighter = args[i]
                 case "--help", "-h":
                         showHelp = true
                 default:
@@ -334,6 +376,7 @@ func main() {
                 fmt.Fprintln(os.Stderr, "  --output FILE      Write final buffer to FILE")
                 fmt.Fprintln(os.Stderr, "  --snapshot FILE    Write buffer to FILE at end of processing")
                 fmt.Fprintln(os.Stderr, "  --scroll zz|zt|zb|none  Cursor scroll position (default: zz)")
+                fmt.Fprintln(os.Stderr, "  --syntax CMD       External syntax highlighter (e.g. 'bat --color=always')")
                 fmt.Fprintln(os.Stderr, "  -h, --help         Show this help")
                 os.Exit(0)
         }
@@ -372,11 +415,19 @@ func main() {
 
         // Set up terminal for display mode
         if !noDisplay {
-                // Enter raw terminal mode (simplified — no full raw mode for now)
                 fmt.Print("\033[?25l") // hide cursor
                 defer fmt.Print("\033[?25h\033[0m\033[2J\033[H") // restore on exit
         }
         _ = scrollMode // TODO: implement scroll positioning
+
+        // Render function: use syntax highlighting if --syntax is set
+        renderBuf := func() {
+                if syntaxHighlighter != "" {
+                        buf.RenderWithSyntax(syntaxHighlighter)
+                } else {
+                        buf.Render()
+                }
+        }
 
         // Process ops
         for _, op := range ops {
@@ -396,7 +447,7 @@ func main() {
                                 buf.InsertChar(code)
                         }
                         if !noDisplay {
-                                buf.Render()
+                                renderBuf()
                         }
 
                 case "delay":
@@ -418,7 +469,7 @@ func main() {
                         n, _ := strconv.Atoi(op.Args[0])
                         buf.BatchDelete(n)
                         if !noDisplay {
-                                buf.Render()
+                                renderBuf()
                         }
 
                 case "batch_insert":
@@ -428,19 +479,19 @@ func main() {
                         }
                         buf.BatchInsert(codes)
                         if !noDisplay {
-                                buf.Render()
+                                renderBuf()
                         }
 
                 case "newline_delete":
                         buf.NewlineDelete()
                         if !noDisplay {
-                                buf.Render()
+                                renderBuf()
                         }
 
                 case "newline_insert":
                         buf.NewlineInsert()
                         if !noDisplay {
-                                buf.Render()
+                                renderBuf()
                         }
 
                 case "glide":
@@ -461,7 +512,7 @@ func main() {
                                 }
                         }
                         if !noDisplay {
-                                buf.Render()
+                                renderBuf()
                         }
 
                 case "snapshot":
