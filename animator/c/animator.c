@@ -12,7 +12,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <time.h>
+
+/* Ctrl+C handler: restore terminal before exiting */
+static void cleanup_handler(int sig) {
+    printf("\033[?25h\033[0m\033[2J\033[H");
+    fflush(stdout);
+    exit(1);
+}
 
 #define MAX_LINES 100000
 #define MAX_LINE_LEN 8192
@@ -86,22 +94,22 @@ void keep_char(int code) {
 
 void delete_char(int code) {
     if (code == 10) {
-        /* Delete newline: if the current line is NOT empty, do NOT
-         * delete the \n. Just move the cursor to the next line.
-         * Never bring the next line's text onto the current line.
-         * If the current line IS empty, deleting the \n just removes
-         * the empty line — harmless. */
         char *line = lines[cursor_l];
         if (strlen(line) == 0) {
-            /* Empty line — safe to join (removes empty line) */
+            /* Current line is empty. Remove it. */
             if (cursor_l < n_lines - 1) {
-                int len2 = strlen(lines[cursor_l + 1]);
-                lines[cursor_l] = realloc(lines[cursor_l], len2 + 1);
-                strcpy(lines[cursor_l], lines[cursor_l + 1]);
-                free(lines[cursor_l + 1]);
-                for (int i = cursor_l + 1; i < n_lines - 1; i++)
+                /* Not last line — remove, cursor stays at same index */
+                free(lines[cursor_l]);
+                for (int i = cursor_l; i < n_lines - 1; i++)
                     lines[i] = lines[i + 1];
                 n_lines--;
+                cursor_c = 0;
+            } else if (cursor_l > 0) {
+                /* Last line — remove it and move to previous */
+                free(lines[cursor_l]);
+                n_lines--;
+                cursor_l--;
+                cursor_c = strlen(lines[cursor_l]);
             }
         } else {
             /* Line has content — do NOT delete the \n.
@@ -195,6 +203,8 @@ void sleep_ms(int ms) {
 }
 
 int main(int argc, char **argv) {
+    signal(SIGINT, cleanup_handler);
+    signal(SIGTERM, cleanup_handler);
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--no-display") == 0) no_display = 1;
         else if (strcmp(argv[i], "--speed") == 0 && i+1 < argc) speed_mult = atof(argv[++i]);

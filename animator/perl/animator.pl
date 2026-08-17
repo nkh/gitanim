@@ -25,6 +25,12 @@ binmode(STDIN, ':encoding(UTF-8)');
 binmode(STDOUT, ':encoding(UTF-8)');
 binmode(STDERR, ':encoding(UTF-8)');
 
+# Handle Ctrl+C: restore terminal before exiting
+$SIG{INT} = $SIG{TERM} = sub {
+    print STDERR "\033[?25h\033[0m\033[2J\033[H";
+    exit 1;
+};
+
 my $no_display = 0;
 my $speed = 1.0;
 my $output_file;
@@ -95,17 +101,22 @@ sub keep_char {
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        # Delete newline: if the current line is NOT empty, do NOT
-        # delete the \n. Just move the cursor to the next line.
-        # Never bring the next line's text onto the current line.
-        # If the current line IS empty, deleting the \n just removes
-        # the empty line — harmless.
         my $line = $lines[$cursor_l];
         if (length($line) == 0) {
-            # Empty line — safe to join (removes empty line)
+            # Current line is empty. Remove it.
             if ($cursor_l < $#lines) {
-                $lines[$cursor_l] .= $lines[$cursor_l + 1];
-                splice(@lines, $cursor_l + 1, 1);
+                # Not the last line — remove, cursor stays at same index
+                splice(@lines, $cursor_l, 1);
+                $cursor_c = 0;
+            } elsif ($cursor_l > 0) {
+                # Last line — remove it and move to previous
+                pop @lines;
+                $cursor_l--;
+                $cursor_c = length($lines[$cursor_l]);
+            } else {
+                # Only line — make empty
+                @lines = ("");
+                $cursor_c = 0;
             }
         } else {
             # Line has content — do NOT delete the \n.

@@ -2360,12 +2360,12 @@ function! s:DeleteCharAtCursor() abort
     " Use character count, not byte length, for "past end" check
     let l:line_chars = strchars(l:line)
     if l:c > l:line_chars
-        " past end -> join with next line (delete the newline)
+        " Cursor is past end of line. This means we're trying to delete
+        " the \n. Do NOT join — just move cursor to the next line.
+        " Never bring the next line's text onto the current line.
         if l:l < line('$')
-            let l:next = getline(l:l + 1)
-            call setline(l:l, l:line . l:next)
-            execute (l:l + 1) . 'delete _'
-            " logical cursor stays at same col on the joined line
+            let s:cur_l = l:l + 1
+            let s:cur_c = 1
         endif
     else
         " Convert character positions to byte positions

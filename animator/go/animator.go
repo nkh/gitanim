@@ -34,8 +34,10 @@ import (
         "fmt"
         "os"
         "os/exec"
+        "os/signal"
         "strconv"
         "strings"
+        "syscall"
         "time"
 )
 
@@ -177,10 +179,30 @@ func (b *VirtualBuffer) BatchInsert(codes []int) {
 // NewlineDelete deletes the \n (joins with next line).
 // When the line is empty, this just removes the empty line.
 func (b *VirtualBuffer) NewlineDelete() {
-        if b.cursorL < len(b.lines)-1 {
-                // Join with next line
-                b.lines[b.cursorL] = b.lines[b.cursorL] + b.lines[b.cursorL+1]
-                b.lines = append(b.lines[:b.cursorL+1], b.lines[b.cursorL+2:]...)
+        currentLine := b.lines[b.cursorL]
+        if len([]rune(currentLine)) == 0 {
+                // Current line is empty. Remove it.
+                if b.cursorL < len(b.lines)-1 {
+                        // Not the last line — remove and cursor stays at same index
+                        b.lines = append(b.lines[:b.cursorL], b.lines[b.cursorL+1:]...)
+                        b.cursorC = 0
+                } else {
+                        // Last line — remove it and move to previous
+                        b.lines = b.lines[:b.cursorL]
+                        b.cursorL--
+                        if b.cursorL < 0 {
+                                b.cursorL = 0
+                                b.lines = []string{""}
+                        }
+                        b.cursorC = len([]rune(b.lines[b.cursorL]))
+                }
+        } else {
+                // Line has content — do NOT delete the \n.
+                // Move cursor to the next line.
+                if b.cursorL < len(b.lines)-1 {
+                        b.cursorL++
+                        b.cursorC = 0
+                }
         }
 }
 
@@ -402,6 +424,15 @@ func main() {
         if !noDisplay {
                 fmt.Print("\033[?25l") // hide cursor
                 defer fmt.Print("\033[?25h\033[0m\033[2J\033[H") // restore on exit
+
+                // Handle Ctrl+C: restore terminal before exiting
+                sigChan := make(chan os.Signal, 1)
+                signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+                go func() {
+                        <-sigChan
+                        fmt.Print("\033[?25h\033[0m\033[2J\033[H")
+                        os.Exit(1)
+                }()
         }
         _ = scrollMode // TODO: implement scroll positioning
 

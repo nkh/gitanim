@@ -89,16 +89,20 @@ void read_input(void) {
     }
 }
 
-/* Optimize: within each change region (between keeps), deletes before inserts */
+/* Optimize: within each change region (between keeps), deletes before inserts.
+ * Within deletes, put \n (code 10) deletes LAST so the line content
+ * is deleted before the \n is removed. */
 int optimize_line(Op *in, int count, Op *out) {
     int n_out = 0;
-    int buf_start = 0; /* start of current change region */
+    int buf_start = 0;
 
     for (int i = 0; i <= count; i++) {
         if (i == count || strcmp(in[i].type, "keep") == 0) {
-            /* Flush buffer: deletes first, then inserts */
+            /* Flush buffer: content deletes, \n deletes, then inserts */
             for (int j = buf_start; j < i; j++)
-                if (strcmp(in[j].type, "delete") == 0) out[n_out++] = in[j];
+                if (strcmp(in[j].type, "delete") == 0 && in[j].code != 10) out[n_out++] = in[j];
+            for (int j = buf_start; j < i; j++)
+                if (strcmp(in[j].type, "delete") == 0 && in[j].code == 10) out[n_out++] = in[j];
             for (int j = buf_start; j < i; j++)
                 if (strcmp(in[j].type, "insert") == 0) out[n_out++] = in[j];
             if (i < count) out[n_out++] = in[i]; /* the keep */
@@ -137,7 +141,9 @@ int semantic_cleanup(Op *in, int count, Op *out) {
     return n_out;
 }
 
-/* Reorder ops within each line (delimited by code==10) */
+/* Reorder ops. Split at ANY \n (keep, delete, or insert).
+ * Each line group includes its \n. optimize_line puts content
+ * deletes before \n deletes within each group. */
 int reorder_hunk_ops(Op *in, int count, Op *out) {
     int n_out = 0;
     int line_start = 0;

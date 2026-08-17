@@ -241,7 +241,10 @@ sub indent_aware {
 sub reorder_ops {
     my ($ops, $mode) = @_;
 
-    # Group ops by line
+    # Group ops by line. Split at \n, BUT if a line group is just
+    # a single delete-\n (code 10) and the next group starts with
+    # more deletes, merge them — the \n belongs to the line BEFORE
+    # the content, so we move it AFTER the content deletes.
     my @lines;
     my @current;
     for my $op (@$ops) {
@@ -252,6 +255,21 @@ sub reorder_ops {
         }
     }
     push @lines, [@current] if @current;
+
+    # Merge single delete-\n groups with the next group
+    my @merged;
+    for my $i (0 .. $#lines) {
+        if ($i < $#lines
+            && scalar(@{$lines[$i]}) == 1
+            && $lines[$i][0][0] eq 'delete'
+            && $lines[$i][0][1] == 10) {
+            # Merge this \n into the next group, at the end
+            push @{$lines[$i+1]}, $lines[$i][0];
+        } else {
+            push @merged, $lines[$i];
+        }
+    }
+    @lines = @merged;
 
     # Reorder each line
     my @result;
@@ -301,19 +319,20 @@ sub reorder_line {
     return $ops;
 }
 
-# Optimize: within each "change region" (between keeps), put deletes before inserts
+# Optimize: within each "change region" (between keeps), put content
+# deletes first, then \n deletes, then inserts.
 sub optimize_line {
     my ($ops) = @_;
     my @result;
-    my @buffer;  # current change region
+    my @buffer;
 
     for my $op (@$ops) {
         if ($op->[0] eq 'keep') {
-            # Flush buffer: deletes first, then inserts
             if (@buffer) {
-                my @dels = grep { $_->[0] eq 'delete' } @buffer;
+                my @content_dels = grep { $_->[0] eq 'delete' && $_->[1] != 10 } @buffer;
+                my @nl_dels = grep { $_->[0] eq 'delete' && $_->[1] == 10 } @buffer;
                 my @ins = grep { $_->[0] eq 'insert' } @buffer;
-                push @result, @dels, @ins;
+                push @result, @content_dels, @nl_dels, @ins;
                 @buffer = ();
             }
             push @result, $op;
@@ -321,11 +340,11 @@ sub optimize_line {
             push @buffer, $op;
         }
     }
-    # Flush remaining
     if (@buffer) {
-        my @dels = grep { $_->[0] eq 'delete' } @buffer;
+        my @content_dels = grep { $_->[0] eq 'delete' && $_->[1] != 10 } @buffer;
+        my @nl_dels = grep { $_->[0] eq 'delete' && $_->[1] == 10 } @buffer;
         my @ins = grep { $_->[0] eq 'insert' } @buffer;
-        push @result, @dels, @ins;
+        push @result, @content_dels, @nl_dels, @ins;
     }
     return \@result;
 }
