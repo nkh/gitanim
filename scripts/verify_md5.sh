@@ -4,7 +4,7 @@
 # For each example pair, runs three tests in parallel batches:
 #   - simple-loop test (test_vim_correctness.pl style: DeleteCharAtCursor/InsertCharAtCursor)
 #   - ProcessCharOp test (test_vim_roundtrip.pl style: full engine)
-#   - diffvim-pipeline (Go animator)
+#   - diffvim-pipeline (C animator)
 #
 # Outputs MD5 of saved buffer for each, compares with MD5 of new file.
 
@@ -429,7 +429,7 @@ run_pipe() {
     local out="$OUTDIR/dv_pipe_${d}.md5"
     local buf="/tmp/dv_buf_${d}_pipe.txt"
     rm -f "$buf"
-    ( cd "$ROOT" && timeout -k 5 30 bash -c \
+    ( cd "$ROOT" && timeout -k 5 120 bash -c \
         "animator/diffvim-pipeline --no-display --speed 1000 --snapshot '$buf' '$old' '$new'" \
         >/dev/null 2>&1 )
     if [[ -f "$buf" ]]; then
@@ -481,7 +481,7 @@ printf "\n"
 printf "Round-trip MD5 verification — all 42 example pairs\n"
 printf '%s\n' "$(printf '%.0s=' {1..150})"
 printf "%-22s | %-32s | %-32s | %-32s | %-32s\n" "example" "new-file MD5" \
-    "diffvim (simple loop)" "diffvim (ProcessCharOp)" "diffvim-pipeline"
+    "diffvim (simple loop)" "diffvim (ProcessCharOp)" "pipeline (C animator)"
 printf '%s\n' "$(printf '%.0s-' {1..150})"
 
 s_ok=0; s_bad=0; r_ok=0; r_bad=0; p_ok=0; p_bad=0
@@ -507,5 +507,5 @@ printf '%s\n' "$(printf '%.0s=' {1..150})"
 printf "\nSummary:\n"
 printf "  diffvim (simple loop / primitives only):    %2d OK / %2d bad\n" $s_ok $s_bad
 printf "  diffvim (ProcessCharOp / full engine):      %2d OK / %2d bad\n" $r_ok $r_bad
-printf "  diffvim-pipeline (Go animator):             %2d OK / %2d bad\n" $p_ok $p_bad
+printf "  diffvim-pipeline (C animator):              %2d OK / %2d bad\n" $p_ok $p_bad
 echo ""

@@ -1,58 +1,62 @@
-# External Compute Tools
+# External Compute Tool
 
 diffvim's in-vim LCS computation is fast enough for files up to a few
 hundred lines. For larger files (1000+ lines, or diffs with thousands
 of changed characters), the vimscript LCS can take seconds or even
 tens of seconds before the animation starts.
 
-The **external compute tools** solve this. They are standalone
-binaries written in C, C++, Rust, and Go that implement the exact
-same algorithm as the vimscript engine, but compiled to native code.
-They are 10-100x faster.
+The **external compute tool** solves this. It is a standalone binary
+written in C++ that implements the exact same algorithm as the
+vimscript engine, but compiled to native code. It is 10-100x faster.
+
+> The historical C, Rust, and Go variants were removed in the Phase A
+> refactor — they all produced byte-identical output and the maintenance
+> cost outweighed the value. Only the C++ tool remains. When the C++
+> binary is missing, `diffvim-pipeline` falls back to the pure-Perl
+> `compute/perl/compute_builtin.pl`.
 
 ## Quick Start
 
 ```bash
-# Build all four variants
+# Build the C++ tool
 make -C compute
 
 # Compute the diff, then run diffvim with --precomputed
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
 diffvim --precomputed /tmp/diff.txt old.py new.py
 
 # Or in one line:
-compute/bin/diffvim-compute-rust old.py new.py /tmp/diff.txt && \
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt && \
     diffvim --precomputed /tmp/diff.txt old.py new.py
 ```
 
-## The Four Variants
+`diffvim` and `diffvim-pipeline` look for the C++ binary automatically
+(in `compute/bin/`, `/usr/local/bin/`, and `~/.local/bin/`); when it
+is present they pre-compute before launching vim, so the manual
+`--precomputed` step is rarely needed.
 
-All four implementations produce **byte-for-byte identical output**.
-Pick whichever language's toolchain you have available.
+## The C++ Variant
 
 | Binary                       | Source                       | Build cmd              | Notes                          |
 | ---------------------------- | ---------------------------- | ---------------------- | ------------------------------ |
-| `compute/bin/diffvim-compute-c`   | `compute/c/diffvim-compute.c`     | `make c`          | Reference implementation       |
-| `compute/bin/diffvim-compute-cpp` | `compute/cpp/diffvim-compute.cpp` | `make cpp`        | Modern C++17                   |
-| `compute/bin/diffvim-compute-rust`| `compute/rust/diffvim-compute.rs` | `make rust`       | Requires `rustc`               |
-| `compute/bin/diffvim-compute-go`  | `compute/go/diffvim-compute.go`   | `make go`         | Requires `go`                  |
+| `compute/bin/diffvim-compute-cpp` | `compute/cpp/diffvim-compute.cpp` | `make cpp`        | C++17, the only compute implementation |
 
 ## Direct Usage
 
 ```bash
 # Compute the diff and write to a file
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
 
 # Use a specific algorithm
-compute/bin/diffvim-compute-c --algorithm patience --semantic-cleanup \
+compute/bin/diffvim-compute-cpp --algorithm patience --semantic-cleanup \
     old.py new.py /tmp/diff.txt
 
 # Convert a unified diff to diffvim's format
-compute/bin/diffvim-compute-c --diff patch.diff /tmp/diff.txt
-compute/bin/diffvim-compute-c --diff - /tmp/diff.txt < patch.diff
+compute/bin/diffvim-compute-cpp --diff patch.diff /tmp/diff.txt
+compute/bin/diffvim-compute-cpp --diff - /tmp/diff.txt < patch.diff
 
 # Show help
-compute/bin/diffvim-compute-c --help
+compute/bin/diffvim-compute-cpp --help
 ```
 
 Then run diffvim with the precomputed file:
@@ -63,11 +67,9 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 
 ## Options
 
-All four variants accept the same options:
-
 | Option                       | Description                                          |
 | ---------------------------- | ---------------------------------------------------- |
-| `--algorithm lcs\|myers\|patience` | Diff algorithm (default: `lcs`)                |
+| `--algorithm lcs\|patience`  | Diff algorithm (default: `lcs`)                     |
 | `--semantic-cleanup`         | Merge adjacent delete/insert pairs into keeps        |
 | `--word-diff`                | Batch word runs in char ops                          |
 | `--indent-aware`             | Treat indent-only changes specially                  |
@@ -76,6 +78,9 @@ All four variants accept the same options:
 | `--left-to-right`            | Emit keeps, then deletes, then inserts per line      |
 | `--diff`                     | Read a unified diff instead of two files             |
 | `-h, --help`                 | Show help and exit                                   |
+
+`--algorithm myers` was removed: it OOMs on 15K-line files and
+produces the same op count as LCS.
 
 ## Environment Variables
 
@@ -87,6 +92,7 @@ All four variants accept the same options:
 | `DIFFVIM_INDENT_AWARE`         | Set to `1` to enable by default                 |
 | `DIFFVIM_OPTIMIZE_SEQUENCE`    | Default `1`; set to `0` to disable              |
 | `DIFFVIM_LEFT_TO_RIGHT`        | Set to `1` to enable by default                 |
+| `DIFFVIM_COMPUTE_BIN`          | Override path to the compute binary (advanced)  |
 
 ## Output Format
 
@@ -134,33 +140,35 @@ compute: 12.3 ms (total)
 startup: 0.4 ms (process start to first byte read)
 ```
 
-Use `compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt 2>&1`
+Use `compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt 2>&1`
 to see the compute time, then run diffvim to see the animation startup.
 
-## When to Use Each Variant
+## Fallback
 
-- **C** — fastest startup, smallest binary. Best for repeated invocations.
-- **C++** — same speed as C, slightly larger binary. Useful if you want to extend with C++ libraries.
-- **Rust** — same speed as C/C++, safest code. Best if you want to hack on the algorithm.
-- **Go** — slightly larger binary, same speed. Best if your team already uses Go.
+If `compute/bin/diffvim-compute-cpp` is not on disk:
 
-In practice the difference is negligible — pick whichever builds
-cleanly on your system.
+- `diffvim` falls back to the embedded vimscript LCS
+  (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`) —
+  slower but always available.
+- `diffvim-pipeline` falls back to `compute/perl/compute_builtin.pl`,
+  a thin Perl wrapper around `DiffVim::Parser::Perl::parse_diff` that
+  emits the same op-stream format as the C++ tool.
+
+Both fallbacks produce byte-identical output to the C++ tool, just
+slower.
 
 ## Benchmark
 
 On a 1000-line Python file with ~200 changed lines:
 
-| Tool                 | Compute time |
-| -------------------- | ------------ |
-| vimscript LCS        | ~3500 ms     |
-| `diffvim-compute-c`  | 11 ms        |
-| `diffvim-compute-cpp`| 12 ms        |
-| `diffvim-compute-rust`| 13 ms       |
-| `diffvim-compute-go` | 14 ms        |
+| Tool                  | Compute time |
+| --------------------- | ------------ |
+| vimscript LCS         | ~3500 ms     |
+| Perl fallback         | ~150 ms      |
+| `diffvim-compute-cpp` | 11 ms        |
 
-All four native variants finish in under 15ms — a 250x speedup over
-vimscript.
+The native C++ tool is ~300x faster than the vimscript LCS and ~15x
+faster than the Perl fallback.
 
 ## See Also
 

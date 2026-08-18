@@ -1,4 +1,4 @@
-.TH DIFFVIM-COMPARE 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.TH DIFFVIM-COMPARE 1 "2026-08-18" "diffvim 1.4" "User Commands"
 .SH NAME
 diffvim-compare \- benchmark diff algorithms and option combinations
 .SH SYNOPSIS
@@ -16,8 +16,8 @@ diff algorithm and post-processing option, then prints a comparison
 table so you can pick the most efficient and most readable combination
 for your file pair.
 
-It uses the C reference compute tool
-.RI ( compute/bin/diffvim-compute-c )
+It uses the C++ compute tool
+.RI ( compute/bin/diffvim-compute-cpp )
 under the hood. For each combination it records hunk count, total ops,
 delete/insert counts, and compute time, then writes the diff file to the
 output directory for offline inspection.
@@ -40,13 +40,13 @@ Where to write the .diff files (default:
 Show help and exit.
 
 .SH ALGORITHMS
-Three algorithms are exercised:
+Two algorithms are exercised:
 .BR lcs ,
-.BR myers ,
 .BR patience .
 See
 .BR diffvim (1)
 for the semantics of each.
+(Myers was removed in the refactor.)
 
 .SH OPTION COMBINATIONS
 Eight combinations of post-processing flags are exercised:
@@ -69,7 +69,7 @@ Eight combinations of post-processing flags are exercised:
 \-\-word-diff \-\-semantic-cleanup \-\-indent-aware
 .RE
 
-This produces 3 \(mu 8 = 24 diff files in the output directory, named
+This produces 2 \(mu 8 = 16 diff files in the output directory, named
 .IR <algorithm>-<options>.diff .
 
 .SH OUTPUT
@@ -92,13 +92,13 @@ Fewer
 .TP
 .B DIFFVIM_COMPUTE_BIN
 Override the path to the compute binary (default:
-.IR compute/bin/diffvim-compute-c ).
-Use this to point at the
-.IR cpp ,
+.IR compute/bin/diffvim-compute-cpp ).
+Historically this also pointed at the
+.IR c ,
 .IR rust ,
 or
 .I go
-variants.
+variants, but those were removed in the refactor.
 
 .SH EXAMPLES
 .TP
@@ -110,8 +110,8 @@ Write diff files to
 .I /tmp/mycompare
 instead of the default.
 .TP
-.B DIFFVIM_COMPUTE_BIN=compute/bin/diffvim-compute-rust diffvim-compare a.py b.py
-Use the Rust compute tool instead of C.
+.B DIFFVIM_COMPUTE_BIN=compute/bin/diffvim-compute-cpp diffvim-compare a.py b.py
+Explicitly select the C++ compute tool (the default).
 
 .SH SEE ALSO
 .BR diffvim (1),

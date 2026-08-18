@@ -17,7 +17,7 @@ use warnings;
 use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
-my $compute = "$root/compute/bin/diffvim-compute-c";
+my $compute = "$root/compute/bin/diffvim-compute-cpp";
 my $postprocess = "perl $root/animator/perl/postprocess.pl";
 my $pace = "perl $root/animator/perl/pace.pl";
 
@@ -114,9 +114,8 @@ for my $case (@cases) {
     # Read expected
     open $fh, '<:raw', $nf; my $expected = do { local $/; <$fh> }; close $fh;
 
-    # Test all 3 animators
+    # Test all 2 animators (Go was removed in the refactor — C and Perl remain)
     for my $animator (
-        ['Go',   "$root/animator/bin/diffvim-animator"],
         ['Perl', "perl $root/animator/perl/animator.pl"],
         ['C',    "$root/animator/bin/diffvim-animator-c"],
     ) {

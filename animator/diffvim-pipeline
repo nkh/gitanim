@@ -3,10 +3,10 @@
 # pace → animator. Routes options to each stage using prefixed option names.
 #
 # Options are routed by prefix:
-#   --compute-*   → diffvim-compute
-#   --postprocess-* → diffvim-postprocess
-#   --pace-*       → diffvim-pace
-#   --animator-*   → diffvim-animator
+#   --compute-*      → diffvim-compute-cpp
+#   --postprocess-*  → diffvim-postprocess (C, fallback to Perl)
+#   --pace-*         → diffvim-pace (C, fallback to Perl)
+#   --animator-*     → diffvim-animator (C, fallback to Perl)
 #
 # Unprefixed options (--speed, --output, etc.) go to the animator.
 #
@@ -23,27 +23,43 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Find tools
-COMPUTE="${DIFFVIM_COMPUTE_BIN:-$ROOT_DIR/compute/bin/diffvim-compute-c}"
-POSTPROCESS_PERL="$ROOT_DIR/animator/perl/postprocess.pl"
-PACE_PERL="$ROOT_DIR/animator/perl/pace.pl"
-ANIMATOR_GO="$ROOT_DIR/animator/bin/diffvim-animator"
+# --- Tool selection -------------------------------------------------------
+# Compute: C++ only. If the binary is missing, fall back to the Perl
+# inline LCS (compute_builtin.pl, added in this refactor). Both produce
+# the same op-stream format.
+COMPUTE_CPP="$ROOT_DIR/compute/bin/diffvim-compute-cpp"
+COMPUTE_PERL="$ROOT_DIR/compute/perl/compute_builtin.pl"
 
-# Check if C/Go tools exist and prefer them (faster)
+if [[ -f "$COMPUTE_CPP" && -x "$COMPUTE_CPP" ]]; then
+    COMPUTE="$COMPUTE_CPP"
+elif [[ -f "$COMPUTE_PERL" ]]; then
+    COMPUTE="perl $COMPUTE_PERL"
+else
+    echo "diffvim-pipeline: no compute tool available." >&2
+    echo "  Expected: $COMPUTE_CPP" >&2
+    echo "  Or fallback: $COMPUTE_PERL" >&2
+    echo "  Run 'make -C compute' to build the C++ tool." >&2
+    exit 1
+fi
+
+# Postprocess: C preferred, Perl fallback
+POSTPROCESS_PERL="$ROOT_DIR/animator/perl/postprocess.pl"
 POSTPROCESS="$ROOT_DIR/animator/bin/diffvim-postprocess"
 [ ! -f "$POSTPROCESS" ] && POSTPROCESS="perl $POSTPROCESS_PERL"
 
+# Pace: C preferred, Perl fallback
+PACE_PERL="$ROOT_DIR/animator/perl/pace.pl"
 PACE="$ROOT_DIR/animator/bin/diffvim-pace"
-[ ! -f "$PACE" ] && PACE="$ROOT_DIR/animator/bin/diffvim-pace-go"
 [ ! -f "$PACE" ] && PACE="perl $PACE_PERL"
 
-ANIMATOR="$ANIMATOR_GO"
-[ ! -f "$ANIMATOR" ] && ANIMATOR="perl $ROOT_DIR/animator/perl/animator.pl"
-
-# Default language for compute tool
-COMPUTE_TOOL="${DIFFVIM_COMPUTE_TOOL:-c}"
-COMPUTE_BIN="$ROOT_DIR/compute/bin/diffvim-compute-$COMPUTE_TOOL"
-[ ! -f "$COMPUTE_BIN" ] && COMPUTE_BIN="$COMPUTE"  # fallback to C
+# Animator: C preferred, Perl fallback
+ANIMATOR_C="$ROOT_DIR/animator/bin/diffvim-animator-c"
+ANIMATOR_PERL="$ROOT_DIR/animator/perl/animator.pl"
+if [[ -f "$ANIMATOR_C" ]]; then
+    ANIMATOR="$ANIMATOR_C"
+else
+    ANIMATOR="perl $ANIMATOR_PERL"
+fi
 
 show_help() {
     cat <<HELP
@@ -52,13 +68,13 @@ diffvim-pipeline — Run the full animator pipeline
 Usage: diffvim-pipeline [options] <oldfile> <newfile>
 
 The pipeline runs 4 stages:
-  1. compute     — diffvim-compute (C/C++/Rust/Go)
-  2. postprocess  — diffvim-postprocess (Perl/C/Go)
-  3. pace         — diffvim-pace (Perl/C/Go)
-  4. animator     — diffvim-animator (Go/Perl/C)
+  1. compute     — diffvim-compute-cpp (C++; Perl builtin fallback)
+  2. postprocess  — diffvim-postprocess (C; Perl fallback)
+  3. pace         — diffvim-pace (C; Perl fallback)
+  4. animator     — diffvim-animator (C; Perl fallback)
 
 Option routing by prefix:
-  --compute-*       Options for diffvim-compute
+  --compute-*       Options for diffvim-compute-cpp
                     (e.g. --compute-algorithm patience)
   --postprocess-*   Options for diffvim-postprocess
                     (e.g. --postprocess-op-order optimize,
@@ -79,18 +95,16 @@ Unprefixed options go to the animator:
   --snapshot FILE   Write buffer to FILE at end
   --help, -h        Show this help
 
-Compute tool selection:
-  --tool c|cpp|rust|go   Which compute tool to use (default: c)
+The C++ compute tool (compute/bin/diffvim-compute-cpp) is the default.
+If it is missing, the pipeline falls back to the Perl builtin LCS.
 
 Examples:
   diffvim-pipeline old.py new.py
   diffvim-pipeline --pace-delete-pacing word --no-display --snapshot out.txt old.py new.py
   diffvim-pipeline --compute-algorithm patience --postprocess-semantic-cleanup --pace-pacing gaussian old.py new.py
-  diffvim-pipeline --tool rust --pace-delete-pacing instant old.py new.py
 
 Environment:
-  DIFFVIM_COMPUTE_TOOL   Default compute tool (c, cpp, rust, go)
-  DIFFVIM_COMPUTE_BIN    Override compute binary path
+  DIFFVIM_COMPUTE_BIN    Override compute binary path (advanced)
 HELP
 }
 
@@ -100,16 +114,12 @@ POSTPROCESS_ARGS=()
 PACE_ARGS=()
 ANIMATOR_ARGS=()
 POSITIONAL=()
-COMPUTE_TOOL_OVERRIDE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h)
             show_help
             exit 0
-            ;;
-        --tool)
-            COMPUTE_TOOL_OVERRIDE="$2"; shift 2
             ;;
         --compute-*)
             # Strip --compute- prefix and pass to compute tool
@@ -176,13 +186,9 @@ fi
 OLD="${POSITIONAL[0]}"
 NEW="${POSITIONAL[1]}"
 
-# Override compute tool if --tool was given
-if [[ -n "$COMPUTE_TOOL_OVERRIDE" ]]; then
-    COMPUTE_BIN="$ROOT_DIR/compute/bin/diffvim-compute-$COMPUTE_TOOL_OVERRIDE"
-    if [[ ! -f "$COMPUTE_BIN" ]]; then
-        echo "Error: compute tool '$COMPUTE_TOOL_OVERRIDE' not found at $COMPUTE_BIN" >&2
-        exit 1
-    fi
+# Optional override via environment (advanced; rarely needed)
+if [[ -n "${DIFFVIM_COMPUTE_BIN:-}" && -f "$DIFFVIM_COMPUTE_BIN" ]]; then
+    COMPUTE="$DIFFVIM_COMPUTE_BIN"
 fi
 
 # Create temp files
@@ -192,7 +198,7 @@ RAW_OPS="$WORKDIR/raw_ops.txt"
 TIMED_OPS="$WORKDIR/timed_ops.txt"
 
 # Stage 1: Compute
-"$COMPUTE_BIN" "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS" 2>/dev/null
+$COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS" 2>/dev/null
 
 # Stage 2: Postprocess
 $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" 2>/dev/null > "$WORKDIR/post_ops.txt"

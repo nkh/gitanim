@@ -1,8 +1,11 @@
 /* diffvim-animator — Standalone terminal animation application.
- * C implementation — produces identical results to Perl and Go versions.
+ * C implementation.
  *
- * Reads a timed op stream and animates the transformation.
- * Supports --no-display for testing.
+ * Reads a TSV timed op stream and animates the transformation.
+ * Every op carries its own (line, col); the animator moves the cursor
+ * to that position before applying the op. This makes the animator
+ * scroll-safe — even if the user scrolls mid-animation, each op is
+ * applied at the right place.
  *
  * Usage: diffvim-animator [options] <oldfile>
  * Build: cc -O2 -o diffvim-animator animator.c
@@ -110,9 +113,36 @@ int char_to_byte(int l, int col) {
     return byte; /* past end of string */
 }
 
+/* Set cursor position (1-indexed line/col → 0-indexed internal).
+ * Clamps to buffer bounds. When the target line is past the end of
+ * the buffer (end-insert case), the cursor is placed at the END of
+ * the last line so subsequent inserts append after existing content. */
+void set_cursor(int line, int col) {
+    cursor_l = line - 1;
+    if (cursor_l < 0) cursor_l = 0;
+    if (cursor_l >= n_lines) {
+        /* Past end of buffer — clamp to last line, position at END. */
+        cursor_l = n_lines - 1;
+        cursor_c = line_chars(cursor_l);  /* END of last line (0-indexed = past last char) */
+        return;
+    }
+    cursor_c = col - 1;
+    if (cursor_c < 0) cursor_c = 0;
+    int max_col = line_chars(cursor_l);
+    if (cursor_c > max_col) cursor_c = max_col;
+}
+
 void keep_char(int code) {
-    if (code == 10) { cursor_l++; if (cursor_l >= n_lines) cursor_l = n_lines - 1; cursor_c = 0; }
-    else cursor_c++;
+    /* Note: with per-op positioning, keep_char only advances the cursor
+     * within the same line. Line transitions are handled by set_cursor()
+     * calls (next op carries the new line). */
+    if (code == 10) {
+        cursor_l++;
+        if (cursor_l >= n_lines) cursor_l = n_lines - 1;
+        cursor_c = 0;
+    } else {
+        cursor_c++;
+    }
 }
 
 void delete_char(int code) {
@@ -267,72 +297,77 @@ int main(int argc, char **argv) {
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') continue;
 
-        char cmd[32];
-        sscanf(line, "%31s", cmd);
-        char *args = line + strlen(cmd);
-        while (*args == ' ') args++;
+        /* TSV tokenizer. */
+        char *toks[32];
+        int ntok = 0;
+        char *p = line;
+        char *tab = strchr(p, '\t');
+        while (tab && ntok < 31) {
+            *tab = 0;
+            toks[ntok++] = p;
+            p = tab + 1;
+            tab = strchr(p, '\t');
+        }
+        toks[ntok++] = p;
 
-        if (strcmp(cmd, "op") == 0) {
-            char type[8]; int code;
-            sscanf(args, "%s %d", type, &code);
+        char *cmd = toks[0];
+
+        if (strcmp(cmd, "op") == 0 && ntok >= 5) {
+            /* op\t<type>\t<line>\t<col>\t<code> */
+            char *type = toks[1];
+            int op_line = atoi(toks[2]);
+            int op_col = atoi(toks[3]);
+            int code = atoi(toks[4]);
+            set_cursor(op_line, op_col);
             if (strcmp(type, "keep") == 0) keep_char(code);
             else if (strcmp(type, "delete") == 0) delete_char(code);
             else if (strcmp(type, "insert") == 0) insert_char(code);
             render();
-        } else if (strcmp(cmd, "delay") == 0) {
-            int ms = atoi(args);
+        } else if (strcmp(cmd, "delay") == 0 && ntok >= 2) {
+            int ms = atoi(toks[1]);
             if (speed_mult > 0) ms = (int)(ms / speed_mult);
             if (!no_display) sleep_ms(ms);
-        } else if (strcmp(cmd, "batch_delete") == 0) {
-            batch_delete(atoi(args));
+        } else if (strcmp(cmd, "batch_delete") == 0 && ntok >= 4) {
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            int n = atoi(toks[3]);
+            set_cursor(op_line, op_col);
+            batch_delete(n);
             render();
-        } else if (strcmp(cmd, "batch_insert") == 0) {
-            /* Parse codes dynamically — no fixed limit */
+        } else if (strcmp(cmd, "batch_insert") == 0 && ntok >= 4) {
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            set_cursor(op_line, op_col);
             int *codes = NULL; int n = 0; int cap = 0;
-            char *p = args;
-            while (*p) {
-                /* skip leading spaces */
-                while (*p == ' ') p++;
-                if (!*p) break;
-                /* ensure capacity */
+            for (int i = 3; i < ntok; i++) {
                 if (n >= cap) {
                     cap = cap == 0 ? 16 : cap * 2;
                     int *new_codes = (int *)realloc(codes, cap * sizeof(int));
                     if (!new_codes) { fprintf(stderr, "diffvim-animator-c: out of memory (batch_insert)\n"); free(codes); exit(1); }
                     codes = new_codes;
                 }
-                codes[n++] = atoi(p);
-                while (*p && *p != ' ') p++;
+                codes[n++] = atoi(toks[i]);
             }
             batch_insert(codes, n);
             free(codes);
             render();
-        } else if (strcmp(cmd, "newline_delete") == 0) {
+        } else if (strcmp(cmd, "newline_delete") == 0 && ntok >= 2) {
+            int op_line = atoi(toks[1]);
+            set_cursor(op_line, 1);
             delete_char(10);
             render();
-        } else if (strcmp(cmd, "newline_insert") == 0) {
+        } else if (strcmp(cmd, "newline_insert") == 0 && ntok >= 3) {
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            set_cursor(op_line, op_col);
             insert_char(10);
             render();
-        } else if (strcmp(cmd, "glide") == 0) {
-            int l, c;
-            sscanf(args, "%d:%d", &l, &c);
-            cursor_l = l - 1; cursor_c = c - 1;
-            if (cursor_l < 0) cursor_l = 0;
-            if (cursor_l >= n_lines) {
-                /* Past end of buffer — clamp to last line and position
-                 * cursor at END of last line so subsequent inserts
-                 * append after content (end_insert case). */
-                cursor_l = n_lines - 1;
-                cursor_c = line_chars(cursor_l);
-            }
-            render();
-        } else if (strcmp(cmd, "snapshot") == 0) {
-            char path[256];
-            sscanf(args, "%255s", path);
-            buffer_write(path);
+        } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
+            buffer_write(toks[1]);
         } else if (strcmp(cmd, "done") == 0) {
             break;
         }
+        /* hunk_start, hunk_end, glide (if any) are no-ops for the animator. */
     }
 
     if (snapshot_file_path[0]) buffer_write(snapshot_file_path);

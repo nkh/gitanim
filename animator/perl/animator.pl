@@ -1,7 +1,12 @@
 #!/usr/bin/env perl
 # diffvim-animator (Perl) — Standalone terminal animation application.
 #
-# Reads a timed op stream and animates the transformation.
+# Reads a TSV timed op stream and animates the transformation.
+# Every op carries its own (line, col); the animator moves the cursor
+# to that position before applying the op. This makes the animator
+# scroll-safe — even if the user scrolls mid-animation, each op is
+# applied at the right place.
+#
 # Supports --no-display for testing (process ops without rendering).
 #
 # Usage:
@@ -87,8 +92,39 @@ sub write_buffer {
     close $fh;
 }
 
+sub line_chars {
+    my ($l) = @_;
+    return 0 if $l < 0 || $l > $#lines;
+    my $s = $lines[$l];
+    my $count = 0;
+    my @chars = split //, $s;
+    return scalar(@chars);
+}
+
+# Set cursor position (1-indexed line/col → 0-indexed internal).
+# Clamps to buffer bounds. When the target line is past the end of
+# the buffer (end-insert case), the cursor is placed at the END of
+# the last line so subsequent inserts append after existing content.
+sub set_cursor {
+    my ($line, $col) = @_;
+    $cursor_l = $line - 1;
+    $cursor_l = 0 if $cursor_l < 0;
+    if ($cursor_l > $#lines) {
+        # Past end of buffer — clamp to last line, position at END.
+        $cursor_l = $#lines;
+        $cursor_c = line_chars($cursor_l);
+        return;
+    }
+    $cursor_c = $col - 1;
+    $cursor_c = 0 if $cursor_c < 0;
+    my $max_col = line_chars($cursor_l);
+    $cursor_c = $max_col if $cursor_c > $max_col;
+}
+
 sub keep_char {
     my ($code) = @_;
+    # With per-op positioning, keep_char only advances the cursor within
+    # the same line. Line transitions are handled by set_cursor() calls.
     if ($code == 10) {
         $cursor_l++;
         $cursor_l = $#lines if $cursor_l > $#lines;
@@ -201,51 +237,48 @@ if (!$no_display) {
     print "\033[?25l";  # Hide cursor
 }
 
-# Process timed op stream
+# Process timed op stream (TSV format)
 while (my $line = <STDIN>) {
     chomp $line;
     next if $line eq "" || $line =~ /^#/;
 
-    my @parts = split /\s+/, $line;
+    my @parts = split /\t/, $line;
     my $cmd = shift @parts;
 
-    if ($cmd eq 'op') {
-        my ($type, $code) = @parts;
+    if ($cmd eq 'op' && @parts >= 4) {
+        # op\t<type>\t<line>\t<col>\t<code>
+        my ($type, $op_line, $op_col, $code) = @parts;
         $code = int($code);
+        set_cursor($op_line + 0, $op_col + 0);
         keep_char($code) if $type eq 'keep';
         delete_char($code) if $type eq 'delete';
         insert_char($code) if $type eq 'insert';
         render();
-    } elsif ($cmd eq 'delay') {
+    } elsif ($cmd eq 'delay' && @parts >= 1) {
         my $ms = int($parts[0]);
         $ms = int($ms / $speed) if $speed > 0;
         usleep($ms * 1000) if $ms > 0 && !$no_display;
-    } elsif ($cmd eq 'batch_delete') {
-        batch_delete(int($parts[0]));
+    } elsif ($cmd eq 'batch_delete' && @parts >= 3) {
+        my ($op_line, $op_col, $n) = @parts;
+        set_cursor($op_line + 0, $op_col + 0);
+        batch_delete(int($n));
         render();
-    } elsif ($cmd eq 'batch_insert') {
-        batch_insert(map { int($_) } @parts);
+    } elsif ($cmd eq 'batch_insert' && @parts >= 3) {
+        my ($op_line, $op_col, @codes) = @parts;
+        set_cursor($op_line + 0, $op_col + 0);
+        batch_insert(map { int($_) } @codes);
         render();
-    } elsif ($cmd eq 'newline_delete') {
+    } elsif ($cmd eq 'newline_delete' && @parts >= 1) {
+        my ($op_line) = @parts;
+        set_cursor($op_line + 0, 1);
         delete_char(10);
         render();
-    } elsif ($cmd eq 'newline_insert') {
+    } elsif ($cmd eq 'newline_insert' && @parts >= 2) {
+        my ($op_line, $op_col) = @parts;
+        set_cursor($op_line + 0, $op_col + 0);
         insert_char(10);
         render();
-    } elsif ($cmd eq 'glide') {
-        my ($l, $c) = split /:/, $parts[0];
-        $cursor_l = $l - 1;
-        $cursor_c = $c - 1;
-        $cursor_l = 0 if $cursor_l < 0;
-        if ($cursor_l > $#lines) {
-            # Past end of buffer — clamp to last line and position
-            # cursor at END of last line so subsequent inserts
-            # append after content (end_insert case).
-            $cursor_l = $#lines;
-            $cursor_c = length($lines[$cursor_l]);
-        }
-        render();
-    } elsif ($cmd eq 'snapshot') {
+    } elsif ($cmd eq 'snapshot' && @parts >= 1) {
         write_buffer($parts[0]);
     } elsif ($cmd eq 'hunk_start' || $cmd eq 'hunk_end' || $cmd eq 'file_start') {
         # Metadata — no action

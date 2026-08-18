@@ -14,7 +14,7 @@ parse_diff($old_file, $new_file, \%options)
 
 - `word_diff => 1` — use word-level diff instead of char-level
 - `semantic_cleanup => 1` — merge adjacent delete/insert pairs
-- `algorithm => 'myers'|'patience'|'lcs'` — line-level algorithm
+- `algorithm => 'patience'|'lcs'` — line-level algorithm
 - `indent_aware => 1` — handle indent-only changes specially
 
 ### Return Value
@@ -46,7 +46,7 @@ parse_diff($old_file, $new_file, \%options)
 Pure-Perl LCS diff. No external dependencies beyond Perl core.
 
 - Line-level: LCS dynamic programming (O(N×M)), with optional
-  Myers (O(ND)) and Patience algorithms
+  Patience algorithm (LCS is the default)
 - Char-level: LCS on character arrays
 - Word-level: LCS on word/whitespace tokens (with `--word-diff`)
 - Semantic cleanup: merges adjacent delete/insert pairs that cancel

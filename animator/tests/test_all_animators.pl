@@ -8,10 +8,9 @@ use warnings;
 use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
-my $compute = "$root/compute/bin/diffvim-compute-c";
+my $compute = "$root/compute/bin/diffvim-compute-cpp";
 my $postprocess_perl = "perl $root/animator/perl/postprocess.pl";
 my $pace_perl = "perl $root/animator/perl/pace.pl";
-my $animator_go = "$root/animator/bin/diffvim-animator";
 my $animator_perl = "perl $root/animator/perl/animator.pl";
 my $animator_c = "$root/animator/bin/diffvim-animator-c";
 
@@ -61,12 +60,6 @@ for my $case (@cases) {
     system("$pace_perl --delete-pacing word < '$pf' 2>/dev/null > '$tf'");
 
     open $fh, '<:raw', $nf; my $expected = do { local $/; <$fh> }; close $fh;
-
-    # Test Go animator
-    my $go_out = "$tmpdir/go_out.txt";
-    system("$animator_go --no-display --snapshot '$go_out' '$of' < '$tf' 2>/dev/null");
-    open $fh, '<:raw', $go_out; my $go_actual = do { local $/; <$fh> }; close $fh;
-    ok("Go: $name", $go_actual eq $expected);
 
     # Test Perl animator
     my $perl_out = "$tmpdir/perl_out.txt";

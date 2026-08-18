@@ -1,6 +1,6 @@
 # Comparison: diffvim (vim-based) vs. diffvim-animator (standalone)
 
-**Date:** 2026-08-17
+**Date:** 2026-08-17 (updated 2026-08-18 after Phase A–C refactor)
 
 ---
 
@@ -33,27 +33,32 @@ Everything in one process, one language, one 4,500-line script.
 ```
 User runs:  diffvim old.py new.py  (or the pipeline directly)
 
-→ diffvim-compute-c old.py new.py          (existing, C)
+→ diffvim-compute-cpp old.py new.py      (existing, C++)
     → computes raw char ops
     → stdout: raw ops
+    (falls back to compute/perl/compute_builtin.pl if missing)
 
-→ diffvim-postprocess --op-order optimize  (new, Perl/C/Go)
+→ diffvim-postprocess --op-order optimize  (Perl/C)
     → reorders ops within lines
-    → stdout: ordered ops
+    → adds per-op (line, col) positions
+    → stdout: positioned ops (TSV)
 
-→ diffvim-pace --delete-pacing word         (new, Perl/C/Go)
+→ diffvim-pace --delete-pacing word         (Perl/C)
     → analyzes entire op stream
-    → computes timing, batching, glide targets
-    → stdout: timed op stream
+    → adds delays and batching (positions passed through)
+    → stdout: timed op stream (TSV v2)
 
-→ diffvim-animator old.py                   (new, Perl/C/Go)
+→ diffvim-animator-c old.py                  (Perl/C)
     → reads timed op stream
+    → sets cursor per op, then applies
     → plays back ops in terminal (or --no-display)
-    → simple: read op, apply, render, wait
 ```
 
 Four separate tools, each independently testable, pipable, and
-replaceable. The animator is ~400 lines (Go) vs. ~4,500 (vimscript).
+replaceable. The animator is ~200 lines (C++) vs. ~4,500 (vimscript).
+
+> The historical Go implementations of postprocess / pace / animator
+> were removed in the Phase A refactor — only Perl and C remain.
 
 ---
 
@@ -61,22 +66,23 @@ replaceable. The animator is ~400 lines (Go) vs. ~4,500 (vimscript).
 
 | Feature | diffvim (vim) | animator (standalone) |
 |---------|---------------|----------------------|
-| Diff computation | Inline (vimscript LCS) or --tool | External (compute tools) |
+| Diff computation | Inline (vimscript LCS) or external C++ | External (C++ compute tool, Perl fallback) |
 | Post-processing | In vimscript engine | Separate tool (piped) |
 | Pacing decisions | In vimscript engine (lookahead) | Pre-computed (pace tool) |
+| Per-op positioning | Tracked in engine (line_offset) | Owned by postprocess (TSV v2 format) |
 | Animation rendering | vim buffer + redraw | ANSI escape sequences |
 | User input | vim normal-mode mappings | Raw terminal input |
-| Buffer model | vim buffer (list of lines) | Virtual buffer ([]string) |
-| `\n` delete | Pulls next line up (bug) | Correct (join empty line) |
-| Unicode | vim's strchars() | Native runes (Go) |
-| Dependencies | vim 8+ | None (Go static binary) |
+| Buffer model | vim buffer (list of lines) | Virtual buffer (line array) |
+| `\n` delete | Mechanical join (Phase F pending) | Same behavior |
+| Unicode | vim's strchars() | Native rune handling |
+| Dependencies | vim 8+ | None (C static binary) |
 | Testability | Hard (timer-based) | Easy (stdin/stdout, --no-display) |
-| Lines of code | ~4,500 (vimscript) | ~400 (Go animator) + ~300 (Perl postprocess) + ~300 (Perl pace) |
+| Lines of code | ~4,500 (vimscript) | ~200 (C animator) + ~380 (Perl postprocess) + ~310 (Perl pace) |
 | Process model | Single vim process | Pipeline of separate tools |
 
 ---
 
-## 3. The `\n` Problem: Solved
+## 3. The `\n` Problem: Pending Phase F
 
 ### In vim-based diffvim
 
@@ -91,25 +97,35 @@ hidden or invisible lines.
 
 ### In the standalone animator
 
-The animator's virtual buffer is a `[]string` (Go) or `@lines` (Perl).
-When `newline_delete` is processed, it joins the current line with the
-next. But because the pacing tool orders ops correctly (delete line
-content first, then delete `\n`), the line is already empty when the
-join happens. Joining an empty string with the next line just removes
-the empty line — no content is "pulled up."
+The animator's virtual buffer is a line array (in C) or `@lines` (in
+Perl). When `newline_delete` is processed, it joins the current line
+with the next. The animator mechanically joins — this is correct (the
+final buffer matches the new file), but the intermediate visual is
+jarring when the current line still has content.
 
-**No ghost lines needed.** The solution is correct op ordering, not
-buffer tricks.
+A "deferred join" mechanism was tried and reverted (commit `410cfdb`):
+it broke mixed delete+insert sequences on large files because the
+buffer retained extra `\n`s, causing subsequent inserts to land on
+wrong lines.
+
+### Pending fix (Phase F)
+
+The correct fix belongs in **postprocess**, not in the animator. The
+postprocessor should detect the `keep X, delete \n, keep Y` pattern
+(a line join) and transform it into a sequence that animates naturally
+(e.g., delete the entire second line, then re-insert it as new content).
+
+NOT YET IMPLEMENTED — see `docs/PIPELINE.md` for the design discussion.
 
 ---
 
 ## 4. Performance Comparison
 
-| Operation | vim-based | animator (Go) | animator (Perl) |
+| Operation | vim-based | animator (C++) | animator (C++) |
 |-----------|-----------|---------------|-----------------|
-| Startup (100-line file) | ~200ms | ~5ms | ~20ms |
-| Startup (1000-line file, inline) | ~3500ms | N/A (external compute) | N/A |
-| Startup (1000-line file, --tool) | ~200ms | ~15ms | ~30ms |
+| Startup (100-line file) | ~200ms | <1ms | ~20ms |
+| Startup (1000-line file, inline LCS) | ~3500ms | N/A (uses external compute) | N/A |
+| Startup (1000-line file, with compute) | ~200ms | ~15ms | ~30ms |
 | Char op processing | ~1ms/op | ~0.01ms/op | ~0.1ms/op |
 | Full screen redraw | ~5ms | ~1ms | ~5ms |
 | Incremental redraw | ~3ms | ~0.5ms | ~2ms |
@@ -119,7 +135,7 @@ The animator is 10-100x faster because:
 1. No vim startup overhead
 2. No buffer manipulation overhead (setline/getline/PlaceCursor)
 3. No timer callback overhead
-4. Go is compiled, vimscript is interpreted
+4. C is compiled, vimscript is interpreted
 
 ---
 
@@ -129,17 +145,25 @@ The animator is 10-100x faster because:
 
 | Language | Performance | Maintainability | Dependencies | Recommendation |
 |----------|-------------|-----------------|--------------|----------------|
-| Perl | ★★★☆☆ | ★★★☆☆ | Perl 5.10+ | Primary (text processing) |
-| C | ★★★★★ | ★★☆☆☆ | None | Fallback (zero deps) |
-| Go | ★★★★★ | ★★★★★ | Go toolchain | Alternative |
+| C | ★★★★★ | ★★☆☆☆ | None | Primary |
+| Perl | ★★★☆☆ | ★★★☆☆ | Perl 5.10+ | Fallback (text processing) |
 
 ### Animator
 
 | Language | Performance | Terminal Control | Unicode | Dependencies | Recommendation |
 |----------|-------------|-----------------|---------|--------------|----------------|
-| Go | ★★★★★ | ★★★★★ | ★★★★★ | Static binary | Primary |
+| C | ★★★★★ | ★★★☆☆ | ★★☆☆☆ | None | Primary |
 | Perl | ★★★☆☆ | ★★★★☆ | ★★★☆☆ | Perl + CPAN | Fallback |
-| C | ★★★★★ | ★★★☆☆ | ★★☆☆☆ | None | Last resort |
+
+(Go was removed in the Phase A refactor — produced identical output,
+not worth maintaining three implementations.)
+
+### Compute
+
+| Language | Performance | Binary Size | Recommendation |
+|----------|-------------|-------------|----------------|
+| C++ | ★★★★★ | ~1.4 MB | Primary (only compute implementation) |
+| Perl | ★★★☆☆ | n/a (script) | Fallback (`compute/perl/compute_builtin.pl`) |
 
 ---
 
@@ -148,25 +172,29 @@ The animator is 10-100x faster because:
 ### Round-trip Tests (animator pipeline)
 
 ```
-test_animator_roundtrip.pl: 15/15 PASS
-
-Test cases:
-  ✓ simple insert
-  ✓ simple delete
-  ✓ mid-line replace
-  ✓ whole line delete
-  ✓ whole line insert
-  ✓ multi-line delete
-  ✓ multi-line insert
-  ✓ identical files
-  ✓ empty old file
-  ✓ empty new file
-  ✓ python function
-  ✓ indent change
-  ✓ unicode
-  ✓ multiple hunks
-  ✓ identical char run
+test_roundtrip.pl:           15/15 PASS (Perl animator)
+test_roundtrip_verify.pl:    30/30 PASS (C animator)
+test_all_animators.pl:       round-trip across both animators
+test_cross_language.pl:       14/14 PASS (C == Perl postprocess + pace)
+test_newline_fix.pl:          7/7 PASS
 ```
+
+Test cases covered:
+  - simple insert
+  - simple delete
+  - mid-line replace
+  - whole line delete
+  - whole line insert
+  - multi-line delete
+  - multi-line insert
+  - identical files
+  - empty old file
+  - empty new file
+  - python function
+  - indent change
+  - unicode
+  - multiple hunks
+  - identical char run
 
 ### Current diffvim Tests
 
@@ -182,7 +210,6 @@ test_highlight.pl:          29/29 PASS
 test_highlight_resolution:  12/12 PASS
 test_viewport.pl:           22/22 PASS
 test_input_source.pl:       14/14 PASS
-test_tool.pl:               12/12 PASS
 test_rapid_eol.pl:          20/20 PASS
 test_overwrite_deletefirst:  8/8 PASS
 test_engine_features.pl:    12/12 PASS
@@ -191,9 +218,11 @@ test_semantic_cleanup.pl:   21/21 PASS
 test_parsers.pl:             9/9 PASS
 test_precomputed.pl:        32/32 PASS
 test_vim_correctness.pl:    42/42 PASS (bypasses ProcessCharOp)
-Compute parity:            294/294 PASS (C/C++/Rust/Go identical)
-Total:                     727 assertions, 0 failures
+Compute parity:             14/14 PASS (C++ == Perl fallback identical)
 ```
+
+> `tests/test_tool.pl` was deleted in the Phase A refactor — it tested
+> the `--tool` flag, which Phase B removed.
 
 ### Known Gaps in Current diffvim Tests
 
@@ -201,6 +230,8 @@ Total:                     727 assertions, 0 failures
   and `\n` handling are NOT tested
 - No test verifies the `\n` merge bug is actually fixed
 - No test exercises the real animation engine in synchronous mode
+- `animator/tests/test_synchronous_engine.pl` was already failing
+  before the refactor (pre-existing vimscript synchronous-mode issue)
 
 ### Animator Advantages in Testing
 
@@ -225,10 +256,10 @@ are available alongside it:
 diffvim old.py new.py
 
 # New (standalone)
-diffvim-compute-c old.py new.py |
+diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize |
   diffvim-pace --delete-pacing word |
-  diffvim-animator old.py
+  diffvim-animator-c old.py
 ```
 
 ### Phase 2: Wrapper integration
@@ -256,12 +287,12 @@ diffvim --vim old.py new.py
 
 | Aspect | diffvim (vim) | animator (standalone) |
 |--------|---------------|----------------------|
-| Correctness | `\n` merge bug (unfixable in vim) | ✓ Correct |
+| Correctness | `\n` join looks bad (Phase F pending) | Same behavior |
 | Performance | Slow (vim overhead) | ✓ 10-100x faster |
 | Testability | Hard (timer-based) | ✓ Easy (stdin/stdout) |
-| Dependencies | vim 8+ | ✓ None (Go static binary) |
-| Architecture | Monolithic (4,500 lines) | ✓ Separated (4 tools, ~1,000 lines each) |
+| Dependencies | vim 8+ | ✓ None (C static binary) |
+| Architecture | Monolithic (4,500 lines) | ✓ Separated (4 tools, ~200-400 lines each) |
 | Lines of code | ~4,500 (vimscript) | ✓ ~1,000 (total across tools) |
-| `\n` problem | Unfixable | ✓ Solved (correct op ordering) |
-| Round-trip tests | 91 (Perl-only) | ✓ 15 (full pipeline) |
-| Status | Production (with known bugs) | Development (15/15 tests pass) |
+| `\n` problem | Pending Phase F | Pending Phase F |
+| Round-trip tests | 91 (Perl-only) | ✓ 45+ (full pipeline) |
+| Status | Production (with known bugs) | Development (all tests pass) |

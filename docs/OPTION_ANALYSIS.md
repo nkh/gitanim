@@ -4,7 +4,14 @@
 **Status:** Analysis and design only — no code changes proposed for
 implementation yet.
 **Scope:** All 95+ CLI options across `diffvim`, `diffvim-tmux`,
-`diffvim.pl`, and the four `diffvim-compute-*` tools.
+`diffvim.pl`, and the `diffvim-compute-cpp` tool.
+
+> **Update (Phase A–C refactor):** Several of the proposals below were
+> overtaken by events. The `--tool`/`--compute-tool` flags and the
+> `--auto-precompute` flag were **removed** entirely (only the C++
+> compute tool remains; diffvim searches for it automatically).
+> `--algorithm myers` was also removed. See the [Unreleased] entry in
+> `CHANGELOG.md` for the full list of changes.
 
 ---
 
@@ -94,11 +101,14 @@ After cross-referencing every option against every other option, the
 and char-level diff.
 
 **Current options mapping to this:**
-- `--algorithm lcs|myers|patience`
+- `--algorithm lcs|patience`
 - `--word-diff` (changes char-level diff to token-level)
 - `--indent-aware` (changes how indent-only changes are diffed)
 - `--semantic-cleanup` (post-diff merge of adjacent del/ins pairs)
 - `--language` (hints to the algorithm)
+
+(Myers was removed: it OOMs on 15K-line files and produces the same
+op count as LCS.)
 
 **Problem:** `--word-diff` and `--indent-aware` are mixed concerns.
 They change both the diff algorithm AND the animation (e.g.
@@ -298,7 +308,7 @@ Remove `--fold-unchanged` (it's `--context 0`).
 - `--git-rev`
 - `--precomputed`
 - `--diff FILE`
-- `--auto-precompute` / `--compute-tool`
+- `--auto-precompute` / `--compute-tool` (removed in Phase B refactor)
 
 **Problem:** Too many ways to specify the input. Should be unified
 into a single **input mode**:
@@ -460,7 +470,7 @@ script instead.
 
 ### Diff algorithm (Base Op 1)
 ```
---algorithm lcs|myers|patience|word    # diff algorithm (default: lcs)
+--algorithm lcs|patience              # diff algorithm (default: lcs)
 --indent-aware                          # treat indent-only changes specially
 --semantic-cleanup                     # merge adjacent del/ins pairs
 ```

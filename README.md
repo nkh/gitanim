@@ -203,14 +203,13 @@ CORE OPTIONS:
   --keep-dirty             Leave buffer modified; require :q! to quit
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim)
   --precomputed FILE       Use pre-computed diff from FILE
-  --tool c|cpp|rust|go     Use external compute tool (10-100x faster for large files)
   --preset NAME (-p)       Apply named preset (fast-delete, review, demo, ai-code)
   --theme dark|light|high-contrast (-t)  Color scheme for highlights
   --version, -V            Print version
   --help, -h               Show help
 
 DIFF ALGORITHM:
-  --algorithm lcs|myers|patience (-a)  Line-level diff algorithm (default: lcs)
+  --algorithm lcs|patience (-a)  Line-level diff algorithm (default: lcs)
   --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
   --indent-aware (-i)      Normalize indentation before line diff
   --word-diff (-w)         Use word-level diff (groups changes by word tokens)
@@ -352,9 +351,6 @@ perl diffvim.pl --dry-run old.py new.py
 # Keep buffer modified so :q! is required to quit
 ./diffvim --keep-dirty old.py new.py
 
-# Use external Rust compute tool for large files (10-100x faster)
-./diffvim --tool rust old.py new.py
-
 # Word-by-word deletion with acceleration (default)
 ./diffvim --delete-pacing word old.py new.py
 
@@ -438,12 +434,10 @@ gitanim/
 │   ├── diffvim.bash             # Bash completion
 │   ├── _diffvim                 # Zsh completion
 │   └── diffvim.fish             # Fish completion
-├── compute/                     # External diff compute tools (4 langs)
-│   ├── c/diffvim-compute.c      # C reference (1.4MB binary)
-│   ├── cpp/diffvim-compute.cpp  # C++17 port
-│   ├── rust/diffvim-compute.rs  # Rust port
-│   ├── go/diffvim-compute.go    # Go port
-│   └── Makefile                 # `make c|cpp|rust|go` or `make` (all)
+├── compute/                     # External diff compute tool (C++)
+│   ├── cpp/diffvim-compute.cpp  # C++17 (the only compute implementation)
+│   ├── perl/compute_builtin.pl  # Pure-Perl fallback (used when C++ binary missing)
+│   └── Makefile                 # `make` → builds diffvim-compute-cpp
 ├── man/                         # Manpages for every executable
 │   ├── diffvim.1
 │   ├── diffvim-tmux.1

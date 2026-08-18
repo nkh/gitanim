@@ -1,26 +1,25 @@
 #!/usr/bin/env perl
 # test_cross_language.pl — Cross-language parity tests.
-# Verifies that all three implementations of postprocess and pace
-# produce byte-for-byte identical output.
+# Verifies that the C and Perl implementations of postprocess and pace
+# produce byte-for-byte identical output. (Go versions were removed in
+# the refactor — only C and Perl remain.)
 
 use strict;
 use warnings;
 use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
-my $compute = "$root/compute/bin/diffvim-compute-c";
+my $compute = "$root/compute/bin/diffvim-compute-cpp";
 
-# Tool implementations
+# Tool implementations — only C and Perl remain.
 my %postprocess = (
     perl => "perl $root/animator/perl/postprocess.pl",
     c    => "$root/animator/bin/diffvim-postprocess",
-    go   => "$root/animator/bin/diffvim-postprocess-go",
 );
 
 my %pace = (
     perl => "perl $root/animator/perl/pace.pl",
     c    => "$root/animator/bin/diffvim-pace",
-    go   => "$root/animator/bin/diffvim-pace-go",
 );
 
 my $pass = 0;
@@ -61,8 +60,6 @@ for my $case (@cases) {
     }
 
     ok("postprocess: $name — C==Perl", $post_out{c} eq $post_out{perl});
-    ok("postprocess: $name — Go==Perl", $post_out{go} eq $post_out{perl});
-    ok("postprocess: $name — Go==C", $post_out{go} eq $post_out{c});
 
     # --- Pace parity ---
     my %pace_out;
@@ -73,8 +70,6 @@ for my $case (@cases) {
     }
 
     ok("pace: $name — C==Perl", $pace_out{c} eq $pace_out{perl});
-    ok("pace: $name — Go==Perl", $pace_out{go} eq $pace_out{perl});
-    ok("pace: $name — Go==C", $pace_out{go} eq $pace_out{c});
 }
 
 # --- Test different pacing modes ---
@@ -94,7 +89,6 @@ for my $mode (qw(char rapid-eol word instant)) {
         open $fh, '<:raw', $out_file; $out{$lang} = do { local $/; <$fh> }; close $fh;
     }
     ok("pace --delete-pacing $mode: C==Perl", $out{c} eq $out{perl});
-    ok("pace --delete-pacing $mode: Go==Perl", $out{go} eq $out{perl});
 }
 
 print "\n=== Results: $pass passed, $fail failed ===\n";

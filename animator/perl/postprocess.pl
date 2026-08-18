@@ -2,12 +2,18 @@
 # diffvim-postprocess — Post-processes raw char ops from diffvim-compute.
 #
 # Reads raw char ops (HUNK/keep/delete/insert) from stdin, applies
-# post-processing transformations, and writes ordered ops to stdout.
+# post-processing transformations, computes per-op (line, col) positions,
+# and writes tab-separated ops to stdout.
 #
-# Multiple postprocess invocations can be piped:
-#   diffvim-compute-c old.py new.py |
-#     diffvim-postprocess --op-order optimize |
-#     diffvim-postprocess --semantic-cleanup
+# POSTPROCESS OWNS CURSOR POSITIONING. The pace stage only handles delays
+# and batching. The animator reads (line, col) from each op and applies
+# it at that exact position — scroll-safe.
+#
+# Output format (TSV, 1-indexed line/col):
+#   hunk_start\t<del_count>\t<ins_count>
+#   op\tkeep|delete|insert\t<line>\t<col>\t<code>
+#   newline_delete\t<line>
+#   newline_insert\t<line>\t<col>
 #
 # Usage:
 #   diffvim-postprocess [options] < raw_ops > ordered_ops
@@ -20,7 +26,7 @@
 #   --overwrite           Transform delete+insert into in-place overwrite
 #   --help, -h            Show help
 #
-# The op format (input and output) is:
+# Input format:
 #   # header lines (passed through)
 #   HUNK <target> <del> <ins> <end_ins> <end_del>
 #   keep|delete|insert <code>
@@ -132,7 +138,9 @@ for my $hunk (@hunks) {
     $hunk->{ops} = $ops;
 }
 
-# Write output: header (with updated flags), then hunks
+# Write output: header (with updated flags), then hunks with per-op (line, col) TSV.
+my $line_offset = 0;  # Cumulative (newline_inserts - newline_deletes) from prior hunks.
+
 for my $line (@header) {
     if ($line =~ /^# semantic_cleanup/) {
         print "# semantic_cleanup $semantic_cleanup\n";
@@ -151,14 +159,47 @@ for my $line (@header) {
     }
 }
 
-# Print hunks
+# Print hunks with per-op (line, col) TSV positions.
 for my $hunk (@hunks) {
-    printf "HUNK %d %d %d %d %d\n",
-        $hunk->{target}, $hunk->{del_count}, $hunk->{ins_count},
-        $hunk->{end_ins}, $hunk->{end_del};
+    # hunk_start no longer carries a target line — the position is
+    # implicit in the first op's (line, col).
+    printf "hunk_start\t%d\t%d\n", $hunk->{del_count}, $hunk->{ins_count};
+
+    my $cur_line = $hunk->{target} + $line_offset;  # 1-indexed
+    my $cur_col = 1;                                # 1-indexed
+    my ($newl_ins, $newl_del) = (0, 0);
+
     for my $op (@{$hunk->{ops}}) {
-        printf "%s %d\n", $op->[0], $op->[1];
+        my ($type, $code) = @$op;
+        if ($code == 10) {
+            if ($type eq 'keep') {
+                # keep \n: cursor advances to next line, col resets.
+                printf "op\tkeep\t%d\t%d\t%d\n", $cur_line, $cur_col, $code;
+                $cur_line++;
+                $cur_col = 1;
+            } elsif ($type eq 'delete') {
+                # newline_delete: the line at cur_line is joined
+                # with the next. Cursor stays at the same line+col.
+                printf "newline_delete\t%d\n", $cur_line;
+                $newl_del++;
+            } elsif ($type eq 'insert') {
+                # newline_insert: a new line is inserted AFTER cur_line
+                # at cur_col. Cursor moves to the new line.
+                printf "newline_insert\t%d\t%d\n", $cur_line, $cur_col;
+                $cur_line++;
+                $cur_col = 1;
+                $newl_ins++;
+            }
+        } else {
+            printf "op\t%s\t%d\t%d\t%d\n", $type, $cur_line, $cur_col, $code;
+            if ($type eq 'keep' || $type eq 'insert') {
+                $cur_col++;
+            }
+            # delete: cursor stays at the same col.
+        }
     }
+
+    $line_offset += $newl_ins - $newl_del;
 }
 
 # --- Transformation functions ---

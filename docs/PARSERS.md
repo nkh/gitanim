@@ -14,7 +14,7 @@ and how to write your own parser.
 | `DiffVim::Parser::Perl` | `DiffVim/Parser/Perl.pm`   | Pure-Perl LCS (line + char level)  |
 
 The parser uses LCS dynamic programming at both the line level and the
-character level, with optional Myers and Patience algorithms at the
+character level, with the optional Patience algorithm at the
 line level. It has no external dependencies beyond Perl 5.10+ and the
 core `Algorithm::Diff` module (optional, for faster line-level diff).
 
@@ -254,7 +254,7 @@ my $r2 = Your::Parser::parse_diff('old.txt', 'new.txt');
 
 - **Line-level diff** is the bottleneck for large files. The LCS DP
   algorithm is O(N×M) in time and space. For files with >10,000 lines,
-  consider using Myers diff (O(ND)) instead.
+  consider using Patience diff instead.
 - **Char-level diff** is fast because it operates on the joined hunk
   text (usually a few hundred characters), not the whole file.
 - **`Algorithm::Diff`** uses a C implementation and is ~10x faster than

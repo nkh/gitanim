@@ -689,7 +689,7 @@ script -q demo.typescript -c "diffvim --speed 0.7 --scroll zz examples/02_large_
   <div class="feature-card">
     <div class="icon">🔀</div>
     <h4>3 diff algorithms</h4>
-    <p>LCS (classic), Myers (O(ND)), and Patience (unique-line anchoring). Choose the one that produces the most readable diff.</p>
+    <p>LCS (classic, default) and Patience (unique-line anchoring). Choose the one that produces the most readable diff. (Myers was removed.)</p>
   </div>
   <div class="feature-card">
     <div class="icon">🌍</div>
@@ -943,7 +943,7 @@ highlighting flags tuned for one common use case.</p>
   <div class="preset-card">
     <div class="preset-name">ai-code</div>
     <div class="preset-tag">AI diffs</div>
-    <pre class="preset-cmd">diffvim --preset ai-code --tool rust old.py new.py</pre>
+    <pre class="preset-cmd">diffvim --preset ai-code old.py new.py</pre>
     <p>Semantic cleanup + left-to-right + word-diff. Tames messy AI-generated diffs.</p>
   </div>
   <div class="preset-card">
@@ -1012,51 +1012,48 @@ post-processing passes reorder ops for human readability.</p>
 <!-- EXTERNAL COMPUTE -->
 <!-- ================================================================ -->
 
-<h2>External compute tools</h2>
+<h2>External compute tool</h2>
 
 <p>For files larger than a few hundred lines, the in-vim LCS can take
-seconds. The external compute tools solve this — 10-100x faster,
-implemented in four languages with byte-for-byte identical output.</p>
+seconds. The external compute tool solves this — 10-100x faster,
+implemented in C++ (with a pure-Perl fallback when the binary is
+missing).</p>
 
 <div class="compute-grid">
   <div class="compute-card">
-    <div class="compute-lang">C</div>
-    <div class="compute-file">diffvim-compute-c</div>
-    <div class="compute-note">Reference implementation. Smallest binary, fastest startup.</div>
-  </div>
-  <div class="compute-card">
     <div class="compute-lang">C++</div>
     <div class="compute-file">diffvim-compute-cpp</div>
-    <div class="compute-note">Modern C++17. Same speed as C.</div>
+    <div class="compute-note">The only compute implementation. ~1ms on a 1000-line file.</div>
   </div>
   <div class="compute-card">
-    <div class="compute-lang">Rust</div>
-    <div class="compute-file">diffvim-compute-rust</div>
-    <div class="compute-note">Same speed as C/C++. Safest to extend.</div>
-  </div>
-  <div class="compute-card">
-    <div class="compute-lang">Go</div>
-    <div class="compute-file">diffvim-compute-go</div>
-    <div class="compute-note">Same speed. Best if your team uses Go.</div>
+    <div class="compute-lang">Perl</div>
+    <div class="compute-file">compute_builtin.pl</div>
+    <div class="compute-note">Pure-Perl fallback used when the C++ binary is missing.</div>
   </div>
 </div>
 
+<p style="margin-top:1rem;color:var(--fg);opacity:0.7">
+  The historical C, Rust, and Go variants were removed in the refactor —
+  they all produced byte-identical output, and only the C++ tool remains.
+  <code>--tool</code> flag is gone; the C++ binary is searched for
+  automatically.
+</p>
+
 <div class="terminal">
 <pre style="margin:0">
-<span style="color:#3fb950"># Build all four variants</span>
+<span style="color:#3fb950"># Build the C++ binary</span>
 make -C compute
 
 <span style="color:#3fb950"># Compute the diff, then run diffvim with --precomputed</span>
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
 diffvim --precomputed /tmp/diff.txt old.py new.py
 
-<span style="color:#3fb950"># Or use the Rust variant with semantic cleanup</span>
-compute/bin/diffvim-compute-rust --semantic-cleanup old.py new.py /tmp/diff.txt
+<span style="color:#3fb950"># With semantic cleanup</span>
+compute/bin/diffvim-compute-cpp --semantic-cleanup old.py new.py /tmp/diff.txt
 
 <span style="color:#3fb950"># Benchmark on a 1000-line Python file:</span>
 <span style="color:var(--yellow)">  vimscript LCS:        ~3500 ms</span>
-<span style="color:var(--green)">  diffvim-compute-c:       11 ms   (318x faster)</span>
-<span style="color:var(--green)">  diffvim-compute-rust:    13 ms   (270x faster)</span>
+<span style="color:var(--green)">  diffvim-compute-cpp:     11 ms   (318x faster)</span>
 </pre>
 </div>
 
@@ -1151,7 +1148,7 @@ cubic acceleration, so the viewer's eye can follow even long jumps.</p>
 
 <footer>
   <p>diffvim v1.4 — Artistic License 2.0 / GPL 3.0 (dual) — <a href="https://github.com/nkh/gitanim" style="color:var(--accent)">GitHub</a></p>
-  <p>6 presets · 4 native compute tools (C/C++/Rust/Go) · 50+ CLI options · 42 example file pairs · 15+ languages · 6 manpages</p>
+  <p>6 presets · 1 native compute tool (C++) + Perl fallback · 50+ CLI options · 42 example file pairs · 15+ languages · 6 manpages</p>
 </footer>
 
 </body>

@@ -13,33 +13,33 @@ the data closer to what the viewer sees on screen.
 **Output:** ordered list of char-level ops (keep/delete/insert) grouped
 into hunks.
 
-**Tools:** `compute/bin/diffvim-compute-{c,cpp,rust,go}` — four
-independent implementations in C, C++, Rust, and Go. All produce
-byte-identical output (verified by 294 cross-language tests).
+**Tool:** `compute/bin/diffvim-compute-cpp` — the C++ implementation
+(`compute/cpp/diffvim-compute.cpp`). When the C++ binary is missing,
+`diffvim-pipeline` falls back to the pure-Perl
+`compute/perl/compute_builtin.pl` (a wrapper around
+`DiffVim::Parser::Perl::parse_diff`). Both paths emit the same op-stream
+format.
 
-**Algorithms:** three diff algorithms are supported:
+**Algorithms:** two line-diff algorithms are supported:
 
-1. **LCS** (Longest Common Subsequence) — dynamic programming, O(N*M)
-   time and memory. Produces minimal diffs. Default.
+1. **LCS** (Longest Common Subsequence) — dynamic programming,
+   O(N×M) time and memory. Produces minimal diffs. Default.
 
-2. **Myers** (Myers diff) — O(N+D) time where D is the edit distance.
-   Faster on small diffs but uses O(N*M) memory in our implementation.
-   **Killed by OOM on 15K-line files.**
+2. **Patience** — uses anchor lines (unique longest matches) to divide
+   and conquer. Produces more human-readable diffs for code with
+   structural markers. Similar performance to LCS.
 
-3. **Patience** (Patience diff) — uses anchor lines (unique longest
-   matches) to divide and conquer. Produces more human-readable diffs
-   for code with structural markers. Similar performance to LCS.
+Myers was removed in the refactor: it OOMs on 15K-line files (O(N×M)
+memory in our implementation) and produces the same op count as LCS.
 
 **Timing (15K-line synthetic file, 549KB → 718KB):**
 
-| Algorithm | C (ms) | C++ (ms) | Rust (ms) | Go (ms) | Ops produced |
-|-----------|--------|----------|-----------|---------|--------------|
-| LCS       | 1679   | 1585     | 4797      | 2758    | 1,034,143    |
-| Myers     | KILLED | KILLED   | KILLED    | KILLED  | —            |
-| Patience  | 2307   | 1687     | 5332      | 3024    | 1,034,143    |
+| Algorithm | C++ (ms) | Ops produced |
+|-----------|----------|--------------|
+| LCS       | 1585     | 1,034,143    |
+| Patience  | 1687     | 1,034,143    |
 
-LCS and Patience produce identical op counts on this file. Myers is
-eliminated for large files due to OOM.
+LCS and Patience produce identical op counts on this file.
 
 **Op format:**
 ```
@@ -60,14 +60,16 @@ Char codes are Unicode code points (10 = newline).
 ## Stage 2: Postprocess
 
 **Input:** raw char ops from compute
-**Output:** reordered/transformed char ops
+**Output:** reordered/transformed char ops, each carrying a `(line, col)`
+position
 
-**Tools:** `animator/bin/diffvim-postprocess` (Perl, C, Go)
+**Tools:** `animator/bin/diffvim-postprocess` (C, Perl)
 
 **Purpose:** the raw diff ops are mathematically correct but visually
 poor. A diff might say "delete all of line A, then insert all of line B"
 when the human-readable change is "replace word X with word Y in line A".
-Postprocess transforms the ops to look natural.
+Postprocess transforms the ops to look natural — and, since the Phase C
+refactor, also owns cursor positioning so the animator is scroll-safe.
 
 **Current transformations:**
 
@@ -83,7 +85,14 @@ Postprocess transforms the ops to look natural.
 3. **Line grouping**: ensures ops within a hunk are grouped by line so
    the animator processes them in a sensible order.
 
-**THE GHOST LINE PROBLEM — UNRESOLVED:**
+4. **Per-op (line, col) positioning**: walks each hunk's ops,
+   simulates the cursor position, and emits a `(line, col)` for every
+   op (1-indexed). Tracks `line_offset` (cumulative
+   `newline_inserts − newline_deletes` from previous hunks) across the
+   whole file so each op targets the right *current* buffer line. This
+   is what lets the animator be position-less and scroll-safe.
+
+**THE GHOST LINE PROBLEM — UNRESOLVED (Phase F):**
 
 When the diff algorithm produces a sequence like:
 ```
@@ -97,6 +106,7 @@ lines. Visually, "bar" jumps up onto the "foo" line — this looks bad.
 The correct fix belongs in **postprocess**, not in the animator. The
 postprocessor should detect this pattern (a `\n` delete between two
 `keep` runs) and transform it into a sequence that animates naturally.
+This is pending (Phase F).
 
 Possible postprocess transformations (NOT YET IMPLEMENTED):
 
@@ -111,19 +121,23 @@ Possible postprocess transformations (NOT YET IMPLEMENTED):
   the "remove empty line" path (the line is already empty by then).
 
 The postprocessor currently does NOT do this. It passes the raw diff
-ops through (with optional reordering). This is the core unresolved
-issue.
+ops through (with optional reordering and per-op positioning). This is
+the core unresolved issue.
 
 ## Stage 3: Pace
 
-**Input:** ordered char ops
+**Input:** positioned char ops from postprocess (TSV, per-op `(line, col)`)
 **Output:** timed op stream (ops with delays and batch operations)
 
-**Tools:** `animator/bin/diffvim-pace` (Perl, C, Go)
+**Tools:** `animator/bin/diffvim-pace` (C, Perl)
 
 **Purpose:** add timing and batching so the animation feels human. A
 human doesn't type at uniform speed — they pause between words, delete
 in bursts, and move the cursor with variable speed.
+
+Since the Phase C refactor, pace owns ONLY delays and batching.
+Cursor positioning (the `(line, col)` per op) is owned by postprocess;
+pace passes positions through untouched.
 
 **What pace adds:**
 
@@ -131,11 +145,12 @@ in bursts, and move the cursor with variable speed.
    - `delay 1` — minimal (keep chars, fast scroll past)
    - `delay 50` — normal typing speed
    - `delay 250` — hunk pause (between hunks)
-   - `delay 1440` — long glide (cursor movement between distant lines)
 
 2. **Batch operations**: consecutive same-type ops get batched:
-   - `batch_delete N` — delete N chars at once (for rapid deletion)
-   - `batch_insert C1 C2 ... Cn` — insert a word at once
+   - `batch_delete <line> <col> <count>` — delete N chars at once
+     (rapid deletion)
+   - `batch_insert <line> <col> <code1> <code2> ... <codeN>` — insert a
+     word at once
 
 3. **Delete pacing** (`--pace-delete-pacing`): strategy for deletions:
    - `char` — one char at a time
@@ -147,59 +162,61 @@ in bursts, and move the cursor with variable speed.
 4. **Insert pacing** (`--pace-insert-pacing`): `char` (default) or
    `word` (batch short words).
 
-5. **Cursor glide**: before each hunk, emits `glide <line>:<col>` to
-   position the cursor. The delay is proportional to the distance.
-
-6. **Line offset tracking**: pace tracks cumulative
-   (newline_inserts - newline_deletes) from previous hunks and adds
-   this offset to each glide target. Without this, glide targets refer
-   to original line numbers, not current buffer positions — causing
-   inserts to land on wrong lines.
-
-**Timed op format:**
+**Timed op format (v2 — TSV, per-op positioning):**
 ```
-# timed op stream v1
-hunk_start <target_line> <del_count> <ins_count>
-glide <line>:<col>
-delay <ms>
-op keep|delete|insert <char_code>
-delay <ms>
-batch_delete <count>
-batch_insert <code1> <code2> ...
-newline_delete
-newline_insert
+# timed op stream v2
+# format: TSV, every op carries (line, col) — 1-indexed
+# generated by: diffvim-pace ...
+# delete_threshold 3
+hunk_start\t<del_count>\t<ins_count>
+op\tkeep|delete|insert\t<line>\t<col>\t<code>
+batch_delete\t<line>\t<col>\t<count>
+batch_insert\t<line>\t<col>\t<code1>\t<code2>\t...
+newline_delete\t<line>
+newline_insert\t<line>\t<col>
+delay\t<ms>
 hunk_end
 done
 ```
 
+Note: the old v1 format (space-separated, with `glide <line>:<col>` ops
+between hunks) has been removed. Every op now carries its own `(line, col)`,
+so a separate glide op is unnecessary — the animator just sets the
+cursor to the position carried by the next op before applying it.
+
 ## Stage 4: Animate
 
-**Input:** timed op stream
+**Input:** timed op stream (TSV, per-op positions)
 **Output:** visual animation in terminal (or saved buffer file)
 
 **Tools:**
 - `diffvim` (vimscript, run inside vim) — the original, uses vim's
   buffer manipulation and timer-based animation
-- `animator/bin/diffvim-animator` (Go) — standalone, renders to
-  terminal with ANSI escapes
-- `animator/bin/diffvim-animator-c` (C) — C version
-- `animator/perl/animator.pl` (Perl) — Perl version
+- `animator/bin/diffvim-animator-c` (C++) — default standalone animator
+- `animator/perl/animator.pl` (C++) — Perl fallback
+
+(The Go animator was removed in the refactor.)
 
 **How it works:**
 
 The animator maintains a virtual buffer (list of lines) and a cursor
-(line, col). It reads the timed op stream and processes each op:
+(line, col). It reads the TSV timed op stream and processes each op:
 
-1. **op keep/delete/insert** — modify the buffer at the cursor position,
-   advance the cursor
-2. **batch_delete/batch_insert** — apply multiple ops at once
+1. **op keep/delete/insert** — set cursor to the op's `(line, col)`,
+   then modify the buffer at that position, advance the cursor
+2. **batch_delete/batch_insert** — set cursor to the op's `(line, col)`,
+   then apply multiple ops at once
 3. **newline_delete** — join current line with next (removes the `\n`)
 4. **newline_insert** — split the current line at the cursor (inserts
    a `\n`)
-5. **glide** — move the cursor to a new position
-6. **delay** — sleep for N ms (scaled by `--speed`)
-7. **snapshot** — write the current buffer to a file
-8. **done** — animation complete
+5. **delay** — sleep for N ms (scaled by `--speed`)
+6. **snapshot** — write the current buffer to a file
+7. **done** — animation complete
+
+Because every op carries its own position, the animator has no `glide`
+handler — it just sets the cursor before each op. When the target line
+is beyond the buffer end (the end-insert case), the cursor goes to the
+END of the last line so subsequent inserts append correctly.
 
 **The `\n` delete problem:**
 
@@ -235,17 +252,12 @@ engine. The engine:
    hunk.
 
 3. **StartNextHunk()** — positions cursor at hunk target (adjusted by
-   `line_offset` = cumulative inserted - deleted lines from previous
-   hunks).
+   the cumulative inserted - deleted lines from previous hunks).
 
 4. **ProcessCharOp()** — processes one char op per timer tick. Applies
    the op to the buffer, advances cursor, schedules next tick. Handles
    AWD (adaptive word delete), rapid-eol, word acceleration, and other
    pacing modes.
-
-5. **line_offset** — after each hunk, `line_offset += (inserted_count -
-   deleted_count)`. This is LINE counts (from the line-level diff), not
-   char counts. Correct for tracking buffer line shifts.
 
 **Controls:** Space (pause), n (skip hunk), b (back), q (quit), +/-
 (speed), = (reset speed).
@@ -253,33 +265,30 @@ engine. The engine:
 ## Current State and Known Issues
 
 ### What works:
-- diffvim-pipeline (Go animator): **42/42 examples pass** MD5
+- diffvim-pipeline (C animator): **42/42 examples pass** MD5
   verification
 - diffvim (vimscript, synchronous): 32/42 pass (10 large-file timeouts
   due to O(N²) in ProcessCharOp on 28K+ ops)
-- Cross-language parity: all 4 compute tools, all 3 postprocess/pace
-  tools produce identical output
+- Cross-language parity: the C++ compute tool, plus C and Perl
+  postprocess/pace, produce identical output
 
 ### What doesn't work:
 
 1. **Ghost line problem** — the core visual issue. When a `\n` delete
    joins two lines, the next line's content visually jumps up. This
    needs a postprocess fix (transform the ops), not an animator fix.
+   Pending Phase F.
 
 2. **Large-file performance** — vimscript engine is O(N²) on large op
    lists. 28K ops (33_large_python) takes 11+ seconds; 68K ops
-   (42_large_huge_python) times out at 30s. The Go animator handles
-   these fine (< 1 second).
+   (42_large_huge_python) times out at 30s. The standalone C animator
+   handles these fine (< 1 second).
 
 3. **Pause/resume cursor drift** — in interactive diffvim, if the user
    pauses and scrolls, the cursor position (`s:cur_l`, `s:cur_c`) is not
    re-validated against the actual buffer position after resume. Ops
    then apply at the wrong place. (Reported but not reproduced
    headlessly.)
-
-4. **Myers algorithm** — OOM-killed on 15K-line files. The
-   implementation uses O(N*M) memory. Should either be replaced with
-   a linear-space Myers variant, or dropped for large files.
 
 ## File Structure
 
@@ -288,13 +297,15 @@ gitanim/
 ├── diffvim                  # bash + vimscript launcher (main tool)
 ├── diffvim.pl               # Perl alternative
 ├── diffvim-tmux             # tmux variant
-├── compute/bin/             # 4 diff compute tools (C/C++/Rust/Go)
+├── compute/
+│   ├── cpp/                 # C++ compute source (the only compute impl)
+│   ├── perl/                # Pure-Perl fallback wrapper
+│   └── bin/diffvim-compute-cpp
 ├── animator/
-│   ├── bin/                 # compiled animator + pace + postprocess
-│   ├── go/                  # Go source
-│   ├── perl/                # Perl source
-│   ├── c/                   # C source
-│   ├── diffvim-pipeline     # runs all 4 stages
+│   ├── bin/                 # compiled animator + pace + postprocess (C only)
+│   ├── perl/                # Perl source (animator.pl, pace.pl, postprocess.pl)
+│   ├── c/                   # C source (animator.c, pace.c, postprocess.c)
+│   ├── diffvim-pipeline     # runs all 4 stages (C-preferred, Perl fallback)
 │   └── tests/               # animator-specific tests
 ├── examples/                # 42 file pairs (old/new) for testing
 ├── tests/                   # vimscript engine tests

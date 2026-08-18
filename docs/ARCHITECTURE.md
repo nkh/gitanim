@@ -345,8 +345,8 @@ Returns:
 | **User input**             | Native mappings  | FIFO             | FIFO             |
 | **Race conditions**        | No               | Yes              | Yes              |
 | **External dependencies**  | Vim only         | tmux, diff, sed, awk | tmux, diff    |
-| **Diff algorithm**         | LCS (Vimscript)  | LCS (diff+sed)   | LCS (Perl)       |
-| **Char-level diff**        | LCS (Vimscript)  | LCS (diff+sed)   | LCS (Perl)       |
+| **Diff algorithm**         | LCS (Vimscript)  | LCS (diff+sed)   | LCS (C++)       |
+| **Char-level diff**        | LCS (Vimscript)  | LCS (diff+sed)   | LCS (C++)       |
 | **Easing**                 | ease-in-out cubic| ease-in-out cubic| ease-in-out cubic|
 | **Snapshots**              | In-memory        | Temp files       | Temp files       |
 | **Test coverage**          | Manual           | Manual           | 9 parser tests   |

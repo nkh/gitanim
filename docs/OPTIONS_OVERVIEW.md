@@ -11,7 +11,7 @@ what can be done and how options interact.
 ```
   ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
   │  Old File   │     │  Diff Engine  │     │  Animation      │
-  │  New File   │ ──► │  (LCS/Myers/  │ ──► │  Engine (vim)   │
+  │  New File   │ ──► │  (LCS/Patience/  │ ──► │  Engine (vim)   │
   │             │     │   Patience)   │     │                 │
   └─────────────┘     └──────────────┘     └────────┬────────┘
                                                    │
@@ -38,15 +38,14 @@ what can be done and how options interact.
 
 ```
   --algorithm lcs       ──►  Classic LCS, O(N×M), good for small files
-  --algorithm myers     ──►  O(ND), faster for small diffs in large files
   --algorithm patience  ──►  Anchors on unique lines, more human-readable hunks
 ```
 
+(Myers was removed: it OOMs on 15K-line files and produces the same
+op count as LCS.)
+
 **Example:**
 ```
-  # Myers: fast computation, good for AI-generated code
-  diffvim --algorithm myers old.py new.py
-
   # Patience: fewer, more coherent hunks
   diffvim --algorithm patience old.py new.py
 ```
@@ -253,13 +252,13 @@ what can be done and how options interact.
   │  --auto-precompute                                │
   │                                                   │
   │  old.py ─┐                                        │
-  │          ├──► [C compute tool] ──► diff.txt ──┐   │
+  │          ├──► [C++ compute tool] ──► diff.txt ──┐   │
   │  new.py ─┘                                    │   │
   │                                               ▼   │
   │  diffvim ──► [vim + --precomputed diff.txt] ──► animation
   │                                                   │
-  │  Speed: 0.8ms (C) vs 500ms (vimscript)            │
-  │  Use --compute-tool c|cpp|rust|go to choose       │
+  │  Speed: ~1ms (C++) vs 500ms (vimscript)         │
+  │  The C++ binary is searched for automatically      │
   └───────────────────────────────────────────────────┘
 ```
 
@@ -292,7 +291,7 @@ what can be done and how options interact.
   │  Quick review        │  --preset review                     │
   │  Presentation        │  --preset present                    │
   │  AI code review      │  --preset ai-code                    │
-  │  Large files         │  --auto-precompute --algorithm myers │
+  │  Large files         │  --auto-precompute --algorithm patience │
   │  Fast deletion       │  --preset fast-delete                │
   │  Detailed inspection │  --step-mode --highlight-inline      │
   │  Custom preferences  │  --preset custom (via env var)       │

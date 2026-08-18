@@ -1,6 +1,19 @@
 /* diffvim-postprocess — Post-process raw char ops.
  *
- * Reads raw char ops from stdin, applies post-processing, writes to stdout.
+ * Reads raw char ops from stdin, applies post-processing, computes
+ * per-op (line, col) positions, and writes tab-separated ops to stdout.
+ *
+ * The postprocess stage OWNS cursor positioning. The pace stage only
+ * handles delays and batching. The animator reads (line, col) from each
+ * op and applies it at that exact position — scroll-safe.
+ *
+ * Output format (TSV, 1-indexed line/col):
+ *   hunk_start\t<del_count>\t<ins_count>
+ *   op\tkeep\t<line>\t<col>\t<code>
+ *   op\tdelete\t<line>\t<col>\t<code>
+ *   op\tinsert\t<line>\t<col>\t<code>
+ *   newline_delete\t<line>
+ *   newline_insert\t<line>\t<col>
  *
  * Usage: diffvim-postprocess [--op-order MODE] [--semantic-cleanup]
  *                             [--indent-aware] [--overwrite]
@@ -205,6 +218,14 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
     return n_out;
 }
 
+/* Write ops with per-op (line, col) positions.
+ *
+ * For each hunk, we walk the ops and simulate the cursor position
+ * assuming the original file is the buffer. Line/col are 1-indexed.
+ * `line_offset` accumulates net (newline_inserts - newline_deletes)
+ * across hunks so each hunk targets the CURRENT buffer position,
+ * not the original line in the old file.
+ */
 void write_output(void) {
     /* Write header */
     for (int i = 0; i < n_header; i++) {
@@ -220,19 +241,17 @@ void write_output(void) {
             printf("%s\n", header[i]);
     }
 
-    /* Write hunks */
+    int line_offset = 0;  /* Cumulative (newline_inserts - newline_deletes) from prior hunks */
+
     int op_idx = 0;
     for (int h = 0; h < n_hunks; h++) {
-        printf("HUNK %d %d %d %d %d\n",
-               hunks[h].target, hunks[h].del, hunks[h].ins,
-               hunks[h].end_ins, hunks[h].end_del);
+        /* hunk_start no longer carries a target line — the position is
+         * implicit in the first op's (line, col). */
+        printf("hunk_start\t%d\t%d\n", hunks[h].del, hunks[h].ins);
 
         int count = hunks[h].op_count;
         Op *in = &ops_in[op_idx];
 
-        /* Use heap-allocated buffers (per-hunk, freed at end) to avoid
-         * stack overflow on large hunks. ops_out is sized to cap_ops
-         * which is >= total ops, so it's >= any single hunk's count. */
         Op *temp = ops_out;
         int n_out = count;
 
@@ -241,20 +260,57 @@ void write_output(void) {
             in = temp;
             count = n_out;
         }
+
+        /* Always produce a final op array (optimized or not). */
+        Op *final_ops;
         if (op_order_optimize) {
-            /* reorder_hunk_ops needs output buffer != input buffer.
-             * Use a second temp buffer. */
             Op *temp2 = (Op *)malloc(cap_ops * sizeof(Op));
             if (!temp2) { fprintf(stderr, "diffvim-postprocess: out of memory (temp2)\n"); exit(1); }
             n_out = reorder_hunk_ops(in, count, temp2);
-            for (int i = 0; i < n_out; i++)
-                printf("%s %d\n", temp2[i].type, temp2[i].code);
-            free(temp2);
+            final_ops = temp2;
         } else {
-            for (int i = 0; i < n_out; i++)
-                printf("%s %d\n", in[i].type, in[i].code);
+            final_ops = in;
         }
 
+        /* Compute per-op (line, col) and emit TSV. cur_line/cur_col
+         * are 1-indexed and track where the cursor SHOULD be after
+         * applying each op to the (virtual) buffer. */
+        int cur_line = hunks[h].target + line_offset;
+        int cur_col = 1;
+        int newl_ins = 0, newl_del = 0;
+        for (int i = 0; i < n_out; i++) {
+            Op *op = &final_ops[i];
+            if (op->code == 10) {
+                if (strcmp(op->type, "keep") == 0) {
+                    /* keep \n: cursor advances to next line, col resets. */
+                    printf("op\tkeep\t%d\t%d\t%d\n", cur_line, cur_col, op->code);
+                    cur_line++;
+                    cur_col = 1;
+                } else if (strcmp(op->type, "delete") == 0) {
+                    /* newline_delete: the line at cur_line is joined
+                     * with the next. Cursor stays at the same line+col. */
+                    printf("newline_delete\t%d\n", cur_line);
+                    newl_del++;
+                } else if (strcmp(op->type, "insert") == 0) {
+                    /* newline_insert: a new line is inserted AFTER cur_line
+                     * at cur_col. Cursor moves to the new line. */
+                    printf("newline_insert\t%d\t%d\n", cur_line, cur_col);
+                    cur_line++;
+                    cur_col = 1;
+                    newl_ins++;
+                }
+            } else {
+                printf("op\t%s\t%d\t%d\t%d\n", op->type, cur_line, cur_col, op->code);
+                if (strcmp(op->type, "keep") == 0 || strcmp(op->type, "insert") == 0) {
+                    cur_col++;
+                }
+                /* delete: cursor stays at the same col. */
+            }
+        }
+
+        if (op_order_optimize) free(final_ops);
+
+        line_offset += newl_ins - newl_del;
         op_idx += hunks[h].op_count;
     }
 }

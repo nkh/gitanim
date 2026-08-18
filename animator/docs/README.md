@@ -16,7 +16,7 @@ simpler, faster, more correct architecture.
 4. [Pipeline Architecture](#4-pipeline-architecture)
 5. [Tools](#5-tools)
 6. [Timed Op Stream Format](#6-timed-op-stream-format)
-7. [The `\n` Problem — Solved](#7-the-n-problem--solved)
+7. [The `\n` Problem — Pending Phase F](#7-the-n-problem--pending-phase-f)
 8. [Syntax Coloring](#8-syntax-coloring)
 9. [Options Reference](#9-options-reference)
 10. [Language Implementations](#10-language-implementations)
@@ -38,19 +38,25 @@ Each stage is a separate tool that reads from stdin and writes to stdout.
 This separation means:
 
 - Each tool is independently testable
-- Tools can be mixed across languages (Perl postprocess + Go animator)
+- Tools can be mixed across languages (Perl postprocess + C animator)
 - The animator is simple — just plays back a pre-computed op stream
 - All complex logic (diff, op ordering, pacing) runs before animation
 
 ### Key Features
 
 - **No vim dependency** — works in any terminal
-- **Correct `\n` handling** — deferred line joins prevent content pull-up
+- **Per-op positioning** — every op carries its own `(line, col)`; the
+  animator has no `glide` handler
 - **Syntax coloring** — via external highlighters (`bat`, `highlight`)
-- **Three languages** — Perl, C, and Go implementations of every tool
-- **Cross-language parity** — all implementations produce identical output
+- **Two languages** — Perl and C implementations of every tool
+- **Cross-language parity** — both implementations produce identical output
 - **`--no-display` mode** — process ops without rendering (for testing/CI)
 - **Snapshot ops** — write the buffer to a file at any point during animation
+
+> **Phase A–C refactor note.** The Go implementations of postprocess /
+> pace / animator were removed; only Perl and C remain. The compute
+> stage has a single C++ tool (`compute/bin/diffvim-compute-cpp`) with a
+> pure-Perl fallback (`compute/perl/compute_builtin.pl`).
 
 ---
 
@@ -59,15 +65,13 @@ This separation means:
 ### Build All Tools
 
 ```bash
-# C tools
+# C animator tools
 cc -O2 -o animator/bin/diffvim-postprocess animator/c/postprocess.c
 cc -O2 -o animator/bin/diffvim-pace animator/c/pace.c
 cc -O2 -o animator/bin/diffvim-animator-c animator/c/animator.c
 
-# Go tools
-go build -o animator/bin/diffvim-postprocess-go animator/go/postprocess.go
-go build -o animator/bin/diffvim-pace-go animator/go/pace.go
-go build -o animator/bin/diffvim-animator animator/go/animator.go
+# C++ compute tool (used by the pipeline)
+make -C compute
 
 # Perl tools need no build
 ```
@@ -81,9 +85,10 @@ sudo cp animator/diffvim-pipeline /usr/local/bin/
 
 ### Prerequisites
 
-- **Compute tool:** One of `diffvim-compute-{c,cpp,rust,go}` (already built in `compute/bin/`)
+- **Compute tool:** `compute/bin/diffvim-compute-cpp` (built by `make -C compute`).
+  Falls back to `compute/perl/compute_builtin.pl` when the C++ binary
+  is missing.
 - **Perl tools:** Perl 5.10+ (core modules only)
-- **Go tools:** Go 1.21+ (to build; runtime has no dependencies)
 - **C tools:** Any C compiler (cc/gcc/clang)
 - **Syntax coloring (optional):** `bat`, `highlight`, or any ANSI-capable highlighter
 
@@ -114,16 +119,16 @@ animator/diffvim-pipeline \
 
 ```bash
 # Compute the diff
-compute/bin/diffvim-compute-c old.py new.py /tmp/raw.txt
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/raw.txt
 
-# Post-process (reorder ops)
+# Post-process (reorder ops + add per-op (line, col) positions)
 perl animator/perl/postprocess.pl --op-order optimize < /tmp/raw.txt > /tmp/post.txt
 
-# Add timing and pacing
+# Add timing and pacing (passes positions through)
 perl animator/perl/pace.pl --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
 
 # Animate
-animator/bin/diffvim-animator --syntax 'bat --color=always' old.py < /tmp/timed.txt
+animator/bin/diffvim-animator-c --syntax 'bat --color=always' old.py < /tmp/timed.txt
 ```
 
 ---
@@ -136,14 +141,15 @@ animator/bin/diffvim-animator --syntax 'bat --color=always' old.py < /tmp/timed.
 │  compute    │────▶│  postprocess  │────▶│  pace        │────▶│  animator    │
 │             │     │               │     │              │     │              │
 │ Computes    │     │ Reorders ops  │     │ Adds timing  │     │ Plays back   │
-│ char ops    │     │ (op-order,    │     │ and pacing   │     │ ops with     │
-│ (LCS/Myers/ │     │ semantic,     │     │ (AWD, word   │     │ cursor glide │
-│ Patience)   │     │ indent, etc.) │     │ batching,    │     │ and rendering│
-│             │     │               │     │ delays)      │     │              │
-│ C/C++/Rust/ │     │ Perl / C / Go │     │ Perl / C / Go│     │ Perl / C / Go│
-│ Go          │     │               │     │              │     │              │
+│ char ops    │     │ + per-op      │     │ + batching   │     │ ops with     │
+│ (LCS or     │     │ (line, col)   │     │ (AWD, word   │     │ cursor set  │
+│ Patience)   │     │ positioning   │     │ batches)     │     │ per op      │
+│             │     │               │     │              │     │              │
+│ C++         │     │ Perl / C      │     │ Perl / C     │     │ Perl / C     │
+│ (Perl       │     │               │     │              │     │              │
+│ fallback)   │     │               │     │              │     │              │
 └─────────────┘     └───────────────┘     └──────────────┘     └──────────────┘
-     Exists              New tool            New tool           New tool
+     Exists              New tool              New tool            New tool
 ```
 
 ### Option Routing
@@ -157,7 +163,10 @@ animator/bin/diffvim-animator --syntax 'bat --color=always' old.py < /tmp/timed.
 | `--pace-*` | pace | `--pace-delete-pacing word` |
 | `--animator-*` | animator | `--animator-no-display` |
 | (none) | animator | `--speed 2.0`, `--syntax 'bat ...'` |
-| `--tool` | compute | `--tool rust` (selects compute language) |
+
+> The historical `--tool c|cpp|rust|go` flag (which selected the compute
+> language) was removed in the refactor — only the C++ tool remains,
+> with a Perl fallback.
 
 ---
 
@@ -165,9 +174,10 @@ animator/bin/diffvim-animator --syntax 'bat --color=always' old.py < /tmp/timed.
 
 ### diffvim-postprocess
 
-**Purpose:** Reorders char ops within each line for human readability.
+**Purpose:** Reorders char ops within each line for human readability,
+and emits a `(line, col)` for every op so the animator is scroll-safe.
 
-**Languages:** Perl, C, Go (all produce identical output)
+**Languages:** Perl, C (both produce identical output)
 
 **Options:**
 - `--op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite` (default: optimize)
@@ -182,9 +192,12 @@ postprocess --op-order optimize | postprocess --semantic-cleanup
 
 ### diffvim-pace
 
-**Purpose:** Transforms ordered ops into a timed op stream with pre-computed delays, batch operations, and cursor glide targets.
+**Purpose:** Adds timing and batching to the positioned op stream from
+postprocess. Passes the per-op `(line, col)` through untouched — pace
+owns ONLY delays and batching now (cursor positioning moved to
+postprocess in the Phase C refactor).
 
-**Languages:** Perl, C, Go (all produce identical output)
+**Languages:** Perl, C (both produce identical output)
 
 **Options:**
 - `--delete-pacing char|rapid-eol|rapid-identical|accel|word|instant` (default: word)
@@ -201,14 +214,16 @@ Phase 1: Skip spaces instantly (not counted toward threshold)
 Phase 2: Delete first 3 non-space chars slowly (80ms each)
 Phase 3: Delete words with acceleration (80ms → 15ms per word)
 Phase 4: Delete remaining chars instantly (rapid shot)
-Phase 5: Delete \n (deferred join if line has content)
+Phase 5: Delete \n (join lines)
 ```
 
 ### diffvim-animator
 
-**Purpose:** Reads a timed op stream and animates the transformation in a terminal.
+**Purpose:** Reads a TSV timed op stream and animates the transformation
+in a terminal. Each op carries its own `(line, col)` — the animator just
+sets the cursor before applying each op. No `glide` handler.
 
-**Languages:** Go (primary), Perl, C
+**Languages:** C (primary), Perl (fallback)
 
 **Options:**
 - `--no-display` — Process ops without rendering (for testing)
@@ -221,7 +236,9 @@ Phase 5: Delete \n (deferred join if line has content)
 
 ### diffvim-pipeline
 
-**Purpose:** Runs all 4 stages with prefixed option routing.
+**Purpose:** Runs all 4 stages with prefixed option routing. Defaults
+to the C++ compute tool + C animator; falls back to Perl when binaries
+are missing.
 
 ```bash
 diffvim-pipeline [options] <oldfile> <newfile>
@@ -231,22 +248,25 @@ diffvim-pipeline [options] <oldfile> <newfile>
 
 ## 6. Timed Op Stream Format
 
-The pace tool produces a text-based stream that the animator reads:
+The pace tool produces a TSV stream that the animator reads (v2 format,
+introduced in the Phase C refactor):
 
 ```
-# timed op stream v1
-hunk_start 2 1 1
-glide 2:1
-delay 480
-op keep 32
-delay 1
-op insert 102
-delay 50
-batch_delete 4
-delay 15
-newline_delete
-delay 40
-snapshot /tmp/check.txt
+# timed op stream v2
+# format: TSV, every op carries (line, col) — 1-indexed
+# generated by: diffvim-pace --delete-pacing word --pacing gaussian
+# delete_threshold 3
+file_start	old.py	new.py
+hunk_start	1	1
+op	delete	2	1	112
+delay	80
+op	delete	2	1	114
+delay	80
+batch_delete	2	1	4
+delay	15
+newline_delete	2
+delay	40
+snapshot	/tmp/check.txt
 hunk_end
 done
 ```
@@ -255,56 +275,54 @@ done
 
 | Op | Arguments | Description |
 |----|-----------|-------------|
-| `op` | `<type> <code>` | Apply a char op (keep/delete/insert) |
+| `op` | `<type> <line> <col> <code>` | Apply a char op at `(line, col)` |
 | `delay` | `<ms>` | Wait N milliseconds |
-| `batch_delete` | `<count>` | Delete N chars at cursor instantly |
-| `batch_insert` | `<codes...>` | Insert multiple chars instantly |
-| `glide` | `<line>:<col>` | Move cursor to position |
-| `newline_delete` | | Delete \n (join lines, may be deferred) |
-| `newline_insert` | | Insert \n (split line) |
+| `batch_delete` | `<line> <col> <count>` | Delete N chars at `(line, col)` instantly |
+| `batch_insert` | `<line> <col> <codes...>` | Insert multiple chars at `(line, col)` instantly |
+| `newline_delete` | `<line>` | Delete `\n` at end of `<line>` (join with next) |
+| `newline_insert` | `<line> <col>` | Insert `\n` at `(line, col)` (split line) |
 | `snapshot` | `<file>` | Write buffer to file |
-| `hunk_start` | `<line> <del> <ins>` | Mark hunk beginning |
+| `hunk_start` | `<del> <ins>` | Mark hunk beginning |
 | `hunk_end` | | Mark hunk end |
 | `done` | | Animation complete |
 
+> **v1 → v2 change.** The old v1 format was space-separated and emitted
+> `glide <line>:<col>` ops between hunks. In v2, every op carries its
+> own 1-indexed `(line, col)` and the `glide` op is gone — the animator
+> just sets the cursor to the position carried by the next op before
+> applying it.
+
 ---
 
-## 7. The `\n` Problem — Solved
+## 7. The `\n` Problem — Pending Phase F
 
 ### The Problem
 
-When a newline is deleted and the current line still has content (keep
+When a `\n` is deleted and the current line still has content (keep
 characters), joining the current line with the next line pulls the next
 line's content up onto the current line during animation. This looks
 terrible — the viewer sees the next line's text suddenly appear on the
 current line.
 
-### The Solution: Deferred Line Joins
+### Current behavior
 
-When deleting a `\n`:
+The animator mechanically joins lines when it encounters a `\n` delete.
+This is correct (the final buffer matches the new file), but the
+intermediate visual is jarring.
 
-1. **If the current line is EMPTY** (all content already deleted):
-   Join immediately. This just removes the empty line — the next line's
-   content takes its place. No visual issue because there's no content
-   to be "pulled up".
+The "deferred join" mechanism that previously attempted to fix this
+was reverted (see commit `410cfdb` / NEXT_SESSION.md). It broke mixed
+delete+insert sequences on large files because the buffer retained
+extra `\n`s, causing subsequent inserts to land on wrong lines.
 
-2. **If the current line has CONTENT** (keep characters before the deletes):
-   DON'T join. Just move the cursor to the next line. Defer the join
-   until the end of the animation. This prevents the next line's content
-   from being pulled up during animation.
+### Pending fix (Phase F)
 
-At the end of the animation (or when writing a snapshot), all deferred
-joins are applied in reverse line order (so joins don't shift line
-numbers). The final buffer is correct — matches the expected new file.
+The correct fix belongs in **postprocess**, not in the animator. The
+postprocessor should detect the `keep X, delete \n, keep Y` pattern
+(a line join) and transform it into a sequence that animates naturally
+(e.g., delete the entire second line, then re-insert it as new content).
 
-### Implementation
-
-| Component | Implementation |
-|-----------|---------------|
-| diffvim (vimscript) | `s:deferred_joins` list, `s:ApplyDeferredJoins()` called in `StartNextHunk` and `Quit` |
-| animator (Go) | `VirtualBuffer.deferredJoins` slice, `ApplyDeferredJoins()` called on snapshot/done |
-| animator (Perl) | `@deferred_joins` array, `apply_deferred_joins()` called on snapshot/done |
-| animator (C) | `deferred_joins[]` array, `apply_deferred_joins()` called on snapshot/done |
+NOT YET IMPLEMENTED — see `docs/PIPELINE.md` for the design discussion.
 
 ---
 
@@ -336,8 +354,7 @@ plain rendering.
 
 | Option | Stage | Description |
 |--------|-------|-------------|
-| `--tool c\|cpp\|rust\|go` | compute | Select compute tool language |
-| `--compute-algorithm lcs\|myers\|patience` | compute | Diff algorithm |
+| `--compute-algorithm lcs\|patience` | compute | Diff algorithm (Myers removed) |
 | `--postprocess-op-order MODE` | postprocess | Op reordering mode |
 | `--postprocess-semantic-cleanup` | postprocess | Merge canceling ops |
 | `--postprocess-indent-aware` | postprocess | Handle indent changes |
@@ -363,30 +380,33 @@ plain rendering.
 
 ## 10. Language Implementations
 
-All three languages have complete implementations of all three tools.
+Both Perl and C have complete implementations of all three animator
+tools. The compute stage is C++ with a Perl fallback.
 
 ### Implementation Status
 
-| Tool | Perl | C | Go |
-|------|------|---|-----|
-| postprocess | ✅ 379 lines | ✅ 168 lines | ✅ 170 lines |
-| pace | ✅ 310 lines | ✅ 210 lines | ✅ 342 lines |
-| animator | ✅ 175 lines | ✅ 200 lines | ✅ 500 lines |
+| Tool | Perl | C |
+|------|------|---|
+| postprocess | ✅ ~380 lines | ✅ ~170 lines |
+| pace | ✅ ~310 lines | ✅ ~210 lines |
+| animator | ✅ ~175 lines | ✅ ~200 lines |
+| (compute) | ✅ `compute_builtin.pl` (~90 lines, fallback) | C++ `diffvim-compute.cpp` |
 
 ### Cross-Language Parity
 
 All implementations produce **byte-for-byte identical output**:
-- Postprocess: C == Perl == Go (verified by 30 parity tests)
-- Pace: C == Perl == Go (verified by 8 parity tests)
-- Animator: all 3 produce correct round-trip results (verified by 45 tests)
+- Postprocess: C == Perl (verified by cross-language parity tests)
+- Pace: C == Perl (verified across all 4 delete-pacing modes)
+- Animator: both produce correct round-trip results (verified by round-trip tests)
+- Compute: C++ == Perl fallback (verified on `examples/01_small_python`)
 
 ### Performance
 
-| Tool | Perl | C | Go |
-|------|------|---|-----|
-| postprocess (68K ops) | 147ms | 14ms | ~15ms |
-| pace (68K ops) | 124ms | 15ms | ~15ms |
-| animator startup | ~20ms | <1ms | ~5ms |
+| Tool | Perl | C |
+|------|------|---|
+| postprocess (68K ops) | ~147ms | ~14ms |
+| pace (68K ops) | ~124ms | ~15ms |
+| animator startup | ~20ms | <1ms |
 
 ---
 
@@ -396,10 +416,11 @@ All implementations produce **byte-for-byte identical output**:
 
 | Test File | Assertions | What It Tests |
 |-----------|-----------|---------------|
-| `test_all_animators.pl` | 45 | 15 cases × 3 animators (round-trip) |
-| `test_cross_language.pl` | 38 | Postprocess + pace parity (byte-for-byte) |
-| `test_newline_fix.pl` | 8 | `\n` merge bug verification |
-| **Total** | **91** | **All pass** |
+| `test_all_animators.pl` | round-trip | C and Perl animators produce identical output |
+| `test_cross_language.pl` | 14+ | Postprocess + pace parity (byte-for-byte) |
+| `test_newline_fix.pl` | 7 | `\n` merge handling verification |
+| `test_roundtrip.pl` | 15 | Perl animator round-trip |
+| `test_roundtrip_verify.pl` | 30 | C animator round-trip |
 
 ### Running Tests
 
@@ -410,7 +431,7 @@ perl animator/tests/test_all_animators.pl
 # Cross-language parity
 perl animator/tests/test_cross_language.pl
 
-# \n merge bug verification
+# \n merge handling
 perl animator/tests/test_newline_fix.pl
 ```
 
@@ -433,14 +454,14 @@ testing without a terminal.
 
 | Aspect | diffvim (vim) | animator (standalone) |
 |--------|---------------|----------------------|
-| `\n` delete | Deferred join (fixed) | ✅ Same fix |
-| Dependencies | vim 8+ | ✅ None (Go static binary) |
+| `\n` delete | Mechanical join (Phase F pending) | ✅ Same behavior |
+| Dependencies | vim 8+ | ✅ None (C static binary) |
 | Architecture | Monolithic (4,500 lines) | ✅ Pipeline (4 tools) |
 | Testability | Hard (timer-based) | ✅ Easy (stdin/stdout, `--no-display`) |
 | Performance | Slow (vim overhead) | ✅ 10-100x faster |
 | Syntax coloring | vim syntax files | ✅ External highlighters (`bat`, etc.) |
-| Lines of code | ~4,500 (vimscript) | ✅ ~1,500 (total across tools) |
-| Languages | Vimscript only | ✅ Perl, C, Go |
+| Lines of code | ~4,500 (vimscript) | ✅ ~1,000 (total across tools) |
+| Languages | Vimscript only | ✅ Perl, C (animator); C++ (compute) |
 
 ---
 

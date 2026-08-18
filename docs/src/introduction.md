@@ -18,7 +18,7 @@ re-typed — surrounding text is never touched.
 
 ## Key Features
 
-- **Char-level diff** — only changed characters are touched (LCS / Myers / Patience algorithm)
+- **Char-level diff** — only changed characters are touched (LCS / Patience algorithm)
 - **Smooth cursor glide** — ease-in-out cubic between change locations
 - **Interactive controls** — pause, skip, back, speed change at any time
 - **Multi-file animation** — animate diffs across multiple files
@@ -26,8 +26,10 @@ re-typed — surrounding text is never touched.
 - **Plugin mode** — run as `:Diffvim` inside an existing vim
 - **50+ CLI options** — speed, scroll, sign column, git blame, word diff,
   indent-aware, semantic cleanup, rapid-EOL delete, presets, and more
-- **External compute tools** — C, C++, Rust, and Go binaries that
-  pre-compute diffs 10-100x faster than vimscript LCS, for large files
+- **External compute tool** — a native C++ binary that pre-computes
+  diffs 10-100x faster than vimscript LCS, for large files. Falls back
+  to the embedded vimscript LCS (or Perl `compute_builtin.pl` for the
+  pipeline) when the binary is missing.
 - **Six built-in presets** — `default`, `fast-delete`, `review`,
   `ai-code`, `demo`, `presentation` for common use cases
 - **Post-processing pipeline** — `optimize_sequence`, `left_to_right`,
@@ -49,8 +51,8 @@ re-typed — surrounding text is never touched.
 # Use a preset
 ./diffvim --preset review --git-blame old.py new.py
 
-# Use the Rust external compute tool for large files
-compute/bin/diffvim-compute-rust old.py new.py /tmp/diff.txt
+# Use the C++ external compute tool for large files
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
 ./diffvim --precomputed /tmp/diff.txt old.py new.py
 
 # Dry run (print diff without launching vim)

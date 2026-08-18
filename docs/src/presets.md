@@ -66,7 +66,7 @@ interleaved inserts and deletes. Enables `--semantic-cleanup`,
 animation reads naturally even when the underlying LCS is chaotic.
 
 ```bash
-diffvim --preset ai-code --tool rust old.py new.py
+diffvim --preset ai-code old.py new.py
 diffvim --preset ai-code --highlight-word --adaptive-timing old.py new.py
 ```
 

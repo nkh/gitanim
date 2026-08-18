@@ -127,7 +127,7 @@ Notice:
        ┌──────────────────────────────────────────────────────────┐
        │              STEP 1: Line-level diff                     │
        │                                                          │
-       │   LCS / Myers / Patience algorithm compares line by      │
+       │   LCS / Patience algorithm compares line by      │
        │   line. Identical lines are "keep"; changed lines are    │
        │   paired into (old_line, new_line) and handed to         │
        │   the char-level diff.                                   │
@@ -318,20 +318,22 @@ LCS becomes slow.
               ┌───────────┘             └────────────┐
               ▼                                       ▼
    ┌──────────────────────┐                ┌──────────────────────┐
-   │  diffvim-compute-c   │                │       diffvim        │
-   │  (or -cpp/-rust/-go) │                │   (loads precomputed │
-   │                      │                │    diff, just anims) │
-   │  10-100x faster      │                │                      │
-   │  than vimscript LCS  │                │  Animation only      │
-   │                      │                │                      │
-   │  Same algorithm,     │                │                      │
-   │  same output format  │                │                      │
-   │  across all 4 langs  │                │                      │
+   │  diffvim-compute-cpp │                │       diffvim        │
+   │                      │                │   (loads precomputed │
+   │  10-100x faster      │                │    diff, just anims) │
+   │  than vimscript LCS  │                │                      │
+   │                      │                │  Animation only      │
+   │  Falls back to       │                │                      │
+   │  Perl builtin        │                │                      │
+   │  if binary missing   │                │                      │
    └──────────────────────┘                └──────────────────────┘
 ```
 
-Use `compute/bin/diffvim-compute-rust` (then `diffvim --precomputed`) (or `cpp`, `go`, `c`) to pick
-the implementation. All four produce byte-for-byte identical output.
+Use `compute/bin/diffvim-compute-cpp` (then `diffvim --precomputed`) — it's
+the only compute implementation. When the C++ binary is missing,
+`diffvim` falls back to the in-vim LCS and `diffvim-pipeline` falls
+back to `compute/perl/compute_builtin.pl` (a Perl wrapper around
+`DiffVim::Parser::Perl`). Both produce byte-for-byte identical output.
 
 ---
 
@@ -467,7 +469,7 @@ for common use cases.
 
    Usage:
        diffvim --preset review old.py new.py
-       diffvim --preset ai-code --tool rust old.py new.py
+       diffvim --preset ai-code old.py new.py
        DIFFVIM_PRESET="review --highlight-word" diffvim old.py new.py
 ```
 
@@ -596,7 +598,7 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
    ────────────────────                 ──────────────────
    diffvim \                            diffvim \
      --preset review \                    --preset ai-code \
-     --git-blame \                        --tool rust \
+     --git-blame \                        --speed 0.5 \
      --sign-column \                      --highlight-word \
      --scroll zt \                        --adaptive-timing \
      old.py new.py                        old.py new.py

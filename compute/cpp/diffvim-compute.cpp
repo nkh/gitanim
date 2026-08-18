@@ -3,13 +3,13 @@
 // Reads two files, computes line-level + char-level diff, and writes
 // the result in a format that `diffvim --precomputed FILE` can consume.
 //
-// Supports three line-diff algorithms (lcs, myers, patience) selected
+// Supports two line-diff algorithms (lcs, patience) selected
 // via --algorithm or DIFFVIM_ALGORITHM, and optional semantic cleanup
 // of char-level diffs via --semantic-cleanup or DIFFVIM_SEMANTIC_CLEANUP.
 //
 // Build: make cpp
 // Usage: diffvim-compute-cpp <oldfile> <newfile> <outputfile>
-//                           [--algorithm lcs|myers|patience] [--semantic-cleanup]
+//                           [--algorithm lcs|patience] [--semantic-cleanup]
 //
 // Timing is printed to stderr.
 
@@ -167,86 +167,6 @@ vector<LineOp> line_diff(const vector<string>& a, const vector<string>& b) {
     return line_diff_range(a, 0, (int)a.size(), b, 0, (int)b.size());
 }
 
-/* --- Myers diff algorithm (O(ND)) --- */
-/* Faster than LCS for small diffs. Falls back to LCS for very large N+M. */
-vector<LineOp> myers_diff(const vector<string>& a, const vector<string>& b) {
-    int na = a.size(), nb = b.size();
-    /* For very large inputs, Myers can use excessive memory; fall back to LCS. */
-    if (na + nb > 200000) {
-        return line_diff(a, b);
-    }
-    int max = na + nb;
-    vector<int> v(2 * max + 1, 0);
-    auto V = [&](int k) -> int& { return v[k + max]; };
-    /* trace stores the v array at each d for backtracking. */
-    vector<vector<int>> trace(max + 1);
-
-    for (int d = 0; d <= max; d++) {
-        trace[d] = v;  /* copy v at the START of depth d */
-        for (int k = -d; k <= d; k += 2) {
-            int x;
-            if (k == -d || (k != d && V(k-1) < V(k+1)))
-                x = V(k+1);
-            else
-                x = V(k-1) + 1;
-            int y = x - k;
-            while (x < na && y < nb && a[x] == b[y]) {
-                x++; y++;
-            }
-            V(k) = x;
-            if (x >= na && y >= nb) {
-                /* Backtrack from (x, y) at depth d. */
-                vector<LineOp> ops;
-                ops.reserve(d + na + nb);
-                int cx = na, cy = nb;
-                for (int dd = d; dd > 0; dd--) {
-                    vector<int>& vp = trace[dd];
-                    auto TV = [&](int kk) -> int { return vp[kk + max]; };
-                    int k = cx - cy;
-                    int prev_x, prev_y;
-                    int from_below;  /* 1 = came from k+1 (insert), 0 = came from k-1 (delete) */
-                    if (k == -dd) {
-                        from_below = 1;
-                    } else if (k == dd) {
-                        from_below = 0;
-                    } else {
-                        from_below = (TV(k-1) < TV(k+1)) ? 1 : 0;
-                    }
-                    if (from_below) {
-                        prev_x = TV(k+1);
-                        prev_y = prev_x - (k + 1);
-                    } else {
-                        prev_x = TV(k-1) + 1;
-                        prev_y = prev_x - (k - 1);
-                    }
-                    /* Emit diagonal keeps from (cx,cy) back to (prev_x, prev_y) */
-                    while (cx > prev_x && cy > prev_y) {
-                        ops.push_back({OP_KEEP, cx - 1, cy - 1});
-                        cx--; cy--;
-                    }
-                    /* The single non-diagonal step */
-                    if (from_below) {
-                        ops.push_back({OP_INSERT, -1, cy - 1});
-                        cy--;
-                    } else {
-                        ops.push_back({OP_DELETE, cx - 1, -1});
-                        cx--;
-                    }
-                }
-                /* Handle any diagonal keeps at the very start (depth 0) */
-                while (cx > 0 && cy > 0) {
-                    ops.push_back({OP_KEEP, cx - 1, cy - 1});
-                    cx--; cy--;
-                }
-                reverse(ops.begin(), ops.end());
-                return ops;
-            }
-        }
-    }
-    /* Fallback */
-    return line_diff(a, b);
-}
-
 /* --- Patience diff algorithm --- */
 /* Anchors on unique common lines, then recurses on the gaps. */
 
@@ -374,8 +294,6 @@ vector<LineOp> patience_diff(const vector<string>& a, const vector<string>& b) {
 /* --- Diff dispatcher --- */
 vector<LineOp> compute_line_diff(const vector<string>& a, const vector<string>& b,
                                   const string& algorithm) {
-    if (algorithm == "myers")
-        return myers_diff(a, b);
     if (algorithm == "patience")
         return patience_diff(a, b);
     return line_diff(a, b);  /* default: lcs */
@@ -638,7 +556,7 @@ int main(int argc, char** argv) {
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
      *   Diff mode:     --diff <patchfile> <outputfile> [options]
-     * Options: --algorithm lcs|myers|patience, --semantic-cleanup,
+     * Options: --algorithm lcs|patience, --semantic-cleanup,
      *          --word-diff, --indent-aware. May appear in any position. */
     bool diff_mode = false;
     vector<string> positionals;
@@ -685,7 +603,7 @@ int main(int argc, char** argv) {
     string oldfile, newfile, outfile, diff_file;
     if (diff_mode) {
         if (positionals.size() < 2) {
-            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--algorithm lcs|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
             fprintf(stderr, "   or: %s --diff - <outputfile> [options]   (read diff from stdin)\n", argv[0]);
             return 1;
         }
@@ -693,7 +611,7 @@ int main(int argc, char** argv) {
         outfile = positionals[1];
     } else {
         if (positionals.size() < 3) {
-            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|myers|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
             fprintf(stderr, "   or: %s --diff <patchfile> <outputfile> [options]\n", argv[0]);
             return 1;
         }

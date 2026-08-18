@@ -1,21 +1,29 @@
 # External Diff Compute Tools
 
-Native-compiled diff computation tools for the diffvim project. These tools
-compute line-level and char-level diffs 10–100x faster than the embedded
-vimscript engine, making them ideal for large files or pre-processing
-pipelines.
+The native diff computer for the diffvim project. Computes line-level
+and char-level diffs 10–100x faster than the embedded vimscript engine,
+making it ideal for large files or pre-processing pipelines.
 
-Available in four languages — all produce **byte-identical output**:
+There is **one implementation** in C++:
 
 | Tool | Language | Binary | Typical Speed |
 |------|----------|--------|---------------|
-| `diffvim-compute-c` | C | `compute/bin/diffvim-compute-c` | ~0.8 ms |
-| `diffvim-compute-cpp` | C++ | `compute/bin/diffvim-compute-cpp` | ~0.8 ms |
-| `diffvim-compute-rust` | Rust | `compute/bin/diffvim-compute-rust` | ~4 ms |
-| `diffvim-compute-go` | Go | `compute/bin/diffvim-compute-go` | ~1.4 ms |
+| `diffvim-compute-cpp` | C++17 | `compute/bin/diffvim-compute-cpp` | ~0.8 ms |
 
-All four support the **same CLI options**, **same input formats**, and
-**same output format**. They are interchangeable.
+The historical C, Rust, and Go variants were removed during the Phase A
+refactor — they produced byte-identical output and the maintenance cost
+outweighed the value of having single implementation. The C++ tool is the
+only compute tool that diffvim uses.
+
+When the C++ binary is not on disk:
+
+- `diffvim` falls back to the embedded vimscript LCS
+  (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`)
+- `diffvim-pipeline` falls back to `compute/perl/compute_builtin.pl`,
+  a thin wrapper around `DiffVim::Parser::Perl::parse_diff` that emits
+  the same op-stream format
+
+Both fallbacks emit the same output as the C++ tool, just slower.
 
 ---
 
@@ -32,7 +40,6 @@ All four support the **same CLI options**, **same input formats**, and
 - [Input Schema](#input-schema)
 - [Output Schema](#output-schema)
 - [Examples](#examples)
-- [Feature Parity](#feature-parity)
 - [Using with diffvim](#using-with-diffvim)
 - [Using Standalone](#using-standalone)
 - [Performance](#performance)
@@ -43,22 +50,18 @@ All four support the **same CLI options**, **same input formats**, and
 
 ```bash
 cd compute/
-make            # build all 4 tools
-make c          # build C only
-make cpp        # build C++ only
-make rust       # build Rust only
-make go         # build Go only
-make benchmark  # build all + run timing comparison
-make clean      # remove all binaries
+make            # build diffvim-compute-cpp
+make cpp        # alias (kept for backwards compatibility)
+make benchmark  # build + run a single timing
+make clean      # remove the binary
 ```
 
 **Prerequisites:**
-- C: `cc` (GCC or Clang)
 - C++: `c++` (GCC or Clang, needs C++17)
-- Rust: `rustc` 1.50+
-- Go: `go` 1.18+
 
-Binaries are placed in `compute/bin/`.
+The binary is placed in `compute/bin/diffvim-compute-cpp`.
+
+The old `make c|rust|go` targets were removed in the refactor.
 
 ---
 
@@ -67,22 +70,22 @@ Binaries are placed in `compute/bin/`.
 ### Two-File Mode
 
 ```
-diffvim-compute-<lang> <oldfile> <newfile> <outputfile> [options]
+diffvim-compute-cpp <oldfile> <newfile> <outputfile> [options]
 ```
 
 Reads two files, computes the diff, writes the precomputed diff to
 `<outputfile>`.
 
 ```bash
-diffvim-compute-c old.py new.py diff.txt
-diffvim-compute-rust --algorithm myers old.py new.py diff.txt
-diffvim-compute-go --word-diff --semantic-cleanup old.py new.py diff.txt
+diffvim-compute-cpp old.py new.py diff.txt
+diffvim-compute-cpp --algorithm patience old.py new.py diff.txt
+diffvim-compute-cpp --word-diff --semantic-cleanup old.py new.py diff.txt
 ```
 
 ### Unified Diff Mode
 
 ```
-diffvim-compute-<lang> --diff <patchfile> <outputfile> [options]
+diffvim-compute-cpp --diff <patchfile> <outputfile> [options]
 ```
 
 Reads a unified diff (patch file) instead of two separate files. Parses
@@ -91,24 +94,24 @@ the diff to reconstruct old/new content, then computes the char-level ops.
 ```bash
 # From a patch file
 diff -u old.py new.py > changes.patch
-diffvim-compute-c --diff changes.patch diff.txt
+diffvim-compute-cpp --diff changes.patch diff.txt
 
 # From git diff
 git diff HEAD~1 > changes.patch
-diffvim-compute-c --diff changes.patch diff.txt
+diffvim-compute-cpp --diff changes.patch diff.txt
 ```
 
 ### Stdin Mode
 
 ```
-diffvim-compute-<lang> --diff - <outputfile> [options]
+diffvim-compute-cpp --diff - <outputfile> [options]
 ```
 
 Reads the unified diff from stdin. Use `-` as the patch file path.
 
 ```bash
-git diff HEAD~1 | diffvim-compute-c --diff - diff.txt
-diff -u old.py new.py | diffvim-compute-go --diff - diff.txt
+git diff HEAD~1 | diffvim-compute-cpp --diff - diff.txt
+diff -u old.py new.py | diffvim-compute-cpp --diff - diff.txt
 ```
 
 ---
@@ -119,17 +122,20 @@ All options work in both two-file mode and `--diff` mode.
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--algorithm lcs\|myers\|patience` | Line-level diff algorithm | `lcs` |
+| `--algorithm lcs\|patience` | Line-level diff algorithm | `lcs` |
 | `--semantic-cleanup` | Merge adjacent delete+insert pairs that cancel out | off |
 | `--word-diff` | Use word-level diff (groups changes by word tokens) | off |
 | `--indent-aware` | Normalize indentation before line diff (indent-only changes = keep) | off |
 | `--diff <file>` | Read unified diff from `<file>` instead of two files | (none) |
 | `--diff -` | Read unified diff from stdin | (none) |
 
+> `--algorithm myers` was removed in the Phase A refactor: it OOMs on
+> 15K-line files and produces the same op count as LCS.
+
 Options can be combined freely and in any order:
 
 ```bash
-diffvim-compute-c --algorithm patience --word-diff --semantic-cleanup old.py new.py diff.txt
+diffvim-compute-cpp --algorithm patience --word-diff --semantic-cleanup old.py new.py diff.txt
 ```
 
 ---
@@ -137,11 +143,11 @@ diffvim-compute-c --algorithm patience --word-diff --semantic-cleanup old.py new
 ## Environment Variables
 
 All options can also be set via environment variables (useful for
-the compute tools or CI pipelines):
+CI pipelines):
 
 | Variable | Values | Equivalent to |
 |----------|--------|---------------|
-| `DIFFVIM_ALGORITHM` | `lcs`, `myers`, `patience` | `--algorithm` |
+| `DIFFVIM_ALGORITHM` | `lcs`, `patience` | `--algorithm` |
 | `DIFFVIM_SEMANTIC_CLEANUP` | `1` | `--semantic-cleanup` |
 | `DIFFVIM_WORD_DIFF` | `1` | `--word-diff` |
 | `DIFFVIM_INDENT_AWARE` | `1` | `--indent-aware` |
@@ -182,7 +188,7 @@ All header lines start with `#`:
 | Line | Description |
 |------|-------------|
 | `# diffvim precomputed diff v1` | Format identifier and version |
-| `# algorithm <lcs\|myers\|patience>` | Line-level algorithm used |
+| `# algorithm <lcs\|patience>` | Line-level algorithm used |
 | `# semantic_cleanup <0\|1>` | Whether semantic cleanup was applied |
 | `# word_diff <0\|1>` | Whether word-level diff was used |
 | `# indent_aware <0\|1>` | Whether indent-aware normalization was used |
@@ -274,7 +280,7 @@ Multiple hunks are concatenated to reconstruct the full old/new file content.
 File        := Header Hunk*
 Header      := FormatLine AlgorithmLine SemanticLine WordDiffLine IndentLine HunkCountLine
 FormatLine  := "# diffvim precomputed diff v1\n"
-AlgorithmLine := "# algorithm " (lcs|myers|patience) "\n"
+AlgorithmLine := "# algorithm " (lcs|patience) "\n"
 SemanticLine := "# semantic_cleanup " (0|1) "\n"
 WordDiffLine := "# word_diff " (0|1) "\n"
 IndentLine   := "# indent_aware " (0|1) "\n"
@@ -302,7 +308,7 @@ def greet(name):
     print(f"Hello, {name}!")
     return None
 
-$ compute/bin/diffvim-compute-c old.py new.py diff.txt
+$ compute/bin/diffvim-compute-cpp old.py new.py diff.txt
 compute: 0.27 ms (read 0.03 + diff 0.01 + write 0.23)
 startup: 0.00 ms (process start to first read)
 hunks: 1, lines: 3 -> 3
@@ -330,35 +336,35 @@ keep 34
 ...
 ```
 
-### Example 2: Myers algorithm with semantic cleanup
+### Example 2: Patience algorithm with semantic cleanup
 
 ```bash
-$ compute/bin/diffvim-compute-c --algorithm myers --semantic-cleanup old.py new.py diff.txt
+$ compute/bin/diffvim-compute-cpp --algorithm patience --semantic-cleanup old.py new.py diff.txt
 ```
 
 ### Example 3: Word-level diff
 
 ```bash
-$ compute/bin/diffvim-compute-go --word-diff old.py new.py diff.txt
+$ compute/bin/diffvim-compute-cpp --word-diff old.py new.py diff.txt
 ```
 
 ### Example 4: From a git diff
 
 ```bash
 $ git diff HEAD~1 src/main.py > changes.patch
-$ compute/bin/diffvim-compute-c --diff changes.patch diff.txt
+$ compute/bin/diffvim-compute-cpp --diff changes.patch diff.txt
 ```
 
 ### Example 5: From stdin (pipe)
 
 ```bash
-$ git diff HEAD~1 | compute/bin/diffvim-compute-rust --diff - diff.txt
+$ git diff HEAD~1 | compute/bin/diffvim-compute-cpp --diff - diff.txt
 ```
 
 ### Example 6: All options combined
 
 ```bash
-$ compute/bin/diffvim-compute-c \
+$ compute/bin/diffvim-compute-cpp \
     --algorithm patience \
     --word-diff \
     --semantic-cleanup \
@@ -366,76 +372,36 @@ $ compute/bin/diffvim-compute-c \
     old.py new.py diff.txt
 ```
 
-### Example 7: Benchmark all tools
+### Example 7: Benchmark
 
 ```bash
 $ make -C compute benchmark OLD=examples/02_large_python/old.py NEW=examples/02_large_python/new.py
 
---- compute/bin/diffvim-compute-c ---
-compute: 0.97 ms (read 0.05 + diff 0.45 + write 0.47)
-hunks: 21, lines: 77 -> 124
-
 --- compute/bin/diffvim-compute-cpp ---
 compute: 0.84 ms (read 0.09 + diff 0.38 + write 0.37)
 hunks: 21, lines: 77 -> 124
-
---- compute/bin/diffvim-compute-rust ---
-compute: 4.29 ms (read 0.03 + diff 0.72 + write 3.54)
-hunks: 21, lines: 77 -> 124
-
---- compute/bin/diffvim-compute-go ---
-compute: 1.58 ms (read 0.11 + diff 1.01 + write 0.45)
-hunks: 21, lines: 77 -> 124
 ```
-
----
-
-## Feature Parity
-
-All four tools implement the **same functionality**:
-
-| Feature | C | C++ | Rust | Go |
-|---------|---|-----|------|----|
-| Two-file input | ✅ | ✅ | ✅ | ✅ |
-| `--diff <file>` unified diff input | ✅ | ✅ | ✅ | ✅ |
-| `--diff -` stdin input | ✅ | ✅ | ✅ | ✅ |
-| `--algorithm lcs` | ✅ | ✅ | ✅ | ✅ |
-| `--algorithm myers` | ✅ | ✅ | ✅ | ✅ |
-| `--algorithm patience` | ✅ | ✅ | ✅ | ✅ |
-| `--semantic-cleanup` | ✅ | ✅ | ✅ | ✅ |
-| `--word-diff` | ✅ | ✅ | ✅ | ✅ |
-| `--indent-aware` | ✅ | ✅ | ✅ | ✅ |
-| UTF-8 codepoint-aware char diff | ✅ | ✅ | ✅ | ✅ |
-| Timing output to stderr | ✅ | ✅ | ✅ | ✅ |
-| Same output format | ✅ | ✅ | ✅ | ✅ |
-| Byte-identical output | ✅ | ✅ | ✅ | ✅ |
-
-**Verified**: All 4 tools produce byte-identical output across 32 example
-file pairs × 7 flag combinations (224 comparisons per tool pair, zero
-mismatches).
 
 ---
 
 ## Using with diffvim
 
-### Via the wrapper script
+### Default behaviour (automatic precompute)
 
-```bash
-# Computes the diff with the C tool, then runs diffvim --precomputed
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
+`diffvim` and `diffvim-pipeline` now look for `compute/bin/diffvim-compute-cpp`
+automatically. If found, they precompute the diff before launching vim. If
+not found, they fall back to a builtin LCS implementation (vimscript LCS
+in `diffvim`, Perl LCS via `compute/perl/compute_builtin.pl` in
+`diffvim-pipeline`).
 
-# With options
-compute/bin/diffvim-compute-c --algorithm myers --word-diff old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
-
-# With timing
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt 2>&1 # shows timing
-```
+There is no `--tool` flag any more — it was removed in Phase B. The C++
+tool is always the default; the fallback is automatic.
 
 ### Manually
 
 ```bash
 # Step 1: compute
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
 
 # Step 2: run diffvim with --precomputed
 ./diffvim --precomputed /tmp/diff.txt old.py new.py
@@ -444,23 +410,23 @@ compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt
 ### Via environment variables
 
 ```bash
-export DIFFVIM_ALGORITHM=myers
+export DIFFVIM_ALGORITHM=patience
 export DIFFVIM_WORD_DIFF=1
-compute/bin/diffvim-compute-c old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
 ```
 
 ---
 
 ## Using Standalone
 
-The tools are useful independently of diffvim for any application that
+The tool is useful independently of diffvim for any application that
 needs a structured diff representation:
 
 ### As a diff inspector
 
 ```bash
 # See the char-level ops for a change
-compute/bin/diffvim-compute-c old.py new.py /dev/stdout 2>/dev/null | head -20
+compute/bin/diffvim-compute-cpp old.py new.py /dev/stdout 2>/dev/null | head -20
 ```
 
 ### In a build pipeline
@@ -470,19 +436,8 @@ compute/bin/diffvim-compute-c old.py new.py /dev/stdout 2>/dev/null | head -20
 for file in $(git diff --name-only HEAD~1); do
     git show HEAD~1:$file > /tmp/old
     git show HEAD:$file > /tmp/new
-    compute/bin/diffvim-compute-c /tmp/old /tmp/new "diffs/${file//\//_}.txt"
+    compute/bin/diffvim-compute-cpp /tmp/old /tmp/new "diffs/${file//\//_}.txt"
 done
-```
-
-### As a library (C only)
-
-The C tool's functions (`line_diff`, `char_diff`, `myers_diff`,
-`patience_diff`, `semantic_cleanup`, `word_diff`) can be compiled as a
-library and linked into other C programs:
-
-```bash
-cc -c -O2 compute/c/diffvim-compute.c -o diffvim-compute.o
-# Link diffvim-compute.o into your program
 ```
 
 ---
@@ -493,16 +448,12 @@ Benchmarked on a 76→123 line Python file (examples/02_large_python):
 
 | Tool | Total | Read | Diff | Write |
 |------|-------|------|------|-------|
-| C | 0.97 ms | 0.05 ms | 0.45 ms | 0.47 ms |
 | C++ | 0.84 ms | 0.09 ms | 0.38 ms | 0.37 ms |
-| Rust | 4.29 ms | 0.03 ms | 0.72 ms | 3.54 ms |
-| Go | 1.58 ms | 0.11 ms | 1.01 ms | 0.45 ms |
+| Perl fallback (`compute_builtin.pl`) | ~3 ms | — | — | — |
 | vimscript (inline) | ~500 ms | — | ~500 ms | — |
 
-The external tools are **500x faster** than the inline vimscript engine
+The external C++ tool is **500x faster** than the inline vimscript engine
 for this file size. The speedup grows with file size — for 1000+ line
-files, the external tools finish in <5ms while vimscript takes 5+ seconds.
-
-**C and C++ are the fastest** overall. Rust has higher write overhead
-due to the `writeln!` macro's formatting. Go is a good middle ground
-with fast compilation and no external dependencies.
+files, the external tool finishes in <5ms while vimscript takes 5+
+seconds. The Perl fallback sits in between and is used only when the
+C++ binary is unavailable.

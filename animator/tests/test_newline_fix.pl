@@ -44,7 +44,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl1_timed.txt";
     my $out = "$tmpdir/nl1_out.txt";
 
-    system("$root/compute/bin/diffvim-compute-c '$of' '$nf' '$rf' 2>/dev/null");
+    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
     system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
     system("$root/animator/bin/diffvim-animator-c --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
@@ -65,7 +65,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl2_timed.txt";
     my $out = "$tmpdir/nl2_out.txt";
 
-    system("$root/compute/bin/diffvim-compute-c '$of' '$nf' '$rf' 2>/dev/null");
+    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
     system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
     system("$root/animator/bin/diffvim-animator-c --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
@@ -85,15 +85,17 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $rf = "$tmpdir/nl3_raw.txt";
     my $tf = "$tmpdir/nl3_timed.txt";
 
-    system("$root/compute/bin/diffvim-compute-c '$of' '$nf' '$rf' 2>/dev/null");
+    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
     system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
 
     open $fh, '<', $tf; my $timed = do { local $/; <$fh> }; close $fh;
 
-    # The pace tool should emit "newline_delete" for \n deletes
-    ok("timed stream contains newline_delete ops", $timed =~ /^newline_delete$/m);
-    ok("timed stream does NOT contain 'op delete 10'",
-       $timed !~ /^op delete 10$/m);
+    # The pace tool should emit "newline_delete\t<line>" for \n deletes.
+    # (TSV format v2 — newline ops carry their own line number.)
+    ok("timed stream contains newline_delete ops",
+       $timed =~ /^newline_delete\t\d+$/m);
+    ok("timed stream does NOT contain 'op\tdelete\t...\t10'",
+       $timed !~ /^op\tdelete\t\d+\t\d+\t10$/m);
 }
 
 # Test 4: Verify with all three animators
@@ -108,13 +110,12 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $rf = "$tmpdir/nl4_raw.txt";
     my $tf = "$tmpdir/nl4_timed.txt";
 
-    system("$root/compute/bin/diffvim-compute-c '$of' '$nf' '$rf' 2>/dev/null");
+    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
     system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
 
     open $fh, '<:raw', $nf; my $expected = do { local $/; <$fh> }; close $fh;
 
     for my $animator (
-        ['Go', "$root/animator/bin/diffvim-animator"],
         ['Perl', "perl $root/animator/perl/animator.pl"],
         ['C', "$root/animator/bin/diffvim-animator-c"],
     ) {
@@ -139,7 +140,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl5_timed.txt";
     my $out = "$tmpdir/nl5_out.txt";
 
-    system("$root/compute/bin/diffvim-compute-c '$of' '$nf' '$rf' 2>/dev/null");
+    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
     system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
     system("$root/animator/bin/diffvim-animator-c --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 

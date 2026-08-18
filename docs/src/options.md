@@ -59,16 +59,20 @@ Don't load user's `~/.vimrc` (isolated vim).
 ### `--precomputed FILE`
 Use pre-computed diff from FILE (see `compute/` directory).
 
-### `--tool c|cpp|rust|go`
-Use an external compute tool to pre-compute the diff before launching
-vim. This is 10-100x faster than the in-vim LCS for large files. The
-tool is searched for in `compute/bin/`, `/usr/local/bin/`, and
-`~/.local/bin/`. If not found, falls back to the in-vim LCS with a
-warning on stderr.
+### Compute tool selection
 
-```bash
-diffvim --tool rust old.py new.py
-```
+The C++ compute tool `compute/bin/diffvim-compute-cpp` is the default.
+`diffvim` searches for it in `compute/bin/`, `/usr/local/bin/`, and
+`~/.local/bin/`. If found, the diff is pre-computed before launching
+vim (10-100x faster than the in-vim LCS for large files). If not
+found, diffvim falls back to the embedded vimscript LCS
+(`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`) with a
+warning on stderr. (The `--tool` flag that used to select between
+C/C++/Rust/Go compute tools was removed in the refactor — there's only
+one compute implementation now.)
+
+For `diffvim-pipeline`, the fallback is the pure-Perl
+`compute/perl/compute_builtin.pl` wrapper.
 
 ### `--preset NAME` / `-p`
 Apply named preset: `fast-delete`, `review`, `demo`, `ai-code`, or
@@ -87,8 +91,10 @@ Show help and exit.
 
 ## Diff Algorithm
 
-### `--algorithm lcs|myers|patience` / `-a`
-Line-level diff algorithm (default: `lcs`).
+### `--algorithm lcs|patience` / `-a`
+Line-level diff algorithm (default: `lcs`). (Myers was removed in the
+refactor: it OOMs on 15K-line files and produces the same op count as
+LCS.)
 
 ### `--semantic-cleanup` / `-S`
 Merge adjacent delete+insert pairs that cancel out, reducing

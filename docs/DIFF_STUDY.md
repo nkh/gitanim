@@ -12,7 +12,7 @@ cognitive load theory to propose evaluation criteria.
 ## The Problem
 
 diffvim now supports:
-- **3 algorithms**: LCS, Myers, Patience
+- **2 algorithms**: LCS (default), Patience. Myers was removed (OOM on large files, same op count as LCS)
 - **4 option flags**: `--word-diff`, `--semantic-cleanup`, `--indent-aware`,
   and the new `--accel-delete`, `--overwrite`, `--inline-highlight`, etc.
 - **External compute tools** that can generate precomputed diffs with any
@@ -100,10 +100,12 @@ Output:
 algorithm   options                                   hunks  ops    changed  time
 lcs         default                                   21     3420   1850     5.2ms
 lcs         --semantic-cleanup                        21     3100   1530     5.1ms
-myers       default                                   18     3200   1600     2.1ms
 patience    default                                   15     2900   1400     2.8ms
 patience    --semantic-cleanup --word-diff            15     2600   1100     3.0ms
 ```
+
+(Myers was removed in the refactor — it OOMs on 15K-line files and
+produces the same op count as LCS.)
 
 **Interpreting the results:**
 - **Lower `changed`**: fewer insert/delete ops → less visual noise
@@ -139,20 +141,23 @@ patience    --semantic-cleanup --word-diff            15     2600   1100     3.0
 ### 3. Quick Review (fast, scan)
 
 ```
---algorithm myers --speed 2 --accel-delete
+--algorithm lcs --speed 2 --accel-delete
 ```
-- Myers: fastest computation
+- LCS (default): fast computation
 - High speed: quick scan
 - Accel-delete: large deletions don't drag
 
 ### 4. Large Files (1000+ lines)
 
 ```
---algorithm myers --semantic-cleanup --accel-delete --pause-after-lines 10 --startup-feedback
+--algorithm lcs --semantic-cleanup --accel-delete --pause-after-lines 10 --startup-feedback
 ```
-- Myers: O(ND) handles large files better than LCS O(N×M)
+- LCS: the C++ compute tool handles large files in <1ms
 - Startup feedback: shows progress during diff computation
 - Accel-delete + pauses: prevents large blocks from vanishing instantly
+
+(Myers was removed in the refactor — it OOMed on 15K-line files and
+produced the same op count as LCS.)
 
 ### 5. Teaching (very slow, detailed)
 
@@ -177,12 +182,12 @@ To validate these recommendations, a user study could:
    - Time to identify the key change
    - Subjective rating (1-5: "easy to follow", "not overwhelming")
    - Eye tracking (optional): fixation count, saccade patterns
-4. **Conditions**: 3 algorithms × 3 option sets = 9 conditions + control
+4. **Conditions**: 2 algorithms × 3 option sets = 6 conditions + control
 5. **Analysis**: ANOVA on comprehension accuracy and subjective ratings
 
 **Predicted results based on literature:**
 - Patience + semantic-cleanup will score highest on comprehension
-- Myers will score highest on speed preference
+- LCS will score highest on speed (computation is ~1ms via the C++ tool)
 - `--inline-highlight` will significantly improve change detection
 - `--pause-after-lines 5` will improve accuracy on large hunks
 
@@ -209,7 +214,8 @@ To validate these recommendations, a user study could:
 The best combination depends on the use case, but the research suggests:
 
 1. **Patience algorithm** for readability (fewer, more coherent hunks)
-2. **Myers algorithm** for speed (fastest computation)
+2. **LCS algorithm** (default) for speed — computation is sub-millisecond
+   via the C++ compute tool
 3. **Semantic cleanup** always on (reduces noise with no downside)
 4. **Inline highlight** for change detection (draws the eye)
 5. **Pause-after-lines** for large hunks (prevents cognitive overload)

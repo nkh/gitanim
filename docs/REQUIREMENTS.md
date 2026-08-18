@@ -42,7 +42,7 @@ locations.
 | Main script (bash + vimscript) | 4,517 lines |
 | Perl implementation | 1,970 lines |
 | tmux implementation | 1,673 lines |
-| External compute tools | 4 (C, C++, Rust, Go) |
+| External compute tools | 1 (C++) — Perl fallback when binary missing |
 | Vimscript engine functions | 73 |
 | CLI options (unified) | ~40 |
 | Environment variables | 114 |
@@ -67,11 +67,13 @@ The primary implementation is `diffvim` (bash + vimscript). It is the
 only one that has no race conditions (single-process, timer-driven) and
 the only one that supports all unified option selectors.
 
-### 1.4 External Compute Tools
+### 1.4 External Compute Tool
 
-Four native compute tools (C, C++, Rust, Go) that pre-compute diffs
-10-100x faster than the in-vim LCS. All produce byte-for-byte identical
-output. Used via `--tool c|cpp|rust|go` or `--precomputed FILE`.
+A single native compute tool (C++) pre-computes diffs 10-100x faster
+than the in-vim LCS. When `compute/bin/diffvim-compute-cpp` is missing,
+`diffvim` falls back to the embedded vimscript LCS and `diffvim-pipeline`
+falls back to `compute/perl/compute_builtin.pl`. Used via `--precomputed FILE`
+or automatically (no `--tool` flag needed).
 
 ---
 
@@ -102,7 +104,7 @@ INPUT                    PROCESSING                     OUTPUT
 │  │ CLI      │  │ Config   │  │ Preset   │  │ Compute  │       │
 │  │ Parser   │  │ Resolver │  │ Expander │  │ Tool     │       │
 │  │          │  │          │  │          │  │ Launcher │       │
-│  │ 40+ opts │  │ 5 unified│  │ 4 presets│  │ (--tool) │       │
+│  │ 40+ opts │  │ 5 unified│  │ 4 presets│  │ (auto)   │       │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
 │       │              │              │              │             │
 │       └──────────────┴──────────────┴──────────────┘             │
@@ -165,7 +167,7 @@ diffvim [options] <oldfile> <newfile>
 
 The old file is opened in vim; the new file is the animation target.
 The diff is computed either inline (vimscript LCS) or externally
-(`--tool`).
+(`compute/bin/diffvim-compute-cpp`, searched for automatically).
 
 **Acceptance criteria:**
 - Both files must exist and be readable.
@@ -176,20 +178,19 @@ The diff is computed either inline (vimscript LCS) or externally
 
 ```
 diffvim --precomputed FILE <oldfile> <newfile>
-diffvim --tool c|cpp|rust|go <oldfile> <newfile>
 ```
 
 The application SHALL accept a precomputed diff file (produced by
-`diffvim-compute-{c,cpp,rust,go}`) and skip the in-vim LCS computation.
-The `--tool` flag runs the specified compute tool automatically, then
-uses `--precomputed` internally.
+`diffvim-compute-cpp`) and skip the in-vim LCS computation. When the
+C++ binary is on `$PATH` (or in `compute/bin/`, `/usr/local/bin/`, or
+`~/.local/bin/`), diffvim pre-computes automatically; otherwise it
+falls back to the in-vim LCS with a warning on stderr. (The `--tool`
+flag was removed in the refactor — only the C++ compute tool remains.)
 
 **Acceptance criteria:**
 - The precomputed file must be in the diffvim diff format (see §7.1).
 - If the file is missing or invalid, fall back to inline computation
   with a warning on stderr.
-- `--tool` searches for the binary in `compute/bin/`, `/usr/local/bin/`,
-  and `~/.local/bin/`.
 
 #### FR-1.3: Unified Diff Input
 
@@ -238,16 +239,16 @@ animates the diff. The status line shows the commit hash and message.
 
 #### FR-2.1: Line-Level Diff
 
-The application SHALL compute a line-level diff using one of three
+The application SHALL compute a line-level diff using one of two
 algorithms:
 
 | Algorithm | Time Complexity | Use Case |
 |-----------|----------------|----------|
 | LCS (default) | O(N×M) | General purpose |
-| Myers | O(ND) | Large files with few changes |
 | Patience | O(N×M) | More human-readable hunks (anchors on unique lines) |
 
-Selected via `--algorithm lcs|myers|patience`.
+Selected via `--algorithm lcs|patience`. (Myers was removed: it OOMs
+on 15K-line files and produces the same op count as LCS.)
 
 #### FR-2.2: Char-Level Diff
 
@@ -277,7 +278,7 @@ Each hunk has:
 
 The application SHALL support four external compute tools (C, C++,
 Rust, Go) that produce byte-for-byte identical output. These tools
-implement the same algorithms (LCS, Myers, Patience) and post-processing
+implement the same algorithms (LCS, Patience) and post-processing
 (semantic-cleanup, word-diff, indent-aware, optimize-sequence,
 left-to-right) as the vimscript engine, but compiled to native code.
 
@@ -576,7 +577,7 @@ and loaded via `runtime syntax/<filetype>.vim`.
 |--------|-------------|
 | Startup time (small file, <100 lines) | < 500ms |
 | Startup time (large file, >1000 lines, inline LCS) | < 5s |
-| Startup time (large file, with `--tool`) | < 200ms |
+| Startup time (large file, with C++ compute) | < 200ms |
 | Animation frame rate | 60fps (16ms per tick) |
 | Char op processing | < 1ms per op (excluding delay) |
 | Cursor glide rendering | < 5ms per frame |
@@ -597,7 +598,8 @@ and loaded via `runtime syntax/<filetype>.vim`.
 
 - Applying all char ops to the old file SHALL produce exactly the new
   file (round-trip property).
-- All four compute tools SHALL produce byte-for-byte identical output.
+- The C++ compute tool and the Perl fallback (`compute/perl/compute_builtin.pl`)
+  SHALL produce byte-for-byte identical output.
 - The final buffer after animation SHALL match the new file (with the
   exception of empty lines left by `\n` deletes — see §11).
 
@@ -683,7 +685,7 @@ The bash launcher (`diffvim`) handles:
 4. Unified selector resolution (5 blocks: op-order, delete-pacing,
    insert-pacing, pacing, highlight)
 5. Environment variable export (114 exports)
-6. External compute tool invocation (`--tool`)
+6. External compute tool invocation (auto; no `--tool` flag)
 7. Vimscript generation (embedded heredoc)
 8. Vim launch (`exec vim`)
 
@@ -694,7 +696,7 @@ block, so the env vars exported to vim reflect the resolved values.
 
 The vimscript engine (embedded in the bash script as a heredoc) handles:
 1. Config dictionary initialization (168 entries from env vars)
-2. Diff computation (LCS, Myers, Patience at line and char level)
+2. Diff computation (LCS or Patience at line and char level)
 3. Post-processing pipeline (6 passes)
 4. Hunk building and grouping
 5. Animation state machine (idle → moving → typing → idle)
@@ -726,18 +728,21 @@ The vimscript engine (embedded in the bash script as a heredoc) handles:
   ComputeComplexity, ShowStartupFeedback, PlaceSign, LoadBlameCache,
   ShowGitBlame, SetupSyntax, DetectFiletype, ShowConfig, StartAnimation
 
-### 6.3 External Compute Tools
+### 6.3 External Compute Tool
 
-Four implementations (C, C++, Rust, Go) of the same algorithm:
+A single implementation (C++) of the same algorithm:
 
-1. **Line-level diff:** LCS/Myers/Patience dynamic programming
+1. **Line-level diff:** LCS or Patience dynamic programming
 2. **Hunk grouping:** Group consecutive non-keep ops
 3. **Char-level LCS:** Within each hunk, compute minimal char ops
 4. **Post-processing:** semantic-cleanup, word-diff, indent-aware,
    optimize-sequence, left-to-right
 
-All four produce byte-for-byte identical output (verified by 294 parity
-tests across 42 examples × 7 option combinations).
+When the C++ binary is missing, the pipeline falls back to the pure-Perl
+`compute/perl/compute_builtin.pl` wrapper (which calls
+`DiffVim::Parser::Perl::parse_diff`); both paths produce byte-for-byte
+identical output. (The historical C, Rust, and Go variants were
+removed in the refactor.)
 
 ### 6.4 Resolution Pipeline
 
@@ -813,7 +818,7 @@ CLI args
 
 ```
 # diffvim precomputed diff v1
-# algorithm <lcs|myers|patience>
+# algorithm <lcs|patience>
 # semantic_cleanup <0|1>
 # word_diff <0|1>
 # indent_aware <0|1>
@@ -908,10 +913,9 @@ let g:diffvim = {
 | `--keep-dirty` | | | — | Leave buffer modified |
 | `--no-vimrc` | `-N` | | — | Isolated vim |
 | `--precomputed` | | FILE | — | Use precomputed diff |
-| `--tool` | | c\|cpp\|rust\|go | — | External compute tool |
 | `--startup-pause` | | | — | Show config before starting |
 | `--startup-feedback` | `-F` | | — | Show progress during computation |
-| `--algorithm` | `-a` | lcs\|myers\|patience | lcs | Diff algorithm |
+| `--algorithm` | `-a` | lcs\|patience | lcs | Diff algorithm |
 | `--semantic-cleanup` | `-S` | | — | Merge canceling ops |
 | `--indent-aware` | `-i` | | — | Handle indent-only changes |
 | `--op-order` | | MODE | optimize | Op reordering mode |
@@ -954,7 +958,6 @@ let g:diffvim = {
 | `test_highlight_resolution.pl` | 12 | Resolution blocks before exports |
 | `test_viewport.pl` | 22 | `--context`, `--scroll`, `--fold-unchanged` rejected |
 | `test_input_source.pl` | 14 | `--from`/`--to`/`--auto-precompute` rejected |
-| `test_tool.pl` | 12 | `--tool` all 4 languages + combos |
 | `test_rapid_eol.pl` | 20 | Rapid EOL delete correctness |
 | `test_overwrite_deletefirst.pl` | 8 | Overwrite + delete-end-first |
 | `test_engine_features.pl` | 12 | Engine feature flags |
@@ -967,9 +970,9 @@ let g:diffvim = {
 | `test_comprehensive.pl` | 24 | Comprehensive integration |
 | `test_highlight_hunk.pl` | 18 | Hunk highlighting |
 | `test_highlight_word.pl` | 20 | Word highlighting |
-| Compute parity | 294 | C/C++/Rust/Go produce identical output |
+| Compute parity | 14 | C++ == Perl fallback produce identical output |
 
-**Total: 410+ diffvim assertions + 294 compute parity = 704+**
+**Total: 410+ diffvim assertions + 14 compute parity = 424+**
 
 ### 9.2 Test Categories
 
@@ -984,8 +987,9 @@ let g:diffvim = {
    (line-number verification).
 6. **Vim execution tests:** Run the actual vim engine, write buffer,
    compare with expected.
-7. **Compute parity tests:** All 4 compute tools produce identical
-   output across 42 examples × 7 option combinations.
+7. **Compute parity tests:** The C++ compute tool and the Perl
+   fallback produce identical output across the example pairs and
+   the option combinations.
 
 ### 9.3 Known Test Gaps
 
@@ -1036,12 +1040,10 @@ gitanim/
 │   └── diffvim.fish                # Fish completion
 │
 ├── compute/
-│   ├── c/diffvim-compute.c         # C reference (1,169 lines)
-│   ├── cpp/diffvim-compute.cpp     # C++ port
-│   ├── rust/diffvim-compute.rs     # Rust port
-│   ├── go/diffvim-compute.go       # Go port
-│   ├── Makefile                    # Build all four
-│   ├── README.md                   # Compute tools docs
+│   ├── cpp/diffvim-compute.cpp     # C++ (only compute implementation)
+│   ├── perl/compute_builtin.pl     # Pure-Perl fallback wrapper
+│   ├── Makefile                    # Build the C++ binary
+│   ├── README.md                   # Compute tool docs
 │   └── PARALLELISM.md              # Parallelism analysis
 │
 ├── man/
@@ -1066,7 +1068,6 @@ gitanim/
 │   ├── test_highlight_resolution.pl
 │   ├── test_viewport.pl
 │   ├── test_input_source.pl
-│   ├── test_tool.pl
 │   ├── test_rapid_eol.pl
 │   ├── test_overwrite_deletefirst.pl
 │   ├── test_engine_features.pl
@@ -1225,7 +1226,7 @@ selectors. They still use the old individual flags. Only the bash
 | **Ghost line** | A deleted line that maintains its line number (proposed for standalone app, not in current vim implementation) |
 | **Hunk** | A group of consecutive non-keep line operations |
 | **LCS** | Longest Common Subsequence — the algorithm used for diff computation |
-| **Myers diff** | O(ND) diff algorithm, faster for files with few changes |
+| **Myers diff** | REMOVED — OOM on large files, same op count as LCS |
 | **Patience diff** | Diff algorithm that anchors on unique lines for more human-readable hunks |
 | **Op order** | The ordering of char ops within a line (natural, optimize, left-to-right, etc.) |
 | **Pacing** | The timing strategy for the animation (uniform, adaptive, gaussian, review) |

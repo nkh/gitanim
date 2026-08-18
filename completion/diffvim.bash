@@ -23,7 +23,7 @@ _diffvim() {
             return 0
             ;;
         --algorithm|-a)
-            COMPREPLY=( $(compgen -W "lcs myers patience" -- "$cur") )
+            COMPREPLY=( $(compgen -W "lcs patience" -- "$cur") )
             return 0
             ;;
         --op-order)
@@ -70,10 +70,6 @@ _diffvim() {
             COMPREPLY=( $(compgen -f -- "$cur") )
             return 0
             ;;
-        --tool)
-            COMPREPLY=( $(compgen -W "c cpp rust go" -- "$cur") )
-            return 0
-            ;;
     esac
 
     # Options
@@ -82,7 +78,7 @@ _diffvim() {
               --multi -m --replay -r --git-rev -R --version -V --dry-run -d
               --word-diff -w --step-mode --no-startup-pause --language
               --sign-column --git-blame -g --max-line-len --keep-dirty
-              --no-vimrc -N --precomputed --tool --startup-pause --startup-feedback -F
+              --no-vimrc -N --precomputed --startup-pause --startup-feedback -F
               --algorithm -a --semantic-cleanup -S --indent-aware -i
               --op-order --delete-pacing --delete-speed --delete-threshold
               --insert-pacing --insert-speed --pacing --highlight

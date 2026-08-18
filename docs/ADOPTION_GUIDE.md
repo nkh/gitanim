@@ -1,12 +1,12 @@
 # Adoption Guide — Bringing diffvim to Your Team
 
 diffvim has grown into a complex tool with **50+ CLI options**, three
-implementations (`diffvim`, `diffvim-tmux`, `diffvim.pl`), four
-external compute tools (C, C++, Rust, Go), and six presets. That
-flexibility is great for power users but can be intimidating for
-newcomers. This document explains how to introduce diffvim to your
-team in a way that **sticks** — so developers actually use it daily,
-not just once for a demo.
+implementations (`diffvim`, `diffvim-tmux`, `diffvim.pl`), one
+external compute tool (C++) with a Perl fallback, and six presets.
+That flexibility is great for power users but can be intimidating
+for newcomers. This document explains how to introduce diffvim to
+your team in a way that **sticks** — so developers actually use it
+daily, not just once for a demo.
 
 > **Audience:** team leads, developer advocates, anyone rolling out
 > diffvim to a group of developers.
@@ -54,7 +54,8 @@ diffvim --preset ai-code old.py new.py
 2. **Day 2:** `diffvim --preset review --git-blame old.py new.py`
 3. **Day 3:** `diffvim --preset demo old.py new.py` (in a team meeting)
 4. **Week 2:** `diffvim --preset ai-code old.py new.py` (for AI diffs)
-5. **Week 3:** introduce `--tool rust` for large files
+5. **Week 3:** rely on the default C++ compute tool for large files
+   (no `--tool` flag needed — it's automatic)
 6. **Month 2:** customize via `DIFFVIM_PRESET` env var
 
 **Never** introduce raw options like `--word-diff`, `--semantic-cleanup`,
@@ -67,15 +68,16 @@ each option does.
 ## 3. External Compute as the Default for Real Codebases
 
 The in-vim LCS is fast enough for toy examples but takes seconds on
-real codebases. **Make `compute/bin/diffvim-compute-c` the default**, not
-`diffvim`:
+real codebases. **Make `compute/bin/diffvim-compute-cpp` the default**,
+not `diffvim` without pre-computation:
 
 ```bash
+# diffvim searches for compute/bin/diffvim-compute-cpp automatically.
 # Recommend this alias in every team member's shell config:
-alias dv='compute/bin/diffvim-compute-rust'
+alias dv='diffvim'
 
-# Now `dv old.py new.py` is:
-#   1. 13ms compute (Rust) + ~50ms vim startup = 63ms total
+# With the C++ binary on PATH, `dv old.py new.py` is:
+#   1. ~1ms compute (C++) + ~50ms vim startup = 51ms total
 #   2. vs. ~3500ms vimscript LCS + 50ms startup = 3550ms total
 ```
 
@@ -86,17 +88,17 @@ stop using it within a week.
 ### Build the compute tool once, share via PATH
 
 ```bash
-# Build the Rust variant (smallest, fastest, safest)
-make -C compute rust
+# Build the C++ binary (only one compute implementation now)
+make -C compute
 
 # Symlink to /usr/local/bin (or anywhere on PATH)
-sudo ln -sf "$(pwd)/compute/bin/diffvim-compute-rust" /usr/local/bin/
-sudo ln -sf "$(pwd)/compute/bin/diffvim-compute-c" /usr/local/bin/
+sudo ln -sf "$(pwd)/compute/bin/diffvim-compute-cpp" /usr/local/bin/
 sudo ln -sf "$(pwd)/diffvim" /usr/local/bin/
 ```
 
-Now `diffvim`, `compute/bin/diffvim-compute-c`, and `diffvim-compute-rust` are
-available to everyone on the machine.
+Now `diffvim` and `diffvim-compute-cpp` are available to everyone on
+the machine. (No more `--tool c|cpp|rust|go` flag — that was removed
+in the refactor; only the C++ tool remains.)
 
 ---
 
@@ -125,7 +127,7 @@ animate a diff. This is the **single biggest stickiness factor**.
 ```bash
 # In ~/.gitconfig
 [alias]
-    animate = "!f() { compute/bin/diffvim-compute-c \"$1\"^:\"$2\" \"$1\":\"$2\"; }; f"
+    animate = "!f() { compute/bin/diffvim-compute-cpp \"$1\"^:\"$2\" \"$1\":\"$2\"; }; f"
 ```
 
 Now `git animate HEAD src/main.py` animates the last commit's changes
@@ -137,7 +139,7 @@ to `src/main.py`.
 # .git/hooks/pre-commit (chmod +x)
 #!/bin/bash
 # After staging, run diffvim on the staged changes
-compute/bin/diffvim-compute-c --preset review --no-vimrc \
+compute/bin/diffvim-compute-cpp --preset review --no-vimrc \
     <(git show :src/main.py) src/main.py
 ```
 
@@ -358,9 +360,10 @@ animates, and `:q` quits. It's a viewer, not an editor.
 
 > **"It's too slow on large files."**
 
-Use `compute/bin/diffvim-compute-rust`. The Rust compute tool finishes
-in 13ms on a 1000-line file. The in-vim LCS is the bottleneck, not
-the animation.
+Use `compute/bin/diffvim-compute-cpp`. The C++ compute tool finishes
+in ~1ms on a 1000-line file. The in-vim LCS is the bottleneck, not
+the animation. (diffvim searches for the C++ binary automatically —
+no flag needed.)
 
 > **"Too many options, I'll never learn them."**
 
@@ -402,7 +405,7 @@ Week 2 — Integrate into daily flow
   [ ] One PR comment includes a diffvim log
 
 Week 3 — Compute tools and large files
-  [ ] `compute/bin/diffvim-compute-rust` is the default for files >500 lines
+  [ ] `compute/bin/diffvim-compute-cpp` is the default for files >500 lines
   [ ] `make -C compute` runs in CI to verify the binary builds
   [ ] Everyone has tried `--preset ai-code` on an AI-generated diff
 
@@ -419,7 +422,7 @@ When every box is checked, diffvim is part of your team's DNA.
 ## 11. Anti-Patterns to Avoid
 
 - **Don't** introduce raw options in the first week. Use presets only.
-- **Don't** run `diffvim` (not `compute/bin/diffvim-compute-c`) on files >500
+- **Don't** run `diffvim` without the C++ compute binary on files >500
   lines. The 3-second startup will sour users on the tool.
 - **Don't** require a specific preset for everyone. Let each developer
   pick their own via `DIFFVIM_PRESET`.
@@ -437,7 +440,7 @@ When every box is checked, diffvim is part of your team's DNA.
 The three things that matter most:
 
 1. **Presets** — make the on-ramp trivial. Six use cases, one flag.
-2. **External compute** — make it fast. `compute/bin/diffvim-compute-rust`
+2. **External compute** — make it fast. `compute/bin/diffvim-compute-cpp`
    is the recommended default for real codebases.
 3. **Editor integration** — make it stick. The vim plugin is the
    single biggest predictor of long-term adoption.
@@ -463,3 +466,6 @@ using diffvim daily within a month.
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
 | 2026-08-16 | Initial version. Covers diffvim 1.4.            |
+| 2026-08-18 | Updated for the Phase A–C refactor: C++ only    |
+|            | compute tool (with Perl fallback), removed      |
+|            | `--tool` flag, removed Myers algorithm.         |

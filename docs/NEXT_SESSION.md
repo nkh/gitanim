@@ -1,10 +1,19 @@
-# Session Handoff — 2026-08-18
+# Session Handoff — 2026-08-18 (updated after Phase A–C refactor)
 
 ## Context for the next session
 
 This document is for the next AI session working on diffvim/gitanim.
 The previous session was long and the AI's capacity may have been
 reduced. Read this first.
+
+> **Refactor outcome (Phases A–C).** The codebase was simplified:
+> only one compute implementation remains (`compute/cpp/`),
+> the postprocess/pace/animator stages exist in C and Perl only (Go is
+> gone), the `--tool` flag was removed, and `--algorithm` accepts only
+> `lcs|patience` (Myers dropped). The timed op stream was upgraded to
+> v2 (TSV, per-op `(line, col)`); cursor positioning now lives in
+> postprocess, not pace. The Perl `compute/perl/compute_builtin.pl`
+> wrapper was added as the fallback for `diffvim-pipeline`.
 
 ## What diffvim IS
 
@@ -19,19 +28,25 @@ that the previous session lost sight of.
 compute → postprocess → pace → animate
 ```
 
-1. **compute**: diff algorithm (LCS/Myers/Patience) produces char-level
-   ops. 4 implementations: C, C++, Rust, Go.
-2. **postprocess**: reorders/transforms ops to look natural. THIS IS
-   WHERE THE GHOST-LINE FIX BELONGS.
-3. **pace**: adds timing, delays, batch operations. Tracks line_offset
-   for correct cursor targeting.
-4. **animate**: applies ops to a virtual buffer, renders to terminal.
+1. **compute**: line diff (LCS or Patience) produces char-level ops.
+   One implementation: C++ (`compute/bin/diffvim-compute-cpp`). If
+   the C++ binary is missing, `diffvim` falls back to the embedded
+   vimscript LCS, and `diffvim-pipeline` falls back to
+   `compute/perl/compute_builtin.pl`.
+2. **postprocess**: reorders/transforms ops to look natural, and owns
+   per-op `(line, col)` positioning so the animator is scroll-safe.
+   THIS IS WHERE THE GHOST-LINE FIX BELONGS.
+3. **pace**: adds timing, delays, batch operations. Positioning is
+   passed through untouched — pace only owns delays and batching now.
+4. **animate**: applies ops to a virtual buffer. Each op carries its
+   own `(line, col)`, so the animator has no `glide` handler — it
+   just sets the cursor before applying each op.
 
 Read `docs/PIPELINE.md` for full details.
 
-## THE GHOST LINE PROBLEM — UNRESOLVED
+## THE GHOST LINE PROBLEM — STILL UNRESOLVED (Phase F)
 
-This is the #1 issue. When the diff produces:
+This is the #1 outstanding issue. When the diff produces:
 ```
 keep "foo"
 delete \n
@@ -48,7 +63,7 @@ mixed delete+insert sequences (07_text_prose and all large files)
 because the buffer retained extra `\n`s, causing subsequent inserts to
 land on wrong lines.
 
-**What the postprocessor should do** (NOT YET IMPLEMENTED):
+**What the postprocessor should do** (NOT YET IMPLEMENTED — Phase F):
 
 Detect the pattern `keep X, delete \n, keep Y` (a join) and transform
 it into a sequence that animates naturally. Options:
@@ -63,17 +78,18 @@ it into a sequence that animates naturally. Options:
   before the `\n` delete. Then the `\n` delete uses the "remove empty
   line" path (the line is already empty by then).
 
-The postprocessor is in `animator/perl/postprocess.pl` (also C and Go
-versions). Read it to understand current transformations.
+The postprocessor is in `animator/perl/postprocess.pl` (also a C
+version in `animator/c/postprocess.c`). Read it to understand current
+transformations.
 
 ## What WORKS right now
 
-- diffvim-pipeline (Go animator): **42/42 examples pass** MD5
+- diffvim-pipeline (C animator): **42/42 examples pass** MD5
   verification. Use `--speed 1000` for testing (makes delays ≈0).
 - diffvim (vimscript, synchronous test mode): 32/42 pass (10 are
   large-file timeouts, not correctness issues).
-- Cross-language parity: all 4 compute tools, all 3 postprocess/pace
-  tools produce identical output.
+- Cross-language parity: the C++ compute tool, plus C and Perl
+  postprocess/pace, produce identical output.
 
 ## Key commands
 
@@ -90,31 +106,29 @@ animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
     examples/02_large_python/old.py examples/02_large_python/new.py
 md5sum /tmp/out.txt examples/02_large_python/new.py
 
-# Rebuild Go animator (Go is at /home/z/go/bin/go)
-export PATH=/home/z/go/bin:$PATH GOROOT=/home/z/go GOPATH=/home/z/gopath
-cd animator/go && go build -o ../bin/diffvim-animator animator.go
+# Rebuild the C++ compute tool
+make -C compute cpp
 
 # Rebuild C animator
-cd animator/c && cc -O2 -o ../bin/diffvim-animator-c animator.c
+make -C animator/c all
 ```
 
 ## Algorithm timing (15K-line synthetic file)
 
-| Algorithm | C (ms) | C++ (ms) | Rust (ms) | Go (ms) | Notes |
-|-----------|--------|----------|-----------|---------|-------|
-| LCS       | 1679   | 1585     | 4797      | 2758    | Default, works |
-| Myers     | KILLED | KILLED   | KILLED    | KILLED  | OOM on 15K lines |
-| Patience  | 2307   | 1687     | 5332      | 3024    | Works, similar to LCS |
+| Algorithm | C++ (ms) | Notes |
+|-----------|----------|-------|
+| LCS       | 1585     | Default, works |
+| Patience  | 1687     | Works, similar to LCS |
 
-LCS and Patience produce identical op counts. Myers is slower and
-OOM-prone. **Consider dropping Myers** or replacing with linear-space
-variant.
+LCS and Patience produce identical op counts. Myers was dropped during
+the Phase A refactor — it OOMs on 15K-line files and produced the same
+op count as LCS.
 
 ## Git state
 
 - Branch: `main`, all changes pushed
-- Last commit: `410cfdb` (revert ghost-line experiment — was an empty
-  commit, only rebuilt C binary)
+- Last commit before refactor: `410cfdb` (revert ghost-line experiment
+  — was an empty commit, only rebuilt C binary)
 - The WORKING code is the always-join behavior from commit `d79258c`
 
 ## What NOT to do
@@ -133,18 +147,24 @@ variant.
 4. **Do NOT commit empty commits.** If the source files end up identical
    to HEAD, there's nothing to commit.
 
+5. **Do NOT reintroduce `--tool` or `--algorithm myers`.** They were
+   removed in Phase A/B deliberately — see the [Unreleased] entry in
+   `CHANGELOG.md` for the rationale.
+
 ## File locations
 
 ```
 gitanim/
 ├── diffvim                  # main tool (bash + vimscript)
-├── compute/bin/             # 4 diff compute tools
+├── compute/
+│   ├── cpp/                 # C++ compute source (only compute impl)
+│   ├── perl/                # Pure-Perl fallback wrapper
+│   └── bin/diffvim-compute-cpp
 ├── animator/
-│   ├── bin/                 # compiled binaries
-│   ├── go/                  # Go source (animator.go, pace.go, postprocess.go)
-│   ├── perl/                # Perl source
-│   ├── c/                   # C source
-│   └── diffvim-pipeline     # runs all 4 stages
+│   ├── bin/                 # compiled binaries (C only)
+│   ├── perl/                # Perl source (animator.pl, pace.pl, postprocess.pl)
+│   ├── c/                   # C source (animator.c, pace.c, postprocess.c)
+│   └── diffvim-pipeline     # runs all 4 stages (C-preferred, Perl fallback)
 ├── examples/                # 42 file pairs for testing
 ├── tests/                   # vimscript engine tests
 ├── scripts/verify_md5.sh   # MD5 verification script

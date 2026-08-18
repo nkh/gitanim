@@ -270,16 +270,15 @@ The patience algorithm anchors on unique common lines (like `<project>` or
 expansion (adding properties, dev-dependencies, and profile) gets cleaner hunks
 that align with the XML structure.
 
-### 23. Myers diff for large files
+### 23. Patience diff for large files
 
 ```bash
-diffvim --algorithm myers examples/02_large_python/old.py examples/02_large_python/new.py
+diffvim --algorithm patience examples/02_large_python/old.py examples/02_large_python/new.py
 ```
 
-The Myers algorithm is O(ND) (where D is the edit distance) vs LCS's O(N×M).
-For the large Python refactoring (76→123 lines, 21 hunks), Myers is
-theoretically faster. Note: currently falls back to LCS for correctness, but
-the option is accepted and produces correct results.
+Patience anchors on unique lines for more human-readable hunks. (Myers was removed; LCS is the default.
+was removed in the refactor — it OOMs on 15K-line files and produces
+the same op count as LCS.)
 
 ### 24. Word-level diff
 
@@ -982,16 +981,16 @@ and the debug log shows the timing.
 
 ```bash
 # Run the same file pair with each algorithm and compare:
-for algo in lcs myers patience; do
+for algo in lcs patience; do
     echo "=== $algo ==="
     perl diffvim.pl --algorithm $algo --dry-run \
       examples/27_xml/old.xml examples/27_xml/new.xml | grep "Hunks:"
 done
 ```
 
-Compare hunk counts across all three algorithms for the XML/Maven POM
+Compare hunk counts across both algorithms for the XML/Maven POM
 expansion. Patience may produce different hunk boundaries than LCS due to
-its unique-line anchoring.
+its unique-line anchoring. (Myers was removed in the refactor.)
 
 ### 87. Git replay with full presentation
 
@@ -1505,15 +1504,22 @@ diffvim --preset review old.py new.py
 Sets: --highlight-hunk, --highlight-word, --highlight-inline, --dim-unchanged,
 --pause-after-lines 5, --optimize-sequence, --left-to-right, --semantic-cleanup.
 
-### 126. Auto-precompute with the C tool
+### 126. Pre-compute with the C++ tool (default behaviour)
 
 ```bash
-diffvim --auto-precompute --compute-tool c old.py new.py
+# diffvim looks for compute/bin/diffvim-compute-cpp automatically.
+# No --tool flag needed (it was removed in the refactor).
+diffvim old.py new.py
+
+# Or explicitly, with --precomputed:
+compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
+diffvim --precomputed /tmp/diff.txt old.py new.py
 ```
 
-Automatically runs `compute/bin/diffvim-compute-c` to generate the diff,
-then launches vim with `--precomputed`. No need to manually specify the
-precomputed file path.
+If `compute/bin/diffvim-compute-cpp` is found on `$PATH` (or in
+`compute/bin/`, `/usr/local/bin/`, or `~/.local/bin/`), diffvim
+pre-computes the diff before launching vim — 10-100x faster for large
+files. If not found, it falls back to the embedded vimscript LCS.
 
 ### 127. Word acceleration for natural typing
 

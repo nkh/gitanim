@@ -52,7 +52,7 @@ a master reference for what was asked and what was implemented.
 30. **`set syntax=` caused E216** — changed to `runtime syntax/X.vim`.
 31. **VIMRUNTIME detection fixed** — `vim -es` doesn't output to stdout.
 32. **35+ CLI options** across all scripts.
-33. **3 diff algorithms**: LCS, Myers, Patience.
+33. **2 diff algorithms**: LCS (default), Patience. (Myers was removed.)
 34. **Word-level diff, semantic cleanup, indent-aware diffing**.
 35. **Vim plugin**: `:Diffvim`, `:DiffvimCommit`, `:DiffvimPick`.
 36. **Shell completion** (bash/zsh/fish), Homebrew formula.
@@ -127,7 +127,7 @@ a master reference for what was asked and what was implemented.
 
 57. **"Press ENTER or type command to continue"** — remove this! No
    interaction before starting the animation unless asked for.
-58. **Implement Myers, Patience, semantic cleanup** without stopping.
+58. **Implement Patience, semantic cleanup** without stopping. (Myers was removed.)
 59. **Batch git blame** — pre-compute all blame at startup instead of
    per-hunk.
 
@@ -304,7 +304,7 @@ extensive documentation.
      every binary in the project (`diffvim`, `diffvim-tmux`,
      `diffvim.pl`, `diffvim-compare`, `diffvim-jogger`,
      `diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
-     `set_config`, and the four `diffvim-compute-{c,cpp,rust,go}`
+     `set_config`, and the four `diffvim-compute-cpp`
      variants) must respond to `-h` / `--help`, must have a manpage in
      `man/`, and must be documented in the mdBook.
 120. **USER_REQUESTS.md must be updated** — every session adds entries

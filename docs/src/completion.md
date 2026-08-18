@@ -44,12 +44,14 @@ The completion scripts provide tab completion for:
 - All `--options` (`--speed`, `--output`, `--scroll`, `--preset`, etc.)
 - `--parser perl`
 - `--scroll zz|zt|zb|none`
-- `--algorithm lcs|myers|patience`
-- `--compute-tool c|cpp|rust|go`
+- `--algorithm lcs|patience`
 - `--preset fast-delete|review|present|ai-code|custom`
 - `--log-mode 1|2`
 - `--theme dark|light|high-contrast`
 - File paths for positional arguments
+
+(The historical `--tool c|cpp|rust|go` completion was removed in the
+Phase B refactor — there's only one compute implementation now.)
 
 ## How It Works
 
@@ -64,7 +66,7 @@ to update the completion scripts in `completion/`.
 # Bash — after sourcing/installing:
 diffvim --<Tab>      # should show all --options
 diffvim --speed <Tab>  # should show 0.5 1 2 3 5
-diffvim --algorithm <Tab>  # should show lcs myers patience
+diffvim --algorithm <Tab>  # should show lcs patience
 
 # Zsh — after installing to fpath:
 diffvim --<Tab>

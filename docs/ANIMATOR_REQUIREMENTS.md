@@ -69,7 +69,7 @@ compute    →    post-process    →    pace    →    animate
 
 Each stage reads from stdin and writes to stdout, enabling:
 - Independent testing of each stage
-- Mixing implementations (e.g., C compute + Perl post-process + Go animator)
+- Mixing implementations (e.g., C++ compute + Perl post-process + C animator)
 - Using the animator without animation (headless mode) for testing
 - Adding new post-processing or pacing tools without touching the animator
 
@@ -96,11 +96,12 @@ controls. It can:
 │             │     │               │     │              │     │              │
 │ Computes    │     │ Reorders ops  │     │ Adds timing  │     │ Plays back   │
 │ char ops    │     │ (op-order,    │     │ and pacing   │     │ ops with     │
-│ (LCS/Myers/ │     │ semantic,     │     │ (AWD, word   │     │ cursor glide │
+│ (LCS or     │     │ semantic,     │     │ (AWD, word   │     │ cursor glide │
 │ Patience)   │     │ indent, etc.) │     │ batching,    │     │ and rendering│
 │             │     │               │     │ delays)      │     │              │
-│ C/C++/Rust/ │     │ Perl / C / Go │     │ Perl / C / Go│     │ Perl / C / Go│
-│ Go          │     │               │     │              │     │              │
+│ C++         │     │ Perl / C      │     │ Perl / C     │     │ Perl / C     │
+│ (Perl       │     │               │     │              │     │              │
+│ fallback)   │     │               │     │              │     │              │
 └─────────────┘     └───────────────┘     └──────────────┘     └──────────────┘
      Exists              New tool              New tool            New tool
 ```
@@ -112,7 +113,7 @@ old.py + new.py
        │
        ▼
 ┌──────────────────┐
-│ diffvim-compute   │  (existing: C/C++/Rust/Go)
+│ diffvim-compute   │  (existing: C++ with Perl fallback)
 │                   │
 │ Input: old, new   │
 │ Output: raw ops   │  Format: HUNK / keep / delete / insert
@@ -121,7 +122,7 @@ old.py + new.py
          │  raw ops (no timing, no ordering)
          ▼
 ┌──────────────────┐
-│ diffvim-postprocess│  (new: Perl / C / Go)
+│ diffvim-postprocess│  (new: Perl / C)
 │                   │
 │ Input: raw ops    │  Flags: --op-order, --semantic-cleanup,
 │ Output: ordered   │          --indent-aware, --overwrite
@@ -129,13 +130,18 @@ old.py + new.py
 │                   │
 │ Reorders ops      │  Can be multiple piped commands:
 │ within lines      │    postprocess --op-order optimize |
-│                   │    postprocess --semantic-cleanup |
-│                   │    postprocess --left-to-right
+│ + (line, col)     │    postprocess --semantic-cleanup |
+│ positions         │    postprocess --left-to-right
+│                   │
+│ Owns cursor       │  (Since the Phase C refactor, postprocess
+│ positioning so    │   also emits per-op (line, col) positions
+│ the animator is   │   so the animator is scroll-safe.)
+│ scroll-safe       │
 └────────┬──────────┘
          │  ordered ops (correct sequence, no timing)
          ▼
 ┌──────────────────┐
-│ diffvim-pace      │  (new: Perl / C / Go)
+│ diffvim-pace      │  (new: Perl / C)
 │                   │
 │ Input: ordered    │  Flags: --delete-pacing, --delete-speed,
 │         ops       │          --insert-pacing, --pacing,
@@ -146,7 +152,6 @@ old.py + new.py
 │ and pacing        │    - Groups chars into word batches
 │ instructions      │    - Adds delay annotations
 │                   │    - Inserts snapshot markers
-│                   │    - Computes cursor glide targets
 │                   │
 │ Output format:    │
 │   op keep 97      │    (apply op, wait 50ms)
@@ -155,22 +160,26 @@ old.py + new.py
 │   delay 40        │
 │   batch_delete 10 │    (delete 10 chars instantly)
 │   delay 15        │
-│   glide 3:1       │    (glide cursor to line 3, col 1)
-│   delay 350       │
 │   snapshot        │    (write buffer to file — for testing)
 │   newline_delete  │    (mark line as ghost)
 │   delay 100       │
+│                   │
+│ Note: cursor      │  (Since the Phase C refactor, pace no
+│ positions are    │   longer emits glide ops. Each op carries
+│ owned by         │   its own (line, col) — produced by
+│ postprocess      │   postprocess and passed through here.)
 └────────┬──────────┘
          │  timed ops (ready to play back)
          ▼
 ┌──────────────────┐
-│ diffvim-animator  │  (new: Perl / C / Go)
+│ diffvim-animator  │  (new: Perl / C)
 │                   │
 │ Input: timed ops  │  Flags: --speed, --scroll, --highlight,
 │         + old file│          --dim-unchanged, --no-display
 │                   │
 │ Plays back the    │  The animator is SIMPLE:
 │ timed op stream   │    - Read op
+│                   │    - Set cursor to op's (line, col)
 │                   │    - Apply to virtual buffer
 │                   │    - Render (or skip if --no-display)
 │                   │    - Wait the specified delay
@@ -189,7 +198,7 @@ old.py + new.py
 ### 2.3 Why This Separation Matters
 
 **The animator becomes simple.** It doesn't need to know about:
-- Diff algorithms (LCS, Myers, Patience)
+- Diff algorithms (LCS, Patience)
 - Post-processing (op ordering, semantic cleanup)
 - Pacing decisions (when to batch words, when to accelerate)
 - AWD state machine
@@ -200,19 +209,19 @@ makes it:
 - Easy to implement in any language
 - Easy to test (feed it a known op stream, check the output)
 - Fast (no complex logic per frame)
-- Replaceable (swap Perl for Go without touching the other tools)
+- Replaceable (swap Perl for C without touching the other tools)
 
 **Pacing is pre-computed.** The pacing tool analyzes the entire op stream
 beforehand and produces a timed op stream. This means:
 - The pacing tool can look ahead arbitrarily (no limited lookahead window)
 - The animator doesn't need any lookahead logic
 - Pacing decisions are deterministic and testable
-- The same timed op stream produces identical animations in Perl, C, and Go
+- The same timed op stream produces identical animations in Perl and C
 
 **Post-processing is piped.** Multiple post-processing passes can be
 chained:
 ```bash
-diffvim-compute-c old.py new.py |
+diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize |
   diffvim-postprocess --semantic-cleanup |
   diffvim-pace --delete-pacing word --pacing gaussian |
@@ -319,24 +328,26 @@ three are fast enough.
 
 | Tool | Primary | Alternative |
 |------|---------|-------------|
-| diffvim-compute | C (exists) | Rust, Go, C++ (exist) |
-| diffvim-postprocess | Perl | C, Go |
-| diffvim-pace | Perl | C, Go |
-| diffvim-animator | Go | Perl, C |
+| diffvim-compute | C++ (exists) | Perl fallback (`compute_builtin.pl`) |
+| diffvim-postprocess | C | Perl |
+| diffvim-pace | C | Perl |
+| diffvim-animator | C | Perl |
+
+**C++ for compute:** The compute tool is the heaviest CPU work. C++
+provides the fastest compute and smallest binary.
 
 **Perl for postprocess and pace:** These are text-processing tools
 that benefit from Perl's string manipulation. They don't need terminal
 control or high-performance rendering. Perl's `Time::HiRes` is
 sufficient for timing computation.
 
-**Go for the animator:** The animator needs terminal control, high-
-performance rendering, Unicode handling, and non-blocking input. Go
-excels at all of these.
+**C for the animator:** The animator needs terminal control, high-
+performance rendering, Unicode handling, and non-blocking input. C is
+the default animator implementation; Perl is the fallback.
 
-**C as a fallback for all three:** For environments where neither
-Perl nor Go is available, C provides a zero-dependency option. The C
-animator is the most complex to implement but produces the smallest,
-fastest binary.
+(Both Perl and C implementations of postprocess, pace, and animator
+exist. The historical Go implementations were removed in the Phase A
+refactor.)
 
 ---
 
@@ -352,52 +363,57 @@ and pacing instructions.
 
 | Op | Arguments | Description |
 |----|-----------|-------------|
-| `op` | `<type> <code>` | Apply a char op (keep/delete/insert) |
+| `op` | `<type> <line> <col> <code>` | Apply a char op at (line, col) |
 | `delay` | `<ms>` | Wait N milliseconds |
-| `batch_delete` | `<count>` | Delete N chars at cursor instantly |
-| `batch_insert` | `<codes...>` | Insert N chars at cursor instantly |
-| `glide` | `<line>:<col>` | Glide cursor to position (animated) |
-| `glide_done` | | Cursor has arrived (for delay timing) |
-| `newline_delete` | | Mark current line as ghost, move cursor down |
-| `newline_insert` | | Split line at cursor, move cursor to new line |
+| `batch_delete` | `<line> <col> <count>` | Delete N chars at (line, col) instantly |
+| `batch_insert` | `<line> <col> <codes...>` | Insert N chars at (line, col) instantly |
+| `newline_delete` | `<line>` | Mark current line as ghost, move cursor down |
+| `newline_insert` | `<line> <col>` | Split line at cursor, move cursor to new line |
 | `highlight` | `<mode> <line> <col> <len>` | Apply highlight |
 | `clear_highlight` | `<id>` | Clear a specific highlight |
 | `dim` | `<line> <pct>` | Dim a line |
 | `snapshot` | `<file>` | Write internal buffer to file (for testing) |
 | `scroll` | `<mode>` | Set scroll position (zz/zt/zb/none) |
 | `pause` | | Pause until user presses Space |
-| `hunk_start` | `<line> <del_count> <ins_count>` | Mark hunk beginning |
+| `hunk_start` | `<del_count> <ins_count>` | Mark hunk beginning |
 | `hunk_end` | | Mark hunk end |
 | `file_start` | `<old_path> <new_path>` | Multi-file: start new file |
 | `done` | | Animation complete |
 
+> **Note (Phase C refactor):** every op now carries its own 1-indexed
+> `(line, col)`. The old `glide <line>:<col>` op is gone — the
+> animator just sets the cursor to the position carried by the next op
+> before applying it. The format is TSV (tab-separated).
+
 ### 4.3 Example
 
 ```
-# timed op stream v1
+# timed op stream v2
+# format: TSV, every op carries (line, col) — 1-indexed
 # generated by: diffvim-pace --delete-pacing word --pacing gaussian
-file_start old.py new.py
-hunk_start 2 1 1
-glide 2:1
-delay 350
-highlight inline 2 1 27
-op delete 112
-delay 80
-op delete 114
-delay 80
-op delete 105
-delay 80
-batch_delete 17
-delay 15
-batch_delete 7
-delay 15
-newline_delete
-delay 100
-clear_highlight 1
+# delete_threshold 3
+file_start\told.py\tnew.py
+hunk_start\t1\t1
+op\tdelete\t2\t1\t112
+delay\t80
+op\tdelete\t2\t1\t114
+delay\t80
+op\tdelete\t2\t1\t105
+delay\t80
+batch_delete\t2\t1\t17
+delay\t15
+batch_delete\t2\t1\t7
+delay\t15
+newline_delete\t2
+delay\t100
 hunk_end
-snapshot /tmp/test_snapshot.txt
+snapshot\t/tmp/test_snapshot.txt
 done
 ```
+
+(Pre-Phase-C, this was space-separated and required a `glide 2:1` op
+before each hunk. Since Phase C, every op carries its own position, so
+the glide op is unnecessary.)
 
 ### 4.4 Snapshot Op
 
@@ -433,10 +449,9 @@ buffer at startup.
 - Line offset tracking for multi-hunk animation
 
 **FR-1.4:** The animator SHALL process each op in the stream:
-- `op`: Apply the char operation to the buffer
+- `op`: Set cursor to the op's `(line, col)`, then apply the char operation to the buffer
 - `delay`: Wait the specified time (divided by speed multiplier)
-- `batch_delete`/`batch_insert`: Apply multiple chars in one frame
-- `glide`: Animate cursor movement to the target position
+- `batch_delete`/`batch_insert`: Set cursor to the op's `(line, col)`, then apply multiple chars in one frame
 - `newline_delete`: Mark line as ghost, move cursor to next line
 - `newline_insert`: Split line at cursor
 - `highlight`/`clear_highlight`/`dim`: Apply visual effects
@@ -492,13 +507,14 @@ write transformed ops to stdout.
 **FR-2.3:** Multiple postprocess invocations SHALL be chainable via
 pipes:
 ```bash
-diffvim-compute-c old.py new.py |
+diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize |
   diffvim-postprocess --semantic-cleanup
 ```
 
-**FR-2.4:** The postprocess tool SHALL be implemented in Perl, C, and
-Go. All three SHALL produce identical output.
+**FR-2.4:** The postprocess tool SHALL be implemented in Perl and C.
+Both SHALL produce identical output. (The historical Go version was
+removed in the refactor.)
 
 **FR-2.5:** The postprocess tool SHALL be testable independently:
 - Feed it known input ops
@@ -585,7 +601,7 @@ This solves the `\n` merge problem completely.
 #### NFR-1: Performance
 
 - The animator SHALL achieve 60fps for files up to 1000 lines (Go/C)
-- The animator SHALL achieve 30fps for files up to 1000 lines (Perl)
+- The animator SHALL achieve 30fps for files up to 1000 lines (C++)
 - The pace tool SHALL process 10,000 ops in under 100ms
 - The postprocess tool SHALL process 10,000 ops in under 50ms
 - `--no-display` mode SHALL process 10,000 ops in under 50ms
@@ -620,13 +636,15 @@ This solves the `\n` merge problem completely.
 
 ```bash
 # Full pipeline with separate tools
-diffvim-compute-c old.py new.py |
+diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize --semantic-cleanup |
   diffvim-pace --delete-pacing word --pacing gaussian |
   diffvim-animator --speed 1.0 --scroll zz old.py
 
-# Or with a wrapper script that builds the pipeline
-diffvim --tool c --op-order optimize --delete-pacing word old.py new.py
+# Or with a wrapper script that builds the pipeline (no --tool flag
+# needed anymore — diffvim-pipeline auto-selects the C++ compute tool
+# and falls back to Perl when it's missing)
+diffvim-pipeline --op-order optimize --delete-pacing word old.py new.py
 ```
 
 ### 6.2 Animator Options

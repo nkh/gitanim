@@ -150,6 +150,14 @@ delays.
 - `--compute inline`: compute in vimscript (default)
 - `--compute-tool c|cpp|rust|go`: sub-option for `--compute auto`
 
+> **Update (Phase A–C refactor):** This was overtaken by events. The
+> `--tool` / `--compute-tool` flags were **removed entirely** (along with
+> the C, Rust, and Go compute variants — only the C++ tool remains).
+> `--auto-precompute` was also removed; diffvim now always searches for
+> `compute/bin/diffvim-compute-cpp` automatically and falls back to the
+> in-vim LCS if missing. Only `--precomputed FILE` remains as the
+> low-level escape hatch. See the [Unreleased] entry in `CHANGELOG.md`.
+
 ---
 
 ## 3. Options That Could Be Replaced

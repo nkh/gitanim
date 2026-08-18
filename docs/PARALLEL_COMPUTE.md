@@ -17,7 +17,7 @@ diff-computation time.
 
 ### What's needed
 
-The external compute tools (C/C++/Rust/Go) already produce a precomputed
+The external compute tools (C++) already produce a precomputed
 diff file. The `--precomputed FILE` option makes diffvim load this file
 instead of computing the diff in vimscript. So the question is: **can we
 start the compute tool and vim simultaneously, and have vim wait for the
@@ -27,7 +27,7 @@ compute tool to finish before loading the precomputed file?**
 
 ```bash
 # Start compute in background
-compute/bin/diffvim-compute-c "$OLD" "$NEW" /tmp/diff.txt &
+compute/bin/diffvim-compute-cpp "$OLD" "$NEW" /tmp/diff.txt &
 COMPUTE_PID=$!
 
 # Start vim immediately (it will read the old file, load vimrc, etc.)
@@ -59,7 +59,7 @@ hangs until timeout.
 mkfifo /tmp/diff.fifo
 
 # Start compute writing to FIFO (blocks until reader connects)
-compute/bin/diffvim-compute-c "$OLD" "$NEW" /tmp/diff.fifo &
+compute/bin/diffvim-compute-cpp "$OLD" "$NEW" /tmp/diff.fifo &
 
 # Start vim reading from FIFO
 # vim's readfile() will block until the writer closes the FIFO
@@ -82,7 +82,7 @@ in vimscript.
 # Start compute in background, write to temp file, then rename to final
 COMPUTE_OUT=/tmp/diff.txt.ready
 COMPUTE_TMP=/tmp/diff.txt.tmp
-(compute/bin/diffvim-compute-c "$OLD" "$NEW" "$COMPUTE_TMP" && mv "$COMPUTE_TMP" "$COMPUTE_OUT") &
+(compute/bin/diffvim-compute-cpp "$OLD" "$NEW" "$COMPUTE_TMP" && mv "$COMPUTE_TMP" "$COMPUTE_OUT") &
 
 # Vim polls for .ready file
 vim ... -c "let g:diffvim_precomputed = '$COMPUTE_OUT'" ...
@@ -115,7 +115,7 @@ WORKDIR=$(mktemp -d); trap 'rm -rf "$WORKDIR"' EXIT
 PC="$WORKDIR/diff.txt"
 
 # Start compute in background
-compute/bin/diffvim-compute-c "$OLD" "$NEW" "$PC" 2>/dev/null &
+compute/bin/diffvim-compute-cpp "$OLD" "$NEW" "$PC" 2>/dev/null &
 PID=$!
 
 # Start vim with --precomputed; the engine will poll for the file
@@ -148,7 +148,7 @@ endif
 
 ### Expected speedup
 
-| File size | Inline vimscript | External compute (C) | Parallel total |
+| File size | Inline vimscript | External compute (C++) | Parallel total |
 |-----------|-----------------|---------------------|----------------|
 | 10 lines  | ~5ms            | ~0.3ms              | ~50ms (vim startup dominates) |
 | 100 lines | ~50ms           | ~0.5ms              | ~50ms (vim startup dominates) |
