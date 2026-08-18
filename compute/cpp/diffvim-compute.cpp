@@ -3,13 +3,13 @@
 // Reads two files, computes line-level + char-level diff, and writes
 // the result in a format that `diffvim --precomputed FILE` can consume.
 //
-// Supports two line-diff algorithms (lcs, patience) selected
-// via --algorithm or DIFFVIM_ALGORITHM, and optional semantic cleanup
+// Uses the Patience diff algorithm (anchored on unique common lines,
+// with LCS fallback for ranges with no anchors). Optional semantic cleanup
 // of char-level diffs via --semantic-cleanup or DIFFVIM_SEMANTIC_CLEANUP.
 //
 // Build: make cpp
 // Usage: diffvim-compute-cpp <oldfile> <newfile> <outputfile>
-//                           [--algorithm lcs|patience] [--semantic-cleanup]
+//                           [--semantic-cleanup]
 //
 // Timing is printed to stderr.
 
@@ -292,11 +292,8 @@ vector<LineOp> patience_diff(const vector<string>& a, const vector<string>& b) {
 }
 
 /* --- Diff dispatcher --- */
-vector<LineOp> compute_line_diff(const vector<string>& a, const vector<string>& b,
-                                  const string& algorithm) {
-    if (algorithm == "patience")
-        return patience_diff(a, b);
-    return line_diff(a, b);  /* default: lcs */
+vector<LineOp> compute_line_diff(const vector<string>& a, const vector<string>& b) {
+    return patience_diff(a, b);
 }
 
 vector<CharOp> char_diff(const string& a, const string& b) {
@@ -540,8 +537,6 @@ string normalize_indent(const string& line) {
 int main(int argc, char** argv) {
     auto t_start = Clock::now();
 
-    const char* alg_env = getenv("DIFFVIM_ALGORITHM");
-    string algorithm = (alg_env && *alg_env) ? string(alg_env) : "lcs";
     const char* sem_env = getenv("DIFFVIM_SEMANTIC_CLEANUP");
     bool do_semantic = sem_env && sem_env[0] == '1';
     const char* wd_env = getenv("DIFFVIM_WORD_DIFF");
@@ -556,14 +551,14 @@ int main(int argc, char** argv) {
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
      *   Diff mode:     --diff <patchfile> <outputfile> [options]
-     * Options: --algorithm lcs|patience, --semantic-cleanup,
+     * Options: --semantic-cleanup,
      *          --word-diff, --indent-aware. May appear in any position. */
     bool diff_mode = false;
     vector<string> positionals;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             printf(
-"diffvim-compute-cpp — External diff computer for diffvim (C++ port).\n"
+"diffvim-compute-cpp — External diff computer for diffvim.\n"
 "\n"
 "USAGE\n"
 "    diffvim-compute-cpp <oldfile> <newfile> <outputfile> [options]\n"
@@ -571,16 +566,37 @@ int main(int argc, char** argv) {
 "    diffvim-compute-cpp --diff - <outputfile> [options]   (read diff from stdin)\n"
 "    diffvim-compute-cpp -h | --help\n"
 "\n"
-"Behavior is identical to diffvim-compute-c; this is a C++ port. See\n"
-"`diffvim-compute-c --help` for the full option list, environment\n"
-"variables, output format, and examples.\n"
+"ALGORITHM\n"
+"    Patience diff (anchored on unique common lines, with LCS fallback\n"
+"    for ranges with no anchors). Produces char-level ops within each hunk.\n"
+"\n"
+"OPTIONS\n"
+"    --semantic-cleanup    Merge adjacent delete+insert pairs that cancel out\n"
+"    --word-diff            Use word-level diff (groups changes by word tokens)\n"
+"    --indent-aware         Normalize indentation before line diff\n"
+"    --optimize-sequence    Enable op-sequence optimization (default: on)\n"
+"    --no-optimize-sequence Disable op-sequence optimization\n"
+"    --left-to-right        Sort ops left-to-right by column\n"
+"\n"
+"ENVIRONMENT\n"
+"    DIFFVIM_SEMANTIC_CLEANUP=1   Enable semantic cleanup\n"
+"    DIFFVIM_WORD_DIFF=1          Enable word-level diff\n"
+"    DIFFVIM_INDENT_AWARE=1       Enable indent normalization\n"
+"    DIFFVIM_OPTIMIZE_SEQUENCE=0  Disable op-sequence optimization\n"
+"    DIFFVIM_LEFT_TO_RIGHT=1      Enable left-to-right sorting\n"
+"\n"
+"OUTPUT FORMAT\n"
+"    # diffvim precomputed diff v1\n"
+"    # algorithm patience\n"
+"    # hunk_count N\n"
+"    HUNK <target_line> <del_count> <ins_count> <is_end_insert> <is_end_delete>\n"
+"    keep|delete|insert <char_code>\n"
+"    ...\n"
 "\n"
 "SEE ALSO\n"
-"    diffvim-compute-c(1), diffvim(1), diffvim-precomputed(1)\n"
-"    Full docs: docs/PARALLEL_COMPUTE.md, docs/src/architecture.md\n");
+"    diffvim(1), diffvim-pipeline(1)\n"
+"    Full docs: docs/PIPELINE.md, docs/src/architecture.md\n");
             return 0;
-        } else if (strcmp(argv[i], "--algorithm") == 0 && i + 1 < argc) {
-            algorithm = argv[++i];
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
             do_semantic = true;
         } else if (strcmp(argv[i], "--word-diff") == 0) {
@@ -603,7 +619,7 @@ int main(int argc, char** argv) {
     string oldfile, newfile, outfile, diff_file;
     if (diff_mode) {
         if (positionals.size() < 2) {
-            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--algorithm lcs|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
             fprintf(stderr, "   or: %s --diff - <outputfile> [options]   (read diff from stdin)\n", argv[0]);
             return 1;
         }
@@ -611,7 +627,7 @@ int main(int argc, char** argv) {
         outfile = positionals[1];
     } else {
         if (positionals.size() < 3) {
-            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--algorithm lcs|patience] [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
             fprintf(stderr, "   or: %s --diff <patchfile> <outputfile> [options]\n", argv[0]);
             return 1;
         }
@@ -653,7 +669,7 @@ int main(int argc, char** argv) {
     const vector<string>& line_b = do_indent_aware ? new_norm : new_lines;
 
     auto t_diff_start = Clock::now();
-    auto lops = compute_line_diff(line_a, line_b, algorithm);
+    auto lops = compute_line_diff(line_a, line_b);
 
     vector<Hunk> hunks;
     int old_pos = 1;
@@ -726,7 +742,7 @@ int main(int argc, char** argv) {
     ofstream out(outfile, ios::binary);
     if (!out) { fprintf(stderr, "Cannot write %s\n", outfile.c_str()); return 1; }
     out << "# diffvim precomputed diff v1\n";
-    out << "# algorithm " << algorithm << "\n";
+    out << "# algorithm patience\n";
     out << "# semantic_cleanup " << (do_semantic ? 1 : 0) << "\n";
     out << "# word_diff " << (do_word_diff ? 1 : 0) << "\n";
     out << "# indent_aware " << (do_indent_aware ? 1 : 0) << "\n";

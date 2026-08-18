@@ -196,7 +196,7 @@ sub parse_diff {
     # Parse the git diff output...
     # (implementation omitted for brevity)
 
-    # Build hunks with char_ops using the same LCS algorithm
+    # Build hunks with char_ops using the same Patience algorithm
     my @hunks;
     # ...
 

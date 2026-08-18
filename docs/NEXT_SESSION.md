@@ -10,7 +10,7 @@ reduced. Read this first.
 > only one compute implementation remains (`compute/cpp/`),
 > the postprocess/pace/animator stages exist in C and Perl only (Go is
 > gone), the `--tool` flag was removed, and `--algorithm` accepts only
-> `lcs|patience` (Myers dropped). The timed op stream was upgraded to
+> `patience` (Myers dropped). The timed op stream was upgraded to
 > v2 (TSV, per-op `(line, col)`); cursor positioning now lives in
 > postprocess, not pace. The Perl `compute/perl/compute_builtin.pl`
 > wrapper was added as the fallback for `diffvim-pipeline`.
@@ -28,10 +28,10 @@ that the previous session lost sight of.
 compute → postprocess → pace → animate
 ```
 
-1. **compute**: line diff (LCS or Patience) produces char-level ops.
+1. **compute**: line diff (Patience) produces char-level ops.
    One implementation: C++ (`compute/bin/diffvim-compute-cpp`). If
    the C++ binary is missing, `diffvim` falls back to the embedded
-   vimscript LCS, and `diffvim-pipeline` falls back to
+   vimscript patience, and `diffvim-pipeline` falls back to
    `compute/perl/compute_builtin.pl`.
 2. **postprocess**: reorders/transforms ops to look natural, and owns
    per-op `(line, col)` positioning so the animator is scroll-safe.
@@ -117,12 +117,12 @@ make -C animator/c all
 
 | Algorithm | C++ (ms) | Notes |
 |-----------|----------|-------|
-| LCS       | 1585     | Default, works |
-| Patience  | 1687     | Works, similar to LCS |
+| Patience  | 1687     | Default, works |
+| (LCS removed — Patience is the only algorithm) ||
 
-LCS and Patience produce identical op counts. Myers was dropped during
+Patience produce identical op counts. Myers was dropped during
 the Phase A refactor — it OOMs on 15K-line files and produced the same
-op count as LCS.
+op count as patience.
 
 ## Git state
 

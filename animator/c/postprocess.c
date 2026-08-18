@@ -51,6 +51,37 @@ static int do_semantic = 0;
 static int do_indent = 0;
 static int do_overwrite = 0;
 
+/* Apply a --transform NAME[:VALUE] spec. */
+void apply_transform(const char *spec) {
+    if (strncmp(spec, "op-order:", 9) == 0) {
+        const char *mode = spec + 9;
+        if (strcmp(mode, "natural") == 0) op_order_optimize = 0;
+        else if (strcmp(mode, "optimize") == 0) op_order_optimize = 1;
+        /* other modes not yet implemented */
+    } else if (strcmp(spec, "semantic-cleanup") == 0) {
+        do_semantic = 1;
+    } else if (strcmp(spec, "indent-aware") == 0) {
+        do_indent = 1;
+    } else if (strcmp(spec, "overwrite") == 0) {
+        do_overwrite = 1;
+    } else {
+        fprintf(stderr, "diffvim-postprocess: unknown transform '%s'\n", spec);
+        fprintf(stderr, "  Available: op-order:natural|optimize, semantic-cleanup, indent-aware, overwrite\n");
+        exit(1);
+    }
+}
+
+void list_transforms(void) {
+    printf("Available transforms (use --transform NAME[:VALUE]):\n");
+    printf("  op-order:natural        No reordering (raw patience order)\n");
+    printf("  op-order:optimize       Deletes before inserts within each line (default)\n");
+    printf("  semantic-cleanup        Merge adjacent delete+insert pairs that cancel out\n");
+    printf("  indent-aware            Handle indent-only changes as keeps\n");
+    printf("  overwrite               Transform delete+insert into in-place overwrite\n");
+    printf("\nTransforms are applied in the order specified.\n");
+    printf("Multiple --transform flags can be given.\n");
+}
+
 void parse_args(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--op-order") == 0 && i+1 < argc) {
@@ -62,8 +93,19 @@ void parse_args(int argc, char **argv) {
             do_indent = 1;
         } else if (strcmp(argv[i], "--overwrite") == 0) {
             do_overwrite = 1;
+        } else if (strcmp(argv[i], "--transform") == 0 && i+1 < argc) {
+            apply_transform(argv[++i]);
+        } else if (strcmp(argv[i], "--list-transforms") == 0) {
+            list_transforms();
+            exit(0);
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            fprintf(stderr, "Usage: diffvim-postprocess [--op-order MODE] [--semantic-cleanup] [--indent-aware] [--overwrite]\n");
+            fprintf(stderr, "Usage: diffvim-postprocess [options]\n");
+            fprintf(stderr, "  --transform NAME[:VALUE]  Apply a transformation (repeatable)\n");
+            fprintf(stderr, "  --list-transforms        List available transforms\n");
+            fprintf(stderr, "  --op-order MODE          Shorthand for --transform op-order:MODE\n");
+            fprintf(stderr, "  --semantic-cleanup       Shorthand for --transform semantic-cleanup\n");
+            fprintf(stderr, "  --indent-aware           Shorthand for --transform indent-aware\n");
+            fprintf(stderr, "  --overwrite              Shorthand for --transform overwrite\n");
             exit(0);
         }
     }

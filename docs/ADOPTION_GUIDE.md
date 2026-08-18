@@ -67,7 +67,7 @@ each option does.
 
 ## 3. External Compute as the Default for Real Codebases
 
-The in-vim LCS is fast enough for toy examples but takes seconds on
+The in-vim patience is fast enough for toy examples but takes seconds on
 real codebases. **Make `compute/bin/diffvim-compute-cpp` the default**,
 not `diffvim` without pre-computation:
 
@@ -78,7 +78,7 @@ alias dv='diffvim'
 
 # With the C++ binary on PATH, `dv old.py new.py` is:
 #   1. ~1ms compute (C++) + ~50ms vim startup = 51ms total
-#   2. vs. ~3500ms vimscript LCS + 50ms startup = 3550ms total
+#   2. vs. ~3500ms vimscript patience + 50ms startup = 3550ms total
 ```
 
 A 50x speedup at startup is the difference between "diffvim feels
@@ -361,7 +361,7 @@ animates, and `:q` quits. It's a viewer, not an editor.
 > **"It's too slow on large files."**
 
 Use `compute/bin/diffvim-compute-cpp`. The C++ compute tool finishes
-in ~1ms on a 1000-line file. The in-vim LCS is the bottleneck, not
+in ~1ms on a 1000-line file. The in-vim patience is the bottleneck, not
 the animation. (diffvim searches for the C++ binary automatically —
 no flag needed.)
 

@@ -101,7 +101,7 @@ After cross-referencing every option against every other option, the
 and char-level diff.
 
 **Current options mapping to this:**
-- `--algorithm lcs|patience`
+- `--algorithm patience`
 - `--word-diff` (changes char-level diff to token-level)
 - `--indent-aware` (changes how indent-only changes are diffed)
 - `--semantic-cleanup` (post-diff merge of adjacent del/ins pairs)
@@ -470,7 +470,7 @@ script instead.
 
 ### Diff algorithm (Base Op 1)
 ```
---algorithm lcs|patience              # diff algorithm (default: lcs)
+--algorithm patience              # diff algorithm (default: patience)
 --indent-aware                          # treat indent-only changes specially
 --semantic-cleanup                     # merge adjacent del/ins pairs
 ```

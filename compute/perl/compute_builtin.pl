@@ -22,14 +22,12 @@ use DiffVim::Parser::Perl qw(parse_diff);
 
 binmode(STDERR, ':utf8');
 
-my $algorithm = 'lcs';
+my $algorithm = 'patience';
 my @positionals;
 
 for (my $i = 0; $i < @ARGV; $i++) {
     my $a = $ARGV[$i];
-    if ($a eq '--algorithm' && $i + 1 < @ARGV) {
-        $algorithm = $ARGV[++$i];
-    } elsif ($a eq '--semantic-cleanup') {
+    if ($a eq '--semantic-cleanup') {
         # passed through to parser via options below
     } elsif ($a eq '--word-diff') {
         # passed through to parser via options below

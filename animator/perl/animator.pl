@@ -255,7 +255,16 @@ while (my $line = <STDIN>) {
         insert_char($code) if $type eq 'insert';
         render();
     } elsif ($cmd eq 'delay' && @parts >= 1) {
-        my $ms = int($parts[0]);
+        # Parse both delay\t<ms> and delay\t<type>\t<ms>
+        my $ms;
+        if (@parts >= 2) {
+            # Typed delay: delay\t<type>\t<ms>
+            $ms = int($parts[1]);
+            # Future: apply per-type multiplier based on $parts[0]
+        } else {
+            # Untyped delay: delay\t<ms>
+            $ms = int($parts[0]);
+        }
         $ms = int($ms / $speed) if $speed > 0;
         usleep($ms * 1000) if $ms > 0 && !$no_display;
     } elsif ($cmd eq 'batch_delete' && @parts >= 3) {

@@ -2,7 +2,7 @@
 
 ## Problem
 
-The standard LCS (Longest Common Subsequence) diff algorithm can produce
+The standard LCS (Patience diff) diff algorithm can produce
 **erratic, inefficient** char-op sequences that cause the cursor to jump
 back and forth across a line. For example, replacing "hello world" with
 "hi there" might produce:

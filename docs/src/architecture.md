@@ -5,14 +5,14 @@
 All three implementations share the same conceptual pipeline:
 
 ```
-Diff Computation → Hunk Grouping → Char-level LCS → Animate in Vim
+Diff Computation → Hunk Grouping → Char-level patience → Animate in Vim
                                                        ↑
                                         User Input (FIFO / timer)
 ```
 
 1. **Diff computation** — compare old and new files, produce line-level ops
 2. **Hunk grouping** — group consecutive non-keep ops into hunks
-3. **Char-level LCS** — within each hunk, compute minimal char ops
+3. **Char-level patience** — within each hunk, compute minimal char ops
 4. **Animate** — open old file in vim, send commands to transform buffer
 
 ## Three Implementations
@@ -33,7 +33,7 @@ Diff Computation → Hunk Grouping → Char-level LCS → Animate in Vim
 │  Vim (single process)                       │
 │  ┌────────────────────────────────────────┐ │
 │  │  Vimscript engine (timer_start)        │ │
-│  │  - Diff logic (LCS)                    │ │
+│  │  - Diff logic (patience)                    │ │
 │  │  - Animation loop (timer callback)     │ │
 │  │  - Buffer manipulation (setline/cursor)│ │
 │  │  - User input (nnoremap mappings)      │ │
@@ -73,7 +73,7 @@ Diff Computation → Hunk Grouping → Char-level LCS → Animate in Vim
 ### diffvim.pl (Perl + tmux)
 
 Same architecture as diffvim-tmux but written in Perl with:
-- Single parser module (`DiffVim::Parser::Perl`, pure-Perl LCS, no deps)
+- Single parser module (`DiffVim::Parser::Perl`, pure-Perl patience, no deps)
 - `IPC::Open3` for vim communication (when using `--no-tmux`)
 - `File::Temp` with `CLEANUP => 1` for automatic temp file cleanup
 

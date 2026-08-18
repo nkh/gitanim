@@ -1,8 +1,8 @@
 # External Compute Tool
 
-diffvim's in-vim LCS computation is fast enough for files up to a few
+diffvim's in-vim patience computation is fast enough for files up to a few
 hundred lines. For larger files (1000+ lines, or diffs with thousands
-of changed characters), the vimscript LCS can take seconds or even
+of changed characters), the vimscript patience can take seconds or even
 tens of seconds before the animation starts.
 
 The **external compute tool** solves this. It is a standalone binary
@@ -69,7 +69,7 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 
 | Option                       | Description                                          |
 | ---------------------------- | ---------------------------------------------------- |
-| `--algorithm lcs\|patience`  | Diff algorithm (default: `lcs`)                     |
+| `--algorithm patience\|patience`  | Diff algorithm (default: `lcs`)                     |
 | `--semantic-cleanup`         | Merge adjacent delete/insert pairs into keeps        |
 | `--word-diff`                | Batch word runs in char ops                          |
 | `--indent-aware`             | Treat indent-only changes specially                  |
@@ -80,7 +80,7 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 | `-h, --help`                 | Show help and exit                                   |
 
 `--algorithm myers` was removed: it OOMs on 15K-line files and
-produces the same op count as LCS.
+produces the same op count as patience.
 
 ## Environment Variables
 
@@ -100,7 +100,7 @@ The compute tool writes a line-oriented diff file that diffvim's
 `--precomputed` flag reads:
 
 ```
-# algorithm lcs
+# algorithm patience
 # semantic_cleanup 0
 # word_diff 0
 # indent_aware 0
@@ -147,7 +147,7 @@ to see the compute time, then run diffvim to see the animation startup.
 
 If `compute/bin/diffvim-compute-cpp` is not on disk:
 
-- `diffvim` falls back to the embedded vimscript LCS
+- `diffvim` falls back to the embedded vimscript patience
   (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`) —
   slower but always available.
 - `diffvim-pipeline` falls back to `compute/perl/compute_builtin.pl`,
@@ -163,11 +163,11 @@ On a 1000-line Python file with ~200 changed lines:
 
 | Tool                  | Compute time |
 | --------------------- | ------------ |
-| vimscript LCS         | ~3500 ms     |
+| vimscript patience         | ~3500 ms     |
 | Perl fallback         | ~150 ms      |
 | `diffvim-compute-cpp` | 11 ms        |
 
-The native C++ tool is ~300x faster than the vimscript LCS and ~15x
+The native C++ tool is ~300x faster than the vimscript patience and ~15x
 faster than the Perl fallback.
 
 ## See Also

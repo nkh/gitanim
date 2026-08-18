@@ -22,12 +22,12 @@ format.
 
 **Algorithms:** two line-diff algorithms are supported:
 
-1. **LCS** (Longest Common Subsequence) — dynamic programming,
+1. **Patience** — dynamic programming,
    O(N×M) time and memory. Produces minimal diffs. Default.
 
 2. **Patience** — uses anchor lines (unique longest matches) to divide
    and conquer. Produces more human-readable diffs for code with
-   structural markers. Similar performance to LCS.
+   structural markers. Same algorithm.
 
 Myers was removed in the refactor: it OOMs on 15K-line files (O(N×M)
 memory in our implementation) and produces the same op count as LCS.
@@ -36,15 +36,14 @@ memory in our implementation) and produces the same op count as LCS.
 
 | Algorithm | C++ (ms) | Ops produced |
 |-----------|----------|--------------|
-| LCS       | 1585     | 1,034,143    |
 | Patience  | 1687     | 1,034,143    |
 
-LCS and Patience produce identical op counts on this file.
+(LCS and Myers were removed in the refactor — Patience is the only algorithm.)
 
 **Op format:**
 ```
 # diffvim precomputed diff v1
-# algorithm lcs
+# algorithm patience
 # hunk_count N
 HUNK <target_line> <del_count> <ins_count> <is_end_insert> <is_end_delete>
 keep <char_code>

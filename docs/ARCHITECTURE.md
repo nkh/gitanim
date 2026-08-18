@@ -12,7 +12,7 @@ All three implementations share the same conceptual pipeline:
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐     ┌──────────┐
 │  Diff       │ ──▶ │  Hunk        │ ──▶ │  Char-level     │ ──▶ │ Animate  │
-│  Computation│     │  Grouping    │     │  LCS Diff       │     │ in Vim   │
+│  Computation│     │  Grouping    │     │  patience Diff       │     │ in Vim   │
 └─────────────┘     └──────────────┘     └─────────────────┘     └──────────┘
      │                                                                  │
      │  ┌──────────────────────────────────────────────────────────────┘
@@ -28,7 +28,7 @@ All three implementations share the same conceptual pipeline:
 1. **Diff computation** — compare old and new files, produce a list of
    line-level operations (keep / delete / insert)
 2. **Hunk grouping** — group consecutive non-keep operations into hunks
-3. **Char-level LCS diff** — within each hunk, compute the minimal set
+3. **Char-level patience diff** — within each hunk, compute the minimal set
    of character operations (keep / delete / insert)
 4. **Animate in vim** — open the old file in vim, then animate the
    transformation by sending commands to vim
@@ -61,7 +61,7 @@ lives**.
 │  │                                        │ │
 │  │  ┌──────────────┐  ┌────────────────┐  │ │
 │  │  │ Diff logic   │  │ Animation loop │  │ │
-│  │  │ (LCS, hunks, │  │ (timer_start)  │  │ │
+│  │  │ (patience, hunks, │  │ (timer_start)  │  │ │
 │  │  │  char ops)   │  │                │  │ │
 │  │  └──────────────┘  └───────┬────────┘  │ │
 │  │                            │           │ │

@@ -232,7 +232,7 @@ CORE OPTIONS:
   --help, -h               Show this help
 
 DIFF ALGORITHM:
-  --algorithm lcs|patience (-a)  Line-level diff algorithm (default: lcs)
+  --algorithm (-a)              [removed] Patience diff is now the only algorithm
   --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
   --indent-aware (-i)      Normalize indentation before line diff
   --word-diff (-w)         Use word-level diff (groups changes by word tokens)
@@ -394,7 +394,7 @@ while [[ $# -gt 0 ]]; do
         --no-vimrc|-N)      NO_VIMRC=1; shift ;;
         --precomputed)      PRECOMPUTED_FILE="$2"; shift 2 ;;
         --startup-pause)    STARTUP_PAUSE=1; shift ;;
-        --algorithm|-a)     ALGORITHM="$2"; shift 2 ;;
+        --algorithm|-a)     shift 2 ;;  # deprecated: patience is now the only algorithm
         --semantic-cleanup|-S) SEMANTIC_CLEANUP=1; shift ;;
         --indent-aware|-i)  INDENT_AWARE=1; shift ;;
         --startup-feedback|-F) STARTUP_FEEDBACK=1; shift ;;
@@ -1238,24 +1238,74 @@ WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
 
-# Auto-precompute: diffvim always tries the C++ compute tool first.
-# It is 10-100x faster than the in-vim LCS for large files. If the binary
-# is missing, diffvim falls back to the embedded vimscript LCS
-# (s:LineDiff / s:CharDiff in autoload/diffvim/engine.vim).
-if [[ $AUTO_PRECOMPUTE -eq 1 && -z "$PRECOMPUTED_FILE" ]]; then
+# Run the full external pipeline: compute → postprocess → pace → timed op stream.
+# This replaces the in-vim compute/postprocess/pace entirely. The vimscript
+# engine now only handles the animate stage (reading the timed op stream).
+# The pipeline executables are installed alongside the vimscript, so no
+# fallback is needed.
+if [[ -z "$PRECOMPUTED_FILE" ]]; then
     COMPUTE_BIN=""
     for d in "compute/bin/diffvim-compute-cpp" \
              "/usr/local/bin/diffvim-compute-cpp" \
              "$HOME/.local/bin/diffvim-compute-cpp"; do
         if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
     done
-    if [[ -n "$COMPUTE_BIN" ]]; then
-        PRECOMPUTED_FILE="$WORKDIR/auto_precomputed.diff"
-        echo "diffvim: pre-computing diff with $COMPUTE_BIN..." >&2
-        "$COMPUTE_BIN" "$OLD" "$NEW" "$PRECOMPUTED_FILE" 2>&1 | grep "^compute:" >&2 || true
-        export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
+    POSTPROCESS_BIN=""
+    for d in "animator/bin/diffvim-postprocess" \
+             "/usr/local/bin/diffvim-postprocess"; do
+        if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
+    done
+    PACE_BIN=""
+    for d in "animator/bin/diffvim-pace" \
+             "/usr/local/bin/diffvim-pace"; do
+        if [[ -f "$d" ]]; then PACE_BIN="$d"; break; fi
+    done
+
+    if [[ -n "$COMPUTE_BIN" && -n "$POSTPROCESS_BIN" && -n "$PACE_BIN" ]]; then
+        RAW_OPS="$WORKDIR/raw_ops.txt"
+        POST_OPS="$WORKDIR/post_ops.txt"
+        TIMED_OPS="$WORKDIR/timed_ops.txt"
+
+        echo "diffvim: running external pipeline (compute → postprocess → pace)..." >&2
+
+        # Stage 1: Compute (Patience diff)
+        "$COMPUTE_BIN" "$OLD" "$NEW" "$RAW_OPS" 2>&1 | grep "^compute:" >&2 || true
+
+        # Stage 2: Postprocess (op ordering + per-op positioning)
+        POSTPROCESS_ARGS=()
+        [[ "$SEMANTIC_CLEANUP" -eq 1 ]] && POSTPROCESS_ARGS+=("--semantic-cleanup")
+        [[ "$INDENT_AWARE" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-aware")
+        "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
+
+        # Stage 3: Pace (add typed delays + batching)
+        PACE_ARGS=("--delete-pacing" "${DELETE_PACING:-word}" "--insert-pacing" "${INSERT_PACING:-char}")
+        "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
+
+        # Pass the timed op stream to the vimscript engine
+        export DIFFVIM_TIMED_OPS="$TIMED_OPS"
     else
-        echo "diffvim: compute/bin/diffvim-compute-cpp not found, using builtin (in-vim LCS)" >&2
+        echo "diffvim: pipeline executables not found (need compute-cpp, postprocess, pace)" >&2
+        echo "  Run 'make -C compute' and rebuild the animator tools." >&2
+        exit 1
+    fi
+else
+    # User provided a precomputed diff — still need to run postprocess + pace
+    POSTPROCESS_BIN=""
+    for d in "animator/bin/diffvim-postprocess" \
+             "/usr/local/bin/diffvim-postprocess"; do
+        if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
+    done
+    PACE_BIN=""
+    for d in "animator/bin/diffvim-pace" \
+             "/usr/local/bin/diffvim-pace"; do
+        if [[ -f "$d" ]]; then PACE_BIN="$d"; break; fi
+    done
+    if [[ -n "$POSTPROCESS_BIN" && -n "$PACE_BIN" ]]; then
+        POST_OPS="$WORKDIR/post_ops.txt"
+        TIMED_OPS="$WORKDIR/timed_ops.txt"
+        "$POSTPROCESS_BIN" < "$PRECOMPUTED_FILE" > "$POST_OPS" 2>/dev/null
+        "$PACE_BIN" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
+        export DIFFVIM_TIMED_OPS="$TIMED_OPS"
     fi
 fi
 
@@ -1388,6 +1438,298 @@ let g:diffvim = extend({
 "   move_ms_per_unit   - ms per unit of distance, capped by max
 "   hunk_pause_ms      - pause between hunks
 "   tick_ms            - animation frame interval (~60fps)
+
+" --- Timed Op Stream Reader (v2 TSV) -----------------------------------------
+" When DIFFVIM_TIMED_OPS is set (by the bash launcher running the external
+" pipeline), this section reads and applies the pre-computed timed op stream.
+" This bypasses ALL the in-vim compute/postprocess/pace code below — the
+" vimscript engine only handles the ANIMATE stage.
+"
+" The timed op stream format (v2 TSV):
+"   op\t<type>\t<line>\t<col>\t<code>    — apply an op (keep/delete/insert)
+"   delay\t<type>\t<ms>                  — wait ms (type is for future use)
+"   batch_delete\t<line>\t<col>\t<count> — delete N chars
+"   batch_insert\t<line>\t<col>\t<c1>...  — insert multiple chars
+"   newline_delete\t<line>                — delete \n (join lines)
+"   newline_insert\t<line>\t<col>         — insert \n (split line)
+"   hunk_start\t<del>\t<ins>              — metadata
+"   hunk_end                              — metadata
+"   snapshot\t<file>                      — write buffer to file
+"   done                                  — end of stream
+
+if exists('$DIFFVIM_TIMED_OPS') && !empty($DIFFVIM_TIMED_OPS) && filereadable($DIFFVIM_TIMED_OPS)
+
+" Minimal state for the timed op stream animator
+let s:timed_ops = []
+let s:timed_idx = 0
+let s:cur_l = 1
+let s:cur_c = 1
+let s:timed_stopped = 0
+let s:timed_paused = 0
+let s:timed_speed = 1.0
+let s:timed_timer = -1
+
+" Load the timed op stream
+function! s:LoadTimedOps() abort
+    let s:timed_ops = readfile($DIFFVIM_TIMED_OPS)
+    let s:timed_idx = 0
+endfunction
+
+" Place cursor at 1-indexed (line, col)
+function! s:TimedPlaceCursor() abort
+    let l:ll = s:cur_l
+    let l:lc = s:cur_c
+    if l:ll < 1 | let l:ll = 1 | endif
+    if l:ll > line('$') | let l:ll = line('$') | endif
+    let l:line = getline(l:ll)
+    let l:len = strchars(l:line)
+    if l:lc > l:len + 1 | let l:lc = l:len + 1 | endif
+    if l:lc < 1 | let l:lc = 1 | endif
+    let l:byte_col = byteidx(l:line, l:lc - 1) + 1
+    if l:byte_col < 1 | let l:byte_col = 1 | endif
+    call cursor(l:ll, l:byte_col)
+    if g:diffvim.scroll ==# 'zz'
+        normal! zz
+    elseif g:diffvim.scroll ==# 'zt'
+        normal! zt
+    elseif g:diffvim.scroll ==# 'zb'
+        normal! zb
+    endif
+endfunction
+
+" Set cursor to 1-indexed (line, col), clamping to buffer bounds
+function! s:TimedSetCursor(line, col) abort
+    let s:cur_l = a:line
+    let s:cur_c = a:col
+    if s:cur_l < 1 | let s:cur_l = 1 | endif
+    if s:cur_l > line('$')
+        " Past end of buffer — clamp to last line, position at END
+        let s:cur_l = line('$')
+        let s:cur_c = strchars(getline(line('$'))) + 1
+        return
+    endif
+    let l:max_col = strchars(getline(s:cur_l)) + 1
+    if s:cur_c > l:max_col | let s:cur_c = l:max_col | endif
+    if s:cur_c < 1 | let s:cur_c = 1 | endif
+endfunction
+
+" Insert a char (by code point) at cursor
+function! s:TimedInsertChar(code) abort
+    if a:code == 10
+        " Split line
+        let l:line = getline(s:cur_l)
+        let l:byte = byteidx(l:line, s:cur_c - 1)
+        let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+        let l:after = strpart(l:line, l:byte)
+        call setline(s:cur_l, l:before)
+        call append(s:cur_l, l:after)
+        let s:cur_l += 1
+        let s:cur_c = 1
+    else
+        let l:ch = nr2char(a:code)
+        let l:line = getline(s:cur_l)
+        let l:byte = byteidx(l:line, s:cur_c - 1)
+        let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+        let l:after = strpart(l:line, l:byte)
+        call setline(s:cur_l, l:before . l:ch . l:after)
+        let s:cur_c += 1
+    endif
+endfunction
+
+" Delete a char (by code point) at cursor
+function! s:TimedDeleteChar(code) abort
+    if a:code == 10
+        " Join lines
+        if s:cur_l < line('$')
+            let l:cur = getline(s:cur_l)
+            let l:next = getline(s:cur_l + 1)
+            call setline(s:cur_l, l:cur . l:next)
+            execute s:cur_l + 1 . 'delete _'
+        elseif s:cur_l > 1
+            execute s:cur_l . 'delete _'
+            let s:cur_l -= 1
+            let s:cur_c = strchars(getline(s:cur_l)) + 1
+        endif
+    else
+        let l:line = getline(s:cur_l)
+        let l:byte = byteidx(l:line, s:cur_c - 1)
+        if l:byte < strlen(l:line)
+            let l:next = byteidx(l:line, s:cur_c) 
+            if l:next < 0 | let l:next = strlen(l:line) | endif
+            let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+            let l:after = strpart(l:line, l:next)
+            call setline(s:cur_l, l:before . l:after)
+        endif
+    endif
+endfunction
+
+" Keep char (advance cursor)
+function! s:TimedKeepChar(code) abort
+    if a:code == 10
+        let s:cur_l += 1
+        if s:cur_l > line('$') | let s:cur_l = line('$') | endif
+        let s:cur_c = 1
+    else
+        let s:cur_c += 1
+    endif
+endfunction
+
+" Batch delete N chars
+function! s:TimedBatchDelete(n) abort
+    let l:line = getline(s:cur_l)
+    let l:i = 0
+    while l:i < a:n && s:cur_c <= strchars(l:line)
+        let l:byte = byteidx(l:line, s:cur_c - 1)
+        let l:next = byteidx(l:line, s:cur_c)
+        if l:next < 0 | let l:next = strlen(l:line) | endif
+        let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+        let l:after = strpart(l:line, l:next)
+        let l:line = l:before . l:after
+        let l:i += 1
+    endwhile
+    call setline(s:cur_l, l:line)
+endfunction
+
+" Render the buffer
+function! s:TimedRender() abort
+    redraw!
+endfunction
+
+" Process one timed op from the stream
+function! s:TimedProcessNext() abort
+    if s:timed_stopped || s:timed_paused | return -1 | endif
+    if s:timed_idx >= len(s:timed_ops) | return -1 | endif
+
+    let l:line = s:timed_ops[s:timed_idx]
+    let s:timed_idx += 1
+
+    if l:line ==# '' || l:line[0] ==# '#'
+        return 0  " skip comments/blank
+    endif
+
+    let l:parts = split(l:line, "\t", 1)
+    let l:cmd = l:parts[0]
+
+    if l:cmd ==# 'op' && len(l:parts) >= 5
+        let l:type = l:parts[1]
+        let l:op_line = str2nr(l:parts[2])
+        let l:op_col = str2nr(l:parts[3])
+        let l:code = str2nr(l:parts[4])
+        call s:TimedSetCursor(l:op_line, l:op_col)
+        if l:type ==# 'keep'
+            call s:TimedKeepChar(l:code)
+        elseif l:type ==# 'delete'
+            call s:TimedDeleteChar(l:code)
+        elseif l:type ==# 'insert'
+            call s:TimedInsertChar(l:code)
+        endif
+        call s:TimedPlaceCursor()
+        call s:TimedRender()
+        return 1  " processed an op
+
+    elseif l:cmd ==# 'delay' && len(l:parts) >= 2
+        " delay\t<type>\t<ms> or delay\t<ms>
+        let l:ms = len(l:parts) >= 3 ? str2nr(l:parts[2]) : str2nr(l:parts[1])
+        let l:ms = float2nr(l:ms / s:timed_speed)
+        return l:ms  " return delay in ms
+
+    elseif l:cmd ==# 'batch_delete' && len(l:parts) >= 4
+        call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+        call s:TimedBatchDelete(str2nr(l:parts[3]))
+        call s:TimedPlaceCursor()
+        call s:TimedRender()
+        return 1
+
+    elseif l:cmd ==# 'batch_insert' && len(l:parts) >= 4
+        call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+        for l:i in range(3, len(l:parts) - 1)
+            call s:TimedInsertChar(str2nr(l:parts[l:i]))
+        endfor
+        call s:TimedPlaceCursor()
+        call s:TimedRender()
+        return 1
+
+    elseif l:cmd ==# 'newline_delete' && len(l:parts) >= 2
+        call s:TimedSetCursor(str2nr(l:parts[1]), 1)
+        call s:TimedDeleteChar(10)
+        call s:TimedPlaceCursor()
+        call s:TimedRender()
+        return 1
+
+    elseif l:cmd ==# 'newline_insert' && len(l:parts) >= 3
+        call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+        call s:TimedInsertChar(10)
+        call s:TimedPlaceCursor()
+        call s:TimedRender()
+        return 1
+
+    elseif l:cmd ==# 'snapshot' && len(l:parts) >= 2
+        if !empty(g:diffvim.output_file)
+            execute 'w! ' . g:diffvim.output_file
+        endif
+        return 0
+
+    elseif l:cmd ==# 'hunk_start' || l:cmd ==# 'hunk_end'
+        return 0  " metadata
+
+    elseif l:cmd ==# 'done'
+        let s:timed_stopped = 1
+        return -1
+    endif
+
+    return 0  " unknown — skip
+endfunction
+
+" Timer callback — process ops until a delay is hit
+function! s:TimedTick(timer) abort
+    let l:safety = 0
+    while !s:timed_stopped && l:safety < 10000
+        let l:safety += 1
+        let l:result = s:TimedProcessNext()
+        if l:result == -1
+            " Done or paused — stop timer
+            call timer_stop(s:timed_timer)
+            let s:timed_timer = -1
+            if !s:timed_stopped && !empty(g:diffvim.output_file)
+                " Write final buffer
+                let l:bytes = readfile(g:diffvim_new_file, 'b')
+                if !empty(l:bytes)
+                    let l:last = l:bytes[-1]
+                    if l:last !~# "\\n$" && l:last !~# "\\r$"
+                        setlocal noeol
+                    endif
+                endif
+                execute 'w! ' . g:diffvim.output_file
+            endif
+            return
+        elseif l:result > 0
+            " Processed an op — continue immediately (delay 1ms)
+            call timer_start(1, function('s:TimedTick'))
+            return
+        elseif l:result == 0
+            " Skip this line — continue
+            continue
+        endif
+    endwhile
+endfunction
+
+" Start the timed op stream animation
+function! s:StartTimedAnimation() abort
+    call s:LoadTimedOps()
+    if empty(s:timed_ops)
+        echoerr 'diffvim: timed op stream is empty'
+        return
+    endif
+    echo 'diffvim: animating ' . len(s:timed_ops) . ' timed ops'
+    let s:timed_timer = timer_start(1, function('s:TimedTick'))
+endfunction
+
+" Auto-start when the engine is sourced
+call s:StartTimedAnimation()
+
+" Skip the rest of the engine — we're using the external pipeline
+finish
+endif
 
 " --- State -----------------------------------------------------------------
 

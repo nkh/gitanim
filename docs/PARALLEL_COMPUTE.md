@@ -4,7 +4,7 @@
 
 When diffvim starts, it does two things sequentially:
 
-1. **Diff computation** — vimscript LCS at line level + char level (can take
+1. **Diff computation** — vimscript patience diff at line level + char level (can take
    100ms–10s for large files)
 2. **Vim startup** — loading vimrc, syntax highlighting, reading the old file
    (typically 50–200ms)

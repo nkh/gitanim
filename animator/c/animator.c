@@ -39,6 +39,17 @@ static double speed_mult = 1.0;
 static char output_file[256] = "";
 static char snapshot_file_path[256] = "";
 static char old_file_path[256] = "";
+static char colormap_old_path[256] = "";
+static char colormap_new_path[256] = "";
+
+/* Color map: one colored string per line (ANSI-escaped). NULL = no colormap. */
+static char **colormap_old = NULL;
+static int colormap_old_count = 0;
+static char **colormap_new = NULL;
+static int colormap_new_count = 0;
+
+/* Track which lines have been modified (color invalidated). */
+static char *line_modified = NULL;
 
 /* Grow lines array if needed */
 static void ensure_lines_capacity(int needed) {
@@ -257,13 +268,43 @@ void render(void) {
     printf("\033[2J\033[H");
     int max = n_lines > 40 ? 40 : n_lines;
     for (int i = 0; i < max; i++) {
-        if (i == cursor_l)
-            printf("\033[7m%s\033[0m\n", lines[i]);
-        else
-            printf("%s\n", lines[i]);
+        /* Use colormap for unmodified lines; plain text for modified ones. */
+        char *colored = NULL;
+        if (colormap_old && i < colormap_old_count && !line_modified[i])
+            colored = colormap_old[i];
+        if (colored) {
+            if (i == cursor_l)
+                printf("\033[7m%s\033[0m\n", colored);
+            else
+                printf("%s\n", colored);
+        } else {
+            if (i == cursor_l)
+                printf("\033[7m%s\033[0m\n", lines[i]);
+            else
+                printf("%s\n", lines[i]);
+        }
     }
     printf("\033[%d;%dH", cursor_l + 1, cursor_c + 1);
     fflush(stdout);
+}
+
+/* Load a colormap file: one ANSI-colored string per line. */
+void load_colormap(const char *path, char ***map, int *count) {
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    int cap = 256;
+    *map = (char **)malloc(cap * sizeof(char *));
+    *count = 0;
+    char buf[MAX_LINE_LEN];
+    while (fgets(buf, sizeof(buf), f)) {
+        buf[strcspn(buf, "\n")] = 0;
+        if (*count >= cap) {
+            cap *= 2;
+            *map = (char **)realloc(*map, cap * sizeof(char *));
+        }
+        (*map)[(*count)++] = strdup(buf);
+    }
+    fclose(f);
 }
 
 void sleep_ms(int ms) {
@@ -282,14 +323,21 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--speed") == 0 && i+1 < argc) speed_mult = atof(argv[++i]);
         else if (strcmp(argv[i], "--output") == 0 && i+1 < argc) strncpy(output_file, argv[++i], 255);
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc) strncpy(snapshot_file_path, argv[++i], 255);
+        else if (strcmp(argv[i], "--colormap-old") == 0 && i+1 < argc) strncpy(colormap_old_path, argv[++i], 255);
+        else if (strcmp(argv[i], "--colormap-new") == 0 && i+1 < argc) strncpy(colormap_new_path, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "Usage: diffvim-animator [options] <oldfile>\n");
+            fprintf(stderr, "  --colormap-old FILE  ANSI-colored lines for old file (syntax highlighting)\n");
+            fprintf(stderr, "  --colormap-new FILE  ANSI-colored lines for new file (for inserts)\n");
             exit(0);
         } else if (argv[i][0] != '-') strncpy(old_file_path, argv[i], 255);
     }
 
     if (!old_file_path[0]) { fprintf(stderr, "Error: oldfile required\n"); exit(1); }
     load_file(old_file_path);
+    if (colormap_old_path[0]) load_colormap(colormap_old_path, &colormap_old, &colormap_old_count);
+    if (colormap_new_path[0]) load_colormap(colormap_new_path, &colormap_new, &colormap_new_count);
+    line_modified = (char *)calloc(n_lines > 256 ? n_lines : 256, 1);
     if (!no_display) printf("\033[?25l");
 
     char line[MAX_LINE_LEN];
@@ -320,11 +368,20 @@ int main(int argc, char **argv) {
             int code = atoi(toks[4]);
             set_cursor(op_line, op_col);
             if (strcmp(type, "keep") == 0) keep_char(code);
-            else if (strcmp(type, "delete") == 0) delete_char(code);
-            else if (strcmp(type, "insert") == 0) insert_char(code);
+            else if (strcmp(type, "delete") == 0) { delete_char(code); if (cursor_l < n_lines) line_modified[cursor_l] = 1; }
+            else if (strcmp(type, "insert") == 0) { insert_char(code); if (cursor_l < n_lines) line_modified[cursor_l] = 1; }
             render();
         } else if (strcmp(cmd, "delay") == 0 && ntok >= 2) {
-            int ms = atoi(toks[1]);
+            /* Parse both delay\t<ms> and delay\t<type>\t<ms> */
+            int ms;
+            if (ntok >= 3) {
+                /* Typed delay: delay\t<type>\t<ms> — type is toks[1], ms is toks[2] */
+                ms = atoi(toks[2]);
+                /* Future: apply per-type multiplier here based on toks[1] */
+            } else {
+                /* Untyped delay: delay\t<ms> */
+                ms = atoi(toks[1]);
+            }
             if (speed_mult > 0) ms = (int)(ms / speed_mult);
             if (!no_display) sleep_ms(ms);
         } else if (strcmp(cmd, "batch_delete") == 0 && ntok >= 4) {
@@ -333,6 +390,7 @@ int main(int argc, char **argv) {
             int n = atoi(toks[3]);
             set_cursor(op_line, op_col);
             batch_delete(n);
+            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
             render();
         } else if (strcmp(cmd, "batch_insert") == 0 && ntok >= 4) {
             int op_line = atoi(toks[1]);
@@ -350,17 +408,20 @@ int main(int argc, char **argv) {
             }
             batch_insert(codes, n);
             free(codes);
+            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
             render();
         } else if (strcmp(cmd, "newline_delete") == 0 && ntok >= 2) {
             int op_line = atoi(toks[1]);
             set_cursor(op_line, 1);
             delete_char(10);
+            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
             render();
         } else if (strcmp(cmd, "newline_insert") == 0 && ntok >= 3) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
             set_cursor(op_line, op_col);
             insert_char(10);
+            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
             render();
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);

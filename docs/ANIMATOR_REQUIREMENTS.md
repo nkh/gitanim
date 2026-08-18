@@ -96,7 +96,7 @@ controls. It can:
 │             │     │               │     │              │     │              │
 │ Computes    │     │ Reorders ops  │     │ Adds timing  │     │ Plays back   │
 │ char ops    │     │ (op-order,    │     │ and pacing   │     │ ops with     │
-│ (LCS or     │     │ semantic,     │     │ (AWD, word   │     │ cursor glide │
+│ (patience     │     │ semantic,     │     │ (AWD, word   │     │ cursor glide │
 │ Patience)   │     │ indent, etc.) │     │ batching,    │     │ and rendering│
 │             │     │               │     │ delays)      │     │              │
 │ C++         │     │ Perl / C      │     │ Perl / C     │     │ Perl / C     │
@@ -117,7 +117,7 @@ old.py + new.py
 │                   │
 │ Input: old, new   │
 │ Output: raw ops   │  Format: HUNK / keep / delete / insert
-│ (char-level LCS)  │
+│ (char-level patience)  │
 └────────┬──────────┘
          │  raw ops (no timing, no ordering)
          ▼
@@ -198,7 +198,7 @@ old.py + new.py
 ### 2.3 Why This Separation Matters
 
 **The animator becomes simple.** It doesn't need to know about:
-- Diff algorithms (LCS, Patience)
+- Diff algorithms (Patience)
 - Post-processing (op ordering, semantic cleanup)
 - Pacing decisions (when to batch words, when to accelerate)
 - AWD state machine

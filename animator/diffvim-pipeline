@@ -193,9 +193,24 @@ fi
 
 # Create temp files
 WORKDIR=$(mktemp -d)
-trap 'rm -rf "$WORKDIR"' EXIT
+trap 'rm -rf "$WORKDIR" && kill $(jobs -p) 2>/dev/null' EXIT
 RAW_OPS="$WORKDIR/raw_ops.txt"
 TIMED_OPS="$WORKDIR/timed_ops.txt"
+COLORIZE_OLD="$WORKDIR/old.colormap"
+COLORIZE_NEW="$WORKDIR/new.colormap"
+COLORIZE_PID=""
+
+# Start coloring in parallel with the processing pipeline.
+# The colorize tool runs on both old and new files concurrently
+# with the compute → postprocess → pace stages.
+COLORIZE_TOOL="$ROOT_DIR/animator/perl/colorize.pl"
+if [[ -f "$COLORIZE_TOOL" ]]; then
+    COLORIZE_BACKEND="${DIFFVIM_COLORIZE_BACKEND:-auto}"
+    # Run both colorizations in the background, output to temp files
+    ( perl "$COLORIZE_TOOL" --backend "$COLORIZE_BACKEND" "$OLD" "$COLORIZE_OLD" 2>/dev/null
+      perl "$COLORIZE_TOOL" --backend "$COLORIZE_BACKEND" "$NEW" "$COLORIZE_NEW" 2>/dev/null ) &
+    COLORIZE_PID=$!
+fi
 
 # Stage 1: Compute
 $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS" 2>/dev/null
@@ -206,5 +221,19 @@ $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" 2>/dev/null > "$WORKDIR/post_
 # Stage 3: Pace
 $PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt" 2>/dev/null > "$TIMED_OPS"
 
+# Wait for coloring to finish (if still running)
+if [[ -n "$COLORIZE_PID" ]]; then
+    wait "$COLORIZE_PID" 2>/dev/null
+fi
+
 # Stage 4: Animate
-$ANIMATOR "${ANIMATOR_ARGS[@]}" "$OLD" < "$TIMED_OPS"
+# Pass colormap files to the animator if they exist
+ANIMATOR_COLOR_ARGS=()
+if [[ -f "$COLORIZE_OLD" ]]; then
+    ANIMATOR_COLOR_ARGS+=("--colormap-old" "$COLORIZE_OLD")
+fi
+if [[ -f "$COLORIZE_NEW" ]]; then
+    ANIMATOR_COLOR_ARGS+=("--colormap-new" "$COLORIZE_NEW")
+fi
+
+$ANIMATOR "${ANIMATOR_ARGS[@]}" "${ANIMATOR_COLOR_ARGS[@]}" "$OLD" < "$TIMED_OPS"

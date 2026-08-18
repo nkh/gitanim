@@ -249,13 +249,13 @@ full visual treatment.
 
 ## Diff Algorithms (21–30)
 
-### 21. Default LCS algorithm
+### 21. Default Patience algorithm
 
 ```bash
 diffvim examples/26_markdown/old.md examples/26_markdown/new.md
 ```
 
-The default LCS (Longest Common Subsequence) algorithm. The Markdown document
+The default Patience diff algorithm. The Markdown document
 expansion (adding TOC, config table, code blocks) is diffed with the standard
 dynamic programming approach. Works well for most files.
 
@@ -278,7 +278,7 @@ diffvim --algorithm patience examples/02_large_python/old.py examples/02_large_p
 
 Patience anchors on unique lines for more human-readable hunks. (Myers was removed; LCS is the default.
 was removed in the refactor — it OOMs on 15K-line files and produces
-the same op count as LCS.)
+the same op count as patience.)
 
 ### 24. Word-level diff
 
@@ -981,7 +981,7 @@ and the debug log shows the timing.
 
 ```bash
 # Run the same file pair with each algorithm and compare:
-for algo in lcs patience; do
+for algo in patience; do
     echo "=== $algo ==="
     perl diffvim.pl --algorithm $algo --dry-run \
       examples/27_xml/old.xml examples/27_xml/new.xml | grep "Hunks:"
@@ -989,7 +989,7 @@ done
 ```
 
 Compare hunk counts across both algorithms for the XML/Maven POM
-expansion. Patience may produce different hunk boundaries than LCS due to
+expansion. Patience produces human-readable hunk boundaries due to
 its unique-line anchoring. (Myers was removed in the refactor.)
 
 ### 87. Git replay with full presentation
@@ -1418,7 +1418,7 @@ remainder.
 # Default: optimization on (recommended)
 diffvim old.py new.py
 
-# Disable for raw LCS behavior
+# Disable for raw patience behavior
 diffvim --no-optimize-sequence old.py new.py
 ```
 
@@ -1519,7 +1519,7 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 If `compute/bin/diffvim-compute-cpp` is found on `$PATH` (or in
 `compute/bin/`, `/usr/local/bin/`, or `~/.local/bin/`), diffvim
 pre-computes the diff before launching vim — 10-100x faster for large
-files. If not found, it falls back to the embedded vimscript LCS.
+files. If not found, it falls back to the embedded vimscript patience diff.
 
 ### 127. Word acceleration for natural typing
 

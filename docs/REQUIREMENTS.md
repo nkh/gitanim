@@ -70,8 +70,8 @@ the only one that supports all unified option selectors.
 ### 1.4 External Compute Tool
 
 A single native compute tool (C++) pre-computes diffs 10-100x faster
-than the in-vim LCS. When `compute/bin/diffvim-compute-cpp` is missing,
-`diffvim` falls back to the embedded vimscript LCS and `diffvim-pipeline`
+than the in-vim patience. When `compute/bin/diffvim-compute-cpp` is missing,
+`diffvim` falls back to the embedded vimscript patience and `diffvim-pipeline`
 falls back to `compute/perl/compute_builtin.pl`. Used via `--precomputed FILE`
 or automatically (no `--tool` flag needed).
 
@@ -124,8 +124,8 @@ INPUT                    PROCESSING                     OUTPUT
 │  │  │ Config   │  │ Diff     │  │ Post-    │  │ Animation│ │    │
 │  │  │ Dict     │  │ Engine   │  │ Process  │  │ Engine   │ │    │
 │  │  │          │  │          │  │          │  │          │ │    │
-│  │  │ 168      │  │ Line LCS │  │ 6 passes │  │ Timer    │ │    │
-│  │  │ entries  │  │ Char LCS │  │          │  │ driven   │ │    │
+│  │  │ 168      │  │ Line patience │  │ 6 passes │  │ Timer    │ │    │
+│  │  │ entries  │  │ Char patience │  │          │  │ driven   │ │    │
 │  │  │          │  │ Hunks    │  │          │  │          │ │    │
 │  │  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │    │
 │  │                                                         │    │
@@ -166,7 +166,7 @@ diffvim [options] <oldfile> <newfile>
 ```
 
 The old file is opened in vim; the new file is the animation target.
-The diff is computed either inline (vimscript LCS) or externally
+The diff is computed either inline (vimscript patience) or externally
 (`compute/bin/diffvim-compute-cpp`, searched for automatically).
 
 **Acceptance criteria:**
@@ -181,10 +181,10 @@ diffvim --precomputed FILE <oldfile> <newfile>
 ```
 
 The application SHALL accept a precomputed diff file (produced by
-`diffvim-compute-cpp`) and skip the in-vim LCS computation. When the
+`diffvim-compute-cpp`) and skip the in-vim patience computation. When the
 C++ binary is on `$PATH` (or in `compute/bin/`, `/usr/local/bin/`, or
 `~/.local/bin/`), diffvim pre-computes automatically; otherwise it
-falls back to the in-vim LCS with a warning on stderr. (The `--tool`
+falls back to the in-vim patience with a warning on stderr. (The `--tool`
 flag was removed in the refactor — only the C++ compute tool remains.)
 
 **Acceptance criteria:**
@@ -244,16 +244,16 @@ algorithms:
 
 | Algorithm | Time Complexity | Use Case |
 |-----------|----------------|----------|
-| LCS (default) | O(N×M) | General purpose |
+| Patience (only) | O(N×M) | Anchored on unique lines |
 | Patience | O(N×M) | More human-readable hunks (anchors on unique lines) |
 
-Selected via `--algorithm lcs|patience`. (Myers was removed: it OOMs
-on 15K-line files and produces the same op count as LCS.)
+Selected via `--algorithm patience`. (Myers was removed: it OOMs
+on 15K-line files and produces the same op count as patience.)
 
 #### FR-2.2: Char-Level Diff
 
 Within each hunk (a group of consecutive changed lines), the application
-SHALL compute a char-level LCS diff. Only the actually-changed characters
+SHALL compute a char-level patience diff. Only the actually-changed characters
 are touched — surrounding text is never rewritten.
 
 **Acceptance criteria:**
@@ -278,14 +278,14 @@ Each hunk has:
 
 The application SHALL support four external compute tools (C, C++,
 Rust, Go) that produce byte-for-byte identical output. These tools
-implement the same algorithms (LCS, Patience) and post-processing
+implement the same algorithms (Patience) and post-processing
 (semantic-cleanup, word-diff, indent-aware, optimize-sequence,
 left-to-right) as the vimscript engine, but compiled to native code.
 
 **Performance comparison (1000-line Python file):**
 | Tool | Compute time |
 |------|-------------|
-| vimscript LCS | ~3500 ms |
+| vimscript patience | ~3500 ms |
 | C | 11 ms |
 | C++ | 12 ms |
 | Rust | 13 ms |
@@ -307,7 +307,7 @@ Controls how char ops within a line are ordered. Six modes:
 
 | Mode | Description |
 |------|-------------|
-| `natural` | No post-processing (raw LCS order) |
+| `natural` | No post-processing (raw patience order) |
 | `optimize` (default) | Deletes before inserts within a line |
 | `left-to-right` | Keeps, then deletes, then inserts per line |
 | `end-first` | Trailing deletes before inserts |
@@ -576,7 +576,7 @@ and loaded via `runtime syntax/<filetype>.vim`.
 | Metric | Requirement |
 |--------|-------------|
 | Startup time (small file, <100 lines) | < 500ms |
-| Startup time (large file, >1000 lines, inline LCS) | < 5s |
+| Startup time (large file, >1000 lines, inline patience) | < 5s |
 | Startup time (large file, with C++ compute) | < 200ms |
 | Animation frame rate | 60fps (16ms per tick) |
 | Char op processing | < 1ms per op (excluding delay) |
@@ -649,7 +649,7 @@ before exporting them to vim.
 
 ```
 # diffvim precomputed diff v1
-# algorithm lcs
+# algorithm patience
 # semantic_cleanup 0
 # word_diff 0
 # indent_aware 0
@@ -696,7 +696,7 @@ block, so the env vars exported to vim reflect the resolved values.
 
 The vimscript engine (embedded in the bash script as a heredoc) handles:
 1. Config dictionary initialization (168 entries from env vars)
-2. Diff computation (LCS or Patience at line and char level)
+2. Diff computation (Patience at line and char level)
 3. Post-processing pipeline (6 passes)
 4. Hunk building and grouping
 5. Animation state machine (idle → moving → typing → idle)
@@ -732,9 +732,9 @@ The vimscript engine (embedded in the bash script as a heredoc) handles:
 
 A single implementation (C++) of the same algorithm:
 
-1. **Line-level diff:** LCS or Patience dynamic programming
+1. **Line-level diff:** Patience dynamic programming
 2. **Hunk grouping:** Group consecutive non-keep ops
-3. **Char-level LCS:** Within each hunk, compute minimal char ops
+3. **Char-level patience:** Within each hunk, compute minimal char ops
 4. **Post-processing:** semantic-cleanup, word-diff, indent-aware,
    optimize-sequence, left-to-right
 
@@ -818,7 +818,7 @@ CLI args
 
 ```
 # diffvim precomputed diff v1
-# algorithm <lcs|patience>
+# algorithm <patience>
 # semantic_cleanup <0|1>
 # word_diff <0|1>
 # indent_aware <0|1>
@@ -1026,7 +1026,7 @@ gitanim/
 │
 ├── DiffVim/
 │   └── Parser/
-│       └── Perl.pm                  # Pure-Perl LCS diff parser
+│       └── Perl.pm                  # Pure-Perl Patience diff parser
 │
 ├── plugin/
 │   └── diffvim.vim                  # :Diffvim vim plugin
@@ -1225,8 +1225,8 @@ selectors. They still use the old individual flags. Only the bash
 | **Char op** | A single character operation: keep, delete, or insert |
 | **Ghost line** | A deleted line that maintains its line number (proposed for standalone app, not in current vim implementation) |
 | **Hunk** | A group of consecutive non-keep line operations |
-| **LCS** | Longest Common Subsequence — the algorithm used for diff computation |
-| **Myers diff** | REMOVED — OOM on large files, same op count as LCS |
+| **Patience** | The diff algorithm used for diff computation |
+| **Myers diff** | REMOVED — OOM on large files, same op count as patience |
 | **Patience diff** | Diff algorithm that anchors on unique lines for more human-readable hunks |
 | **Op order** | The ordering of char ops within a line (natural, optimize, left-to-right, etc.) |
 | **Pacing** | The timing strategy for the animation (uniform, adaptive, gaussian, review) |

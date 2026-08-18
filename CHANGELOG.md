@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-19 — Architecture Overhaul
+
+### LCS Algorithm Removed — Patience Only
+
+LCS was removed as a user-selectable algorithm. Patience is now the only
+algorithm. The `--algorithm` flag is deprecated (accepted for backward
+compatibility but has no effect). The internal LCS fallback within Patience
+(for ranges with no unique anchors) is retained as an implementation detail.
+
+### Typed Delays
+
+All delays in the timed op stream are now typed:
+`delay\t<type>\t<ms>` instead of `delay\t<ms>`.
+
+Types: `type` (typing), `keep` (scrolling past), `delete` (single char),
+`hunk_pause` (between hunks), `rapid_eol`, `awd_start`, `awd_word`,
+`awd_space`, `word_insert`, `newline_delete`, `newline_insert`.
+
+This enables future per-type dynamic pacing at animation time. The
+animator parses both formats (typed and untyped) for backward compat.
+
+### Postprocess --transform Flags
+
+`diffvim-postprocess` now supports `--transform NAME[:VALUE]` (repeatable)
+and `--list-transforms` flags. Old flags (`--op-order`, `--semantic-cleanup`,
+`--indent-aware`, `--overwrite`) are kept as shorthand.
+
+### Coloring (diffvim-colorize)
+
+New `animator/perl/colorize.pl` tool with 3 backends:
+- **vim**: Uses vim's syntax highlighting via `synID()` per char
+- **pygmentize**: Uses the Pygments Python library
+- **none**: Plain text (no coloring)
+
+Coloring runs **in parallel** with the compute→postprocess→pace pipeline.
+The `diffvim-pipeline` script starts both colorizations (old + new file) in
+the background, then waits before animation.
+
+The C animator supports `--colormap-old FILE` and `--colormap-new FILE`
+flags. Unmodified lines are rendered with the old file's colors; modified
+lines fall back to plain text (progressive decoloring).
+
+### diffvim Uses External Pipeline
+
+The `diffvim` bash launcher now runs the full external pipeline:
+  compute (C++) → postprocess (C) → pace (C) → timed op stream
+
+The vimscript engine reads the timed op stream (v2 TSV format) via a new
+`DIFFVIM_TIMED_OPS` environment variable. When set, a ~200-line minimal
+animator reads and applies the stream, then calls `finish` to skip the
+old in-vim compute/postprocess/pace code.
+
+The old in-vim compute/postprocess/pace code is still in the vimscript
+engine (after `finish`) for reference, but is no longer executed when the
+external pipeline is available. It will be removed in a follow-up commit.
+
+### Verified
+
+- All 42 example pairs pass MD5 round-trip verification.
+- 106 Perl tests pass (test_all_animators, test_cross_language,
+  test_newline_fix, test_roundtrip, test_roundtrip_verify,
+  test_synchronous_engine).
+- Cross-language parity (C == Perl) maintained for postprocess + pace.
+
+---
+
+
 ## [Unreleased] — 2026-08-18 — Major Refactor
 
 ### Removed — Phase A: dead-code elimination

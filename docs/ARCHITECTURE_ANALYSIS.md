@@ -115,7 +115,7 @@ This gives the flexibility of separate layers without the process overhead.
 
 ---
 
-## 4. Normalize the diff so LCS and Patience produce identical output — should this be a layer? Single chars?
+## 4. Normalize the diff so Patience produce identical output — should this be a layer? Single chars?
 
 **Short answer: yes, add a normalization layer. No, don't go to single chars.**
 
@@ -131,7 +131,7 @@ Patience uses unique-line anchors to sub-divide; LCS doesn't. So Patience produc
 ### Why this matters
 
 - For testing: if both algorithms produce identical output, you can swap them freely and tests don't need to know which one ran.
-- For users: the choice between LCS and Patience becomes purely a performance question (Patience is slightly slower), not a "which produces nicer diffs" question.
+- For users: the choice between Patience becomes purely a performance question (Patience is slightly slower), not a "which produces nicer diffs" question.
 
 ### Proposed normalization layer
 
@@ -139,7 +139,7 @@ Add a `diffvim-normalize` executable (or `--normalize` flag to postprocess) that
 
 1. **Hunk re-bundling**: walk the op stream. When two adjacent hunks have no `keep \n` between them (i.e., the boundary is artificial), merge them. When a hunk is very large (say >5K ops), try to split it at `keep \n` boundaries.
 2. **Op consolidation**: walk each hunk's ops. Merge adjacent `keep X, keep Y` into `keep X+Y` (where `X+Y` is a multi-char keep — currently we have one op per char).
-3. **Algorithm-agnostic output**: both LCS and Patience output should pass through the normalizer and produce the same byte stream.
+3. **Algorithm-agnostic output**: both Patience output should pass through the normalizer and produce the same byte stream.
 
 ### Single char vs multi-char ops?
 

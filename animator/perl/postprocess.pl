@@ -42,14 +42,45 @@ my $semantic_cleanup = 0;
 my $indent_aware = 0;
 my $overwrite = 0;
 my $help = 0;
+my $list_transforms = 0;
+my @transforms;
 
 GetOptions(
     'op-order=s'      => \$op_order,
     'semantic-cleanup' => \$semantic_cleanup,
     'indent-aware'     => \$indent_aware,
     'overwrite'        => \$overwrite,
+    'transform=s'      => \@transforms,
+    'list-transforms'  => \$list_transforms,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options]\n  Run '$0 --help' for details.\n";
+
+if ($list_transforms) {
+    print "Available transforms (use --transform NAME[:VALUE]):\n";
+    print "  op-order:natural        No reordering (raw patience order)\n";
+    print "  op-order:optimize       Deletes before inserts within each line (default)\n";
+    print "  semantic-cleanup        Merge adjacent delete+insert pairs that cancel out\n";
+    print "  indent-aware            Handle indent-only changes as keeps\n";
+    print "  overwrite               Transform delete+insert into in-place overwrite\n";
+    print "\nTransforms are applied in the order specified.\n";
+    print "Multiple --transform flags can be given.\n";
+    exit 0;
+}
+
+# Apply --transform flags
+for my $spec (@transforms) {
+    if ($spec =~ /^op-order:(.+)$/) {
+        $op_order = $1;
+    } elsif ($spec eq 'semantic-cleanup') {
+        $semantic_cleanup = 1;
+    } elsif ($spec eq 'indent-aware') {
+        $indent_aware = 1;
+    } elsif ($spec eq 'overwrite') {
+        $overwrite = 1;
+    } else {
+        die "Unknown transform '$spec'. Run --list-transforms for available options.\n";
+    }
+}
 
 if ($help) {
     print STDERR <<USAGE;

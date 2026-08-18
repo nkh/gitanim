@@ -33,7 +33,7 @@ Given two versions of a file, `diffvim` opens the **old** version in vim and
 animates the transformation into the **new** version character by character:
 
 1. **Diff** — computes a line-level diff, groups changes into hunks
-2. **Char-diff** — within each hunk, computes a char-level LCS diff so only
+2. **Char-diff** — within each hunk, computes a char-level diff so only
    the actually-changed characters are touched (no whole-line rewrites)
 3. **Glide** — the cursor glides between change locations with an ease-in-out
    cubic curve (slow start → fast middle → slow end)
@@ -209,7 +209,7 @@ CORE OPTIONS:
   --help, -h               Show help
 
 DIFF ALGORITHM:
-  --algorithm lcs|patience (-a)  Line-level diff algorithm (default: lcs)
+  --algorithm patience (-a)  Line-level diff algorithm (default: patience)
   --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
   --indent-aware (-i)      Normalize indentation before line diff
   --word-diff (-w)         Use word-level diff (groups changes by word tokens)
@@ -424,7 +424,7 @@ gitanim/
 ├── set_config                    # Source-able timing env var defaults
 ├── DiffVim/
 │   └── Parser/
-│       └── Perl.pm               # Pure-Perl LCS diff parser
+│       └── Perl.pm               # Pure-Perl Patience diff parser
 ├── plugin/
 │   └── diffvim.vim              # :Diffvim command for plugin mode
 ├── autoload/
@@ -482,7 +482,7 @@ gitanim/
 1. **Trailing newline changes** — may not animate correctly
 2. **`diffvim-tmux` / `diffvim.pl` race conditions** — Ex command text can
    leak into normal mode (use `diffvim` to avoid this)
-3. **Large files** — LCS DP table is O(N×M) memory; use `--max-hunk-chars`
+3. **Large files** — Patience diff uses O(N×M) memory for the LCS fallback in ranges with no unique anchors; use `--max-hunk-chars`
 4. **Binary files** — detected and refused (not animated)
 5. **Non-UTF-8 encodings** — files are read as raw bytes
 

@@ -70,11 +70,11 @@ to read the diff from stdin.
 
 .SH OPTIONS
 .TP
-.B \-\-algorithm lcs|patience
+.B \-\-algorithm patience
 Diff algorithm (default:
-.BR lcs ).
+Patience).
 (Myers was removed: it OOMs on 15K-line files and produces the same
-op count as LCS.)
+op count as patience.)
 .TP
 .B \-\-semantic-cleanup
 Merge adjacent delete/insert pairs into keeps where possible.

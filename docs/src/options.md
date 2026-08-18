@@ -91,7 +91,7 @@ Show help and exit.
 
 ## Diff Algorithm
 
-### `--algorithm lcs|patience` / `-a`
+### `--algorithm patience` / `-a`
 Line-level diff algorithm (default: `lcs`). (Myers was removed in the
 refactor: it OOMs on 15K-line files and produces the same op count as
 LCS.)

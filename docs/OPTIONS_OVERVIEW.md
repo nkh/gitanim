@@ -37,7 +37,7 @@ what can be done and how options interact.
 ### 1. DIFF ALGORITHM (how the diff is computed)
 
 ```
-  --algorithm lcs       ──►  Classic LCS, O(N×M), good for small files
+  --algorithm patience       ──►  Classic LCS, O(N×M), good for small files
   --algorithm patience  ──►  Anchors on unique lines, more human-readable hunks
 ```
 

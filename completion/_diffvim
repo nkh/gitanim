@@ -32,7 +32,7 @@ _diffvim() {
         '--precomputed[Use precomputed diff]:file:_files'
         '--startup-pause[Show config before starting]'
         '--startup-feedback[Show progress during computation]'
-        '--algorithm[Line-level diff algorithm]:algo:(lcs patience)'
+        '--algorithm[Removed: patience is the only algorithm]'
         '--semantic-cleanup[Merge adjacent delete+insert pairs]'
         '--indent-aware[Detect indent changes separately]'
         '--op-order[Op reordering mode]:mode:(natural optimize left-to-right end-first end-first-smart overwrite)'
