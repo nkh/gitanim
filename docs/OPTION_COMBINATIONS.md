@@ -276,7 +276,7 @@ that align with the XML structure.
 diffvim --algorithm patience examples/02_large_python/old.py examples/02_large_python/new.py
 ```
 
-Patience anchors on unique lines for more human-readable hunks. (Myers was removed; LCS is the default.
+Patience anchors on unique lines for more human-readable hunks. (Myers was removed; Patience is the default.
 was removed in the refactor — it OOMs on 15K-line files and produces
 the same op count as patience.)
 

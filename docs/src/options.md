@@ -64,8 +64,8 @@ Use pre-computed diff from FILE (see `compute/` directory).
 The C++ compute tool `compute/bin/diffvim-compute-cpp` is the default.
 `diffvim` searches for it in `compute/bin/`, `/usr/local/bin/`, and
 `~/.local/bin/`. If found, the diff is pre-computed before launching
-vim (10-100x faster than the in-vim LCS for large files). If not
-found, diffvim falls back to the embedded vimscript LCS
+vim (10-100x faster than the in-vim Patience for large files). If not
+found, diffvim falls back to the embedded vimscript Patience
 (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`) with a
 warning on stderr. (The `--tool` flag that used to select between
 C/C++/Rust/Go compute tools was removed in the refactor — there's only
@@ -92,9 +92,9 @@ Show help and exit.
 ## Diff Algorithm
 
 ### `--algorithm patience` / `-a`
-Line-level diff algorithm (default: `lcs`). (Myers was removed in the
+Line-level diff algorithm (default: `patience`). (Myers was removed in the
 refactor: it OOMs on 15K-line files and produces the same op count as
-LCS.)
+Patience.)
 
 ### `--semantic-cleanup` / `-S`
 Merge adjacent delete+insert pairs that cancel out, reducing
@@ -113,7 +113,7 @@ Controls how char ops within a line are ordered. Default: `optimize`.
 
 | Mode              | Description                                          |
 | ----------------- | ---------------------------------------------------- |
-| `natural`         | No post-processing (raw LCS order)                   |
+| `natural`         | No post-processing (raw Patience order)                   |
 | `optimize`        | Deletes before inserts (default)                     |
 | `left-to-right`   | Keeps, then deletes, then inserts per line           |
 | `end-first`       | Trailing deletes before inserts                      |

@@ -69,7 +69,7 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 
 | Option                       | Description                                          |
 | ---------------------------- | ---------------------------------------------------- |
-| `--algorithm patience\|patience`  | Diff algorithm (default: `lcs`)                     |
+| `--algorithm patience\|patience`  | Diff algorithm (default: `patience`)                     |
 | `--semantic-cleanup`         | Merge adjacent delete/insert pairs into keeps        |
 | `--word-diff`                | Batch word runs in char ops                          |
 | `--indent-aware`             | Treat indent-only changes specially                  |

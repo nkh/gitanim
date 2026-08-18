@@ -11,9 +11,9 @@ and how to write your own parser.
 
 | Parser                  | File                       | Algorithm                          |
 | ----------------------- | -------------------------- | ---------------------------------- |
-| `DiffVim::Parser::Perl` | `DiffVim/Parser/Perl.pm`   | Pure-Perl LCS (line + char level)  |
+| `DiffVim::Parser::Perl` | `DiffVim/Parser/Perl.pm`   | Pure-Perl Patience (line + char level)  |
 
-The parser uses LCS dynamic programming at both the line level and the
+The parser uses Patience dynamic programming at both the line level and the
 character level, with the optional Patience algorithm at the
 line level. It has no external dependencies beyond Perl 5.10+ and the
 core `Algorithm::Diff` module (optional, for faster line-level diff).
@@ -133,11 +133,11 @@ logging and debugging.
 
 ### Algorithm
 
-1. **Line-level diff** — LCS dynamic programming
+1. **Line-level diff** — Patience dynamic programming
    - If `Algorithm::Diff` is installed, uses it (faster C implementation)
-   - Otherwise, uses a built-in LCS DP algorithm (O(N×M) time and space)
+   - Otherwise, uses a built-in Patience DP algorithm (O(N×M) time and space)
 2. **Hunk grouping** — consecutive non-keep line ops are grouped
-3. **Char-level diff** — LCS DP on the character arrays of the joined
+3. **Char-level diff** — Patience DP on the character arrays of the joined
    old/new text within each hunk
 
 ### Special cases handled
@@ -252,13 +252,13 @@ my $r2 = Your::Parser::parse_diff('old.txt', 'new.txt');
 
 ## Performance Notes
 
-- **Line-level diff** is the bottleneck for large files. The LCS DP
+- **Line-level diff** is the bottleneck for large files. The Patience DP
   algorithm is O(N×M) in time and space. For files with >10,000 lines,
   consider using Patience diff instead.
 - **Char-level diff** is fast because it operates on the joined hunk
   text (usually a few hundred characters), not the whole file.
 - **`Algorithm::Diff`** uses a C implementation and is ~10x faster than
-  the pure-Perl LCS fallback for large files.
-- **Memory usage** for the LCS DP table: `N * M * sizeof(int)` bytes.
+  the pure-Perl Patience fallback for large files.
+- **Memory usage** for the Patience DP table: `N * M * sizeof(int)` bytes.
   For two 10,000-line files, this is ~400MB. Consider streaming diff
   algorithms for very large files.

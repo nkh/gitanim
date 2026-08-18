@@ -30,7 +30,7 @@ format.
    structural markers. Same algorithm.
 
 Myers was removed in the refactor: it OOMs on 15K-line files (O(N×M)
-memory in our implementation) and produces the same op count as LCS.
+memory in our implementation) and produces the same op count as Patience.
 
 **Timing (15K-line synthetic file, 549KB → 718KB):**
 
@@ -38,7 +38,7 @@ memory in our implementation) and produces the same op count as LCS.
 |-----------|----------|--------------|
 | Patience  | 1687     | 1,034,143    |
 
-(LCS and Myers were removed in the refactor — Patience is the only algorithm.)
+(Patience and Myers were removed in the refactor — Patience is the only algorithm.)
 
 **Op format:**
 ```
@@ -178,136 +178,99 @@ hunk_end
 done
 ```
 
-Note: the old v1 format (space-separated, with `glide <line>:<col>` ops
+Note: the old v1 format (space-separated, with `removed (per-op positioning)` ops
 between hunks) has been removed. Every op now carries its own `(line, col)`,
 so a separate glide op is unnecessary — the animator just sets the
 cursor to the position carried by the next op before applying it.
 
 ## Stage 4: Animate
 
-**Input:** timed op stream (TSV, per-op positions)
+**Input:** timed op stream (TSV, per-op positions, typed delays)
 **Output:** visual animation in terminal (or saved buffer file)
 
 **Tools:**
-- `diffvim` (vimscript, run inside vim) — the original, uses vim's
-  buffer manipulation and timer-based animation
-- `animator/bin/diffvim-animator-c` (C++) — default standalone animator
-- `animator/perl/animator.pl` (C++) — Perl fallback
-
-(The Go animator was removed in the refactor.)
+- `diffvim` (vimscript, run inside vim) — uses the external pipeline
+  (compute → postprocess → pace) and reads the resulting timed op stream.
+  The vimscript engine is now a ~200-line timed-op-stream reader. It
+  uses incremental rendering (`redraw`, not `redraw!`) to avoid flashing.
+- `animator/bin/diffvim-animator-c` (C) — default standalone animator
+  with incremental rendering (tracks previous screen state, only
+  redraws changed lines). Supports syntax coloring via `--colormap-old`
+  and `--colormap-new`.
+- `animator/perl/animator.pl` (Perl) — Perl fallback
 
 **How it works:**
 
 The animator maintains a virtual buffer (list of lines) and a cursor
 (line, col). It reads the TSV timed op stream and processes each op:
 
-1. **op keep/delete/insert** — set cursor to the op's `(line, col)`,
-   then modify the buffer at that position, advance the cursor
-2. **batch_delete/batch_insert** — set cursor to the op's `(line, col)`,
-   then apply multiple ops at once
-3. **newline_delete** — join current line with next (removes the `\n`)
-4. **newline_insert** — split the current line at the cursor (inserts
-   a `\n`)
-5. **delay** — sleep for N ms (scaled by `--speed`)
+1. **op keep/delete/insert** — `set_cursor(line, col)`, then modify the
+   buffer at that position
+2. **batch_delete/batch_insert** — `set_cursor(line, col)`, then apply
+   multiple ops at once
+3. **newline_delete** — remove `\n`. **Ghost-line fix**: if the current
+   line is empty (all content deleted), remove the empty line entirely
+   instead of joining. This avoids the visual jump.
+4. **newline_insert** — split the current line at the cursor
+5. **delay** — sleep for N ms (scaled by `--speed`). Delays are typed
+   (`delay\t<type>\t<ms>`) enabling future per-type dynamic pacing.
 6. **snapshot** — write the current buffer to a file
 7. **done** — animation complete
 
-Because every op carries its own position, the animator has no `glide`
-handler — it just sets the cursor before each op. When the target line
-is beyond the buffer end (the end-insert case), the cursor goes to the
-END of the last line so subsequent inserts append correctly.
+**Anti-flash rendering:**
+- **Vimscript**: uses `redraw` (incremental) not `redraw!` (full clear).
+  Only renders at delay boundaries. `keep` ops don't render.
+- **C**: tracks `prev_lines` array and only redraws lines whose content
+  or cursor state changed. Uses per-line clear (`\033[<line>;1H\033[2K`)
+  instead of full-screen clear (`\033[2J`).
 
-**The `\n` delete problem:**
+**Syntax coloring:**
+The pipeline runs `diffvim-colorize` in parallel with the processing
+stages. Color maps (ANSI-colored lines) are passed to the animator via
+`--colormap-old`/`--colormap-new`. Unmodified lines are rendered with
+syntax colors; modified lines fall back to plain text (progressive
+decoloring).
 
-When the animator encounters `newline_delete` (or `delete` with code
-10), it must remove the `\n` between the current line and the next.
-There are two cases:
+## Controls (during animation)
 
-1. **Current line is empty** (all content already deleted): remove the
-   empty line entirely. The line vanishes.
+| Key | Action |
+|-----|--------|
+| `Space` | Pause / resume |
+| `q` | Stop animation |
+| `+` | Speed up (×1.5) |
+| `-` | Slow down (÷1.5) |
 
-2. **Current line has content**: JOIN the current line with the next.
-   This is the only correct behavior because the diff algorithm
-   produced a `\n` delete op, meaning the `\n` must be removed from the
-   buffer. Not removing it leaves an extra line that subsequent ops
-   don't expect.
-
-The "ghost line" visual issue (where joining pulls the next line's
-content up onto the current line) is real, but the fix belongs in
-**postprocess** (transform the ops before they reach the animator),
-not in the animator (which must mechanically apply what it's given).
-
-## The vimscript engine (diffvim)
-
-The `diffvim` bash script launches vim with an embedded vimscript
-engine. The engine:
-
-1. **BuildHunks()** — reads the old file, computes or loads precomputed
-   ops, builds hunk data structures. For each hunk, it computes
-   `old_text` and `new_text` (the deleted and inserted content), then
-   runs a char-level diff on those texts to produce `char_ops`.
-
-2. **StartAnimation()** — sets up the timer, positions cursor at first
-   hunk.
-
-3. **StartNextHunk()** — positions cursor at hunk target (adjusted by
-   the cumulative inserted - deleted lines from previous hunks).
-
-4. **ProcessCharOp()** — processes one char op per timer tick. Applies
-   the op to the buffer, advances cursor, schedules next tick. Handles
-   AWD (adaptive word delete), rapid-eol, word acceleration, and other
-   pacing modes.
-
-**Controls:** Space (pause), n (skip hunk), b (back), q (quit), +/-
-(speed), = (reset speed).
-
-## Current State and Known Issues
+## Current State
 
 ### What works:
-- diffvim-pipeline (C animator): **42/42 examples pass** MD5
-  verification
-- diffvim (vimscript, synchronous): 32/42 pass (10 large-file timeouts
-  due to O(N²) in ProcessCharOp on 28K+ ops)
-- Cross-language parity: the C++ compute tool, plus C and Perl
-  postprocess/pace, produce identical output
-
-### What doesn't work:
-
-1. **Ghost line problem** — the core visual issue. When a `\n` delete
-   joins two lines, the next line's content visually jumps up. This
-   needs a postprocess fix (transform the ops), not an animator fix.
-   Pending Phase F.
-
-2. **Large-file performance** — vimscript engine is O(N²) on large op
-   lists. 28K ops (33_large_python) takes 11+ seconds; 68K ops
-   (42_large_huge_python) times out at 30s. The standalone C animator
-   handles these fine (< 1 second).
-
-3. **Pause/resume cursor drift** — in interactive diffvim, if the user
-   pauses and scrolls, the cursor position (`s:cur_l`, `s:cur_c`) is not
-   re-validated against the actual buffer position after resume. Ops
-   then apply at the wrong place. (Reported but not reproduced
-   headlessly.)
+- **42/42 examples pass** MD5 verification with the C animator
+- Cross-language parity: C and Perl postprocess/pace produce identical output
+- Ghost-line fix applied in all three animators (C, Perl, vimscript)
+- Syntax coloring via `diffvim-colorize` (vim/pygmentize backends)
+- Streaming mode (`--stream`) in postprocess for true Unix pipes
+- `--transform NAME` flags in postprocess for composable transformations
+- Typed delays for future per-type dynamic pacing
+- No flashing (incremental rendering in both vimscript and C animators)
 
 ## File Structure
 
 ```
 gitanim/
-├── diffvim                  # bash + vimscript launcher (main tool)
-├── diffvim.pl               # Perl alternative
+├── diffvim                  # bash launcher + embedded vimscript engine
+├── diffvim.pl               # Perl launcher
 ├── diffvim-tmux             # tmux variant
 ├── compute/
-│   ├── cpp/                 # C++ compute source (the only compute impl)
-│   ├── perl/                # Pure-Perl fallback wrapper
+│   ├── cpp/                 # C++ Patience diff (the only compute impl)
+│   ├── perl/                # Pure-Perl fallback (byte-identical to C++)
 │   └── bin/diffvim-compute-cpp
 ├── animator/
-│   ├── bin/                 # compiled animator + pace + postprocess (C only)
-│   ├── perl/                # Perl source (animator.pl, pace.pl, postprocess.pl)
 │   ├── c/                   # C source (animator.c, pace.c, postprocess.c)
-│   ├── diffvim-pipeline     # runs all 4 stages (C-preferred, Perl fallback)
+│   ├── perl/                # Perl source (animator.pl, pace.pl, postprocess.pl, colorize.pl)
+│   ├── bin/                 # compiled C binaries
+│   ├── diffvim-pipeline     # runs all 4 stages + parallel coloring
 │   └── tests/               # animator-specific tests
 ├── examples/                # 42 file pairs (old/new) for testing
 ├── tests/                   # vimscript engine tests
 ├── scripts/verify_md5.sh   # MD5 round-trip verification script
-└── docs/                    # documentation
+└── docs/                    # documentation (including DEVELOPER_GUIDE.md)
 ```

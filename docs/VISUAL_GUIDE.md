@@ -40,7 +40,7 @@ feels.
    │   1. Read old.py and new.py                         │
    │   2. Compute the line-level diff                    │
    │   3. Group changes into hunks                       │
-   │   4. For each hunk, compute char-level LCS          │
+   │   4. For each hunk, compute char-level Patience          │
    │   5. Open old.py in vim                             │
    │   6. Animate: glide cursor → delete → type          │
    │                                                     │
@@ -127,7 +127,7 @@ Notice:
        ┌──────────────────────────────────────────────────────────┐
        │              STEP 1: Line-level diff                     │
        │                                                          │
-       │   LCS / Patience algorithm compares line by      │
+       │   Patience / Patience algorithm compares line by      │
        │   line. Identical lines are "keep"; changed lines are    │
        │   paired into (old_line, new_line) and handed to         │
        │   the char-level diff.                                   │
@@ -151,7 +151,7 @@ Notice:
                                   │
                                   ▼
        ┌──────────────────────────────────────────────────────────┐
-       │              STEP 3: Char-level LCS                      │
+       │              STEP 3: Char-level Patience                      │
        │                                                          │
        │   Within each hunk, compute the minimal char-level       │
        │   diff between the old and new line content.             │
@@ -298,7 +298,7 @@ new char at the cursor and advances.
 
 **Recommendation for newcomers:** start with `diffvim`. Switch to
 `diffvim --precomputed` (with an external compute tool) for large files (>1000 lines) where the in-vim
-LCS becomes slow.
+Patience becomes slow.
 
 ---
 
@@ -312,7 +312,7 @@ LCS becomes slow.
    │      to pre-compute the diff into a temp file.                 │
    │                                                                │
    │   2. Calls diffvim --precomputed <tempfile>                    │
-   │      which skips the in-vim LCS step entirely.                 │
+   │      which skips the in-vim Patience step entirely.                 │
    └────────────────────────────────────────────────────────────────┘
                           │             │
               ┌───────────┘             └────────────┐
@@ -321,7 +321,7 @@ LCS becomes slow.
    │  diffvim-compute-cpp │                │       diffvim        │
    │                      │                │   (loads precomputed │
    │  10-100x faster      │                │    diff, just anims) │
-   │  than vimscript LCS  │                │                      │
+   │  than vimscript Patience  │                │                      │
    │                      │                │  Animation only      │
    │  Falls back to       │                │                      │
    │  Perl builtin        │                │                      │
@@ -331,7 +331,7 @@ LCS becomes slow.
 
 Use `compute/bin/diffvim-compute-cpp` (then `diffvim --precomputed`) — it's
 the only compute implementation. When the C++ binary is missing,
-`diffvim` falls back to the in-vim LCS and `diffvim-pipeline` falls
+`diffvim` falls back to the in-vim Patience and `diffvim-pipeline` falls
 back to `compute/perl/compute_builtin.pl` (a Perl wrapper around
 `DiffVim::Parser::Perl`). Both produce byte-for-byte identical output.
 
@@ -381,7 +381,7 @@ Post-processing reorders them for human readability.
 
 ```
    RAW char ops                    After post-processing
-   (from LCS)                      (optimize_sequence + left_to_right)
+   (from Patience)                      (optimize_sequence + left_to_right)
 
    keep    '    print('            keep    '    print('
    insert  'f'                     insert  'f'
@@ -443,7 +443,7 @@ for common use cases.
 
 ```
    ┌──────────────────┬──────────────────────────────────────────────┐
-   │  default         │  No flags. Raw LCS with optimize_sequence    │
+   │  default         │  No flags. Raw Patience with optimize_sequence    │
    │                  │  (on). Good for everyday use.                │
    ├──────────────────┼──────────────────────────────────────────────┤
    │  fast-delete     │  --rapid-eol-delete --accel-delete           │

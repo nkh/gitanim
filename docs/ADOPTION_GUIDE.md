@@ -97,7 +97,7 @@ sudo ln -sf "$(pwd)/diffvim" /usr/local/bin/
 ```
 
 Now `diffvim` and `diffvim-compute-cpp` are available to everyone on
-the machine. (No more `--tool c|cpp|rust|go` flag — that was removed
+the machine. (No more `--tool (removed)` flag — that was removed
 in the refactor; only the C++ tool remains.)
 
 ---
@@ -468,4 +468,4 @@ using diffvim daily within a month.
 | 2026-08-16 | Initial version. Covers diffvim 1.4.            |
 | 2026-08-18 | Updated for the Phase A–C refactor: C++ only    |
 |            | compute tool (with Perl fallback), removed      |
-|            | `--tool` flag, removed Myers algorithm.         |
+|            | `--tool` flag, removed removed Myers algorithm.         |

@@ -915,7 +915,7 @@ let g:diffvim = {
 | `--precomputed` | | FILE | — | Use precomputed diff |
 | `--startup-pause` | | | — | Show config before starting |
 | `--startup-feedback` | `-F` | | — | Show progress during computation |
-| `--algorithm` | `-a` | lcs\|patience | lcs | Diff algorithm |
+| `--algorithm` | `-a` | patience\|patience | patience | Diff algorithm |
 | `--semantic-cleanup` | `-S` | | — | Merge canceling ops |
 | `--indent-aware` | `-i` | | — | Handle indent-only changes |
 | `--op-order` | | MODE | optimize | Op reordering mode |
@@ -1021,7 +1021,7 @@ gitanim/
 ├── diffvim-compare                  # Diff algorithm benchmark
 ├── diffvim-jogger                   # Test-case exerciser
 ├── jq_filter                        # difft JSON → text format
-├── difft_json_to_lcs                # Text format → LCS string
+├── difft_json_to_lcs                # Text format → Patience string
 ├── set_config                       # Timing env var defaults
 │
 ├── DiffVim/
@@ -1226,7 +1226,7 @@ selectors. They still use the old individual flags. Only the bash
 | **Ghost line** | A deleted line that maintains its line number (proposed for standalone app, not in current vim implementation) |
 | **Hunk** | A group of consecutive non-keep line operations |
 | **Patience** | The diff algorithm used for diff computation |
-| **Myers diff** | REMOVED — OOM on large files, same op count as patience |
+| **removed Myers diff** | REMOVED — OOM on large files, same op count as patience |
 | **Patience diff** | Diff algorithm that anchors on unique lines for more human-readable hunks |
 | **Op order** | The ordering of char ops within a line (natural, optimize, left-to-right, etc.) |
 | **Pacing** | The timing strategy for the animation (uniform, adaptive, gaussian, review) |

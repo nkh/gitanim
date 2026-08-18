@@ -14,7 +14,7 @@ parse_diff($old_file, $new_file, \%options)
 
 - `word_diff => 1` — use word-level diff instead of char-level
 - `semantic_cleanup => 1` — merge adjacent delete/insert pairs
-- `algorithm => 'patience'|'lcs'` — line-level algorithm
+- `algorithm => 'patience'|'patience'` — line-level algorithm
 - `indent_aware => 1` — handle indent-only changes specially
 
 ### Return Value
@@ -43,12 +43,12 @@ parse_diff($old_file, $new_file, \%options)
 
 ## The Built-in Parser: DiffVim::Parser::Perl
 
-Pure-Perl LCS diff. No external dependencies beyond Perl core.
+Pure-Perl Patience diff. No external dependencies beyond Perl core.
 
-- Line-level: LCS dynamic programming (O(N×M)), with optional
-  Patience algorithm (LCS is the default)
-- Char-level: LCS on character arrays
-- Word-level: LCS on word/whitespace tokens (with `--word-diff`)
+- Line-level: Patience dynamic programming (O(N×M)), with optional
+  Patience algorithm (Patience is the default)
+- Char-level: Patience on character arrays
+- Word-level: Patience on word/whitespace tokens (with `--word-diff`)
 - Semantic cleanup: merges adjacent delete/insert pairs that cancel
 - Indent-aware: detects indent-only changes and treats them as keeps
 

@@ -17,7 +17,7 @@ only compute tool that diffvim uses.
 
 When the C++ binary is not on disk:
 
-- `diffvim` falls back to the embedded vimscript LCS
+- `diffvim` falls back to the embedded vimscript Patience
   (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`)
 - `diffvim-pipeline` falls back to `compute/perl/compute_builtin.pl`,
   a thin wrapper around `DiffVim::Parser::Perl::parse_diff` that emits
@@ -122,7 +122,7 @@ All options work in both two-file mode and `--diff` mode.
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--algorithm lcs\|patience` | Line-level diff algorithm | `lcs` |
+| `--algorithm patience\|patience` | Line-level diff algorithm | `patience` |
 | `--semantic-cleanup` | Merge adjacent delete+insert pairs that cancel out | off |
 | `--word-diff` | Use word-level diff (groups changes by word tokens) | off |
 | `--indent-aware` | Normalize indentation before line diff (indent-only changes = keep) | off |
@@ -130,7 +130,7 @@ All options work in both two-file mode and `--diff` mode.
 | `--diff -` | Read unified diff from stdin | (none) |
 
 > `--algorithm myers` was removed in the Phase A refactor: it OOMs on
-> 15K-line files and produces the same op count as LCS.
+> 15K-line files and produces the same op count as Patience.
 
 Options can be combined freely and in any order:
 
@@ -147,7 +147,7 @@ CI pipelines):
 
 | Variable | Values | Equivalent to |
 |----------|--------|---------------|
-| `DIFFVIM_ALGORITHM` | `lcs`, `patience` | `--algorithm` |
+| `DIFFVIM_ALGORITHM` | `patience`, `patience` | `--algorithm` |
 | `DIFFVIM_SEMANTIC_CLEANUP` | `1` | `--semantic-cleanup` |
 | `DIFFVIM_WORD_DIFF` | `1` | `--word-diff` |
 | `DIFFVIM_INDENT_AWARE` | `1` | `--indent-aware` |
@@ -162,7 +162,7 @@ The output is a plain-text file with a simple, line-oriented format:
 
 ```
 # diffvim precomputed diff v1
-# algorithm lcs
+# algorithm patience
 # semantic_cleanup 0
 # word_diff 0
 # indent_aware 0
@@ -188,7 +188,7 @@ All header lines start with `#`:
 | Line | Description |
 |------|-------------|
 | `# diffvim precomputed diff v1` | Format identifier and version |
-| `# algorithm <lcs\|patience>` | Line-level algorithm used |
+| `# algorithm <patience\|patience>` | Line-level algorithm used |
 | `# semantic_cleanup <0\|1>` | Whether semantic cleanup was applied |
 | `# word_diff <0\|1>` | Whether word-level diff was used |
 | `# indent_aware <0\|1>` | Whether indent-aware normalization was used |
@@ -280,7 +280,7 @@ Multiple hunks are concatenated to reconstruct the full old/new file content.
 File        := Header Hunk*
 Header      := FormatLine AlgorithmLine SemanticLine WordDiffLine IndentLine HunkCountLine
 FormatLine  := "# diffvim precomputed diff v1\n"
-AlgorithmLine := "# algorithm " (lcs|patience) "\n"
+AlgorithmLine := "# algorithm " (patience|patience) "\n"
 SemanticLine := "# semantic_cleanup " (0|1) "\n"
 WordDiffLine := "# word_diff " (0|1) "\n"
 IndentLine   := "# indent_aware " (0|1) "\n"
@@ -315,7 +315,7 @@ hunks: 1, lines: 3 -> 3
 
 $ cat diff.txt
 # diffvim precomputed diff v1
-# algorithm lcs
+# algorithm patience
 # semantic_cleanup 0
 # word_diff 0
 # indent_aware 0
@@ -390,8 +390,8 @@ hunks: 21, lines: 77 -> 124
 
 `diffvim` and `diffvim-pipeline` now look for `compute/bin/diffvim-compute-cpp`
 automatically. If found, they precompute the diff before launching vim. If
-not found, they fall back to a builtin LCS implementation (vimscript LCS
-in `diffvim`, Perl LCS via `compute/perl/compute_builtin.pl` in
+not found, they fall back to a builtin Patience implementation (vimscript Patience
+in `diffvim`, Perl Patience via `compute/perl/compute_builtin.pl` in
 `diffvim-pipeline`).
 
 There is no `--tool` flag any more — it was removed in Phase B. The C++

@@ -2,7 +2,7 @@
 
 ## Problem
 
-The standard LCS (Patience diff) diff algorithm can produce
+The standard Patience (Patience diff) diff algorithm can produce
 **erratic, inefficient** char-op sequences that cause the cursor to jump
 back and forth across a line. For example, replacing "hello world" with
 "hi there" might produce:
@@ -75,7 +75,7 @@ The order is:
 ### Research Basis
 
 - **Hunt & McIlroy (1976)**: "An Algorithm for Differential File
-  Comparison" — the original LCS paper notes that the backtrack can
+  Comparison" — the original Patience paper notes that the backtrack can
   produce non-unique solutions; some are more visually coherent than
   others.
 - **Bram Cohen (2002)**: Patience diff anchors on unique common lines
@@ -101,7 +101,7 @@ The order is:
 ### Disabling
 
 ```bash
-# Use --no-optimize-sequence to get the raw LCS output
+# Use --no-optimize-sequence to get the raw Patience output
 diffvim --no-optimize-sequence old.py new.py
 ```
 

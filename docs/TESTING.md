@@ -214,7 +214,7 @@ seq 501 1000 >> /tmp/large_new.txt
 ./diffvim /tmp/large_old.txt /tmp/large_new.txt
 ```
 
-**Expected behavior:** Animation runs, but the LCS computation may
+**Expected behavior:** Animation runs, but the Patience computation may
 take a few seconds for large files.
 
 ---

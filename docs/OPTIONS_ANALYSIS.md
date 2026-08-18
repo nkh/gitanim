@@ -155,7 +155,7 @@ delays.
 > the C, Rust, and Go compute variants — only the C++ tool remains).
 > `--auto-precompute` was also removed; diffvim now always searches for
 > `compute/bin/diffvim-compute-cpp` automatically and falls back to the
-> in-vim LCS if missing. Only `--precomputed FILE` remains as the
+> in-vim Patience if missing. Only `--precomputed FILE` remains as the
 > low-level escape hatch. See the [Unreleased] entry in `CHANGELOG.md`.
 
 ---

@@ -689,7 +689,7 @@ script -q demo.typescript -c "diffvim --speed 0.7 --scroll zz examples/02_large_
   <div class="feature-card">
     <div class="icon">🔀</div>
     <h4>3 diff algorithms</h4>
-    <p>LCS (classic, default) and Patience (unique-line anchoring). Choose the one that produces the most readable diff. (Myers was removed.)</p>
+    <p>Patience (classic, default) and Patience (unique-line anchoring). Choose the one that produces the most readable diff. (Myers was removed.)</p>
   </div>
   <div class="feature-card">
     <div class="icon">🌍</div>
@@ -855,7 +855,7 @@ Plug 'nkh/gitanim', {'rtp': '.'}
                     │                                                  │
   ┌─────────┐       │  ┌────────┐   ┌────────┐   ┌────────┐          │
   │ old.py  │──────▶│  │  Diff  │──▶│ Hunk   │──▶│ Char   │          │
-  └─────────┘       │  │ compute│   │ grouping│  │ LCS    │          │
+  └─────────┘       │  │ compute│   │ grouping│  │ Patience    │          │
                     │  └────────┘   └────────┘   └───┬────┘          │
   ┌─────────┐       │                                 │               │
   │ new.py  │──────▶│                                 ▼               │
@@ -926,7 +926,7 @@ highlighting flags tuned for one common use case.</p>
     <div class="preset-name">default</div>
     <div class="preset-tag">Everyday use</div>
     <pre class="preset-cmd">diffvim old.py new.py</pre>
-    <p>Raw LCS with optimize_sequence. No surprises.</p>
+    <p>Raw Patience with optimize_sequence. No surprises.</p>
   </div>
   <div class="preset-card">
     <div class="preset-name">fast-delete</div>
@@ -970,7 +970,7 @@ highlighting flags tuned for one common use case.</p>
 
 <h2>Post-processing pipeline</h2>
 
-<p>Raw LCS diffs can be confusing — characters deleted here, inserted
+<p>Raw Patience diffs can be confusing — characters deleted here, inserted
 there, then more deletes elsewhere on the same line. diffvim's
 post-processing passes reorder ops for human readability.</p>
 
@@ -1014,7 +1014,7 @@ post-processing passes reorder ops for human readability.</p>
 
 <h2>External compute tool</h2>
 
-<p>For files larger than a few hundred lines, the in-vim LCS can take
+<p>For files larger than a few hundred lines, the in-vim Patience can take
 seconds. The external compute tool solves this — 10-100x faster,
 implemented in C++ (with a pure-Perl fallback when the binary is
 missing).</p>
@@ -1052,7 +1052,7 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 compute/bin/diffvim-compute-cpp --semantic-cleanup old.py new.py /tmp/diff.txt
 
 <span style="color:#3fb950"># Benchmark on a 1000-line Python file:</span>
-<span style="color:var(--yellow)">  vimscript LCS:        ~3500 ms</span>
+<span style="color:var(--yellow)">  vimscript Patience:        ~3500 ms</span>
 <span style="color:var(--green)">  diffvim-compute-cpp:     11 ms   (318x faster)</span>
 </pre>
 </div>

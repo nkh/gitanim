@@ -1,8 +1,8 @@
-# diffvim-animator
+# diffvim-animator-c
 
 **Standalone terminal animation for code diffs — no vim required.**
 
-diffvim-animator is a pipeline of independent tools that animate code
+diffvim-animator-c is a pipeline of independent tools that animate code
 diffs in any terminal. It replaces the vim-based diffvim engine with a
 simpler, faster, more correct architecture.
 
@@ -28,7 +28,7 @@ simpler, faster, more correct architecture.
 
 ## 1. Overview
 
-The diffvim-animator pipeline consists of 4 stages:
+The diffvim-animator-c pipeline consists of 4 stages:
 
 ```
 compute → postprocess → pace → animator
@@ -68,7 +68,7 @@ This separation means:
 # C animator tools
 cc -O2 -o animator/bin/diffvim-postprocess animator/c/postprocess.c
 cc -O2 -o animator/bin/diffvim-pace animator/c/pace.c
-cc -O2 -o animator/bin/diffvim-animator-c animator/c/animator.c
+cc -O2 -o animator/bin/diffvim-animator-c-c animator/c/animator.c
 
 # C++ compute tool (used by the pipeline)
 make -C compute
@@ -128,7 +128,7 @@ perl animator/perl/postprocess.pl --op-order optimize < /tmp/raw.txt > /tmp/post
 perl animator/perl/pace.pl --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
 
 # Animate
-animator/bin/diffvim-animator-c --syntax 'bat --color=always' old.py < /tmp/timed.txt
+animator/bin/diffvim-animator-c-c --syntax 'bat --color=always' old.py < /tmp/timed.txt
 ```
 
 ---
@@ -142,7 +142,7 @@ animator/bin/diffvim-animator-c --syntax 'bat --color=always' old.py < /tmp/time
 │             │     │               │     │              │     │              │
 │ Computes    │     │ Reorders ops  │     │ Adds timing  │     │ Plays back   │
 │ char ops    │     │ + per-op      │     │ + batching   │     │ ops with     │
-│ (LCS or     │     │ (line, col)   │     │ (AWD, word   │     │ cursor set  │
+│ (Patience or     │     │ (line, col)   │     │ (AWD, word   │     │ cursor set  │
 │ Patience)   │     │ positioning   │     │ batches)     │     │ per op      │
 │             │     │               │     │              │     │              │
 │ C++         │     │ Perl / C      │     │ Perl / C     │     │ Perl / C     │
@@ -164,7 +164,7 @@ animator/bin/diffvim-animator-c --syntax 'bat --color=always' old.py < /tmp/time
 | `--animator-*` | animator | `--animator-no-display` |
 | (none) | animator | `--speed 2.0`, `--syntax 'bat ...'` |
 
-> The historical `--tool c|cpp|rust|go` flag (which selected the compute
+> The historical `--tool (removed)` flag (which selected the compute
 > language) was removed in the refactor — only the C++ tool remains,
 > with a Perl fallback.
 
@@ -217,7 +217,7 @@ Phase 4: Delete remaining chars instantly (rapid shot)
 Phase 5: Delete \n (join lines)
 ```
 
-### diffvim-animator
+### diffvim-animator-c
 
 **Purpose:** Reads a TSV timed op stream and animates the transformation
 in a terminal. Each op carries its own `(line, col)` — the animator just
@@ -287,7 +287,7 @@ done
 | `done` | | Animation complete |
 
 > **v1 → v2 change.** The old v1 format was space-separated and emitted
-> `glide <line>:<col>` ops between hunks. In v2, every op carries its
+> `removed (per-op positioning)` ops between hunks. In v2, every op carries its
 > own 1-indexed `(line, col)` and the `glide` op is gone — the animator
 > just sets the cursor to the position carried by the next op before
 > applying it.
@@ -354,7 +354,7 @@ plain rendering.
 
 | Option | Stage | Description |
 |--------|-------|-------------|
-| `--compute-algorithm lcs\|patience` | compute | Diff algorithm (Myers removed) |
+| `--compute-algorithm patience\|patience` | compute | Diff algorithm (Myers removed) |
 | `--postprocess-op-order MODE` | postprocess | Op reordering mode |
 | `--postprocess-semantic-cleanup` | postprocess | Merge canceling ops |
 | `--postprocess-indent-aware` | postprocess | Handle indent changes |

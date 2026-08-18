@@ -50,7 +50,7 @@ The completion scripts provide tab completion for:
 - `--theme dark|light|high-contrast`
 - File paths for positional arguments
 
-(The historical `--tool c|cpp|rust|go` completion was removed in the
+(The historical `--tool (removed)` completion was removed in the
 Phase B refactor — there's only one compute implementation now.)
 
 ## How It Works

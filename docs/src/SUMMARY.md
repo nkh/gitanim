@@ -32,6 +32,7 @@
 # Reference
 
 - [Manpages](./manpages.md)
+- [Developer Guide](../DEVELOPER_GUIDE.md)
 - [50 UX Improvements for Following Patches](../FOLLOW_IMPROVEMENTS.md)
 - [100 Option Combinations](../OPTION_COMBINATIONS.md)
 - [Option Analysis](../OPTIONS_ANALYSIS.md)

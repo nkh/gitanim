@@ -11,7 +11,7 @@ what can be done and how options interact.
 ```
   ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
   │  Old File   │     │  Diff Engine  │     │  Animation      │
-  │  New File   │ ──► │  (LCS/Patience/  │ ──► │  Engine (vim)   │
+  │  New File   │ ──► │  (Patience/Patience/  │ ──► │  Engine (vim)   │
   │             │     │   Patience)   │     │                 │
   └─────────────┘     └──────────────┘     └────────┬────────┘
                                                    │
@@ -37,12 +37,12 @@ what can be done and how options interact.
 ### 1. DIFF ALGORITHM (how the diff is computed)
 
 ```
-  --algorithm patience       ──►  Classic LCS, O(N×M), good for small files
+  --algorithm patience       ──►  Classic Patience, O(N×M), good for small files
   --algorithm patience  ──►  Anchors on unique lines, more human-readable hunks
 ```
 
 (Myers was removed: it OOMs on 15K-line files and produces the same
-op count as LCS.)
+op count as Patience.)
 
 **Example:**
 ```

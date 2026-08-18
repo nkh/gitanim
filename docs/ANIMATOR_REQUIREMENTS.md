@@ -1,4 +1,4 @@
-# diffvim-animator: Standalone Animation Application
+# diffvim-animator-c: Standalone Animation Application
 
 ## Requirements Specification & Architecture Design
 
@@ -42,7 +42,7 @@ fundamental limitations that cannot be fixed within the vim buffer model:
 
 ### 1.2 Proposed Solution
 
-A **standalone terminal application** (`diffvim-animator`) that:
+A **standalone terminal application** (`diffvim-animator-c`) that:
 
 - Reads a **timed op stream** — a sequence of char ops with pre-computed
   timing, pacing, and grouping information produced by external tools
@@ -172,7 +172,7 @@ old.py + new.py
          │  timed ops (ready to play back)
          ▼
 ┌──────────────────┐
-│ diffvim-animator  │  (new: Perl / C)
+│ diffvim-animator-c  │  (new: Perl / C)
 │                   │
 │ Input: timed ops  │  Flags: --speed, --scroll, --highlight,
 │         + old file│          --dim-unchanged, --no-display
@@ -225,7 +225,7 @@ diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize |
   diffvim-postprocess --semantic-cleanup |
   diffvim-pace --delete-pacing word --pacing gaussian |
-  diffvim-animator old.py
+  diffvim-animator-c old.py
 ```
 
 Each postprocess invocation reads ops from stdin, applies one
@@ -331,7 +331,7 @@ three are fast enough.
 | diffvim-compute | C++ (exists) | Perl fallback (`compute_builtin.pl`) |
 | diffvim-postprocess | C | Perl |
 | diffvim-pace | C | Perl |
-| diffvim-animator | C | Perl |
+| diffvim-animator-c | C | Perl |
 
 **C++ for compute:** The compute tool is the heaviest CPU work. C++
 provides the fastest compute and smallest binary.
@@ -381,7 +381,7 @@ and pacing instructions.
 | `done` | | Animation complete |
 
 > **Note (Phase C refactor):** every op now carries its own 1-indexed
-> `(line, col)`. The old `glide <line>:<col>` op is gone — the
+> `(line, col)`. The old `removed (per-op positioning)` op is gone — the
 > animator just sets the cursor to the position carried by the next op
 > before applying it. The format is TSV (tab-separated).
 
@@ -434,7 +434,7 @@ all ops should match the new file.
 
 ### 5.1 Functional Requirements
 
-#### FR-1: The Animator (diffvim-animator)
+#### FR-1: The Animator (diffvim-animator-c)
 
 **FR-1.1:** The animator SHALL read a timed op stream from stdin or
 a file.
@@ -551,7 +551,7 @@ producing output, enabling:
 - Insert `highlight` / `clear_highlight` ops as needed
 - Insert `snapshot` ops at hunk boundaries (if requested)
 
-**FR-3.5:** The pace tool SHALL be implemented in Perl, C, and Go.
+**FR-3.5:** The pace tool SHALL be implemented in Perl and C.
 All three SHALL produce identical timed op streams.
 
 **FR-3.6:** The pace tool SHALL be testable independently:
@@ -617,7 +617,7 @@ This solves the `\n` merge problem completely.
 
 - The timed op stream format SHALL be language-agnostic
 - The same timed op stream SHALL produce identical animations in
-  Perl, C, and Go
+  Perl and C
 - The precomputed diff format (from compute tools) SHALL be unchanged
 
 #### NFR-4: Testability
@@ -639,7 +639,7 @@ This solves the `\n` merge problem completely.
 diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize --semantic-cleanup |
   diffvim-pace --delete-pacing word --pacing gaussian |
-  diffvim-animator --speed 1.0 --scroll zz old.py
+  diffvim-animator-c --speed 1.0 --scroll zz old.py
 
 # Or with a wrapper script that builds the pipeline (no --tool flag
 # needed anymore — diffvim-pipeline auto-selects the C++ compute tool
@@ -650,8 +650,8 @@ diffvim-pipeline --op-order optimize --delete-pacing word old.py new.py
 ### 6.2 Animator Options
 
 ```
-diffvim-animator [options] <oldfile>
-diffvim-animator [options] --multi <old1:new1> <old2:new2> ...
+diffvim-animator-c [options] <oldfile>
+diffvim-animator-c [options] --multi <old1:new1> <old2:new2> ...
 
 Input:
   <oldfile>                The file to animate (loaded into buffer)
@@ -739,7 +739,7 @@ Each tool is tested independently:
 
 ### 7.3 Cross-Language Tests
 
-- Run the same timed op stream through Perl, C, and Go animators
+- Run the same timed op stream through Perl and C animators
 - Compare snapshot outputs — they must be identical
 - Compare terminal output — they must be visually identical (allowing
   for terminal-specific differences)
@@ -749,7 +749,7 @@ Each tool is tested independently:
 ## 8. Documentation Skeleton
 
 ```
-diffvim-animator/
+diffvim-animator-c/
 ├── README.md                    # Overview, install, quick start
 ├── CHANGELOG.md
 ├── LICENSE                      # Artistic 2.0 / GPL 3.0 (dual)
@@ -779,14 +779,14 @@ diffvim-animator/
 │   └── Makefile
 │
 ├── man/
-│   ├── diffvim-animator.1
+│   ├── diffvim-animator-c.1
 │   ├── diffvim-postprocess.1
 │   └── diffvim-pace.1
 │
 ├── completion/
-│   ├── diffvim-animator.bash
-│   ├── diffvim-animator.fish
-│   └── _diffvim-animator
+│   ├── diffvim-animator-c.bash
+│   ├── diffvim-animator-c.fish
+│   └── _diffvim-animator-c
 │
 ├── tests/
 │   ├── test_postprocess.pl      # Postprocess unit tests
@@ -820,8 +820,8 @@ diffvim-animator/
 
 ### 9.2 Phase 2: Implement the animator
 
-- Implement the virtual buffer with ghost lines (Go primary, Perl, C)
-- Implement the terminal renderer (Go primary, Perl, C)
+- Implement the virtual buffer with ghost lines (C primary, Perl fallback)
+- Implement the terminal renderer (C primary, Perl fallback)
 - Implement `--no-display` + `snapshot` mode for testing
 - Test with timed op streams from Phase 1
 

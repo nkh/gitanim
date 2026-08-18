@@ -182,7 +182,7 @@ text is inserted. More natural than "insert, then delete end".
 **Effect:** The cursor never jumps back and forth within a line. Deletes
 go from left to right, then inserts go from left to right.
 
-**When to use:** When the LCS produces erratic, jumping op sequences
+**When to use:** When the Patience produces erratic, jumping op sequences
 (common with complex line modifications).
 
 ### 9. `--optimize-sequence` (consolidate interleaved ops, default: on)

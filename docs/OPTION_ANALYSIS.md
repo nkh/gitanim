@@ -108,7 +108,7 @@ and char-level diff.
 - `--language` (hints to the algorithm)
 
 (Myers was removed: it OOMs on 15K-line files and produces the same
-op count as LCS.)
+op count as Patience.)
 
 **Problem:** `--word-diff` and `--indent-aware` are mixed concerns.
 They change both the diff algorithm AND the animation (e.g.
@@ -138,7 +138,7 @@ overlap in what they do (reorder ops on a line). They should be
 **modes of a single `--op-order` option**:
 
 ```
---op-order natural        # raw LCS order (no post-processing)
+--op-order natural        # raw Patience order (no post-processing)
 --op-order optimize       # deletes before inserts (current default)
 --op-order left-to-right  # keeps, then deletes, then inserts
 --op-order end-first      # trailing deletes first
@@ -402,7 +402,7 @@ Remove `--from`/`--to` (use `--git REV..REV`).
 ### Overlap 1: `--word-diff` is two things
 
 `--word-diff` currently:
-1. Changes the diff algorithm (token-level LCS instead of char-level)
+1. Changes the diff algorithm (token-level Patience instead of char-level)
 2. Changes the animation (batches word runs with `LookaheadSameTypeRun`)
 
 **Proposed split:**

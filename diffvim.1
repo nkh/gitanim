@@ -147,8 +147,8 @@ is the default and is searched for in
 and
 .IR ~/.local/bin/ .
 If found, diffvim pre-computes the diff before launching vim (10-100x
-faster than the in-vim LCS for large files). If not found, diffvim
-falls back to the embedded vimscript LCS
+faster than the in-vim Patience for large files). If not found, diffvim
+falls back to the embedded vimscript Patience
 .RI ( s:LineDiff / s:CharDiff )
 with a warning on stderr. (The
 .B --tool
@@ -159,7 +159,7 @@ removed.)
 .B \-\-precomputed FILE
 Use a pre-computed diff from FILE (typically produced by
 .BR diffvim-compute-cpp (1)).
-Bypasses the in-vim LCS entirely.
+Bypasses the in-vim Patience entirely.
 
 .SS Unified Options
 
@@ -174,7 +174,7 @@ Controls how char ops within a line are ordered.
 .RS
 .IP \(bu 3
 .B natural
-\(em no post-processing (raw LCS order)
+\(em no post-processing (raw Patience order)
 .IP \(bu 3
 .B optimize
 \(em deletes before inserts (default)
@@ -289,7 +289,7 @@ Unified highlight mode (default:
 .BR \-\-parser\  perl
 (diffvim.pl only) Diff parser to use. Only
 .B perl
-is supported (pure-Perl LCS algorithm, no external dependencies).
+is supported (pure-Perl Patience algorithm, no external dependencies).
 The flag is accepted for backwards compatibility but has no effect
 since the diff2html parser was removed.
 
@@ -299,14 +299,14 @@ Use word-level diff instead of char-level. Groups changes by word
 (non-space sequences), producing more natural typing patterns.
 
 .TP
-.BR \-\-algorithm\  lcs | patience
+.BR \-\-algorithm\  patience | patience
 Line-level diff algorithm.
-.B lcs
-(default) uses classic LCS dynamic programming.
+.B patience
+(default) uses classic Patience dynamic programming.
 .B patience
 anchors on unique common lines for more human-readable diffs.
 (Myers was removed in the refactor: it OOMs on 15K-line files and
-produces the same op count as LCS.)
+produces the same op count as Patience.)
 
 .TP
 .BI \-\-max-hunk-chars\  N
@@ -673,7 +673,7 @@ diffvim \-\-parser-compare old.py new.py
 .SH FILES
 .TP
 .I DiffVim/Parser/Perl.pm
-Pure-Perl LCS diff parser module (used by diffvim.pl).
+Pure-Perl Patience diff parser module (used by diffvim.pl).
 .TP
 .I plugin/diffvim.vim
 Vim plugin providing the
@@ -720,7 +720,7 @@ implementation does not have this issue. Use
 (diffvim.pl) for an alternative that avoids tmux.
 .TP
 Large files
-The LCS dynamic programming table is O(N\(muM) in memory. For files with
+The Patience dynamic programming table is O(N\(muM) in memory. For files with
 more than 10,000 lines, use
 .B \-\-max-hunk-chars
 to skip large hunks.

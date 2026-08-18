@@ -12,7 +12,7 @@ cognitive load theory to propose evaluation criteria.
 ## The Problem
 
 diffvim now supports:
-- **2 algorithms**: LCS (default), Patience. Myers was removed (OOM on large files, same op count as LCS)
+- **2 algorithms**: Patience (default), Patience. Myers was removed (OOM on large files, same op count as Patience)
 - **4 option flags**: `--word-diff`, `--semantic-cleanup`, `--indent-aware`,
   and the new `--accel-delete`, `--overwrite`, `--inline-highlight`, etc.
 - **External compute tools** that can generate precomputed diffs with any

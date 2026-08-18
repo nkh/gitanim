@@ -18,7 +18,7 @@ re-typed — surrounding text is never touched.
 
 ## Key Features
 
-- **Char-level diff** — only changed characters are touched (LCS / Patience algorithm)
+- **Char-level diff** — only changed characters are touched (Patience / Patience algorithm)
 - **Smooth cursor glide** — ease-in-out cubic between change locations
 - **Interactive controls** — pause, skip, back, speed change at any time
 - **Multi-file animation** — animate diffs across multiple files
@@ -27,8 +27,8 @@ re-typed — surrounding text is never touched.
 - **50+ CLI options** — speed, scroll, sign column, git blame, word diff,
   indent-aware, semantic cleanup, rapid-EOL delete, presets, and more
 - **External compute tool** — a native C++ binary that pre-computes
-  diffs 10-100x faster than vimscript LCS, for large files. Falls back
-  to the embedded vimscript LCS (or Perl `compute_builtin.pl` for the
+  diffs 10-100x faster than vimscript Patience, for large files. Falls back
+  to the embedded vimscript Patience (or Perl `compute_builtin.pl` for the
   pipeline) when the binary is missing.
 - **Six built-in presets** — `default`, `fast-delete`, `review`,
   `ai-code`, `demo`, `presentation` for common use cases

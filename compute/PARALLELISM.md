@@ -7,7 +7,7 @@ sequentially:
 
 1. Read old file → array of lines
 2. Read new file → array of lines
-3. Line-level diff (LCS or Patience) — O(N×M)
+3. Line-level diff (Patience or Patience) — O(N×M)
 4. For each hunk: char-level diff — O(N×M) per hunk
 5. Write output
 
@@ -52,13 +52,13 @@ on the char-diff phase (which is typically 50% of total time).
 
 ### Opportunity 2: Parallel Line-Level Diff (Hard, Low Impact)
 
-The line-level LCS is a single dynamic-programming computation with
+The line-level Patience is a single dynamic-programming computation with
 data dependencies along diagonals. It can be parallelized using the
 **anti-diagonal wavefront** approach (process all cells (i,j) with
 i+j=const in parallel), but this is complex and the overhead often
 exceeds the benefit for typical file sizes.
 
-(Myers diff was removed in the refactor — it would be inherently
+(removed Myers diff was removed in the refactor — it would be inherently
 sequential anyway. The recommendation against parallelizing the
 line-level diff still stands.)
 

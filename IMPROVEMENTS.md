@@ -44,7 +44,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 ## Diff Parser (16-30)
 
-16. ✅ **Use Myers diff algorithm** instead of LCS — Myers is O(ND) vs LCS's O(N*M), significantly faster for large files with small diffs.
+16. ✅ **Use removed Myers diff algorithm** instead of Patience — Myers is O(ND) vs Patience's O(N*M), significantly faster for large files with small diffs.
 
 17. ✅ **Add patience diff support** — the patience algorithm produces more human-readable diffs by anchoring on unique common lines, reducing "jumping" hunks.
 
@@ -154,11 +154,11 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 67. ✅ **Handle empty files correctly** — ensure empty old or new files don't cause division-by-zero or array-out-of-bounds errors.
 
-68. ⬜ **Add file size limits** — refuse to animate files larger than N MB (configurable) to prevent OOM from the LCS DP table.
+68. ⬜ **Add file size limits** — refuse to animate files larger than N MB (configurable) to prevent OOM from the Patience DP table.
 
-69. ✅ **Handle very long lines** — if a line exceeds N characters, fall back to line-level diff (skip char-level) to avoid slow LCS computation.
+69. ✅ **Handle very long lines** — if a line exceeds N characters, fall back to line-level diff (skip char-level) to avoid slow Patience computation.
 
-70. ⬜ **Add memory limit for LCS DP table** — if the DP table exceeds N MB, fall back to a streaming diff algorithm or bail out gracefully.
+70. ⬜ **Add memory limit for Patience DP table** — if the DP table exceeds N MB, fall back to a streaming diff algorithm or bail out gracefully.
 
 71. ⬜ **Handle non-UTF-8 bytes** — use `use bytes` mode for the char diff if the file contains invalid UTF-8, treating each byte as a character.
 
@@ -172,7 +172,7 @@ A detailed, prioritized list of improvements for the diffvim/diffvim-tmux/diffvi
 
 ## Testing & Quality (76-85)
 
-76. ✅ **Add unit tests for the LCS algorithm** — test with known inputs and expected outputs, including edge cases (empty strings, single char, identical strings). *(Covered by test_parsers.pl)*
+76. ✅ **Add unit tests for the Patience algorithm** — test with known inputs and expected outputs, including edge cases (empty strings, single char, identical strings). *(Covered by test_parsers.pl)*
 
 77. ✅ **Add integration tests for the full pipeline** — run the complete animation on a set of test files and verify the buffer matches the expected output.
 

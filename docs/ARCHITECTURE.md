@@ -237,7 +237,7 @@ op_idx++
   keys faster than vim processes them, causing Ex command text to leak
   into normal mode. This is the main known issue.
 - Bash's data structures are limited (no nested arrays)
-- Char-level diff via `sed` + `diff` is slower than a native LCS
+- Char-level diff via `sed` + `diff` is slower than a native Patience
 - Timing depends on `sleep` precision (affected by system load)
 
 ---
@@ -266,7 +266,7 @@ architecture:
 │  │                  │  │ (same as bash)  │  │
 │  │ ┌──────────────┐ │  │                 │  │
 │  │ │ Perl.pm      │ │  │ phase machine   │  │
-│  │ │ (LCS diff)   │ │  │ send_ex()       │  │
+│  │ │ (Patience diff)   │ │  │ send_ex()       │  │
 │  │ └──────────────┘ │  │ query_vim()     │  │
 │  │                  │  │                 │  │
 │  │                  │  │ User input:     │  │
@@ -284,7 +284,7 @@ architecture:
 
 ### Key characteristics
 
-- **Single parser** — `DiffVim::Parser::Perl` (pure-Perl LCS, no
+- **Single parser** — `DiffVim::Parser::Perl` (pure-Perl Patience, no
   external dependencies)
 - **Better data structures** — Perl's arrays-of-hashes are more natural
   for hunk data than bash's parallel associative arrays
@@ -324,7 +324,7 @@ Returns:
 
 ### Pros
 
-- Single parser, no external dependencies (pure-Perl LCS)
+- Single parser, no external dependencies (pure-Perl Patience)
 - Perl's data structures are cleaner than bash's
 - `Algorithm::Diff` integration for faster line-level diff
 - Better error handling (`eval`, `die`, `warn`)
@@ -345,8 +345,8 @@ Returns:
 | **User input**             | Native mappings  | FIFO             | FIFO             |
 | **Race conditions**        | No               | Yes              | Yes              |
 | **External dependencies**  | Vim only         | tmux, diff, sed, awk | tmux, diff    |
-| **Diff algorithm**         | LCS (Vimscript)  | LCS (diff+sed)   | LCS (C++)       |
-| **Char-level diff**        | LCS (Vimscript)  | LCS (diff+sed)   | LCS (C++)       |
+| **Diff algorithm**         | Patience (Vimscript)  | Patience (diff+sed)   | Patience (C++)       |
+| **Char-level diff**        | Patience (Vimscript)  | Patience (diff+sed)   | Patience (C++)       |
 | **Easing**                 | ease-in-out cubic| ease-in-out cubic| ease-in-out cubic|
 | **Snapshots**              | In-memory        | Temp files       | Temp files       |
 | **Test coverage**          | Manual           | Manual           | 9 parser tests   |

@@ -420,7 +420,7 @@ gitanim/
 ├── diffvim-compare               # Diff algorithm benchmark matrix
 ├── diffvim-jogger                # Test-case exerciser (25+ option combos)
 ├── jq_filter                     # difft JSON → HUNK/DEL/ADD/CTX text
-├── difft_json_to_lcs             # HUNK/DEL/ADD/CTX → LCS string
+├── difft_json_to_lcs             # HUNK/DEL/ADD/CTX → Patience string
 ├── set_config                    # Source-able timing env var defaults
 ├── DiffVim/
 │   └── Parser/
@@ -482,7 +482,7 @@ gitanim/
 1. **Trailing newline changes** — may not animate correctly
 2. **`diffvim-tmux` / `diffvim.pl` race conditions** — Ex command text can
    leak into normal mode (use `diffvim` to avoid this)
-3. **Large files** — Patience diff uses O(N×M) memory for the LCS fallback in ranges with no unique anchors; use `--max-hunk-chars`
+3. **Large files** — Patience diff uses O(N×M) memory for the Patience fallback in ranges with no unique anchors; use `--max-hunk-chars`
 4. **Binary files** — detected and refused (not animated)
 5. **Non-UTF-8 encodings** — files are read as raw bytes
 

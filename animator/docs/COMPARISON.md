@@ -1,4 +1,4 @@
-# Comparison: diffvim (vim-based) vs. diffvim-animator (standalone)
+# Comparison: diffvim (vim-based) vs. diffvim-animator-c (standalone)
 
 **Date:** 2026-08-17 (updated 2026-08-18 after Phase A–C refactor)
 
@@ -18,7 +18,7 @@ User runs:  diffvim old.py new.py
     → generates 4,500 lines of vimscript
     → exec vim (single process)
         → vimscript engine (73 functions)
-            → computes diff (LCS)
+            → computes diff (Patience)
             → post-processes ops (6 passes)
             → decides pacing (AWD state machine)
             → animates in vim buffer
@@ -48,7 +48,7 @@ User runs:  diffvim old.py new.py  (or the pipeline directly)
     → adds delays and batching (positions passed through)
     → stdout: timed op stream (TSV v2)
 
-→ diffvim-animator-c old.py                  (Perl/C)
+→ diffvim-animator-c-c old.py                  (Perl/C)
     → reads timed op stream
     → sets cursor per op, then applies
     → plays back ops in terminal (or --no-display)
@@ -66,7 +66,7 @@ replaceable. The animator is ~200 lines (C++) vs. ~4,500 (vimscript).
 
 | Feature | diffvim (vim) | animator (standalone) |
 |---------|---------------|----------------------|
-| Diff computation | Inline (vimscript LCS) or external C++ | External (C++ compute tool, Perl fallback) |
+| Diff computation | Inline (vimscript Patience) or external C++ | External (C++ compute tool, Perl fallback) |
 | Post-processing | In vimscript engine | Separate tool (piped) |
 | Pacing decisions | In vimscript engine (lookahead) | Pre-computed (pace tool) |
 | Per-op positioning | Tracked in engine (line_offset) | Owned by postprocess (TSV v2 format) |
@@ -124,7 +124,7 @@ NOT YET IMPLEMENTED — see `docs/PIPELINE.md` for the design discussion.
 | Operation | vim-based | animator (C++) | animator (C++) |
 |-----------|-----------|---------------|-----------------|
 | Startup (100-line file) | ~200ms | <1ms | ~20ms |
-| Startup (1000-line file, inline LCS) | ~3500ms | N/A (uses external compute) | N/A |
+| Startup (1000-line file, inline Patience) | ~3500ms | N/A (uses external compute) | N/A |
 | Startup (1000-line file, with compute) | ~200ms | ~15ms | ~30ms |
 | Char op processing | ~1ms/op | ~0.01ms/op | ~0.1ms/op |
 | Full screen redraw | ~5ms | ~1ms | ~5ms |
@@ -259,7 +259,7 @@ diffvim old.py new.py
 diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize |
   diffvim-pace --delete-pacing word |
-  diffvim-animator-c old.py
+  diffvim-animator-c-c old.py
 ```
 
 ### Phase 2: Wrapper integration

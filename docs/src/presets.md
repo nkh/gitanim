@@ -21,7 +21,7 @@ default via the `DIFFVIM_PRESET` environment variable.
 
 ### `default`
 
-What you get with no `--preset` flag. Raw LCS with
+What you get with no `--preset` flag. Raw Patience with
 `--optimize-sequence` enabled. Good for everyday use on small to
 medium files where you want to see exactly what changed.
 
@@ -63,7 +63,7 @@ Press `n` to advance to the next hunk. Press `b` to go back.
 Tuned for AI-generated diffs, which tend to be messy with
 interleaved inserts and deletes. Enables `--semantic-cleanup`,
 `--left-to-right`, `--highlight-inline`, and `--word-diff` so the
-animation reads naturally even when the underlying LCS is chaotic.
+animation reads naturally even when the underlying Patience is chaotic.
 
 ```bash
 diffvim --preset ai-code old.py new.py

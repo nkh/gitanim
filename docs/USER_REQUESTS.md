@@ -9,7 +9,7 @@ a master reference for what was asked and what was implemented.
 ## Session 1: Initial Features
 
 1. **Animate code diffs in vim** as if a human were typing them.
-2. **Two-level LCS diff**: line-level → char-level.
+2. **Two-level Patience diff**: line-level → char-level.
 3. **Ease-in-out cubic cursor glide** between hunks.
 4. **Timer-based animation engine** using vimscript `timer_start()`.
 5. **Self-contained bash + vimscript** implementation (no Python, no tmux).
@@ -52,7 +52,7 @@ a master reference for what was asked and what was implemented.
 30. **`set syntax=` caused E216** — changed to `runtime syntax/X.vim`.
 31. **VIMRUNTIME detection fixed** — `vim -es` doesn't output to stdout.
 32. **35+ CLI options** across all scripts.
-33. **2 diff algorithms**: LCS (default), Patience. (Myers was removed.)
+33. **2 diff algorithms**: Patience (default), Patience. (Myers was removed.)
 34. **Word-level diff, semantic cleanup, indent-aware diffing**.
 35. **Vim plugin**: `:Diffvim`, `:DiffvimCommit`, `:DiffvimPick`.
 36. **Shell completion** (bash/zsh/fish), Homebrew formula.
