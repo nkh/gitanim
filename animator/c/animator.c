@@ -22,11 +22,12 @@ static void cleanup_handler(int sig) {
     exit(1);
 }
 
-#define MAX_LINES 100000
 #define MAX_LINE_LEN 8192
 
-static char *lines[MAX_LINES];
+/* Dynamic arrays — grow as needed */
+static char **lines = NULL;
 static int n_lines = 0;
+static int cap_lines = 0;
 static int cursor_l = 0; /* 0-indexed */
 static int cursor_c = 0; /* 0-indexed */
 
@@ -36,6 +37,17 @@ static char output_file[256] = "";
 static char snapshot_file_path[256] = "";
 static char old_file_path[256] = "";
 
+/* Grow lines array if needed */
+static void ensure_lines_capacity(int needed) {
+    if (needed <= cap_lines) return;
+    int new_cap = cap_lines == 0 ? 1024 : cap_lines;
+    while (new_cap < needed) new_cap *= 2;
+    char **new_lines = (char **)realloc(lines, new_cap * sizeof(char *));
+    if (!new_lines) { fprintf(stderr, "diffvim-animator-c: out of memory (lines %d)\n", new_cap); exit(1); }
+    lines = new_lines;
+    cap_lines = new_cap;
+}
+
 /* --- Virtual Buffer --- */
 
 void load_file(const char *path) {
@@ -44,11 +56,14 @@ void load_file(const char *path) {
     char buf[MAX_LINE_LEN];
     while (fgets(buf, sizeof(buf), f)) {
         buf[strcspn(buf, "\n")] = 0;
-        if (n_lines < MAX_LINES)
-            lines[n_lines++] = strdup(buf);
+        ensure_lines_capacity(n_lines + 1);
+        lines[n_lines++] = strdup(buf);
     }
     fclose(f);
-    if (n_lines == 0) lines[n_lines++] = strdup("");
+    if (n_lines == 0) {
+        ensure_lines_capacity(1);
+        lines[n_lines++] = strdup("");
+    }
 }
 
 void buffer_write(const char *path) {
@@ -141,7 +156,8 @@ void insert_char(int code) {
         char *after = strdup(s + byte);
         free(lines[cursor_l]);
         lines[cursor_l] = before;
-        /* Shift lines down */
+        /* Shift lines down — ensure capacity first */
+        ensure_lines_capacity(n_lines + 1);
         for (int i = n_lines; i > cursor_l + 1; i--)
             lines[i] = lines[i - 1];
         lines[cursor_l + 1] = after;
@@ -154,9 +170,25 @@ void insert_char(int code) {
         int len = strlen(s);
         char buf[8];
         int blen;
-        if (code < 0x80) { buf[0] = code; blen = 1; }
-        else if (code < 0x800) { buf[0] = 0xC0 | (code >> 6); buf[1] = 0x80 | (code & 0x3F); blen = 2; }
-        else { buf[0] = 0xE0 | (code >> 12); buf[1] = 0x80 | ((code >> 6) & 0x3F); buf[2] = 0x80 | (code & 0x3F); blen = 3; }
+        if (code < 0x80) {
+            buf[0] = code; blen = 1;
+        } else if (code < 0x800) {
+            buf[0] = 0xC0 | (code >> 6);
+            buf[1] = 0x80 | (code & 0x3F);
+            blen = 2;
+        } else if (code < 0x10000) {
+            buf[0] = 0xE0 | (code >> 12);
+            buf[1] = 0x80 | ((code >> 6) & 0x3F);
+            buf[2] = 0x80 | (code & 0x3F);
+            blen = 3;
+        } else {
+            /* 4-byte UTF-8 (code points >= 0x10000) */
+            buf[0] = 0xF0 | (code >> 18);
+            buf[1] = 0x80 | ((code >> 12) & 0x3F);
+            buf[2] = 0x80 | ((code >> 6) & 0x3F);
+            buf[3] = 0x80 | (code & 0x3F);
+            blen = 4;
+        }
         s = realloc(s, len + blen + 1);
         memmove(s + byte + blen, s + byte, len - byte + 1);
         memcpy(s + byte, buf, blen);
@@ -247,10 +279,25 @@ int main(int argc, char **argv) {
             batch_delete(atoi(args));
             render();
         } else if (strcmp(cmd, "batch_insert") == 0) {
-            int codes[100]; int n = 0;
+            /* Parse codes dynamically — no fixed limit */
+            int *codes = NULL; int n = 0; int cap = 0;
             char *p = args;
-            while (*p && n < 100) { codes[n++] = atoi(p); while (*p && *p != ' ') p++; while (*p == ' ') p++; }
+            while (*p) {
+                /* skip leading spaces */
+                while (*p == ' ') p++;
+                if (!*p) break;
+                /* ensure capacity */
+                if (n >= cap) {
+                    cap = cap == 0 ? 16 : cap * 2;
+                    int *new_codes = (int *)realloc(codes, cap * sizeof(int));
+                    if (!new_codes) { fprintf(stderr, "diffvim-animator-c: out of memory (batch_insert)\n"); free(codes); exit(1); }
+                    codes = new_codes;
+                }
+                codes[n++] = atoi(p);
+                while (*p && *p != ' ') p++;
+            }
             batch_insert(codes, n);
+            free(codes);
             render();
         } else if (strcmp(cmd, "newline_delete") == 0) {
             delete_char(10);

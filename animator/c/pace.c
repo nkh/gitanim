@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_OPS 200000
 #define MAX_LINE 8192
 
 typedef struct { char type[8]; int code; } Op;
@@ -40,10 +39,41 @@ static int move_min_ms = 250;
 static int move_max_ms = 1600;
 static int move_ms_per_unit = 6;
 
+/* Dynamic arrays — grow as needed */
 static Hunk *hunks = NULL;
 static int n_hunks = 0;
+static int cap_hunks = 0;
 static Op *all_ops = NULL;
 static int n_all_ops = 0;
+static int cap_all_ops = 0;
+
+/* Grow all_ops if needed */
+static void ensure_ops_capacity(int needed) {
+    if (needed <= cap_all_ops) return;
+    int new_cap = cap_all_ops == 0 ? 4096 : cap_all_ops;
+    while (new_cap < needed) new_cap *= 2;
+    Op *new_ops = (Op *)realloc(all_ops, new_cap * sizeof(Op));
+    if (!new_ops) { fprintf(stderr, "diffvim-pace: out of memory (ops %d)\n", new_cap); exit(1); }
+    all_ops = new_ops;
+    /* Fix up hunk pointers — they point into all_ops, which may have moved */
+    int offset = 0;
+    for (int h = 0; h < n_hunks; h++) {
+        hunks[h].ops = &all_ops[offset];
+        offset += hunks[h].n_ops;
+    }
+    cap_all_ops = new_cap;
+}
+
+/* Grow hunks if needed */
+static void ensure_hunks_capacity(int needed) {
+    if (needed <= cap_hunks) return;
+    int new_cap = cap_hunks == 0 ? 64 : cap_hunks;
+    while (new_cap < needed) new_cap *= 2;
+    Hunk *new_hunks = (Hunk *)realloc(hunks, new_cap * sizeof(Hunk));
+    if (!new_hunks) { fprintf(stderr, "diffvim-pace: out of memory (hunks %d)\n", new_cap); exit(1); }
+    hunks = new_hunks;
+    cap_hunks = new_cap;
+}
 
 void parse_args(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
@@ -87,8 +117,6 @@ void apply_speeds(void) {
 }
 
 void read_input(void) {
-    all_ops = malloc(MAX_OPS * sizeof(Op));
-    hunks = malloc(1000 * sizeof(Hunk));
     char line[MAX_LINE];
     int cur_hunk = -1;
 
@@ -98,6 +126,7 @@ void read_input(void) {
         if (strncmp(line, "HUNK", 4) == 0) {
             int t, d, i, ei, ed;
             if (sscanf(line, "HUNK %d %d %d %d %d", &t, &d, &i, &ei, &ed) == 5) {
+                ensure_hunks_capacity(n_hunks + 1);
                 hunks[n_hunks].target = t;
                 hunks[n_hunks].del = d;
                 hunks[n_hunks].ins = i;
@@ -115,16 +144,17 @@ void read_input(void) {
         char type[8]; int code;
         if (sscanf(line, "%7s %d", type, &code) == 2 &&
             (strcmp(type, "keep") == 0 || strcmp(type, "delete") == 0 || strcmp(type, "insert") == 0)) {
-            if (n_all_ops < MAX_OPS) {
-                strcpy(all_ops[n_all_ops].type, type);
-                all_ops[n_all_ops].code = code;
-                n_all_ops++;
-                if (cur_hunk >= 0) {
-                    hunks[cur_hunk].n_ops++;
-                    if (code == 10) {
-                        if (strcmp(type, "insert") == 0) hunks[cur_hunk].newline_inserts++;
-                        else if (strcmp(type, "delete") == 0) hunks[cur_hunk].newline_deletes++;
-                    }
+            ensure_ops_capacity(n_all_ops + 1);
+            /* ensure_ops_capacity may have realloc'd all_ops and fixed up
+             * all hunk .ops pointers. No need to fix up here. */
+            strcpy(all_ops[n_all_ops].type, type);
+            all_ops[n_all_ops].code = code;
+            n_all_ops++;
+            if (cur_hunk >= 0) {
+                hunks[cur_hunk].n_ops++;
+                if (code == 10) {
+                    if (strcmp(type, "insert") == 0) hunks[cur_hunk].newline_inserts++;
+                    else if (strcmp(type, "delete") == 0) hunks[cur_hunk].newline_deletes++;
                 }
             }
         }

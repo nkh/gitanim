@@ -12,23 +12,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_OPS 100000
 #define MAX_LINE 4096
 
 typedef struct { char type[8]; int code; } Op;
 
-static Op ops_in[MAX_OPS];
-static Op ops_out[MAX_OPS];
+/* Dynamic arrays — grow as needed */
+static Op *ops_in = NULL;
+static Op *ops_out = NULL;
 static int n_ops = 0;
+static int cap_ops = 0;
 
-/* Header lines (passed through) */
-static char header[100][MAX_LINE];
+/* Header lines (passed through) — dynamic */
+static char **header = NULL;
 static int n_header = 0;
+static int cap_header = 0;
 
 /* Hunk info */
 typedef struct { int target, del, ins, end_ins, end_del; int op_start, op_count; } Hunk;
-static Hunk hunks[1000];
+static Hunk *hunks = NULL;
 static int n_hunks = 0;
+static int cap_hunks = 0;
 
 static int op_order_optimize = 1;
 static int do_semantic = 0;
@@ -53,38 +56,77 @@ void parse_args(int argc, char **argv) {
     }
 }
 
+/* Grow ops_in if needed */
+void ensure_ops_capacity(int needed) {
+    if (needed <= cap_ops) return;
+    int new_cap = cap_ops == 0 ? 4096 : cap_ops;
+    while (new_cap < needed) new_cap *= 2;
+    ops_in = (Op *)realloc(ops_in, new_cap * sizeof(Op));
+    if (!ops_in) { fprintf(stderr, "diffvim-postprocess: out of memory (ops_in %d)\n", new_cap); exit(1); }
+    /* ops_out also needs to be at least as big */
+    if (ops_out) ops_out = (Op *)realloc(ops_out, new_cap * sizeof(Op));
+    else ops_out = (Op *)malloc(new_cap * sizeof(Op));
+    if (!ops_out) { fprintf(stderr, "diffvim-postprocess: out of memory (ops_out %d)\n", new_cap); exit(1); }
+    cap_ops = new_cap;
+}
+
+/* Grow hunks if needed */
+void ensure_hunks_capacity(int needed) {
+    if (needed <= cap_hunks) return;
+    int new_cap = cap_hunks == 0 ? 64 : cap_hunks;
+    while (new_cap < needed) new_cap *= 2;
+    hunks = (Hunk *)realloc(hunks, new_cap * sizeof(Hunk));
+    if (!hunks) { fprintf(stderr, "diffvim-postprocess: out of memory (hunks %d)\n", new_cap); exit(1); }
+    cap_hunks = new_cap;
+}
+
+/* Grow header if needed */
+void ensure_header_capacity(int needed) {
+    if (needed <= cap_header) return;
+    int new_cap = cap_header == 0 ? 32 : cap_header;
+    while (new_cap < needed) new_cap *= 2;
+    header = (char **)realloc(header, new_cap * sizeof(char *));
+    if (!header) { fprintf(stderr, "diffvim-postprocess: out of memory (header %d)\n", new_cap); exit(1); }
+    for (int i = cap_header; i < new_cap; i++) {
+        header[i] = (char *)malloc(MAX_LINE);
+        if (!header[i]) { fprintf(stderr, "diffvim-postprocess: out of memory (header line)\n"); exit(1); }
+    }
+    cap_header = new_cap;
+}
+
 void read_input(void) {
     char line[MAX_LINE];
     int current_hunk = -1;
     while (fgets(line, sizeof(line), stdin)) {
         line[strcspn(line, "\n")] = 0;
         if (line[0] == '#') {
-            if (n_header < 100) strncpy(header[n_header++], line, MAX_LINE-1);
+            ensure_header_capacity(n_header + 1);
+            strncpy(header[n_header++], line, MAX_LINE - 1);
+            header[n_header - 1][MAX_LINE - 1] = 0;
             continue;
         }
         if (strncmp(line, "HUNK", 4) == 0) {
-            if (n_hunks < 1000) {
-                int t,d,i,ei,ed;
-                sscanf(line, "HUNK %d %d %d %d %d", &t,&d,&i,&ei,&ed);
-                hunks[n_hunks].target = t; hunks[n_hunks].del = d;
-                hunks[n_hunks].ins = i; hunks[n_hunks].end_ins = ei;
-                hunks[n_hunks].end_del = ed;
-                hunks[n_hunks].op_start = n_ops;
-                hunks[n_hunks].op_count = 0;
-                current_hunk = n_hunks;
-                n_hunks++;
-            }
+            ensure_hunks_capacity(n_hunks + 1);
+            int t, d, i, ei, ed;
+            sscanf(line, "HUNK %d %d %d %d %d", &t, &d, &i, &ei, &ed);
+            hunks[n_hunks].target = t; hunks[n_hunks].del = d;
+            hunks[n_hunks].ins = i; hunks[n_hunks].end_ins = ei;
+            hunks[n_hunks].end_del = ed;
+            hunks[n_hunks].op_start = n_ops;
+            hunks[n_hunks].op_count = 0;
+            current_hunk = n_hunks;
+            n_hunks++;
             continue;
         }
         if (strncmp(line, "keep", 4) == 0 || strncmp(line, "delete", 6) == 0 || strncmp(line, "insert", 6) == 0) {
             char type[8]; int code;
-            sscanf(line, "%s %d", type, &code);
-            if (n_ops < MAX_OPS) {
-                strncpy(ops_in[n_ops].type, type, 7);
-                ops_in[n_ops].code = code;
-                n_ops++;
-                if (current_hunk >= 0) hunks[current_hunk].op_count++;
-            }
+            sscanf(line, "%7s %d", type, &code);
+            ensure_ops_capacity(n_ops + 1);
+            strncpy(ops_in[n_ops].type, type, 7);
+            ops_in[n_ops].type[7] = 0;
+            ops_in[n_ops].code = code;
+            n_ops++;
+            if (current_hunk >= 0) hunks[current_hunk].op_count++;
         }
     }
 }
@@ -187,22 +229,31 @@ void write_output(void) {
 
         int count = hunks[h].op_count;
         Op *in = &ops_in[op_idx];
-        Op temp_out[MAX_OPS];
+
+        /* Use heap-allocated buffers (per-hunk, freed at end) to avoid
+         * stack overflow on large hunks. ops_out is sized to cap_ops
+         * which is >= total ops, so it's >= any single hunk's count. */
+        Op *temp = ops_out;
         int n_out = count;
 
         if (do_semantic) {
-            n_out = semantic_cleanup(in, count, temp_out);
-            in = temp_out;
+            n_out = semantic_cleanup(in, count, temp);
+            in = temp;
             count = n_out;
         }
         if (op_order_optimize) {
-            Op temp2[MAX_OPS];
+            /* reorder_hunk_ops needs output buffer != input buffer.
+             * Use a second temp buffer. */
+            Op *temp2 = (Op *)malloc(cap_ops * sizeof(Op));
+            if (!temp2) { fprintf(stderr, "diffvim-postprocess: out of memory (temp2)\n"); exit(1); }
             n_out = reorder_hunk_ops(in, count, temp2);
-            in = temp2;
+            for (int i = 0; i < n_out; i++)
+                printf("%s %d\n", temp2[i].type, temp2[i].code);
+            free(temp2);
+        } else {
+            for (int i = 0; i < n_out; i++)
+                printf("%s %d\n", in[i].type, in[i].code);
         }
-
-        for (int i = 0; i < n_out; i++)
-            printf("%s %d\n", in[i].type, in[i].code);
 
         op_idx += hunks[h].op_count;
     }
@@ -212,5 +263,12 @@ int main(int argc, char **argv) {
     parse_args(argc, argv);
     read_input();
     write_output();
+
+    /* Cleanup */
+    free(ops_in);
+    free(ops_out);
+    free(hunks);
+    for (int i = 0; i < cap_header; i++) free(header[i]);
+    free(header);
     return 0;
 }
