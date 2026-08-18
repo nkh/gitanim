@@ -50,6 +50,7 @@ static int op_order_optimize = 1;
 static int do_semantic = 0;
 static int do_indent = 0;
 static int do_overwrite = 0;
+static int stream_mode = 0;
 
 /* Apply a --transform NAME[:VALUE] spec. */
 void apply_transform(const char *spec) {
@@ -93,6 +94,8 @@ void parse_args(int argc, char **argv) {
             do_indent = 1;
         } else if (strcmp(argv[i], "--overwrite") == 0) {
             do_overwrite = 1;
+        } else if (strcmp(argv[i], "--stream") == 0) {
+            stream_mode = 1;
         } else if (strcmp(argv[i], "--transform") == 0 && i+1 < argc) {
             apply_transform(argv[++i]);
         } else if (strcmp(argv[i], "--list-transforms") == 0) {
@@ -357,8 +360,168 @@ void write_output(void) {
     }
 }
 
+/* Process a single hunk: apply transformations and emit TSV output.
+ * Used by both batch and streaming modes.
+ * cur_line_ptr tracks the current line (modified by newline ops).
+ * line_offset_ptr tracks cumulative newline_inserts - newline_deletes.
+ * Returns the number of newline_inserts - newline_deletes for this hunk.
+ */
+int process_one_hunk(int target, int del, int ins, int end_ins, int end_del,
+                      Op *in_ops, int count, int line_offset) {
+    int cur_line = target + line_offset;
+    int cur_col = 1;
+    int newl_ins = 0, newl_del = 0;
+
+    Op *temp = ops_out;
+    int n_out = count;
+    int need_free_temp = 0;
+
+    if (do_semantic) {
+        n_out = semantic_cleanup(in_ops, count, temp);
+        in_ops = temp;
+        count = n_out;
+    }
+
+    Op *final_ops;
+    if (op_order_optimize) {
+        Op *temp2 = (Op *)malloc(cap_ops * sizeof(Op));
+        if (!temp2) { fprintf(stderr, "out of memory\n"); exit(1); }
+        n_out = reorder_hunk_ops(in_ops, count, temp2);
+        final_ops = temp2;
+    } else {
+        final_ops = in_ops;
+    }
+
+    for (int i = 0; i < n_out; i++) {
+        Op *op = &final_ops[i];
+        if (op->code == 10) {
+            if (strcmp(op->type, "keep") == 0) {
+                printf("op\tkeep\t%d\t%d\t%d\n", cur_line, cur_col, op->code);
+                cur_line++;
+                cur_col = 1;
+            } else if (strcmp(op->type, "delete") == 0) {
+                printf("newline_delete\t%d\n", cur_line);
+                newl_del++;
+            } else if (strcmp(op->type, "insert") == 0) {
+                printf("newline_insert\t%d\t%d\n", cur_line, cur_col);
+                cur_line++;
+                cur_col = 1;
+                newl_ins++;
+            }
+        } else {
+            printf("op\t%s\t%d\t%d\t%d\n", op->type, cur_line, cur_col, op->code);
+            if (strcmp(op->type, "keep") == 0 || strcmp(op->type, "insert") == 0) {
+                cur_col++;
+            }
+        }
+    }
+
+    if (op_order_optimize) free(final_ops);
+    return newl_ins - newl_del;
+}
+
+/* Streaming mode: read and process one hunk at a time.
+ * Emits header immediately, then processes each hunk as it's read.
+ * This allows true Unix pipes: compute | postprocess --stream | pace | animator
+ */
+void stream_process(void) {
+    char line[MAX_LINE];
+    int header_written = 0;
+    int line_offset = 0;
+    int in_hunk = 0;
+    int hunk_target = 0, hunk_del = 0, hunk_ins = 0, hunk_end_ins = 0, hunk_end_del = 0;
+
+    /* Dynamic array for current hunk's ops */
+    int hunk_op_cap = 4096;
+    Op *hunk_ops = (Op *)malloc(hunk_op_cap * sizeof(Op));
+    int hunk_op_count = 0;
+
+    /* Ensure ops_out is allocated for semantic_cleanup */
+    if (!ops_out) {
+        ops_out = (Op *)malloc(hunk_op_cap * sizeof(Op));
+        cap_ops = hunk_op_cap;
+    }
+
+    while (fgets(line, sizeof(line), stdin)) {
+        line[strcspn(line, "\n")] = 0;
+
+        if (line[0] == '#') {
+            /* Header line — emit immediately (with flag updates).
+             * Skip hunk_count in streaming mode (unknown until all hunks read). */
+            if (!header_written) {
+                if (strncmp(line, "# hunk_count", 12) == 0)
+                    continue;  /* skip — will emit -1 after header */
+                if (strncmp(line, "# semantic_cleanup", 18) == 0)
+                    printf("# semantic_cleanup %d\n", do_semantic);
+                else if (strncmp(line, "# indent_aware", 14) == 0)
+                    printf("# indent_aware %d\n", do_indent);
+                else if (strncmp(line, "# optimize_sequence", 19) == 0)
+                    printf("# optimize_sequence %d\n", op_order_optimize);
+                else
+                    printf("%s\n", line);
+            }
+            continue;
+        }
+
+        /* Write hunk_count placeholder once we know we have at least one hunk */
+        if (!header_written) {
+            printf("# hunk_count -1\n");  /* unknown in streaming mode */
+            header_written = 1;
+        }
+
+        if (strncmp(line, "HUNK", 4) == 0) {
+            /* If we were already in a hunk, process it first */
+            if (in_hunk && hunk_op_count > 0) {
+                printf("hunk_start\t%d\t%d\n", hunk_del, hunk_ins);
+                line_offset += process_one_hunk(hunk_target, hunk_del, hunk_ins,
+                                                  hunk_end_ins, hunk_end_del,
+                                                  hunk_ops, hunk_op_count, line_offset);
+                printf("hunk_end\n");
+                hunk_op_count = 0;
+            }
+
+            /* Start new hunk */
+            sscanf(line, "HUNK %d %d %d %d %d", &hunk_target, &hunk_del, &hunk_ins,
+                   &hunk_end_ins, &hunk_end_del);
+            in_hunk = 1;
+            hunk_op_count = 0;
+            continue;
+        }
+
+        if (strncmp(line, "keep", 4) == 0 || strncmp(line, "delete", 6) == 0 || strncmp(line, "insert", 6) == 0) {
+            char type[8]; int code;
+            sscanf(line, "%7s %d", type, &code);
+            if (hunk_op_count >= hunk_op_cap) {
+                hunk_op_cap *= 2;
+                hunk_ops = (Op *)realloc(hunk_ops, hunk_op_cap * sizeof(Op));
+            }
+            strncpy(hunk_ops[hunk_op_count].type, type, 7);
+            hunk_ops[hunk_op_count].type[7] = 0;
+            hunk_ops[hunk_op_count].code = code;
+            hunk_op_count++;
+        }
+    }
+
+    /* Process last hunk */
+    if (in_hunk && hunk_op_count > 0) {
+        printf("hunk_start\t%d\t%d\n", hunk_del, hunk_ins);
+        line_offset += process_one_hunk(hunk_target, hunk_del, hunk_ins,
+                                          hunk_end_ins, hunk_end_del,
+                                          hunk_ops, hunk_op_count, line_offset);
+        printf("hunk_end\n");
+    }
+
+    free(hunk_ops);
+}
+
 int main(int argc, char **argv) {
     parse_args(argc, argv);
+
+    if (stream_mode) {
+        stream_process();
+        return 0;
+    }
+
     read_input();
     write_output();
 
