@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-18
+
+### Fixed — ghost-line regression in diffvim
+
+Commit 758c8c7 introduced a "deferred joins" mechanism to fix a
+hallucinated "ghost line" visual problem. The mechanism was later
+removed but the broken behavior remained in `DeleteCharAtCursor` and
+`DeleteNewlineAtCursor`: when deleting a `\n`, if the current line had
+content, the cursor was moved to the next line WITHOUT removing the
+`\n` from the buffer. This caused the buffer state to diverge from
+what subsequent ops expected, producing wrong output on 07_text_prose,
+33_large_python, and others.
+
+Fix: restored the original always-join behavior. When deleting a `\n`,
+always JOIN the current line with the next (regardless of whether the
+current line has content). The only exception is when the line is empty
+(all content already deleted) — in that case, remove the empty line
+entirely.
+
+Verified: `test_vim_correctness.pl` passes 34/34 (was failing on
+07_text_prose, 33_large_python). diffvim-pipeline passes 42/42.
+
+### Fixed — same regression in Go/Perl/C animators
+
+All 3 standalone animator implementations had the identical "don't join
+if line has content" bug. Fixed `DeleteChar` and `NewlineDelete` in
+Go, Perl, and C animators.
+
+### Fixed — Go animator panics
+
+- `InsertChar`: added defensive `cursorC` clamping to prevent
+  `slice bounds out of range` panics from cursor drift.
+- `BatchDelete`: added clamping before slicing.
+
+### Fixed — pace line_offset bug
+
+The pace stage was emitting glide targets using ORIGINAL line numbers,
+not CURRENT buffer positions. After a previous hunk inserted/deleted
+lines, all subsequent glide targets were off by the cumulative line
+offset, causing inserts to land on wrong lines.
+
+Fix: track `line_offset` (cumulative `newline_inserts -
+newline_deletes` from previous hunks) and add it to each glide target.
+Applied to pace.pl, pace.c, and pace.go.
+
+Result: diffvim-pipeline went from 6/42 OK to 42/42 OK.
+
+### Fixed — Go animator end_insert handling
+
+When a hunk has `end_insert=1` (appending after last line), the Go
+animator was clamping `cursorL` to the last line but leaving `cursorC`
+at 0, causing inserts to PREPEND instead of APPEND.
+
+Fix: when `cursorL >= len(lines)`, set `cursorC` to
+`len(runes(last_line))` so subsequent inserts append after content.
+
+### Added — verify_md5.sh script
+
+`scripts/verify_md5.sh`: parallel round-trip MD5 verification script.
+Tests diffvim (simple-loop + ProcessCharOp) and diffvim-pipeline
+against all 42 example pairs. Runs 8 concurrent vim instances via
+`xargs -P` for speed. Outputs MD5 comparison table.
+
+### Added — PIPELINE.md documentation
+
+`docs/PIPELINE.md`: 303-line prose document describing the full
+pipeline (compute → postprocess → pace → animate), including timing
+figures for all 3 diff algorithms on 15K-line files, and identification
+of the ghost-line problem as a postprocess issue.
+
+### Known issues — UNRESOLVED
+
+1. **Ghost line problem**: when a `\n` delete joins two lines, the
+   next line's content visually jumps up. The fix belongs in
+   postprocess (transform the ops), not in the animator. NOT YET
+   IMPLEMENTED.
+
+2. **Large-file performance**: vimscript engine is O(N²) on large op
+   lists. 28K ops (33_large_python) takes 11+ seconds; 68K ops
+   (42_large_huge_python) times out at 30s.
+
+3. **Myers algorithm**: OOM-killed on 15K-line files (O(N*M) memory).
+   Should be replaced with linear-space Myers or dropped for large
+   files.
+
+4. **Pause/resume cursor drift**: in interactive diffvim, cursor
+   position is not re-validated after pause/scroll/resume.
+
+---
+
 ## [Unreleased] — 2026-08-16
 
 ### Removed — All old individual flags
