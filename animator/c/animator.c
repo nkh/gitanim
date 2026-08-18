@@ -158,26 +158,42 @@ void keep_char(int code) {
 
 void delete_char(int code) {
     if (code == 10) {
-        /* Delete newline: join current line with next.
-         * A \n delete op means the \n character must be removed from the
-         * buffer. Removing the \n between lines N and N+1 means joining
-         * those two lines. Always join, regardless of line content. */
+        /* Delete newline — ghost-line fix.
+         *
+         * If the current line is EMPTY (all content already deleted by
+         * preceding char deletes), remove the empty line entirely.
+         * The cursor stays at the same line index (now pointing to what
+         * was the next line). This avoids the visual jump where the next
+         * line's content appears on the current line.
+         *
+         * If the current line still has content, JOIN it with the next
+         * line (original behavior — needed for mixed delete+insert
+         * sequences where the line isn't fully emptied first).
+         */
         if (cursor_l < n_lines - 1) {
-            /* Not the last line — join with next */
             char *cur = lines[cursor_l];
-            char *next = lines[cursor_l + 1];
-            int newlen = strlen(cur) + strlen(next) + 1;
-            char *joined = malloc(newlen);
-            strcpy(joined, cur);
-            strcat(joined, next);
-            free(lines[cursor_l]);
-            free(lines[cursor_l + 1]);
-            lines[cursor_l] = joined;
-            /* Shift remaining lines down */
-            for (int i = cursor_l + 1; i < n_lines - 1; i++)
-                lines[i] = lines[i + 1];
-            n_lines--;
-            /* Cursor stays at same column on the (now joined) line */
+            if (cur[0] == '\0') {
+                /* Current line is empty — remove it entirely.
+                 * Cursor moves to the next line (now at same index). */
+                free(lines[cursor_l]);
+                for (int i = cursor_l; i < n_lines - 1; i++)
+                    lines[i] = lines[i + 1];
+                n_lines--;
+                cursor_c = 0;
+            } else {
+                /* Current line has content — join with next. */
+                char *next = lines[cursor_l + 1];
+                int newlen = strlen(cur) + strlen(next) + 1;
+                char *joined = malloc(newlen);
+                strcpy(joined, cur);
+                strcat(joined, next);
+                free(lines[cursor_l]);
+                free(lines[cursor_l + 1]);
+                lines[cursor_l] = joined;
+                for (int i = cursor_l + 1; i < n_lines - 1; i++)
+                    lines[i] = lines[i + 1];
+                n_lines--;
+            }
         } else if (cursor_l > 0) {
             /* Last line — remove it and move to previous */
             free(lines[cursor_l]);

@@ -137,17 +137,29 @@ sub keep_char {
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        # Delete newline: join current line with next.
-        # A \n delete op means the \n character must be removed from the
-        # buffer. Removing the \n between lines N and N+1 means joining
-        # those two lines. Always join, regardless of line content.
+        # Delete newline — ghost-line fix.
+        #
+        # If the current line is EMPTY (all content already deleted by
+        # preceding char deletes), remove the empty line entirely.
+        # The cursor stays at the same line index (now pointing to what
+        # was the next line). This avoids the visual jump where the next
+        # line's content appears on the current line.
+        #
+        # If the current line still has content, JOIN it with the next
+        # line (original behavior — needed for mixed delete+insert
+        # sequences where the line isn't fully emptied first).
         if ($cursor_l < $#lines) {
-            # Not the last line — join with next
-            $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
-            splice(@lines, $cursor_l + 1, 1);
-            # Cursor stays at same column on the (now joined) line
+            if ($lines[$cursor_l] eq '') {
+                # Current line is empty — remove it entirely.
+                splice(@lines, $cursor_l, 1);
+                $cursor_c = 0;
+            } else {
+                # Current line has content — join with next.
+                $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
+                splice(@lines, $cursor_l + 1, 1);
+            }
         } else {
-            # Last line — can't join. Remove the line and move to previous.
+            # Last line — remove it and move to previous.
             if ($cursor_l > 0) {
                 pop @lines;
                 $cursor_l--;
