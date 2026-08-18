@@ -237,7 +237,13 @@ while (my $line = <STDIN>) {
         $cursor_l = $l - 1;
         $cursor_c = $c - 1;
         $cursor_l = 0 if $cursor_l < 0;
-        $cursor_l = $#lines if $cursor_l > $#lines;
+        if ($cursor_l > $#lines) {
+            # Past end of buffer — clamp to last line and position
+            # cursor at END of last line so subsequent inserts
+            # append after content (end_insert case).
+            $cursor_l = $#lines;
+            $cursor_c = length($lines[$cursor_l]);
+        }
         render();
     } elsif ($cmd eq 'snapshot') {
         write_buffer($parts[0]);
