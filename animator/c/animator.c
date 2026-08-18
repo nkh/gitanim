@@ -90,16 +90,24 @@ int line_chars(int l) {
     return count;
 }
 
-/* Get byte offset for a given char column */
+/* Get byte offset for a given char column.
+ * Returns the byte offset of the leading byte of the char at position `col`.
+ * For multi-byte UTF-8 chars, this correctly skips continuation bytes. */
 int char_to_byte(int l, int col) {
     if (l < 0 || l >= n_lines) return 0;
     char *s = lines[l];
     int count = 0, byte = 0;
-    while (s[byte] && count < col) {
-        if ((s[byte] & 0xC0) != 0x80) count++;
+    /* Walk through the string. When count reaches col, return byte
+     * WITHOUT incrementing past the current char. */
+    while (s[byte]) {
+        if ((s[byte] & 0xC0) != 0x80) {
+            /* This is a leading byte (or ASCII char) */
+            if (count == col) return byte;
+            count++;
+        }
         byte++;
     }
-    return byte;
+    return byte; /* past end of string */
 }
 
 void keep_char(int code) {
@@ -310,7 +318,13 @@ int main(int argc, char **argv) {
             sscanf(args, "%d:%d", &l, &c);
             cursor_l = l - 1; cursor_c = c - 1;
             if (cursor_l < 0) cursor_l = 0;
-            if (cursor_l >= n_lines) cursor_l = n_lines - 1;
+            if (cursor_l >= n_lines) {
+                /* Past end of buffer — clamp to last line and position
+                 * cursor at END of last line so subsequent inserts
+                 * append after content (end_insert case). */
+                cursor_l = n_lines - 1;
+                cursor_c = line_chars(cursor_l);
+            }
             render();
         } else if (strcmp(cmd, "snapshot") == 0) {
             char path[256];
