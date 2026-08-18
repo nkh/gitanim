@@ -217,7 +217,7 @@ for my $case (@cases) {
               "DIFFVIM_INSERT_PACING=char DIFFVIM_PACING=uniform DIFFVIM_HIGHLIGHT=none " .
               "vim -u NONE -N -n -es " .
               "-c 'let g:diffvim_new_file = \"$nf\"' " .
-              "-c 'let g:diffvim.output_file = \"$out\"' " .
+              "-c 'let g:diffvim = {\"output_file\": \"$out\"}' " .
               "-c 'source $engine_file' " .
               "'$of' 2>/dev/null";
     system("timeout 10 $cmd");
