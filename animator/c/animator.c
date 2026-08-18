@@ -48,8 +48,28 @@ static int colormap_old_count = 0;
 static char **colormap_new = NULL;
 static int colormap_new_count = 0;
 
-/* Track which lines have been modified (color invalidated). */
+/* Track which lines have been modified (color invalidated).
+ * Grows dynamically with the buffer. */
 static char *line_modified = NULL;
+static int line_modified_cap = 0;
+
+/* Ensure line_modified array is large enough for the given line index. */
+static void ensure_line_modified(int needed) {
+    if (needed < line_modified_cap) return;
+    int new_cap = line_modified_cap == 0 ? 1024 : line_modified_cap;
+    while (new_cap <= needed) new_cap *= 2;
+    line_modified = (char *)realloc(line_modified, new_cap);
+    if (!line_modified) { fprintf(stderr, "out of memory (line_modified)\n"); exit(1); }
+    memset(line_modified + line_modified_cap, 0, new_cap - line_modified_cap);
+    line_modified_cap = new_cap;
+}
+
+/* Mark a line as modified (color invalidated). Safe for any cursor_l. */
+static void mark_modified(int l) {
+    if (!line_modified || l < 0) return;
+    if (l >= line_modified_cap) ensure_line_modified(l);
+    line_modified[l] = 1;
+}
 
 /* Grow lines array if needed */
 static void ensure_lines_capacity(int needed) {
@@ -286,7 +306,7 @@ void render(void) {
     for (int i = 0; i < max; i++) {
         /* Use colormap for unmodified lines; plain text for modified ones. */
         char *colored = NULL;
-        if (colormap_old && i < colormap_old_count && !line_modified[i])
+        if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
             colored = colormap_old[i];
         if (colored) {
             if (i == cursor_l)
@@ -353,7 +373,7 @@ int main(int argc, char **argv) {
     load_file(old_file_path);
     if (colormap_old_path[0]) load_colormap(colormap_old_path, &colormap_old, &colormap_old_count);
     if (colormap_new_path[0]) load_colormap(colormap_new_path, &colormap_new, &colormap_new_count);
-    line_modified = (char *)calloc(n_lines > 256 ? n_lines : 256, 1);
+    line_modified = NULL; // will grow dynamically via mark_modified
     if (!no_display) printf("\033[?25l");
 
     char line[MAX_LINE_LEN];
@@ -384,8 +404,8 @@ int main(int argc, char **argv) {
             int code = atoi(toks[4]);
             set_cursor(op_line, op_col);
             if (strcmp(type, "keep") == 0) keep_char(code);
-            else if (strcmp(type, "delete") == 0) { delete_char(code); if (cursor_l < n_lines) line_modified[cursor_l] = 1; }
-            else if (strcmp(type, "insert") == 0) { insert_char(code); if (cursor_l < n_lines) line_modified[cursor_l] = 1; }
+            else if (strcmp(type, "delete") == 0) { delete_char(code); mark_modified(cursor_l); }
+            else if (strcmp(type, "insert") == 0) { insert_char(code); mark_modified(cursor_l); }
             render();
         } else if (strcmp(cmd, "delay") == 0 && ntok >= 2) {
             /* Parse both delay\t<ms> and delay\t<type>\t<ms> */
@@ -406,7 +426,7 @@ int main(int argc, char **argv) {
             int n = atoi(toks[3]);
             set_cursor(op_line, op_col);
             batch_delete(n);
-            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
+            mark_modified(cursor_l);
             render();
         } else if (strcmp(cmd, "batch_insert") == 0 && ntok >= 4) {
             int op_line = atoi(toks[1]);
@@ -424,20 +444,20 @@ int main(int argc, char **argv) {
             }
             batch_insert(codes, n);
             free(codes);
-            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
+            mark_modified(cursor_l);
             render();
         } else if (strcmp(cmd, "newline_delete") == 0 && ntok >= 2) {
             int op_line = atoi(toks[1]);
             set_cursor(op_line, 1);
             delete_char(10);
-            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
+            mark_modified(cursor_l);
             render();
         } else if (strcmp(cmd, "newline_insert") == 0 && ntok >= 3) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
             set_cursor(op_line, op_col);
             insert_char(10);
-            if (cursor_l < n_lines) line_modified[cursor_l] = 1;
+            mark_modified(cursor_l);
             render();
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
