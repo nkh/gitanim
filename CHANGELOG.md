@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-08-19 — Flashing Fix + Ghost-Line + Developer Guide
+
+### Fixed — Flashing in both animators
+
+**Vimscript animator (diffvim):**
+- Removed `redraw!` (full screen clear) from every op
+- Added `needs_redraw` flag: only render at delay boundaries
+- `keep` ops don't trigger rendering at all (only advance cursor)
+- Use `redraw` (incremental) instead of `redraw!` (full clear)
+- Batch processing: process all ops between delays in one pass
+- Single timer per delay, no polling loop
+- Scroll only when cursor is off-screen
+
+**C animator (animator.c):**
+- Removed `\033[2J\033[H` (clear screen + home) from `render()`
+- Added incremental rendering: tracks `prev_lines` array
+- Only redraws lines whose content or cursor state changed
+- Uses `\033[<line>;1H\033[2K` (move + clear line) for individual lines
+- Eliminates the full-screen flash on every op
+
+### Fixed — Ghost-line fix in all three animators
+
+When `delete_char(10)` is called and the current line is already empty
+(all content deleted by preceding char deletes), remove the empty line
+entirely instead of joining it with the next line. The cursor stays at
+the same line index, which now points to what was the next line. This
+avoids the visual jump where the next line's content appears on the
+current line.
+
+If the current line still has content, the original join behavior is
+preserved (needed for mixed delete+insert sequences).
+
+Applied to:
+- `animator/c/animator.c` — `delete_char()` function
+- `animator/perl/animator.pl` — `delete_char()` function
+- `diffvim` (vimscript) — `s:TimedDeleteChar()` function
+
+### Fixed — Heap-buffer-overflow in line_modified array
+
+The `line_modified` array (used for colormap rendering) was allocated
+once at startup with a fixed size. But `insert_char(10)` adds new lines,
+so `cursor_l` could exceed the array bounds, causing a heap-buffer-overflow
+that corrupted memory and produced wrong output on large files.
+
+Fix: replaced with a dynamically-growing array (`ensure_line_modified()`
++ `mark_modified()` wrapper with bounds checking).
+
+This was the root cause of 6 previously-failing large examples (33, 37,
+38, 40, 41, 42). All 42 examples now pass.
+
+### Added — Developer Guide
+
+New `docs/DEVELOPER_GUIDE.md` — comprehensive onboarding guide covering:
+- Architecture overview and pipeline stages
+- Repository layout
+- Building from source
+- The timed op stream format (v2 TSV)
+- How each animator works (vimscript + C + Perl)
+- The coloring system
+- Ghost-line fix explanation
+- Testing guide
+- How to add new languages, transforms, and pacing modes
+- Debugging tips and common pitfalls
+- Coding conventions
+
+### Verified
+
+- All 42 examples pass MD5 round-trip verification.
+- 96 Perl tests pass (test_all_animators, test_cross_language,
+  test_newline_fix, test_roundtrip, test_roundtrip_verify).
+- Cross-language parity (C == Perl) maintained.
+
+---
+
 ## [Unreleased] — 2026-08-19 — Architecture Overhaul
 
 ### LCS Algorithm Removed — Patience Only
