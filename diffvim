@@ -1672,6 +1672,48 @@ function! s:TimedTick(timer) abort
         return
     endif
 
+    " Pause: keep polling but don't process ops
+    if get(s:, 'timed_paused', 0)
+        let s:timed_timer = timer_start(50, function('s:TimedTick'))
+        return
+    endif
+
+    " Skip to next hunk: process ops without rendering until we hit HUNK_END
+    if get(s:, 'timed_skip_hunk', 0)
+        let s:timed_skip_hunk = 0
+        let l:safety = 0
+        while l:safety < 50000
+            let l:safety += 1
+            if s:timed_idx >= len(s:timed_ops)
+                break
+            endif
+            let l:line = s:timed_ops[s:timed_idx]
+            let s:timed_idx += 1
+            if l:line ==# '' || l:line[0] ==# '#'
+                continue
+            endif
+            let l:parts = split(l:line, "\t", 1)
+            let l:cmd = l:parts[0]
+            if l:cmd ==# 'HUNK_END'
+                break
+            endif
+            if l:cmd ==# 'keep' && len(l:parts) >= 4
+                call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+                call s:TimedKeepChar(str2nr(l:parts[3]))
+            elseif l:cmd ==# 'delete' && len(l:parts) >= 4
+                call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+                call s:TimedDeleteChar(str2nr(l:parts[3]))
+            elseif l:cmd ==# 'insert' && len(l:parts) >= 4
+                call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+                call s:TimedInsertChar(str2nr(l:parts[3]))
+            endif
+        endwhile
+        let s:needs_redraw = 1
+        call s:TimedPlaceCursor()
+        redraw
+        let s:needs_redraw = 0
+    endif
+
     let l:delay = s:TimedProcessBatch()
 
     if l:delay == -1
@@ -1697,6 +1739,11 @@ endfunction
 nnoremap <buffer> <silent> q :let s:timed_stopped = 1<CR>
 nnoremap <buffer> <silent> + :let s:timed_speed = s:timed_speed * 1.5<CR>
 nnoremap <buffer> <silent> - :let s:timed_speed = s:timed_speed / 1.5<CR>
+nnoremap <buffer> <silent> = :let s:timed_speed = 1.0<CR>
+nnoremap <buffer> <silent> <Space> :let s:timed_paused = !get(s:, 'timed_paused', 0)<CR>
+nnoremap <buffer> <silent> p :let s:timed_paused = !get(s:, 'timed_paused', 0)<CR>
+nnoremap <buffer> <silent> n :let s:timed_skip_hunk = 1<CR>
+nnoremap <buffer> <silent> ? :echo 'q=quit Space=pause n=next-hunk +=faster -=slower ==reset'<CR>
 
 call s:StartTimedAnimation()
 

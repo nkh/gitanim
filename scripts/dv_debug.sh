@@ -1,32 +1,55 @@
 #!/usr/bin/env bash
 # dv_debug.sh — Debugging tool for the diffvim pipeline.
 #
-# Takes old and new files, displays each pipeline stage:
-#   1. Input files
-#   2. Raw diff ops (from compute)
-#   3. Post-processed ops (from postprocess)
-#   4. Timed ops (from pace)
-#   5. Result of applying ops (animator output vs expected)
+# Takes old and new files, displays each pipeline stage AND writes
+# the stage files to disk so you can inspect them with any tool:
+#   /tmp/dv_debug/raw.txt     — Stage 1 (compute output)
+#   /tmp/dv_debug/post.txt    — Stage 2 (postprocess output)
+#   /tmp/dv_debug/timed.txt   — Stage 3 (pace output)
+#   /tmp/dv_debug/snap.txt     — Stage 4 (animator final buffer)
 #
 # Usage: dv_debug.sh <oldfile> <newfile>
+#        dv_debug.sh --keep <oldfile> <newfile>     (don't clear /tmp/dv_debug first)
+#
+# Useful commands after running:
+#   less -S /tmp/dv_debug/post.txt        # view with tabs visible
+#   cat -A /tmp/dv_debug/raw.txt | head  # show tabs as ^I
+#   wc -l /tmp/dv_debug/*.txt             # line counts
+#   diff /tmp/dv_debug/snap.txt <new>    # final comparison
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Optional --keep flag: don't clear the output directory
+KEEP=0
+if [[ "${1:-}" == "--keep" ]]; then
+    KEEP=1
+    shift
+fi
+
 OLD="${1:?Usage: dv_debug.sh <oldfile> <newfile>}"
 NEW="${2:?Usage: dv_debug.sh <oldfile> <newfile>}"
 
-WORKDIR=$(mktemp -d)
-trap 'rm -rf "$WORKDIR"' EXIT
+OUTDIR=/tmp/dv_debug
+if [[ $KEEP -eq 0 ]]; then
+    rm -rf "$OUTDIR"
+fi
+mkdir -p "$OUTDIR"
 
-RAW="$WORKDIR/raw.txt"
-POST="$WORKDIR/post.txt"
-TIMED="$WORKDIR/timed.txt"
-SNAP="$WORKDIR/snap.txt"
+RAW="$OUTDIR/raw.txt"
+POST="$OUTDIR/post.txt"
+TIMED="$OUTDIR/timed.txt"
+SNAP="$OUTDIR/snap.txt"
 
 echo "══════════════════════════════════════════════════════════════"
 echo " diffvim pipeline debugger"
 echo "══════════════════════════════════════════════════════════════"
+echo ""
+echo "Stage files written to: $OUTDIR/"
+echo "  raw.txt    — Stage 1 (compute output)"
+echo "  post.txt   — Stage 2 (postprocess output)"
+echo "  timed.txt  — Stage 3 (pace output)"
+echo "  snap.txt   — Stage 4 (animator final buffer)"
 echo ""
 
 echo "─── INPUT FILES ──────────────────────────────────────────────"
@@ -40,21 +63,37 @@ echo ""
 echo "─── STAGE 1: RAW DIFF OPS (compute) ──────────────────────────"
 "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$RAW" 2>&1
 echo ""
-cat "$RAW"
+echo "  → $(wc -l < "$RAW") lines written to $RAW"
+echo "  → Header:"
+head -1 "$RAW"
+echo ""
+echo "  → First 30 lines:"
+head -30 "$RAW" | cat -n
 echo ""
 
 echo "─── STAGE 2: POST-PROCESSED OPS (postprocess) ───────────────"
-"$ROOT/animator/bin/diffvim-postprocess" < "$RAW" > "$POST" 2>&1
-cat "$POST"
+"$ROOT/animator/bin/diffvim-postprocess" < "$RAW" > "$POST" 2>&1 || true
+echo "  → $(wc -l < "$POST") lines written to $POST"
+echo "  → Header:"
+head -1 "$POST"
+echo ""
+echo "  → First 30 lines:"
+head -30 "$POST" | cat -n
 echo ""
 
 echo "─── STAGE 3: TIMED OPS (pace) ───────────────────────────────"
-"$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>&1
-cat "$TIMED"
+"$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>&1 || true
+echo "  → $(wc -l < "$TIMED") lines written to $TIMED"
+echo "  → Header:"
+head -3 "$TIMED"
+echo ""
+echo "  → First 30 lines:"
+head -30 "$TIMED" | cat -n
 echo ""
 
 echo "─── STAGE 4: ANIMATOR RESULT ────────────────────────────────"
-"$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$SNAP" "$OLD" < "$TIMED" 2>&1
+"$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$SNAP" "$OLD" < "$TIMED" 2>&1 || true
+echo "  → $(wc -l < "$SNAP" 2>/dev/null || echo 0) lines written to $SNAP"
 echo ""
 
 echo "─── RESULT COMPARISON ────────────────────────────────────────"
@@ -62,14 +101,21 @@ echo "Expected (new file):"
 cat -n "$NEW"
 echo ""
 echo "Actual (animator output):"
-cat -n "$SNAP"
+cat -n "$SNAP" 2>/dev/null || echo "  (no output file)"
 echo ""
 
-if diff -q "$SNAP" "$NEW" >/dev/null 2>&1; then
+if [[ -f "$SNAP" ]] && diff -q "$SNAP" "$NEW" >/dev/null 2>&1; then
     echo "✓ MATCH — animator output matches new file"
 else
     echo "✗ MISMATCH — differences:"
-    diff "$SNAP" "$NEW" || true
+    diff "$NEW" "$SNAP" 2>/dev/null || true
 fi
 echo ""
 echo "─── END ──────────────────────────────────────────────────────"
+echo ""
+echo "Stage files are in: $OUTDIR/"
+echo "Useful commands:"
+echo "  less -S $OUTDIR/post.txt       # view with tabs"
+echo "  cat -A $OUTDIR/raw.txt | head  # show tabs as ^I"
+echo "  wc -l $OUTDIR/*.txt             # line counts"
+echo "  diff $OUTDIR/snap.txt $NEW     # final comparison"

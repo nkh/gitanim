@@ -155,16 +155,49 @@ void ensure_header_capacity(int needed) {
 void read_input(void) {
     char line[MAX_LINE];
     int current_hunk = -1;
+    int header_seen_v2 = 0;
+    int header_seen_v1 = 0;
+    int line_no = 0;
+    int ops_outside_hunk = 0;
     while (fgets(line, sizeof(line), stdin)) {
+        line_no++;
         line[strcspn(line, "\n")] = 0;
         if (line[0] == '#' || line[0] == 0) {
             if (line[0] == '#') {
+                /* Detect input format version from header */
+                if (strncmp(line, "# diffvim raw diff v2", 21) == 0 ||
+                    strncmp(line, "# diffvim precomputed diff v2", 30) == 0 ||
+                    strncmp(line, "# diffvim post-processed v2", 27) == 0) {
+                    header_seen_v2 = 1;
+                }
+                if (strncmp(line, "# diffvim raw diff v1", 21) == 0 ||
+                    strncmp(line, "# diffvim precomputed diff v1", 30) == 0 ||
+                    strncmp(line, "# diffvim post-processed v1", 27) == 0) {
+                    header_seen_v1 = 1;
+                }
+                /* Detect v1 format by space-separated HUNK */
+                if (strncmp(line, "# diffvim", 9) != 0 && strstr(line, "HUNK ") != NULL) {
+                    /* not a known header but contains "HUNK " — likely v1 */
+                }
                 ensure_header_capacity(n_header + 1);
                 strncpy(header[n_header++], line, MAX_LINE - 1);
                 header[n_header - 1][MAX_LINE - 1] = 0;
             }
             continue;
         }
+
+        /* Detect v1 format (space-separated HUNK or space-separated ops).
+         * v2 uses tabs exclusively. If we see a HUNK line that uses spaces
+         * instead of tabs, the input is v1 and we cannot parse it. */
+        if (strncmp(line, "HUNK ", 5) == 0) {
+            fprintf(stderr, "diffvim-postprocess: ERROR: input is v1 format (space-separated HUNK)\n");
+            fprintf(stderr, "  Line %d: [%s]\n", line_no, line);
+            fprintf(stderr, "  Expected v2 TSV format: HUNK\\t<target>\\t<del>\\t<ins>\\t<end_ins>\\t<end_del>\n");
+            fprintf(stderr, "  Rebuild the compute binary: make -C compute clean && make -C compute\n");
+            fprintf(stderr, "  (compute/bin/diffvim-compute-cpp is gitignored — git pull does not update it)\n");
+            exit(1);
+        }
+
         /* TSV tokenize */
         char *toks[8];
         int ntok = 0;
@@ -197,6 +230,16 @@ void read_input(void) {
         }
         if ((strcmp(toks[0], "keep") == 0 || strcmp(toks[0], "delete") == 0 ||
              strcmp(toks[0], "insert") == 0) && ntok >= 4) {
+            /* Warn if op appears outside a HUNK block */
+            if (current_hunk < 0) {
+                ops_outside_hunk++;
+                /* Only warn once per file to avoid spam */
+                if (ops_outside_hunk == 1) {
+                    fprintf(stderr, "diffvim-postprocess: WARNING: op outside HUNK block at line %d: [%s]\n", line_no, line);
+                    fprintf(stderr, "  (suppressing further warnings of this type)\n");
+                }
+                continue;
+            }
             ensure_ops_capacity(n_ops + 1);
             strncpy(ops_in[n_ops].type, toks[0], 7);
             ops_in[n_ops].type[7] = 0;
@@ -204,8 +247,26 @@ void read_input(void) {
             ops_in[n_ops].col = atoi(toks[2]);
             ops_in[n_ops].code = atoi(toks[3]);
             n_ops++;
-            if (current_hunk >= 0) hunks[current_hunk].op_count++;
+            hunks[current_hunk].op_count++;
         }
+    }
+
+    /* Sanity checks after reading */
+    if (header_seen_v1 && !header_seen_v2) {
+        fprintf(stderr, "diffvim-postprocess: ERROR: input header indicates v1 format\n");
+        fprintf(stderr, "  This binary only parses v2 TSV format.\n");
+        fprintf(stderr, "  Rebuild compute: make -C compute clean && make -C compute\n");
+        exit(1);
+    }
+    if (n_hunks == 0 && n_ops == 0) {
+        fprintf(stderr, "diffvim-postprocess: WARNING: no hunks and no ops parsed from input\n");
+        fprintf(stderr, "  Input may be empty or in an unrecognized format.\n");
+        fprintf(stderr, "  First few header lines:\n");
+        for (int i = 0; i < n_header && i < 5; i++)
+            fprintf(stderr, "    %s\n", header[i]);
+    }
+    if (ops_outside_hunk > 0) {
+        fprintf(stderr, "diffvim-postprocess: WARNING: %d ops found outside any HUNK block (skipped)\n", ops_outside_hunk);
     }
 }
 

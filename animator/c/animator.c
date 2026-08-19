@@ -18,9 +18,12 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include <fcntl.h>
+#include <termios.h>
 
 /* Ctrl+C handler: restore terminal before exiting */
 static void cleanup_handler(int sig) {
+    disable_raw_mode();
     printf("\033[?25h\033[0m\033[2J\033[H");
     fflush(stdout);
     exit(1);
@@ -50,6 +53,127 @@ static char snapshot_file_path[256] = "";
 static char old_file_path[256] = "";
 static char colormap_old_path[256] = "";
 static char colormap_new_path[256] = "";
+
+/* --- Forward declarations --- */
+void sleep_ms(int ms);
+void disable_raw_mode(void);
+
+/* --- Keyboard input handling ---
+ *
+ * The animator runs in a terminal and accepts keystrokes during the
+ * animation. Since stdin is consumed by the timed op stream (piped
+ * from pace), we read keystrokes from /dev/tty directly.
+ *
+ * Supported keys:
+ *   q / Esc / Ctrl-C   stop animation (leave buffer in current state)
+ *   Space / p          pause / resume
+ *   n                  skip to next hunk (apply rest of current hunk instantly)
+ *   +                  speed up (x1.5)
+ *   -                  slow down (x0.67)
+ *   =                  reset speed to 1.0
+ *   ? / h              show help overlay
+ */
+static int paused = 0;
+static int user_quit = 0;
+static int skip_to_next_hunk = 0;
+static int in_hunk = 0;
+static int tty_fd = -1;
+static struct termios orig_termios;
+static int termios_saved = 0;
+
+/* Open /dev/tty for keyboard input. Returns 0 on success.
+ * If no TTY is available (e.g. piped output), keyboard input is disabled. */
+void enable_raw_mode(void) {
+    if (no_display) return;
+    tty_fd = open("/dev/tty", O_RDWR | O_NONBLOCK);
+    if (tty_fd < 0) return;
+    tcgetattr(tty_fd, &orig_termios);
+    termios_saved = 1;
+    struct termios raw = orig_termios;
+    /* Disable echo and canonical mode */
+    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(tty_fd, TCSANOW, &raw);
+}
+
+/* Restore terminal to its original state */
+void disable_raw_mode(void) {
+    if (!termios_saved) return;
+    tcsetattr(tty_fd, TCSANOW, &orig_termios);
+    close(tty_fd);
+    tty_fd = -1;
+    termios_saved = 0;
+}
+
+/* Poll for a keystroke. Returns 0 if no key, or the char read. */
+int poll_key(void) {
+    if (tty_fd < 0) return 0;
+    char c = 0;
+    int n = read(tty_fd, &c, 1);
+    if (n <= 0) return 0;
+    return (int)c;
+}
+
+/* Process a keystroke. Sets global state for the main loop. */
+void handle_key(int c) {
+    switch (c) {
+        case 'q':
+        case 'Q':
+        case 0x1B:  /* Esc */
+        case 0x03:  /* Ctrl-C */
+            user_quit = 1;
+            break;
+        case ' ':
+        case 'p':
+            paused = !paused;
+            break;
+        case 'n':
+        case 'N':
+            skip_to_next_hunk = 1;
+            break;
+        case '+':
+            speed_mult *= 1.5;
+            break;
+        case '-':
+        case '_':
+            speed_mult /= 1.5;
+            break;
+        case '=':
+            speed_mult = 1.0;
+            break;
+        case '?':
+        case 'h':
+        case 'H':
+            /* Show help overlay on stderr */
+            fprintf(stderr, "\n--- diffvim-animator keys ---\n");
+            fprintf(stderr, "  q/Esc/Ctrl-C  stop animation\n");
+            fprintf(stderr, "  Space/p       pause / resume\n");
+            fprintf(stderr, "  n             skip to next hunk\n");
+            fprintf(stderr, "  +             speed up (x1.5)\n");
+            fprintf(stderr, "  -             slow down (x0.67)\n");
+            fprintf(stderr, "  =             reset speed to 1.0\n");
+            fprintf(stderr, "  ?/h           this help\n");
+            break;
+    }
+}
+
+/* Sleep with ms granularity, polling for keystrokes every 10ms.
+ * Returns early if the user pressed a key. */
+void sleep_with_kb(int ms) {
+    if (ms <= 0) return;
+    int elapsed = 0;
+    while (elapsed < ms) {
+        int step = (ms - elapsed < 10) ? (ms - elapsed) : 10;
+        sleep_ms(step);
+        elapsed += step;
+        int c = poll_key();
+        if (c) {
+            handle_key(c);
+            if (user_quit || paused || skip_to_next_hunk) return;
+        }
+    }
+}
 
 /* Color map: one colored string per line (ANSI-escaped). NULL = no colormap. */
 static char **colormap_old = NULL;
@@ -352,6 +476,10 @@ void sleep_ms(int ms) {
 int main(int argc, char **argv) {
     signal(SIGINT, cleanup_handler);
     signal(SIGTERM, cleanup_handler);
+
+    /* Enable raw keyboard input mode (no-op in --no-display mode or
+     * when stdin isn't a TTY — e.g. when piped from pace). */
+    enable_raw_mode();
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--no-display") == 0) no_display = 1;
         else if (strcmp(argv[i], "--speed") == 0 && i+1 < argc) speed_mult = atof(argv[++i]);
@@ -402,6 +530,7 @@ int main(int argc, char **argv) {
 
     char line[MAX_LINE_LEN];
     int op_count = 0;
+    int ops_total = 0;
     while (fgets(line, sizeof(line), stdin)) {
         /* #70: Seek — skip ops until we reach the seek position */
         if (seek_op > 0 && op_count < seek_op) {
@@ -413,6 +542,50 @@ int main(int argc, char **argv) {
         }
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') continue;
+
+        /* Detect v1 format and fail loudly with a helpful message. */
+        if (strncmp(line, "op\t", 3) == 0) {
+            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'op\\t<type>...' prefix\n");
+            fprintf(stderr, "  Line: [%s]\n", line);
+            fprintf(stderr, "  v2 format has the type directly: keep\\t<line>\\t<col>\\t<code>\\n");
+            fprintf(stderr, "  Rebuild the pipeline: make -C compute && make -C animator  (or use 'make all')\n");
+            cleanup_handler(1);
+            exit(1);
+        }
+        if (strncmp(line, "newline_delete", 14) == 0 || strncmp(line, "newline_insert", 14) == 0) {
+            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'newline_delete'/'newline_insert' op\n");
+            fprintf(stderr, "  Line: [%s]\n", line);
+            fprintf(stderr, "  v2 format uses delete\\t<line>\\t<col>\\t10\\t\\\\n\n");
+            cleanup_handler(1);
+            exit(1);
+        }
+        if (strncmp(line, "hunk_start\t", 11) == 0 || strncmp(line, "hunk_end", 8) == 0) {
+            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'hunk_start'/'hunk_end'\n");
+            fprintf(stderr, "  Line: [%s]\n", line);
+            fprintf(stderr, "  v2 format uses 'HUNK' and 'HUNK_END'\n");
+            cleanup_handler(1);
+            exit(1);
+        }
+        if (strncmp(line, "batch_delete", 11) == 0 || strncmp(line, "batch_insert", 12) == 0) {
+            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'batch_delete'/'batch_insert'\n");
+            fprintf(stderr, "  Line: [%s]\n", line);
+            fprintf(stderr, "  v2 format uses single-char delete/insert ops (pace does not batch anymore)\n");
+            cleanup_handler(1);
+            exit(1);
+        }
+        if (strncmp(line, "delay\t", 6) == 0) {
+            /* Detect reversed delay fields: "delay\\t<type>\\t<ms>" is v1 */
+            /* v2: delay\t<ms>\t<type>. The 2nd field should be a number. */
+            char *p = line + 6;
+            if (*p < '0' || *p > '9') {
+                fprintf(stderr, "diffvim-animator-c: ERROR: delay op has non-numeric first arg (v1 format)\n");
+                fprintf(stderr, "  Line: [%s]\n", line);
+                fprintf(stderr, "  v2 format: delay\\t<ms>\\t<type>\n");
+                cleanup_handler(1);
+                exit(1);
+            }
+        }
+        ops_total++;
 
         /* TSV tokenizer. */
         char *toks[32];
@@ -457,18 +630,94 @@ int main(int argc, char **argv) {
             /* delay\t<ms>\t<type> */
             int ms = atoi(toks[1]);
             if (speed_mult > 0) ms = (int)(ms / speed_mult);
-            if (!no_display) sleep_ms(ms);
+
+            /* Loop here while paused — when user resumes, continue.
+             * If user pressed q, break out of the main loop. */
+            while (paused && !user_quit) {
+                sleep_with_kb(50);
+            }
+            if (user_quit) break;
+
+            if (!no_display) sleep_with_kb(ms);
         } else if (strcmp(cmd, "HUNK") == 0 || strcmp(cmd, "HUNK_END") == 0) {
-            /* Metadata — no action */
+            /* Metadata — track hunk boundaries for the skip feature */
+            if (strcmp(cmd, "HUNK") == 0) {
+                in_hunk = 1;
+                /* If user asked to skip to next hunk, this is the next hunk — reset */
+                skip_to_next_hunk = 0;
+            } else {
+                in_hunk = 0;
+            }
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
         } else if (strcmp(cmd, "done") == 0) {
             break;
         }
+
+        /* Skip-to-next-hunk: if user pressed 'n', apply all remaining
+         * ops in the current hunk instantly (no delays, no renders). */
+        if (skip_to_next_hunk && in_hunk) {
+            char skip_line[MAX_LINE_LEN];
+            while (fgets(skip_line, sizeof(skip_line), stdin)) {
+                skip_line[strcspn(skip_line, "\n")] = 0;
+                if (skip_line[0] == 0 || skip_line[0] == '#') continue;
+                /* TSV tokenize */
+                char *stoks[32];
+                int sn = 0;
+                char *sp = skip_line;
+                char *stab = strchr(sp, '\t');
+                while (stab && sn < 31) {
+                    *stab = 0;
+                    stoks[sn++] = sp;
+                    sp = stab + 1;
+                    stab = strchr(sp, '\t');
+                }
+                stoks[sn++] = sp;
+                char *scmd = stoks[0];
+                if (strcmp(scmd, "HUNK_END") == 0) {
+                    skip_to_next_hunk = 0;
+                    in_hunk = 0;
+                    break;
+                }
+                if (strcmp(scmd, "HUNK") == 0) {
+                    /* New hunk started — don't skip this one */
+                    skip_to_next_hunk = 0;
+                    /* Re-process this line as the start of a new hunk */
+                    /* For simplicity, just render and continue normally */
+                    render();
+                    break;
+                }
+                if (strcmp(scmd, "keep") == 0 && sn >= 4) {
+                    set_cursor(atoi(stoks[1]), atoi(stoks[2]));
+                    keep_char(atoi(stoks[3]));
+                } else if (strcmp(scmd, "delete") == 0 && sn >= 4) {
+                    set_cursor(atoi(stoks[1]), atoi(stoks[2]));
+                    delete_char(atoi(stoks[3]));
+                    mark_modified(cursor_l);
+                } else if (strcmp(scmd, "insert") == 0 && sn >= 4) {
+                    set_cursor(atoi(stoks[1]), atoi(stoks[2]));
+                    insert_char(atoi(stoks[3]));
+                    mark_modified(cursor_l);
+                }
+                /* Skip delays inside the skip — no waiting */
+            }
+            render();
+        }
     }
 
     if (snapshot_file_path[0]) buffer_write(snapshot_file_path);
     if (output_file[0]) buffer_write(output_file);
-    if (!no_display) { printf("\033[?25h\033[0m\n"); printf("Animation complete.\n"); }
+    if (ops_total == 0) {
+        fprintf(stderr, "diffvim-animator-c: WARNING: no ops were applied\n");
+        fprintf(stderr, "  The timed op stream was empty or contained only comments.\n");
+        fprintf(stderr, "  Did the pipeline stages (compute, postprocess, pace) produce any output?\n");
+        fprintf(stderr, "  Run with: bash scripts/dv_debug.sh <old> <new> to inspect each stage.\n");
+    }
+    disable_raw_mode();
+    if (!no_display) {
+        printf("\033[?25h\033[0m\n");
+        if (user_quit) printf("Animation stopped by user.\n");
+        else printf("Animation complete.\n");
+    }
     return 0;
 }

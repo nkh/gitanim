@@ -223,13 +223,43 @@ int main(int argc, char **argv) {
     int n_lines = 0;
     int cap_lines = 0;
     char buf[MAX_LINE];
+    int ops_seen = 0;
+    int line_no = 0;
 
     while (fgets(buf, sizeof(buf), stdin)) {
+        line_no++;
         buf[strcspn(buf, "\n")] = 0;
         if (buf[0] == 0 || buf[0] == '#') {
             /* Skip headers and blank lines from input */
             continue;
         }
+
+        /* Detect v1 format — space-separated HUNK or "op\tkeep..." prefix */
+        if (strncmp(buf, "HUNK ", 5) == 0) {
+            fprintf(stderr, "diffvim-pace: ERROR: input is v1 format (space-separated HUNK)\n");
+            fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
+            fprintf(stderr, "  Expected v2 TSV format. Pipe through diffvim-postprocess first.\n");
+            exit(1);
+        }
+        if (strncmp(buf, "op\t", 3) == 0) {
+            fprintf(stderr, "diffvim-pace: ERROR: input has 'op\\t<type>...' prefix (v1 format)\n");
+            fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
+            fprintf(stderr, "  v2 format has the type directly: keep\\t<line>\\t<col>\\t<code>\\n");
+            exit(1);
+        }
+        if (strncmp(buf, "newline_delete", 14) == 0 || strncmp(buf, "newline_insert", 14) == 0) {
+            fprintf(stderr, "diffvim-pace: ERROR: input has 'newline_delete'/'newline_insert' op (v1 format)\n");
+            fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
+            fprintf(stderr, "  v2 format uses delete\\t<line>\\t<col>\\t10\\t\\\\n\n");
+            exit(1);
+        }
+        if (strncmp(buf, "hunk_start\t", 11) == 0 || strncmp(buf, "hunk_end", 8) == 0) {
+            fprintf(stderr, "diffvim-pace: ERROR: input has 'hunk_start'/'hunk_end' (v1 format)\n");
+            fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
+            fprintf(stderr, "  v2 format uses 'HUNK' and 'HUNK_END'\n");
+            exit(1);
+        }
+
         if (n_lines >= cap_lines) {
             cap_lines = cap_lines == 0 ? 4096 : cap_lines * 2;
             all_lines = (char **)realloc(all_lines, cap_lines * sizeof(char *));
@@ -237,6 +267,12 @@ int main(int argc, char **argv) {
         }
         all_lines[n_lines] = strdup(buf);
         n_lines++;
+        ops_seen++;
+    }
+
+    if (ops_seen == 0) {
+        fprintf(stderr, "diffvim-pace: WARNING: no ops read from input\n");
+        fprintf(stderr, "  Input was empty or all comments/blank lines.\n");
     }
 
     int i = 0;

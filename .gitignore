@@ -1,1 +1,6 @@
 compute/bin/
+tests/minimal/*.txt
+/tests/minimal/*/raw.txt
+/tests/minimal/*/post.txt
+/tests/minimal/*/timed.txt
+/tests/minimal/*/snap.txt
