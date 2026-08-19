@@ -446,16 +446,24 @@ vector<CharOp> left_to_right(vector<CharOp> ops) {
     size_t i = 0;
     while (i < ops.size()) {
         size_t line_start = i;
+        /* Find end of this line group (up to and including the \n, if any) */
         while (i < ops.size() && ops[i].code != 10) i++;
         size_t line_end = i;
+        /* Emit keeps first */
         for (size_t k = line_start; k < line_end; k++)
             if (ops[k].type == OP_KEEP) out.push_back(ops[k]);
+        /* Then deletes */
         for (size_t k = line_start; k < line_end; k++)
             if (ops[k].type == OP_DELETE) out.push_back(ops[k]);
+        /* Then inserts */
         for (size_t k = line_start; k < line_end; k++)
             if (ops[k].type == OP_INSERT) out.push_back(ops[k]);
+        /* Then the \n itself (if any) */
         if (i < ops.size()) { out.push_back(ops[i]); i++; }
     }
+    /* NOTE: positions (line, col) are recomputed at write time, so the
+     * reordering above is fine — the write code walks the reordered ops
+     * and computes cur_col/cur_line based on the new order. */
     return out;
 }
 

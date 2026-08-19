@@ -68,6 +68,7 @@ REPLAY_TO="HEAD"
 HELP=0
 VERSION=0
 DRY_RUN=0
+SYNC_MODE=0
 WORD_DIFF=0
 STEP_MODE=0
 ADAPTIVE_TIMING=0
@@ -164,7 +165,7 @@ OP_ORDER="${DIFFVIM_OP_ORDER:-optimize}"
 OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
-LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-1}"
+LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-0}"
 ADAPTIVE_WORD_DELETE="${DIFFVIM_ADAPTIVE_WORD_DELETE:-0}"
 ADAPTIVE_WORD_DELETE_THRESHOLD="${DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD:-3}"
 ADAPTIVE_WORD_DELETE_START_CHARS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS:-3}"
@@ -354,6 +355,7 @@ while [[ $# -gt 0 ]]; do
         --replay|-r)        REPLAY_MODE=1; shift ;;
         --version|-V)       VERSION=1; shift ;;
         --dry-run|-d)       DRY_RUN=1; shift ;;
+        --sync)             SYNC_MODE=1; shift ;;
         --word-diff|-w)     WORD_DIFF=1; shift ;;
         --step-mode)        STEP_MODE=1; shift ;;
         --no-startup-pause) NO_STARTUP_PAUSE=1; shift ;;
@@ -762,6 +764,7 @@ export DIFFVIM_SCROLL="$SCROLL_MODE"
 export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
 # MAX_WORD_CHARS is exported after --insert-pacing resolution (below)
 export DIFFVIM_OUTPUT="$OUTPUT_FILE"
+export DIFFVIM_SYNC="$SYNC_MODE"
 export DIFFVIM_CONTEXT="$CONTEXT_LINES"
 export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
@@ -1734,6 +1737,19 @@ function! s:StartTimedAnimation() abort
     call s:LoadTimedOps()
     if empty(s:timed_ops)
         echoerr 'diffvim: timed op stream is empty'
+        return
+    endif
+    " --sync mode: run without timers (for testing/headless use)
+    if exists('$DIFFVIM_SYNC') && !empty($DIFFVIM_SYNC) && $DIFFVIM_SYNC !=# '0'
+        let s:timed_speed = 1000000.0
+        while 1
+            let l:delay = s:TimedProcessBatch()
+            if l:delay == -1
+                break
+            endif
+        endwhile
+        call s:TimedWriteOutput()
+        qa!
         return
     endif
     let s:timed_timer = timer_start(100, function('s:TimedTick'))
