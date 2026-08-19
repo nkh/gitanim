@@ -348,7 +348,10 @@ void write_output(void) {
                     line_has_content = 0;
                 } else if (strcmp(op->type, "delete") == 0) {
                     /* Check if this is a ghost-line pattern:
-                     * line has content AND next ops are content deletes */
+                     * - line has content (kept chars)
+                     * - next ops are content deletes (the joined content)
+                     * - those content deletes are followed by another \n delete
+                     *   or end of hunk (NOT by keeps — keeps mean the join is needed) */
                     if (line_has_content) {
                         /* Count content deletes that follow */
                         int j = i + 1;
@@ -358,17 +361,26 @@ void write_output(void) {
                             j++;
                         int n_content = j - (i + 1);
 
-                        if (n_content > 0) {
-                            /* Ghost-line pattern! Emit content deletes at
-                             * (cur_line+1, 1), then newline_delete at (cur_line+1).
-                             * cur_line stays the same (the next line was removed,
-                             * lines shifted up). line_has_content stays 1 because
-                             * cur_line's content is still there. */
+                        /* Check what comes after the content deletes:
+                         * must be another \n delete or end of hunk (no keeps) */
+                        int followed_by_keep_or_insert = 0;
+                        if (j < n_out) {
+                            if (strcmp(final_ops[j].type, "keep") == 0 ||
+                                strcmp(final_ops[j].type, "insert") == 0) {
+                                followed_by_keep_or_insert = 1;
+                            }
+                        }
+
+                        if (n_content > 0 && !followed_by_keep_or_insert) {
+                            /* Ghost-line pattern! The content deletes completely
+                             * consume the joined content (no keeps after).
+                             * Emit content deletes at (cur_line+1, 1),
+                             * then newline_delete at (cur_line+1). */
                             for (int k = i + 1; k < j; k++)
                                 printf("op\tdelete\t%d\t1\t%d\n", cur_line + 1, final_ops[k].code);
                             printf("newline_delete\t%d\n", cur_line + 1);
                             newl_del++;
-                            /* DON'T reset line_has_content — cur_line still has content */
+                            /* line_has_content stays 1 for chained patterns */
                             i = j;
                             continue;
                         }
