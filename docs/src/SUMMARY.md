@@ -41,6 +41,9 @@
 - [Option Analysis](../OPTIONS_ANALYSIS.md)
 - [Non-Character Options](../NON_CHAR_OPTIONS.md)
 - [Diff Comparison Study](../DIFF_STUDY.md)
+- [API Reference](../API_REFERENCE.md)
+- [Architecture Diagrams](../ARCHITECTURE_DIAGRAMS.md)
+- [FAQ](../FAQ.md)
 
 # Advanced
 
