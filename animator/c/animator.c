@@ -453,75 +453,42 @@ int main(int argc, char **argv) {
 
         char *cmd = toks[0];
 
-        if (strcmp(cmd, "op") == 0 && ntok >= 5) {
-            /* op\t<type>\t<line>\t<col>\t<code> */
-            char *type = toks[1];
-            int op_line = atoi(toks[2]);
-            int op_col = atoi(toks[3]);
-            int code = atoi(toks[4]);
+        /* v2 format: type is first field directly, no "op" prefix */
+        if (strcmp(cmd, "keep") == 0 && ntok >= 4) {
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            int code = atoi(toks[3]);
             set_cursor(op_line, op_col);
-            if (strcmp(type, "keep") == 0) keep_char(code);
-            else if (strcmp(type, "delete") == 0) { delete_char(code); mark_modified(cursor_l); }
-            else if (strcmp(type, "insert") == 0) { insert_char(code); mark_modified(cursor_l); }
+            keep_char(code);
             render();
-        } else if (strcmp(cmd, "delay") == 0 && ntok >= 2) {
-            /* Parse both delay\t<ms> and delay\t<type>\t<ms> */
-            int ms;
-            if (ntok >= 3) {
-                /* Typed delay: delay\t<type>\t<ms> — type is toks[1], ms is toks[2] */
-                ms = atoi(toks[2]);
-                /* Future: apply per-type multiplier here based on toks[1] */
-            } else {
-                /* Untyped delay: delay\t<ms> */
-                ms = atoi(toks[1]);
-            }
+        } else if (strcmp(cmd, "delete") == 0 && ntok >= 4) {
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            int code = atoi(toks[3]);
+            set_cursor(op_line, op_col);
+            delete_char(code);
+            mark_modified(cursor_l);
+            render();
+        } else if (strcmp(cmd, "insert") == 0 && ntok >= 4) {
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            int code = atoi(toks[3]);
+            set_cursor(op_line, op_col);
+            insert_char(code);
+            mark_modified(cursor_l);
+            render();
+        } else if (strcmp(cmd, "delay") == 0 && ntok >= 3) {
+            /* delay\t<ms>\t<type> */
+            int ms = atoi(toks[1]);
             if (speed_mult > 0) ms = (int)(ms / speed_mult);
             if (!no_display) sleep_ms(ms);
-        } else if (strcmp(cmd, "batch_delete") == 0 && ntok >= 4) {
-            int op_line = atoi(toks[1]);
-            int op_col = atoi(toks[2]);
-            int n = atoi(toks[3]);
-            set_cursor(op_line, op_col);
-            batch_delete(n);
-            mark_modified(cursor_l);
-            render();
-        } else if (strcmp(cmd, "batch_insert") == 0 && ntok >= 4) {
-            int op_line = atoi(toks[1]);
-            int op_col = atoi(toks[2]);
-            set_cursor(op_line, op_col);
-            int *codes = NULL; int n = 0; int cap = 0;
-            for (int i = 3; i < ntok; i++) {
-                if (n >= cap) {
-                    cap = cap == 0 ? 16 : cap * 2;
-                    int *new_codes = (int *)realloc(codes, cap * sizeof(int));
-                    if (!new_codes) { fprintf(stderr, "diffvim-animator-c: out of memory (batch_insert)\n"); free(codes); exit(1); }
-                    codes = new_codes;
-                }
-                codes[n++] = atoi(toks[i]);
-            }
-            batch_insert(codes, n);
-            free(codes);
-            mark_modified(cursor_l);
-            render();
-        } else if (strcmp(cmd, "newline_delete") == 0 && ntok >= 2) {
-            int op_line = atoi(toks[1]);
-            set_cursor(op_line, 1);
-            delete_char(10);
-            mark_modified(cursor_l);
-            render();
-        } else if (strcmp(cmd, "newline_insert") == 0 && ntok >= 3) {
-            int op_line = atoi(toks[1]);
-            int op_col = atoi(toks[2]);
-            set_cursor(op_line, op_col);
-            insert_char(10);
-            mark_modified(cursor_l);
-            render();
+        } else if (strcmp(cmd, "HUNK") == 0 || strcmp(cmd, "HUNK_END") == 0) {
+            /* Metadata — no action */
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
         } else if (strcmp(cmd, "done") == 0) {
             break;
         }
-        /* hunk_start, hunk_end, glide (if any) are no-ops for the animator. */
     }
 
     if (snapshot_file_path[0]) buffer_write(snapshot_file_path);

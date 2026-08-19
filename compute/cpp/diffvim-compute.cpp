@@ -32,6 +32,25 @@ enum OpType { OP_KEEP, OP_DELETE, OP_INSERT };
 struct LineOp { OpType type; int a_idx, b_idx; };
 struct CharOp { OpType type; int code; };
 
+/* Convert a char code to its readable representation for the diff format.
+ * Control characters get named representations; printable chars are quoted. */
+string char_repr(int code) {
+    switch (code) {
+        case 10: return "\\n";
+        case 9: return "\\t";
+        case 13: return "\\r";
+        case 32: return "space";
+        default:
+            if (code >= 33 && code <= 126) {
+                string s = "'";
+                s += (char)code;
+                s += "'";
+                return s;
+            }
+            return to_string(code);  /* non-ASCII: just the code */
+    }
+}
+
 struct Hunk {
     int target_line, deleted_count, inserted_count;
     int is_end_insert, is_end_delete;
@@ -761,7 +780,7 @@ int main(int argc, char** argv) {
     auto t_write_start = Clock::now();
     ofstream out(outfile, ios::binary);
     if (!out) { fprintf(stderr, "Cannot write %s\n", outfile.c_str()); return 1; }
-    out << "# diffvim precomputed diff v1\n";
+    out << "# diffvim raw diff v2\n";
     out << "# algorithm patience\n";
     out << "# semantic_cleanup " << (do_semantic ? 1 : 0) << "\n";
     out << "# word_diff " << (do_word_diff ? 1 : 0) << "\n";
@@ -770,14 +789,30 @@ int main(int argc, char** argv) {
     out << "# left_to_right " << (do_l2r ? 1 : 0) << "\n";
     out << "# hunk_count " << hunks.size() << "\n";
     for (auto& h : hunks) {
-        out << "HUNK " << h.target_line << " " << h.deleted_count << " "
-            << h.inserted_count << " " << h.is_end_insert << " " << h.is_end_delete << "\n";
+        out << "HUNK\t" << h.target_line << "\t" << h.deleted_count << "\t"
+            << h.inserted_count << "\t" << h.is_end_insert << "\t" << h.is_end_delete << "\n";
+        /* Track line/col within this hunk. Start at target_line, col 1.
+         * keep/insert advance col; delete stays at same col.
+         * '\n' (code 10) advances line, resets col. */
+        int cur_line = h.target_line;
+        int cur_col = 1;
         for (auto& op : h.char_ops) {
             const char* type = op.type == OP_KEEP ? "keep" :
                                op.type == OP_DELETE ? "delete" : "insert";
-            out << type << " " << op.code << "\n";
+            out << type << "\t" << cur_line << "\t" << cur_col << "\t"
+                << op.code << "\t" << char_repr(op.code) << "\n";
+            if (op.code == 10) {
+                cur_line++;
+                cur_col = 1;
+            } else {
+                if (op.type == OP_KEEP || op.type == OP_INSERT)
+                    cur_col++;
+                /* delete: col stays */
+            }
         }
+        out << "HUNK_END\n";
     }
+    out << "\n";  /* blank line at bottom */
     out.close();
     auto t_write_end = Clock::now();
 

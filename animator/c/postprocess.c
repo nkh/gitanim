@@ -27,7 +27,7 @@
 
 #define MAX_LINE 1048576  // 1MB — was 4096
 
-typedef struct { char type[8]; int code; } Op;
+typedef struct { char type[8]; int code; int line; int col; } Op;
 
 /* Dynamic arrays — grow as needed */
 static Op *ops_in = NULL;
@@ -157,32 +157,52 @@ void read_input(void) {
     int current_hunk = -1;
     while (fgets(line, sizeof(line), stdin)) {
         line[strcspn(line, "\n")] = 0;
-        if (line[0] == '#') {
-            ensure_header_capacity(n_header + 1);
-            strncpy(header[n_header++], line, MAX_LINE - 1);
-            header[n_header - 1][MAX_LINE - 1] = 0;
+        if (line[0] == '#' || line[0] == 0) {
+            if (line[0] == '#') {
+                ensure_header_capacity(n_header + 1);
+                strncpy(header[n_header++], line, MAX_LINE - 1);
+                header[n_header - 1][MAX_LINE - 1] = 0;
+            }
             continue;
         }
-        if (strncmp(line, "HUNK", 4) == 0) {
+        /* TSV tokenize */
+        char *toks[8];
+        int ntok = 0;
+        char *p = line;
+        char *tab = strchr(p, '\t');
+        while (tab && ntok < 7) {
+            *tab = 0;
+            toks[ntok++] = p;
+            p = tab + 1;
+            tab = strchr(p, '\t');
+        }
+        toks[ntok++] = p;
+
+        if (strcmp(toks[0], "HUNK") == 0 && ntok >= 6) {
             ensure_hunks_capacity(n_hunks + 1);
-            int t, d, i, ei, ed;
-            sscanf(line, "HUNK %d %d %d %d %d", &t, &d, &i, &ei, &ed);
-            hunks[n_hunks].target = t; hunks[n_hunks].del = d;
-            hunks[n_hunks].ins = i; hunks[n_hunks].end_ins = ei;
-            hunks[n_hunks].end_del = ed;
+            hunks[n_hunks].target = atoi(toks[1]);
+            hunks[n_hunks].del = atoi(toks[2]);
+            hunks[n_hunks].ins = atoi(toks[3]);
+            hunks[n_hunks].end_ins = atoi(toks[4]);
+            hunks[n_hunks].end_del = atoi(toks[5]);
             hunks[n_hunks].op_start = n_ops;
             hunks[n_hunks].op_count = 0;
             current_hunk = n_hunks;
             n_hunks++;
             continue;
         }
-        if (strncmp(line, "keep", 4) == 0 || strncmp(line, "delete", 6) == 0 || strncmp(line, "insert", 6) == 0) {
-            char type[8]; int code;
-            sscanf(line, "%7s %d", type, &code);
+        if (strcmp(toks[0], "HUNK_END") == 0) {
+            current_hunk = -1;
+            continue;
+        }
+        if ((strcmp(toks[0], "keep") == 0 || strcmp(toks[0], "delete") == 0 ||
+             strcmp(toks[0], "insert") == 0) && ntok >= 4) {
             ensure_ops_capacity(n_ops + 1);
-            strncpy(ops_in[n_ops].type, type, 7);
+            strncpy(ops_in[n_ops].type, toks[0], 7);
             ops_in[n_ops].type[7] = 0;
-            ops_in[n_ops].code = code;
+            ops_in[n_ops].line = atoi(toks[1]);
+            ops_in[n_ops].col = atoi(toks[2]);
+            ops_in[n_ops].code = atoi(toks[3]);
             n_ops++;
             if (current_hunk >= 0) hunks[current_hunk].op_count++;
         }
@@ -272,9 +292,13 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
  * not the original line in the old file.
  */
 void write_output(void) {
-    /* Write header */
+    /* Write header — convert v1 headers to v2, skip obsolete ones */
     for (int i = 0; i < n_header; i++) {
-        if (strncmp(header[i], "# semantic_cleanup", 18) == 0)
+        if (strncmp(header[i], "# diffvim raw diff", 18) == 0) {
+            printf("# diffvim post-processed v2\n");
+        } else if (strncmp(header[i], "# diffvim precomputed", 21) == 0) {
+            printf("# diffvim post-processed v2\n");
+        } else if (strncmp(header[i], "# semantic_cleanup", 18) == 0)
             printf("# semantic_cleanup %d\n", do_semantic);
         else if (strncmp(header[i], "# indent_aware", 14) == 0)
             printf("# indent_aware %d\n", do_indent);
@@ -282,17 +306,19 @@ void write_output(void) {
             printf("# optimize_sequence %d\n", op_order_optimize);
         else if (strncmp(header[i], "# hunk_count", 12) == 0)
             printf("# hunk_count %d\n", n_hunks);
-        else
+        else if (strncmp(header[i], "# word_diff", 11) == 0 ||
+                 strncmp(header[i], "# left_to_right", 15) == 0)
             printf("%s\n", header[i]);
+        /* skip unknown headers */
     }
 
     int line_offset = 0;  /* Cumulative (newline_inserts - newline_deletes) from prior hunks */
 
     int op_idx = 0;
     for (int h = 0; h < n_hunks; h++) {
-        /* hunk_start no longer carries a target line — the position is
-         * implicit in the first op's (line, col). */
-        printf("hunk_start\t%d\t%d\n", hunks[h].del, hunks[h].ins);
+        printf("HUNK\t%d\t%d\t%d\t%d\t%d\n",
+               hunks[h].target, hunks[h].del, hunks[h].ins,
+               hunks[h].end_ins, hunks[h].end_del);
 
         int count = hunks[h].op_count;
         Op *in = &ops_in[op_idx];
@@ -317,6 +343,32 @@ void write_output(void) {
             final_ops = in;
         }
 
+/* Helper: convert char code to readable representation */
+const char *char_repr_c(int code) {
+    static char buf[8];
+    switch (code) {
+        case 10: return "\\n";
+        case 9: return "\\t";
+        case 13: return "\\r";
+        case 32: return "space";
+        default:
+            if (code >= 33 && code <= 126) {
+                buf[0] = '\'';
+                buf[1] = (char)code;
+                buf[2] = '\'';
+                buf[3] = 0;
+                return buf;
+            }
+            snprintf(buf, sizeof(buf), "%d", code);
+            return buf;
+    }
+}
+
+/* Emit an op in TSV format: type\tline\tcol\tcode\tchar_repr */
+void emit_op(const char *type, int line, int col, int code) {
+    printf("%s\t%d\t%d\t%d\t%s\n", type, line, col, code, char_repr_c(code));
+}
+
         /* Compute per-op (line, col) and emit TSV.
          *
          * Ghost-line fix: when delete \n and the line has kept content
@@ -325,14 +377,10 @@ void write_output(void) {
          *
          * 1. Emit the content deletes at (cur_line+1, 1) — targeting the
          *    next line directly (the \n stays, so the next line is separate)
-         * 2. Emit newline_delete at (cur_line+1) — the next line is now
-         *    empty, so remove it (this also removes the \n between the lines)
+         * 2. Emit the \n delete at (cur_line+1) — the next line is now
+         *    empty, so remove it
          * 3. cur_line stays the same (the next line was removed, lines
-         *    shifted up to fill the gap)
-         *
-         * This way: the content of the next line is deleted first (no
-         * visual jump), then the empty next line is removed (the \n is
-         * deleted, merging is implicit). The final buffer is correct. */
+         *    shifted up to fill the gap) */
         int cur_line = hunks[h].target + line_offset;
         int cur_col = 1;
         int newl_ins = 0, newl_del = 0;
@@ -342,27 +390,18 @@ void write_output(void) {
             Op *op = &final_ops[i];
             if (op->code == 10) {
                 if (strcmp(op->type, "keep") == 0) {
-                    printf("op\tkeep\t%d\t%d\t%d\n", cur_line, cur_col, op->code);
+                    emit_op("keep", cur_line, cur_col, op->code);
                     cur_line++;
                     cur_col = 1;
                     line_has_content = 0;
                 } else if (strcmp(op->type, "delete") == 0) {
-                    /* Check if this is a ghost-line pattern:
-                     * - line has content (kept chars)
-                     * - next ops are content deletes (the joined content)
-                     * - those content deletes are followed by another \n delete
-                     *   or end of hunk (NOT by keeps — keeps mean the join is needed) */
                     if (line_has_content) {
-                        /* Count content deletes that follow */
                         int j = i + 1;
                         while (j < n_out &&
                                strcmp(final_ops[j].type, "delete") == 0 &&
                                final_ops[j].code != 10)
                             j++;
                         int n_content = j - (i + 1);
-
-                        /* Check what comes after the content deletes:
-                         * must be another \n delete or end of hunk (no keeps) */
                         int followed_by_keep_or_insert = 0;
                         if (j < n_out) {
                             if (strcmp(final_ops[j].type, "keep") == 0 ||
@@ -370,34 +409,29 @@ void write_output(void) {
                                 followed_by_keep_or_insert = 1;
                             }
                         }
-
                         if (n_content > 0 && !followed_by_keep_or_insert) {
-                            /* Ghost-line pattern! The content deletes completely
-                             * consume the joined content (no keeps after).
-                             * Emit content deletes at (cur_line+1, 1),
-                             * then newline_delete at (cur_line+1). */
+                            /* Ghost-line pattern! */
                             for (int k = i + 1; k < j; k++)
-                                printf("op\tdelete\t%d\t1\t%d\n", cur_line + 1, final_ops[k].code);
-                            printf("newline_delete\t%d\n", cur_line + 1);
+                                emit_op("delete", cur_line + 1, 1, final_ops[k].code);
+                            emit_op("delete", cur_line + 1, 1, 10);  /* \n delete */
                             newl_del++;
-                            /* line_has_content stays 1 for chained patterns */
                             i = j;
                             continue;
                         }
                     }
-                    /* Not a ghost-line pattern — emit normally */
-                    printf("newline_delete\t%d\n", cur_line);
+                    /* Normal \n delete */
+                    emit_op("delete", cur_line, cur_col, 10);
                     newl_del++;
                     line_has_content = 0;
                 } else if (strcmp(op->type, "insert") == 0) {
-                    printf("newline_insert\t%d\t%d\n", cur_line, cur_col);
+                    emit_op("insert", cur_line, cur_col, 10);
                     cur_line++;
                     cur_col = 1;
                     newl_ins++;
                     line_has_content = 0;
                 }
             } else {
-                printf("op\t%s\t%d\t%d\t%d\n", op->type, cur_line, cur_col, op->code);
+                emit_op(op->type, cur_line, cur_col, op->code);
                 if (strcmp(op->type, "keep") == 0) {
                     cur_col++;
                     line_has_content = 1;
@@ -410,9 +444,12 @@ void write_output(void) {
 
         if (op_order_optimize) free(final_ops);
 
+        printf("HUNK_END\n");
+
         line_offset += newl_ins - newl_del;
         op_idx += hunks[h].op_count;
     }
+    printf("\n");  /* blank line at bottom */
 }
 
 /* Process a single hunk: apply transformations and emit TSV output.
