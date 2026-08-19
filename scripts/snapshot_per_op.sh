@@ -18,6 +18,7 @@
 #   --context N      Show only N lines of context around the changed line
 #                    (default: -1 = show whole buffer; 0 = show only the line)
 #   --frame-op       Show a frame/border around each op entry (default: off)
+#   --no-buffer-frame  Remove the thin frame around the buffer (default: on)
 #   --font-size N    Font size in px (default: 14)
 #
 # Output: /tmp/dv_snapshots/snapshots.html
@@ -30,18 +31,20 @@ SHOW_PACING=0
 SHOW_KEEP=0
 CONTEXT=-1
 FRAME_OP=0
+BUFFER_FRAME=1
 FONT_SIZE=14
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --show-pacing)   SHOW_PACING=1; shift ;;
-        --show-keep)     SHOW_KEEP=1; shift ;;
-        --context)       CONTEXT="$2"; shift 2 ;;
-        --context=*)     CONTEXT="${1#--context=}"; shift ;;
-        --frame-op)      FRAME_OP=1; shift ;;
-        --font-size)     FONT_SIZE="$2"; shift 2 ;;
-        --font-size=*)   FONT_SIZE="${1#--font-size=}"; shift ;;
-        *)               break ;;
+        --show-pacing)     SHOW_PACING=1; shift ;;
+        --show-keep)       SHOW_KEEP=1; shift ;;
+        --context)         CONTEXT="$2"; shift 2 ;;
+        --context=*)       CONTEXT="${1#--context=}"; shift ;;
+        --frame-op)        FRAME_OP=1; shift ;;
+        --no-buffer-frame) BUFFER_FRAME=0; shift ;;
+        --font-size)       FONT_SIZE="$2"; shift 2 ;;
+        --font-size=*)     FONT_SIZE="${1#--font-size=}"; shift ;;
+        *)                 break ;;
     esac
 done
 
@@ -101,23 +104,27 @@ fi
         echo '  .entry.meta    { border-left-color: #569cd6; background: #252526; }'
     fi
     echo "  .op-header { font-size: ${FONT_SIZE}px; margin-bottom: 2px; display: flex; gap: 1em; flex-wrap: wrap; }"
-    echo '  .op-num    { color: #858585; min-width: 60px; }'
+    echo '  .op-num    { color: #6a6a6a; min-width: 60px; }'
     echo '  .op-type   { font-weight: bold; min-width: 70px; }'
     echo '  .op-type.keep    { color: #6a9955; }'
-    echo '  .op-type.delete  { color: #f44747; }'
-    echo '  .op-type.insert  { color: #b5cea8; }'
+    echo '  .op-type.delete  { color: #c46666; }'
+    echo '  .op-type.insert  { color: #7cc77c; }'
     echo '  .op-type.delay   { color: #808080; }'
     echo '  .op-type.meta    { color: #569cd6; }'
-    echo '  .op-pos    { color: #9cdcfe; min-width: 120px; }'
-    echo '  .op-char   { color: #ce9178; }'
-    echo '  .op-detail { color: #dcdcaa; }'
-    echo "  .buffer { background: #1e1e1e; padding: 4px 8px; font-size: ${FONT_SIZE}px; line-height: 1.5; white-space: pre; overflow-x: auto; border: 1px solid #3c3c3c; }"
+    echo '  .op-pos    { color: #6a8aa8; min-width: 120px; }'
+    echo '  .op-char   { color: #9a7a5a; }'
+    echo '  .op-detail { color: #8a8060; }'
+    if [[ $BUFFER_FRAME -eq 1 ]]; then
+        echo "  .buffer { background: #1e1e1e; padding: 4px 8px; font-size: ${FONT_SIZE}px; line-height: 1.5; white-space: pre; overflow-x: auto; border: 1px solid #3c3c3c; }"
+    else
+        echo "  .buffer { background: #1e1e1e; padding: 4px 8px; font-size: ${FONT_SIZE}px; line-height: 1.5; white-space: pre; overflow-x: auto; }"
+    fi
     echo '  .buffer-empty { color: #808080; font-style: italic; padding: 6px 10px; }'
     echo "  .line-num { display: inline-block; width: 50px; color: #858585; text-align: right; padding-right: 10px; user-select: none; border-right: 1px solid #3c3c3c; margin-right: 10px; }"
     echo '  .line-highlight { background: #264f78; }'
     echo '  .char-keep   { background: #3a6a3a; color: #fff; }'
-    echo '  .char-delete { background: #8b0000; color: #fff; text-decoration: line-through; }'
-    echo '  .char-insert { background: #2d7a2d; color: #fff; font-weight: bold; }'
+    echo '  .char-delete { background: #6b3030; color: #ddd; }'
+    echo '  .char-insert { background: #2d9a2d; color: #fff; font-weight: bold; }'
     echo "  h1 { font-size: ${FONT_SIZE}px; color: #fff; }"
     echo "  .summary { margin-bottom: 1em; padding: 0.8em; background: #2d2d2d; border: 1px solid #555; font-size: ${FONT_SIZE}px; }"
     echo '  .summary b { color: #9cdcfe; }'
@@ -130,7 +137,7 @@ fi
     echo "  <b>Pacing:</b> $([ $SHOW_PACING -eq 1 ] && echo 'shown' || echo 'hidden')<br>"
     echo "  <b>Keeps:</b> $([ $SHOW_KEEP -eq 1 ] && echo 'shown' || echo 'hidden')<br>"
     echo "  <b>Context:</b> $([ $CONTEXT -eq -1 ] && echo 'whole buffer' || ([ $CONTEXT -eq 0 ] && echo 'changed line' || echo \"${CONTEXT} lines\"))<br>"
-    echo "  <b>Font:</b> ${FONT_SIZE}px, <b>Frame:</b> $([ $FRAME_OP -eq 1 ] && echo on || echo off)"
+    echo "  <b>Font:</b> ${FONT_SIZE}px, <b>Frame:</b> $([ $FRAME_OP -eq 1 ] && echo on || echo off), <b>Buffer frame:</b> $([ $BUFFER_FRAME -eq 1 ] && echo on || echo off)"
     echo '</div>'
 
     snap_idx=0
@@ -147,8 +154,8 @@ fi
             op_detail="target=$f2 del=$f3 ins=$f4 end_ins=$f5 end_del=$rest"
             show_entry=1; show_buffer=0
         elif [[ "$f1" == "HUNK_END" ]]; then
-            op_class="meta"; op_type_label="HUNK_END"
-            show_entry=1; show_buffer=0
+            # HUNK_END is never shown — either another HUNK follows or it's the end
+            continue
         elif [[ "$f1" == "delay" ]]; then
             [[ $SHOW_PACING -eq 0 ]] && continue
             op_class="delay"; op_type_label="delay"; op_detail="${f2}ms (${f3})"
