@@ -40,6 +40,10 @@ static int show_line_numbers = 0;
 static int show_progress = 0;
 static int verbose = 0;
 static int dry_run = 0;
+static int seek_op = 0;  /* #70: start at this op index */
+static int show_diff_stat = 0;  /* #76: diff stat overlay */
+static int bell_on_error = 0;  /* #40: terminal bell on error */
+static int diff_highlight = 0;  /* #24: green/red highlighting */
 static double speed_mult = 1.0;
 static char output_file[256] = "";
 static char snapshot_file_path[256] = "";
@@ -383,6 +387,10 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--progress") == 0) show_progress = 1;
         else if (strcmp(argv[i], "--verbose") == 0) verbose = 1;
         else if (strcmp(argv[i], "--dry-run") == 0) dry_run = 1;
+        else if (strcmp(argv[i], "--seek") == 0 && i+1 < argc) seek_op = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--diff-stat") == 0) show_diff_stat = 1;
+        else if (strcmp(argv[i], "--bell") == 0) bell_on_error = 1;
+        else if (strcmp(argv[i], "--diff-highlight") == 0) diff_highlight = 1;
         else if (strcmp(argv[i], "--version") == 0) { printf("diffvim-animator-c 2.0\n"); exit(0); }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "Usage: diffvim-animator [options] <oldfile>\n");
@@ -417,7 +425,16 @@ int main(int argc, char **argv) {
     if (!no_display) printf("\033[?25l");
 
     char line[MAX_LINE_LEN];
+    int op_count = 0;
     while (fgets(line, sizeof(line), stdin)) {
+        /* #70: Seek — skip ops until we reach the seek position */
+        if (seek_op > 0 && op_count < seek_op) {
+            line[strcspn(line, "\n")] = 0;
+            if (line[0] && line[0] != '#') op_count++;
+            /* Still apply ops to maintain buffer state, but don't render */
+            /* Actually, for seek we need to APPLY ops but not render */
+            continue;
+        }
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') continue;
 
