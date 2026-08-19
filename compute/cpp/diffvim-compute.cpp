@@ -47,12 +47,32 @@ vector<string> read_lines(const string& path) {
     ifstream f(path, ios::binary);
     if (!f) return lines;
     string content((istreambuf_iterator<char>(f)), istreambuf_iterator<char>());
+
+    /* #9: Strip UTF-8 BOM (EF BB BF) from start of file */
+    if (content.size() >= 3 &&
+        (unsigned char)content[0] == 0xEF &&
+        (unsigned char)content[1] == 0xBB &&
+        (unsigned char)content[2] == 0xBF) {
+        content = content.substr(3);
+    }
+
+    /* #8: Normalize line endings — strip \r (from \r\n) */
+    string normalized;
+    normalized.reserve(content.size());
+    for (size_t i = 0; i < content.size(); i++) {
+        if (content[i] == '\r' && i + 1 < content.size() && content[i+1] == '\n')
+            continue;  /* skip \r in \r\n */
+        if (content[i] == '\r')
+            normalized += '\n';  /* standalone \r → \n */
+        else
+            normalized += content[i];
+    }
+    content = normalized;
+
     size_t start = 0;
     for (size_t i = 0; i <= content.size(); i++) {
         if (i == content.size() || content[i] == '\n') {
             size_t len = i - start;
-            /* If at end of buffer and last char was newline, don't emit
-             * trailing empty line — matches vim's readfile(). */
             if (i == content.size() && len == 0 && !lines.empty()) break;
             lines.push_back(content.substr(start, len));
             start = i + 1;

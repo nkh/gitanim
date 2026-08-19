@@ -93,8 +93,16 @@ void load_file(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) { fprintf(stderr, "Cannot open %s\n", path); exit(1); }
     char buf[MAX_LINE_LEN];
+    int first_line = 1;
     while (fgets(buf, sizeof(buf), f)) {
-        buf[strcspn(buf, "\n")] = 0;
+        /* #8: Strip \r (CRLF normalization) */
+        buf[strcspn(buf, "\r\n")] = 0;
+        /* #9: Strip UTF-8 BOM from first line */
+        if (first_line && (unsigned char)buf[0] == 0xEF &&
+            (unsigned char)buf[1] == 0xBB && (unsigned char)buf[2] == 0xBF) {
+            memmove(buf, buf + 3, strlen(buf + 3) + 1);
+        }
+        first_line = 0;
         ensure_lines_capacity(n_lines + 1);
         lines[n_lines++] = strdup(buf);
     }

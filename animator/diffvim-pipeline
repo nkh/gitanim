@@ -212,14 +212,36 @@ if [[ -f "$COLORIZE_TOOL" ]]; then
     COLORIZE_PID=$!
 fi
 
+# #7: Binary file detection — refuse to animate binary files
+for f in "$OLD" "$NEW"; do
+    if [[ -f "$f" ]]; then
+        if head -c 8192 "$f" | grep -qP '\x00'; then
+            echo "diffvim-pipeline: error: binary file detected: $f" >&2
+            echo "  Binary files cannot be animated. Aborting." >&2
+            exit 1
+        fi
+    fi
+done
+
+# #66: Better error messages
+run_stage() {
+    local name="$1"; shift
+    local output_file="$1"; shift
+    if ! "$@" 2>/dev/null > "$output_file"; then
+        echo "diffvim-pipeline: error: stage '$name' failed" >&2
+        echo "  Command: $*" >&2
+        exit 1
+    fi
+}
+
 # Stage 1: Compute
-$COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS" 2>/dev/null
+run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS"
 
 # Stage 2: Postprocess
-$POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" 2>/dev/null > "$WORKDIR/post_ops.txt"
+run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 
 # Stage 3: Pace
-$PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt" 2>/dev/null > "$TIMED_OPS"
+run_stage "pace" "$TIMED_OPS" $PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt"
 
 # Wait for coloring to finish (if still running)
 if [[ -n "$COLORIZE_PID" ]]; then
