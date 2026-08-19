@@ -162,7 +162,7 @@ fi
             show_entry=1; show_buffer=0
         elif [[ "$f1" == "keep" ]]; then
             op_class="keep"; op_type_label="keep"
-            op_line="$f2"; op_col="$f3"; op_char="code=$f4 '$f5'"
+            op_line="$f2"; op_col="$f3"; op_char="code=$f4 $f5"
             snap_file="$OUTDIR/snap_$(printf '%04d' $snap_idx).txt"
             snap_idx=$((snap_idx + 1))
             if [[ $SHOW_KEEP -eq 1 ]]; then
@@ -172,13 +172,13 @@ fi
             fi
         elif [[ "$f1" == "delete" ]]; then
             op_class="delete"; op_type_label="delete"
-            op_line="$f2"; op_col="$f3"; op_char="code=$f4 '$f5'"
+            op_line="$f2"; op_col="$f3"; op_char="code=$f4 $f5"
             snap_file="$OUTDIR/snap_$(printf '%04d' $snap_idx).txt"
             snap_idx=$((snap_idx + 1))
             show_entry=1; show_buffer=1
         elif [[ "$f1" == "insert" ]]; then
             op_class="insert"; op_type_label="insert"
-            op_line="$f2"; op_col="$f3"; op_char="code=$f4 '$f5'"
+            op_line="$f2"; op_col="$f3"; op_char="code=$f4 $f5"
             snap_file="$OUTDIR/snap_$(printf '%04d' $snap_idx).txt"
             snap_idx=$((snap_idx + 1))
             show_entry=1; show_buffer=1
@@ -213,7 +213,7 @@ fi
                     for (i = start; i <= end; i++) {
                         gsub(/&/, "\\&amp;", lines[i])
                         gsub(/</, "\\&lt;", lines[i])
-                        gsub(/>/, "\\&gt;/", lines[i])
+                        gsub(/>/, "\\&gt;", lines[i])
                         if (lines[i] == "") lines[i] = " "
                         if (i == hl_line) {
                             line = lines[i]; len = length(line)
