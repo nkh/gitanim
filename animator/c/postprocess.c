@@ -429,7 +429,7 @@ int process_one_hunk(int target, int del, int ins, int end_ins, int end_del,
 
     Op *temp = ops_out;
     int n_out = count;
-    int need_free_temp = 0;
+    
 
     if (do_semantic) {
         n_out = semantic_cleanup(in_ops, count, temp);

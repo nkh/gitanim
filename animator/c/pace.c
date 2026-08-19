@@ -55,9 +55,9 @@ static int awd_start_ms = 80;
 static int awd_min_ms = 15;
 static double awd_accel = 0.85;
 static int word_pause = 150;
-static int move_min_ms = 250;
-static int move_max_ms = 1600;
-static int move_ms_per_unit = 6;
+static int move_min_ms /* unused */ = 250;
+static int move_max_ms /* unused */ = 1600;
+static int move_ms_per_unit /* unused */ = 6;
 
 /* Dynamic arrays — grow as needed */
 static Hunk *hunks = NULL;
