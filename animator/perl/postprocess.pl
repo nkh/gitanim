@@ -191,43 +191,70 @@ for my $line (@header) {
 }
 
 # Print hunks with per-op (line, col) TSV positions.
+# Ghost-line fix: when delete \n and line has kept content, AND next ops
+# are content deletes followed by another \n delete or end (no keeps),
+# emit content deletes at (line+1, 1) + newline_delete at (line+1).
 for my $hunk (@hunks) {
-    # hunk_start no longer carries a target line — the position is
-    # implicit in the first op's (line, col).
     printf "hunk_start\t%d\t%d\n", $hunk->{del_count}, $hunk->{ins_count};
 
-    my $cur_line = $hunk->{target} + $line_offset;  # 1-indexed
-    my $cur_col = 1;                                # 1-indexed
+    my $cur_line = $hunk->{target} + $line_offset;
+    my $cur_col = 1;
     my ($newl_ins, $newl_del) = (0, 0);
+    my $line_has_content = 0;
+    my $ops = $hunk->{ops};
+    my $i = 0;
+    my $n = @$ops;
 
-    for my $op (@{$hunk->{ops}}) {
-        my ($type, $code) = @$op;
+    while ($i < $n) {
+        my ($type, $code) = @{$ops->[$i]};
         if ($code == 10) {
             if ($type eq 'keep') {
-                # keep \n: cursor advances to next line, col resets.
                 printf "op\tkeep\t%d\t%d\t%d\n", $cur_line, $cur_col, $code;
                 $cur_line++;
                 $cur_col = 1;
+                $line_has_content = 0;
             } elsif ($type eq 'delete') {
-                # newline_delete: the line at cur_line is joined
-                # with the next. Cursor stays at the same line+col.
+                if ($line_has_content) {
+                    # Count content deletes that follow
+                    my $j = $i + 1;
+                    while ($j < $n && $ops->[$j][0] eq 'delete' && $ops->[$j][1] != 10) { $j++; }
+                    my $n_content = $j - ($i + 1);
+                    # Check if followed by keep/insert (join needed)
+                    my $followed_by_keep = 0;
+                    if ($j < $n && ($ops->[$j][0] eq 'keep' || $ops->[$j][0] eq 'insert')) {
+                        $followed_by_keep = 1;
+                    }
+                    if ($n_content > 0 && !$followed_by_keep) {
+                        # Ghost-line pattern!
+                        for my $k ($i+1 .. $j-1) {
+                            printf "op\tdelete\t%d\t1\t%d\n", $cur_line + 1, $ops->[$k][1];
+                        }
+                        printf "newline_delete\t%d\n", $cur_line + 1;
+                        $newl_del++;
+                        $i = $j;
+                        next;
+                    }
+                }
                 printf "newline_delete\t%d\n", $cur_line;
                 $newl_del++;
+                $line_has_content = 0;
             } elsif ($type eq 'insert') {
-                # newline_insert: a new line is inserted AFTER cur_line
-                # at cur_col. Cursor moves to the new line.
                 printf "newline_insert\t%d\t%d\n", $cur_line, $cur_col;
                 $cur_line++;
                 $cur_col = 1;
                 $newl_ins++;
+                $line_has_content = 0;
             }
         } else {
             printf "op\t%s\t%d\t%d\t%d\n", $type, $cur_line, $cur_col, $code;
-            if ($type eq 'keep' || $type eq 'insert') {
+            if ($type eq 'keep') {
+                $cur_col++;
+                $line_has_content = 1;
+            } elsif ($type eq 'insert') {
                 $cur_col++;
             }
-            # delete: cursor stays at the same col.
         }
+        $i++;
     }
 
     $line_offset += $newl_ins - $newl_del;
