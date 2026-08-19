@@ -1487,7 +1487,7 @@ function! s:TimedPlaceCursor() abort
     if l:lc > l:len + 1 | let l:lc = l:len + 1 | endif
     if l:lc < 1 | let l:lc = 1 | endif
     let l:byte_col = byteidx(l:line, l:lc - 1) + 1
-    if l:byte_col < 1 | let l:byte_col = 1 | endif
+    if l:byte_col < 1 | let l:byte_col = strlen(l:line) + 1 | endif
     call cursor(l:ll, l:byte_col)
     let l:win_top = line('w0')
     let l:win_bot = line('w$')
@@ -1514,6 +1514,7 @@ function! s:TimedInsertChar(code) abort
     if a:code == 10
         let l:line = getline(s:cur_l)
         let l:byte = byteidx(l:line, s:cur_c - 1)
+        if l:byte < 0 | let l:byte = strlen(l:line) | endif
         let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
         let l:after = strpart(l:line, l:byte)
         call setline(s:cur_l, l:before)
@@ -1524,6 +1525,7 @@ function! s:TimedInsertChar(code) abort
         let l:ch = nr2char(a:code)
         let l:line = getline(s:cur_l)
         let l:byte = byteidx(l:line, s:cur_c - 1)
+        if l:byte < 0 | let l:byte = strlen(l:line) | endif
         let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
         let l:after = strpart(l:line, l:byte)
         call setline(s:cur_l, l:before . l:ch . l:after)
@@ -1547,6 +1549,7 @@ function! s:TimedDeleteChar(code) abort
     else
         let l:line = getline(s:cur_l)
         let l:byte = byteidx(l:line, s:cur_c - 1)
+        if l:byte < 0 | let l:byte = strlen(l:line) | endif
         if l:byte < strlen(l:line)
             let l:next = byteidx(l:line, s:cur_c)
             if l:next < 0 | let l:next = strlen(l:line) | endif
