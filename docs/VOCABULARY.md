@@ -106,3 +106,14 @@
 ## TSV
 
 All intermediary files use **tab-separated values** (TSV). Fields are separated by `\t`. Every file ends with a blank line.
+
+## Delay Types (updated names)
+
+| Type | Description | When inserted |
+|------|-------------|---------------|
+| `char` | Per-character (normal typing speed) | After each keep or insert |
+| `word` | After completing a word | After a batch of inserts forming a word |
+| `hunk` | Between hunks | After HUNK_END, before next HUNK |
+| `awd_slow` | AWD: initial slow chars | First 3 chars of a delete run |
+| `awd_fast` | AWD: accelerated word batches | After word batches in a delete run |
+| `awd_skip` | AWD: spaces deleted instantly | After deleting spaces |
