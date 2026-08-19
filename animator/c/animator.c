@@ -36,6 +36,10 @@ static int cursor_l = 0; /* 0-indexed */
 static int cursor_c = 0; /* 0-indexed */
 
 static int no_display = 0;
+static int show_line_numbers = 0;
+static int show_progress = 0;
+static int verbose = 0;
+static int dry_run = 0;
 static double speed_mult = 1.0;
 static char output_file[256] = "";
 static char snapshot_file_path[256] = "";
@@ -310,18 +314,23 @@ void render(void) {
         if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
             colored = colormap_old[i];
         if (colored) {
+            if (show_line_numbers) printf("%4d ", i + 1);
             if (i == cursor_l)
                 printf("\033[7m%s\033[0m\n", colored);
             else
                 printf("%s\n", colored);
         } else {
+            if (show_line_numbers) printf("%4d ", i + 1);
             if (i == cursor_l)
                 printf("\033[7m%s\033[0m\n", lines[i]);
             else
                 printf("%s\n", lines[i]);
         }
     }
-    printf("\033[%d;%dH", cursor_l + 1, cursor_c + 1);
+    if (show_progress) {
+        printf("\033[%d;1H\033[2K[progress]\n", (n_lines > 40 ? 40 : n_lines) + 1);
+    }
+    printf("\033[%d;%dH", cursor_l + 1, cursor_c + 1 + (show_line_numbers ? 5 : 0));
     fflush(stdout);
 }
 
@@ -362,16 +371,38 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc) strncpy(snapshot_file_path, argv[++i], 255);
         else if (strcmp(argv[i], "--colormap-old") == 0 && i+1 < argc) strncpy(colormap_old_path, argv[++i], 255);
         else if (strcmp(argv[i], "--colormap-new") == 0 && i+1 < argc) strncpy(colormap_new_path, argv[++i], 255);
+        else if (strcmp(argv[i], "--line-numbers") == 0) show_line_numbers = 1;
+        else if (strcmp(argv[i], "--progress") == 0) show_progress = 1;
+        else if (strcmp(argv[i], "--verbose") == 0) verbose = 1;
+        else if (strcmp(argv[i], "--dry-run") == 0) dry_run = 1;
+        else if (strcmp(argv[i], "--version") == 0) { printf("diffvim-animator-c 2.0\n"); exit(0); }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "Usage: diffvim-animator [options] <oldfile>\n");
-            fprintf(stderr, "  --colormap-old FILE  ANSI-colored lines for old file (syntax highlighting)\n");
-            fprintf(stderr, "  --colormap-new FILE  ANSI-colored lines for new file (for inserts)\n");
+            fprintf(stderr, "  --colormap-old FILE  ANSI-colored lines for old file\n");
+            fprintf(stderr, "  --colormap-new FILE  ANSI-colored lines for new file\n");
+            fprintf(stderr, "  --line-numbers       Show line numbers in the margin\n");
+            fprintf(stderr, "  --progress           Show progress bar at bottom\n");
+            fprintf(stderr, "  --verbose            Show timing info on stderr\n");
+            fprintf(stderr, "  --dry-run            Show what would be animated without running\n");
+            fprintf(stderr, "  --version            Print version and exit\n");
             exit(0);
         } else if (argv[i][0] != '-') strncpy(old_file_path, argv[i], 255);
     }
 
     if (!old_file_path[0]) { fprintf(stderr, "Error: oldfile required\n"); exit(1); }
     load_file(old_file_path);
+    if (verbose) fprintf(stderr, "diffvim-animator: loaded %d lines from %s\n", n_lines, old_file_path);
+    if (dry_run) {
+        fprintf(stderr, "diffvim-animator: dry run — %d lines loaded, reading timed op stream...\n", n_lines);
+        /* Count ops */
+        int op_count = 0;
+        char dl[1048576];
+        while (fgets(dl, sizeof(dl), stdin)) {
+            if (dl[0] && dl[0] != '#' && dl[0] != '\n') op_count++;
+        }
+        fprintf(stderr, "diffvim-animator: %d ops in stream, would animate\n", op_count);
+        return 0;
+    }
     if (colormap_old_path[0]) load_colormap(colormap_old_path, &colormap_old, &colormap_old_count);
     if (colormap_new_path[0]) load_colormap(colormap_new_path, &colormap_new, &colormap_new_count);
     line_modified = NULL; // will grow dynamically via mark_modified
