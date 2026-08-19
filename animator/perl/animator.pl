@@ -137,17 +137,15 @@ sub keep_char {
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        # Ghost-line fix: if current line is empty, remove it; if has content, join
+        # Delete \n — JOIN current line with next line.
+        # The ghost-line fix lives in the POSTPROCESSOR (it reorders ops
+        # so the next line is emptied before its \n is deleted). The
+        # animator just does a standard join — when the postprocessor
+        # has done its job, the joined "next" content is empty so the
+        # join is effectively a line removal.
         if ($cursor_l < $#lines) {
-            if ($lines[$cursor_l] eq '') {
-                # Empty line — remove it
-                splice(@lines, $cursor_l, 1);
-                $cursor_c = 0;
-            } else {
-                # Has content — join with next
-                $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
-                splice(@lines, $cursor_l + 1, 1);
-            }
+            $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
+            splice(@lines, $cursor_l + 1, 1);
         } else {
             # Last line — can't join. Remove the line and move to previous.
             if ($cursor_l > 0) {

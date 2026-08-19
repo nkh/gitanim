@@ -2,8 +2,20 @@
 # compute_builtin.pl — Pure-Perl fallback for diffvim-compute-cpp.
 #
 # Used by diffvim-pipeline (and the diffvim bash launcher, if desired) when
-# the C++ compute binary is not available. Produces byte-identical output
-# to compute/bin/diffvim-compute-cpp via the DiffVim::Parser::Perl module.
+# the C++ compute binary is not available. Produces v2 TSV output that is
+# byte-identical to compute/bin/diffvim-compute-cpp via the DiffVim::Parser::Perl
+# module.
+#
+# v2 TSV output format (tab-separated, 1-indexed line/col):
+#   # diffvim raw diff v2
+#   # algorithm <patience|lcs>
+#   # hunk_count <N>
+#   HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>
+#   keep\t<line>\t<col>\t<code>\t<char_repr>
+#   delete\t<line>\t<col>\t<code>\t<char_repr>
+#   insert\t<line>\t<col>\t<code>\t<char_repr>
+#   HUNK_END
+#   (blank line at end)
 #
 # Usage:
 #   perl compute_builtin.pl <oldfile> <newfile> <outputfile> [--algorithm lcs|patience]
@@ -11,6 +23,9 @@
 # Notes:
 #   - This is slower than the C++ tool but produces the same op stream.
 #   - Myers is not supported (it was removed from the project).
+#   - Positions (line, col) are computed by walking the diff buffer the
+#     same way the C++ tool does — the postprocessor will recompute
+#     them anyway, but the raw op stream includes them for traceability.
 
 use strict;
 use warnings;
@@ -58,8 +73,21 @@ my $result = parse_diff($oldfile, $newfile, {
 
 my @hunks = @{$result->{hunks}};
 
+# Convert char code to readable representation, matching the C++ tool.
+sub char_repr {
+    my ($code) = @_;
+    return "\\n"  if $code == 10;
+    return "\\t"  if $code == 9;
+    return "\\r"  if $code == 13;
+    return "space" if $code == 32;
+    if ($code >= 33 && $code <= 126) {
+        return "'" . chr($code) . "'";
+    }
+    return "$code";
+}
+
 open my $out, '>:raw', $outfile or die "Cannot write $outfile: $!";
-print $out "# diffvim precomputed diff v1\n";
+print $out "# diffvim raw diff v2\n";
 print $out "# algorithm $algorithm\n";
 print $out "# semantic_cleanup 0\n";
 print $out "# word_diff 0\n";
@@ -69,12 +97,34 @@ print $out "# left_to_right 0\n";
 print $out "# hunk_count " . scalar(@hunks) . "\n";
 
 for my $h (@hunks) {
-    print $out "HUNK $h->{target_line} $h->{deleted_count} $h->{inserted_count} $h->{is_end_insert} $h->{is_end_delete}\n";
+    print $out "HUNK\t$h->{target_line}\t$h->{deleted_count}\t$h->{inserted_count}\t$h->{is_end_insert}\t$h->{is_end_delete}\n";
+
+    # Walk the ops and compute (line, col) for each op, mirroring the
+    # C++ compute tool: cursor starts at (target, 1). keep/insert
+    # advance col; delete stays at same col. Any op with code 10
+    # (newline — keep, delete, or insert) advances line, resets col.
+    my $cur_line = $h->{target_line};
+    my $cur_col = 1;
+
     for my $op (@{$h->{char_ops}}) {
         my $code = ($op->{code} =~ /^\d+$/) ? $op->{code} : ord($op->{code});
-        print $out "$op->{op} $code\n";
+        my $type = $op->{op};   # keep | delete | insert
+
+        printf $out "%s\t%d\t%d\t%d\t%s\n", $type, $cur_line, $cur_col, $code, char_repr($code);
+
+        if ($code == 10) {
+            $cur_line++;
+            $cur_col = 1;
+        } else {
+            if ($type eq 'keep' || $type eq 'insert') {
+                $cur_col++;
+            }
+            # delete: cursor col unchanged (next char shifts into this col).
+        }
     }
+    print $out "HUNK_END\n";
 }
+print $out "\n";  # blank line at bottom
 close $out;
 
 if ($t_start) {

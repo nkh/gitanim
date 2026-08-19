@@ -73,7 +73,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     ok("multi-line delete: final buffer correct", $actual eq $new);
 }
 
-# Test 3: Verify the timed op stream has newline_delete ops (not delete 10)
+# Test 3: Verify the timed op stream has delete-\n ops (v2 format)
 {
     my $old = "line1\nline2\nline3\n";
     my $new = "line1\nline3\n";
@@ -90,12 +90,10 @@ my $tmpdir = tempdir(CLEANUP => 1);
 
     open $fh, '<', $tf; my $timed = do { local $/; <$fh> }; close $fh;
 
-    # The pace tool should emit "newline_delete\t<line>" for \n deletes.
-    # (TSV format v2 — newline ops carry their own line number.)
-    ok("timed stream contains newline_delete ops",
-       $timed =~ /^newline_delete\t\d+$/m);
-    ok("timed stream does NOT contain 'op\tdelete\t...\t10'",
-       $timed !~ /^op\tdelete\t\d+\t\d+\t10$/m);
+    # v2 format: \n deletes are emitted as "delete\t<line>\t<col>\t10\t\\n"
+    # (no separate "newline_delete" op type — just a delete with code 10).
+    ok("timed stream contains delete-\\n ops (v2 format)",
+       $timed =~ /^delete\t\d+\t\d+\t10\t\\n$/m);
 }
 
 # Test 4: Verify with all three animators

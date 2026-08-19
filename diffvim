@@ -1445,27 +1445,23 @@ let g:diffvim = extend({
 " This bypasses ALL the in-vim compute/postprocess/pace code below — the
 " vimscript engine only handles the ANIMATE stage.
 "
-" The timed op stream format (v2 TSV):
-"   op\t<type>\t<line>\t<col>\t<code>    — apply an op (keep/delete/insert)
-"   delay\t<type>\t<ms>                  — wait ms (type is for future use)
-"   batch_delete\t<line>\t<col>\t<count> — delete N chars
-"   batch_insert\t<line>\t<col>\t<c1>...  — insert multiple chars
-"   newline_delete\t<line>                — delete \n (join lines)
-"   newline_insert\t<line>\t<col>         — insert \n (split line)
-"   hunk_start\t<del>\t<ins>              — metadata
-"   hunk_end                              — metadata
-"   snapshot\t<file>                      — write buffer to file
-"   done                                  — end of stream
-
-if exists('$DIFFVIM_TIMED_OPS') && !empty($DIFFVIM_TIMED_OPS) && filereadable($DIFFVIM_TIMED_OPS)
-
-" Timed op stream animator (v2 TSV format)
+" The timed op stream format (v2 TSV, tab-separated, 1-indexed line/col):
+"   keep\t<line>\t<col>\t<code>\t<char_repr>     — keep a char (advance cursor)
+"   delete\t<line>\t<col>\t<code>\t<char_repr>   — delete a char (\n joins lines)
+"   insert\t<line>\t<col>\t<code>\t<char_repr>   — insert a char (\n splits line)
+"   delay\t<ms>\t<type>                          — wait ms (type for instrumentation)
+"   HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>  — hunk metadata
+"   HUNK_END                                     — hunk end metadata
+"   snapshot\t<file>                             — write buffer to file
+"   done                                         — end of stream
 "
 " Anti-flash design:
-"   1. NO redraw! — use redraw (incremental) only at delay boundaries
-"   2. keep ops don't render at all — only advance cursor
-"   3. Process all ops between delays in one pass, then redraw once
+"   1. keep ops don't render — only advance cursor
+"   2. delete/insert ops set s:needs_redraw=1 but DON'T redraw immediately
+"   3. Process all ops between delays in one pass, then redraw ONCE
 "   4. Single timer per delay, no polling loop
+
+if exists('$DIFFVIM_TIMED_OPS') && !empty($DIFFVIM_TIMED_OPS) && filereadable($DIFFVIM_TIMED_OPS)
 
 let s:timed_ops = []
 let s:timed_idx = 0
@@ -1538,16 +1534,15 @@ endfunction
 
 function! s:TimedDeleteChar(code) abort
     if a:code == 10
+        " Delete \n — JOIN current line with next line.
+        " The ghost-line fix lives in the POSTPROCESSOR (it reorders ops
+        " so the next line is emptied before its \n is deleted). The
+        " animator just does a standard join.
         if s:cur_l < line('$')
             let l:cur = getline(s:cur_l)
-            if l:cur ==# ''
-                execute s:cur_l . 'delete _'
-                let s:cur_c = 1
-            else
-                let l:next = getline(s:cur_l + 1)
-                call setline(s:cur_l, l:cur . l:next)
-                execute s:cur_l + 1 . 'delete _'
-            endif
+            let l:next = getline(s:cur_l + 1)
+            call setline(s:cur_l, l:cur . l:next)
+            execute s:cur_l + 1 . 'delete _'
         elseif s:cur_l > 1
             execute s:cur_l . 'delete _'
             let s:cur_l -= 1
@@ -1647,20 +1642,37 @@ function! s:TimedProcessBatch() abort
     return -1
 endfunction
 
+function! s:TimedWriteOutput() abort
+    if empty(g:diffvim.output_file)
+        return
+    endif
+    " Handle the empty-buffer case (all content was deleted): write an
+    " empty file rather than a file containing just a newline.
+    if line('$') == 1 && getline(1) ==# ''
+        " Delete the only line so the buffer is truly empty, then write
+        " with noeol to produce a 0-byte file.
+        1,$delete _
+        call setline(1, '')
+        setlocal noeol nomodified
+        call writefile([], g:diffvim.output_file, 'b')
+        return
+    endif
+    " Otherwise: respect the new file's trailing-newline convention.
+    let l:bytes = readfile(g:diffvim_new_file, 'b')
+    if !empty(l:bytes)
+        let l:last = l:bytes[-1]
+        if l:last !~# "\\n$" && l:last !~# "\\r$"
+            setlocal noeol
+        endif
+    endif
+    execute 'w! ' . g:diffvim.output_file
+endfunction
+
 function! s:TimedTick(timer) abort
     if s:timed_stopped
         call timer_stop(s:timed_timer)
         let s:timed_timer = -1
-        if !empty(g:diffvim.output_file)
-            let l:bytes = readfile(g:diffvim_new_file, 'b')
-            if !empty(l:bytes)
-                let l:last = l:bytes[-1]
-                if l:last !~# "\\n$" && l:last !~# "\\r$"
-                    setlocal noeol
-                endif
-            endif
-            execute 'w! ' . g:diffvim.output_file
-        endif
+        call s:TimedWriteOutput()
         return
     endif
 
@@ -1669,16 +1681,7 @@ function! s:TimedTick(timer) abort
     if l:delay == -1
         call timer_stop(s:timed_timer)
         let s:timed_timer = -1
-        if !empty(g:diffvim.output_file)
-            let l:bytes = readfile(g:diffvim_new_file, 'b')
-            if !empty(l:bytes)
-                let l:last = l:bytes[-1]
-                if l:last !~# "\\n$" && l:last !~# "\\r$"
-                    setlocal noeol
-                endif
-            endif
-            execute 'w! ' . g:diffvim.output_file
-        endif
+        call s:TimedWriteOutput()
         return
     endif
 
@@ -1706,8 +1709,8 @@ endif
 
 __DIFFVIM_VIMSCRIPT_EOF__
 
-" The external pipeline (diffvim-compute-cpp, diffvim-postprocess, diffvim-pace)
-" now handles all diff computation. This engine only animates the result.
+# The external pipeline (diffvim-compute-cpp, diffvim-postprocess, diffvim-pace)
+# now handles all diff computation. This engine only animates the result.
 
 # Find vim runtime directory for syntax files (used in --no-vimrc mode)
 VIM_RUNTIME=""

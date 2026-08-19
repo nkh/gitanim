@@ -360,13 +360,12 @@ sub indent_aware {
 
 # Reorder ops within each line based on the op-order mode.
 # A "line" is delimited by keep-\n, delete-\n, or insert-\n (code 10).
+# Mirrors the C postprocess: split at \n, reorder each line group
+# (content deletes, \n deletes, then inserts). No special merging.
 sub reorder_ops {
     my ($ops, $mode) = @_;
 
-    # Group ops by line. Split at \n, BUT if a line group is just
-    # a single delete-\n (code 10) and the next group starts with
-    # more deletes, merge them — the \n belongs to the line BEFORE
-    # the content, so we move it AFTER the content deletes.
+    # Group ops by line. Each line group includes its trailing \n.
     my @lines;
     my @current;
     for my $op (@$ops) {
@@ -377,21 +376,6 @@ sub reorder_ops {
         }
     }
     push @lines, [@current] if @current;
-
-    # Merge single delete-\n groups with the next group
-    my @merged;
-    for my $i (0 .. $#lines) {
-        if ($i < $#lines
-            && scalar(@{$lines[$i]}) == 1
-            && $lines[$i][0][0] eq 'delete'
-            && $lines[$i][0][1] == 10) {
-            # Merge this \n into the next group, at the end
-            push @{$lines[$i+1]}, $lines[$i][0];
-        } else {
-            push @merged, $lines[$i];
-        }
-    }
-    @lines = @merged;
 
     # Reorder each line
     my @result;

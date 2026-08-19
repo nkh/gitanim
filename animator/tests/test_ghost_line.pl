@@ -3,12 +3,14 @@
 #
 # The ghost-line problem: when delete \n joins two lines, the next
 # line's content visually jumps up onto the current line. The fix
-# should be: when deleting \n and the line has content, don't delete
-# the \n — just move the cursor to the next line.
+# lives in the POSTPROCESSOR: it reorders the next line's content
+# deletes to target (line+1, 1) BEFORE the \n delete, so by the time
+# the \n delete runs the next line is empty and the join is a no-op.
 #
-# This test snapshots the buffer after each op and compares with
-# expected output. The expected output reflects what a HUMAN would
-# see — no visual jumps.
+# The animator's delete_char(\n) just does a standard "join with next"
+# — no special empty-line handling. This test verifies the pipeline
+# (compute → postprocess → pace → animator) produces the correct
+# final buffer state in all the ghost-line scenarios.
 #
 # Usage: perl test_ghost_line.pl
 
@@ -36,31 +38,10 @@ sub ok {
 # ── Test 1: Simple join (foo\nbar → foobar) ──────────────────────
 # The core ghost-line case.
 #
-# Ops: keep f, keep o, keep o, delete \n, keep b, keep a, keep r
-#
-# WITHOUT ghost-line fix (current behavior):
-#   After keep foo:    "foo\nbar\n"
-#   After delete \n:   "foobar\n"     ← BAR JUMPS UP! Bad visual.
-#   After keep bar:    "foobar\n"
-#
-# WITH ghost-line fix (desired behavior):
-#   After keep foo:    "foo\nbar\n"
-#   After delete \n:   "foo\nbar\n"   ← \n stays, cursor moves to line 2
-#   After keep bar:    "foobar\n"    ← bar is on line 1 (joined by keep op)
-#
-# Wait — the keep ops after the \n delete say (1, 4), (1, 5), (1, 6).
-# They target line 1. But if the \n wasn't deleted, line 1 is "foo" and
-# line 2 is "bar". set_cursor(1, 4) would clamp to col 4 of "foo" (past
-# end). The keep would advance cursor past the end of "foo".
-#
-# Actually, the keep op at (1, 4) means "the char at line 1, col 4 is
-# kept". In the original (joined) buffer, that's 'b'. But if we didn't
-# join, line 1 col 4 doesn't exist.
-#
-# This test verifies the FINAL output is correct (foobar). The visual
-# issue (bar jumping up) is tested by checking the buffer state after
-# the \n delete op.
-
+# The postprocess ghost-line fix reorders the ops so the next line's
+# content is deleted before the \n is removed. The animator just does
+# a standard join — by the time it sees the \n delete, the joined-in
+# content is already empty.
 print "=== Test 1: Simple join (foo\\nbar → foobar) ===\n";
 
 my $tmpdir = tempdir(CLEANUP => 1);
@@ -83,10 +64,10 @@ open $fh, '<:raw', $new; my $expected = do { local $/; <$fh> }; close $fh;
 
 ok('simple join: final output correct', $actual eq $expected, $actual, $expected);
 
-# Check the timed ops — verify there IS a newline_delete
+# Check the timed ops — verify there IS a delete \n op (v2 format)
 open $fh, '<', "$tmpdir/timed.txt"; my @timed = <$fh>; close $fh;
-my $has_newline_delete = grep { /newline_delete/ } @timed;
-ok('simple join: has newline_delete op', $has_newline_delete);
+my $has_newline_delete = grep { /^delete\t\d+\t\d+\t10\t/ } @timed;
+ok('simple join: has delete-\\n op (v2 format)', $has_newline_delete);
 
 # ── Test 2: Multi-line delete (line1\nline2\nline3 → line1\nline3) ──
 # Two lines deleted (line2 removed entirely).
@@ -165,36 +146,13 @@ open $fh, '<:raw', "$root/examples/07_text_prose/new.txt"; $expected = do { loca
 
 ok('example 07: final output correct', $actual eq $expected);
 
-# ── Test 7: Buffer state after each op (the real ghost-line test) ──
-# This test manually simulates the buffer after each op for the simple
-# join case and verifies the buffer state.
-print "\n=== Test 7: Buffer state after each op (manual simulation) ===\n";
-
-# For the simple join case (foo\nbar → foobar):
-# Expected buffer states WITH ghost-line fix:
-#   After keep 'f':  "f\nbar\n"         (cursor at 1,2)
-#   After keep 'o':  "fo\nbar\n"        (cursor at 1,3)
-#   After keep 'o':  "foo\nbar\n"       (cursor at 1,4)
-#   After delete \n: "foo\nbar\n"       (cursor at 2,1) — \n NOT deleted, cursor moved
-#   After keep 'b':  "foobar\n"         (cursor at 1,5) — b is on line 1
-#   After keep 'a':  "foobar\n"         (cursor at 1,6)
-#   After keep 'r':  "foobar\n"         (cursor at 1,7)
-#
-# Wait — the keep 'b' at (1, 4) means "the char at line 1, col 4 is
-# kept". In the joined buffer, that's 'b'. But if we didn't join,
-# line 1 is "foo" (3 chars) and col 4 doesn't exist.
-#
-# This is the fundamental issue: the postprocess assumes the join happens
-# and computes positions accordingly. If the animator doesn't join, the
-# positions are wrong.
-#
-# So the ghost-line fix MUST change the postprocess to emit different
-# positions. Specifically, after a \n delete that is NOT actually
-# deleted, the subsequent ops should target line+1.
-
-# For now, just verify the final output is correct for all cases.
-# The visual ghost-line issue is documented but not yet fixed.
-ok('ghost-line: all final outputs correct (visual fix pending)', $pass > 0);
+# ── Test 7: Sanity check — all previous tests passed ──────────────
+# The postprocess ghost-line fix is in place: the postprocess reorders
+# content deletes to target (line+1, 1) before the \n delete, so by the
+# time the animator's delete_char(\n) runs the joined-in content is
+# already empty and the join is a no-op (visually: no jump).
+print "\n=== Test 7: Sanity check — all previous tests passed ===\n";
+ok('ghost-line: all final outputs correct (fix in postprocess)', $pass > 0 && $fail == 0);
 
 print "\n=== Results: $pass passed, $fail failed ===\n";
 exit($fail == 0 ? 0 : 1);

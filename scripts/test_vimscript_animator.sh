@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# test_vimscript_animator.sh — Test the vimscript animator (timed-op-stream reader)
+# in headless mode by extracting the engine, patching it to be synchronous
+# (no timers), and running it against pre-computed timed op streams.
+#
+# This complements verify_md5.sh, which tests the C and Perl pipelines.
+# Together they cover all three animator implementations (C, Perl, vimscript).
+#
+# Usage: bash test_vimscript_animator.sh [example_dir]
+#   With no argument, tests all examples.
+
+set -uo pipefail
+ROOT=/home/z/my-project/gitanim
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+# --- Extract the vimscript engine from the diffvim launcher ---
+ENG="$TMPDIR/engine.vim"
+perl -e '
+    open my $fh, "<", "/home/z/my-project/gitanim/diffvim" or die;
+    my $in = 0; my @L;
+    while (my $line = <$fh>) {
+        if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }
+        if ($line =~ /^__DIFFVIM_VIMSCRIPT_EOF__$/) { last; }
+        push @L, $line if $in;
+    }
+    close $fh;
+    open my $ofh, ">", $ARGV[0] or die;
+    print $ofh join("", @L);
+    close $ofh;
+' "$ENG"
+
+# --- Patch the engine: replace s:StartTimedAnimation with a synchronous
+#     version that doesn't use timers. ---
+perl -i -pe '
+    if (/^let s:timed_timer = timer_start\(.*$/) {
+        $_ = "";  # remove this line
+    }
+' "$ENG"
+
+# Replace s:StartTimedAnimation with a synchronous version
+perl -i -0pe '
+    s/function! s:StartTimedAnimation\(\) abort.*?^endfunction//ms;
+' "$ENG"
+
+cat >> "$ENG" <<'VIM'
+
+" Synchronous test runner — processes all ops without using timers.
+" This is patched in by test_vimscript_animator.sh for headless testing.
+function! s:StartTimedAnimation() abort
+    call s:LoadTimedOps()
+    if empty(s:timed_ops)
+        echoerr 'diffvim: timed op stream is empty'
+        return
+    endif
+    let s:timed_speed = 1000000.0  " super fast — delays become ~0ms
+    while 1
+        let l:delay = s:TimedProcessBatch()
+        if l:delay == -1
+            break
+        endif
+    endwhile
+    " Write the final buffer to g:diffvim.output_file (re-uses the
+    " real helper, which handles the empty-buffer case correctly).
+    call s:TimedWriteOutput()
+endfunction
+call s:StartTimedAnimation()
+qa!
+VIM
+
+# --- Test runner ---
+pass=0
+fail=0
+total=0
+
+if [[ $# -ge 1 ]]; then
+    examples=("$1")
+else
+    examples=( $(ls "$ROOT/examples" | grep '^[0-9]*_' | sort) )
+fi
+
+for d in "${examples[@]}"; do
+    # Strip any "examples/" prefix the caller might have passed
+    d="${d#examples/}"
+    # Find example directory
+    if [[ -d "$ROOT/examples/$d" ]]; then
+        dirpath="$ROOT/examples/$d"
+    elif [[ -d "$d" ]]; then
+        dirpath="$d"
+    else
+        continue
+    fi
+    old=$(ls "$dirpath"/old.* 2>/dev/null | head -1)
+    new=$(ls "$dirpath"/new.* 2>/dev/null | head -1)
+    [[ -f "$old" && -f "$new" ]] || continue
+    total=$((total + 1))
+
+    # Pre-compute timed ops using the C pipeline
+    raw="$TMPDIR/raw.txt"
+    post="$TMPDIR/post.txt"
+    timed="$TMPDIR/timed.txt"
+    out="$TMPDIR/out.txt"
+    rm -f "$out"
+
+    "$ROOT/compute/bin/diffvim-compute-cpp" "$old" "$new" "$raw" 2>/dev/null
+    "$ROOT/animator/bin/diffvim-postprocess" < "$raw" > "$post" 2>/dev/null
+    "$ROOT/animator/bin/diffvim-pace" < "$post" > "$timed" 2>/dev/null
+
+    # Run vim headless with the patched engine
+    DIFFVIM_TIMED_OPS="$timed" \
+    DIFFVIM_OUTPUT="$out" \
+    DIFFVIM_SPEED=1000000 \
+    timeout -k 5 60 vim -e -s -n -Nu NONE -U NONE \
+        -c "let g:diffvim_new_file = '$new'" \
+        -c "source $ENG" \
+        "$old" </dev/null >/dev/null 2>&1
+
+    if [[ -f "$out" ]] && diff -q "$new" "$out" >/dev/null 2>&1; then
+        pass=$((pass + 1))
+        echo "PASS: $d"
+    else
+        fail=$((fail + 1))
+        echo "FAIL: $d"
+        if [[ ! -f "$out" ]]; then
+            echo "  (no output file produced)"
+        else
+            diff "$new" "$out" | head -3
+        fi
+    fi
+done
+
+echo ""
+echo "=== Results: $pass passed, $fail failed (of $total total) ==="
+exit $((fail == 0 ? 0 : 1))
