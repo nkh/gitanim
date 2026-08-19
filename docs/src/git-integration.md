@@ -75,3 +75,5 @@ diffvim --replay src/main.py src/utils.py src/config.py
 
 Each file's history is animated separately, with a "next file" message
 between them.
+
+> **Note:** The project now uses an external pipeline (diffvim-compute-cpp → diffvim-postprocess → diffvim-pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), typed delays, and the ghost-line fix are described in the Developer Guide.

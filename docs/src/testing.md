@@ -65,3 +65,5 @@ perl diffvim.pl --dry-run examples/01_small_python/old.py examples/01_small_pyth
 # Test --version
 perl diffvim.pl --version
 ```
+
+> **Note:** The project now uses an external pipeline (diffvim-compute-cpp → diffvim-postprocess → diffvim-pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), typed delays, and the ghost-line fix are described in the Developer Guide.

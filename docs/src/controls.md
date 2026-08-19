@@ -60,3 +60,5 @@ This shows:
 - Percentage complete
 - Current speed multiplier (if not 1.0x)
 - PAUSED indicator (when paused)
+
+> **Note:** The project now uses an external pipeline (diffvim-compute-cpp → diffvim-postprocess → diffvim-pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), typed delays, and the ghost-line fix are described in the Developer Guide.
