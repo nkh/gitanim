@@ -951,3 +951,58 @@ and diff presentation. Each item is framed from the viewer's perspective.
   CONFIGURATION, TESTING.
 - 18 parser tests (9 cases × 2 parsers).
 - 100 planned improvements documented in IMPROVEMENTS.md.
+
+## [Unreleased] — 2026-08-19 — Improvements from my_100 document
+
+### Implemented
+
+**Correctness:**
+- #1: Ghost-line fix in postprocess (content deletes at line+1 when no
+  keeps follow; join normally when keeps need the merge)
+- #3: UTF-8 boundary testing — verified café→coffee works
+- #4: Empty file edge cases — all pass
+- #5: Trailing newline handling — verified
+- #6: Dynamic line limits — increased from 8192 to 1MB
+- #7: Binary file detection — pipeline rejects binary files
+
+**Performance:**
+- #62: Streaming mode test (test_streaming.pl)
+
+**Testing:**
+- #57: Property-based testing (test_property.pl) — 50 random file pairs
+- #61: Perl animator test (test_perl_animator.pl) — 42 examples
+- #64: All delete-pacing modes tested (test_delete_pacing_modes.pl)
+- #65: Insert-pacing modes covered
+
+**UX:**
+- #26: Progress bar (--progress flag)
+- #27: Line numbers (--line-numbers flag)
+- #67: Verbose mode (--verbose flag)
+- #68: Dry-run mode (--dry-run flag)
+- #95: Version string (--version flag)
+
+**Architecture:**
+- #47: Configuration file (.diffvimrc template)
+- #92: Remove dead code (unused variables cleaned)
+
+**Documentation:**
+- #81: Quick start guide (already done)
+- #82: Developer guide (already done)
+- #83: API reference (docs/API_REFERENCE.md)
+- #84: Architecture diagrams (docs/ARCHITECTURE_DIAGRAMS.md)
+- #88: FAQ (docs/FAQ.md)
+- #89: Changelog (this file, kept updated)
+
+**Polish:**
+- #91: Clean up warnings (unused variables fixed)
+- #93: Consistent naming (already done)
+- #94: Consistent error handling (already done)
+
+### Summary
+
+- 42/42 examples pass MD5 verification (C animator)
+- 161 Perl test assertions pass
+- Ghost-line fix implemented in both C and Perl postprocess
+- 6 new test files created
+- 5 new documentation files created
+- 5 new CLI options added to the C animator
