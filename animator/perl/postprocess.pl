@@ -113,15 +113,15 @@ my @lines = <STDIN>;
 my @header;
 my @hunks;  # each: { target, del_count, ins_count, end_ins, end_del, ops => [] }
 
-# Parse input
+# Parse input (v2 TSV format: HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>)
 my $current_hunk;
 for my $line (@lines) {
     chomp $line;
-    if ($line =~ /^#/) {
-        push @header, $line;
+    if ($line =~ /^#/ || $line eq '') {
+        push @header, $line if $line =~ /^#/;
         next;
     }
-    if ($line =~ /^HUNK\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/) {
+    if ($line =~ /^HUNK\t(\d+)\t(\d+)\t(\d+)\t(\d+)\t(\d+)/) {
         $current_hunk = {
             target    => $1,
             del_count  => $2,
@@ -133,12 +133,15 @@ for my $line (@lines) {
         push @hunks, $current_hunk;
         next;
     }
-    if ($line =~ /^(keep|delete|insert)\s+(\d+)$/) {
-        push @{$current_hunk->{ops}}, [$1, int($2)];
+    if ($line eq 'HUNK_END') {
+        $current_hunk = undef;
         next;
     }
-    # Pass through unknown lines
-    push @header, $line if !$current_hunk;
+    # v2 format: keep/delete/insert\t<line>\t<col>\t<code>\t<char_repr>
+    if ($line =~ /^(keep|delete|insert)\t(\d+)\t(\d+)\t(\d+)/) {
+        push @{$current_hunk->{ops}}, [$1, int($4)] if $current_hunk;
+        next;
+    }
 }
 
 # Apply transformations
@@ -173,7 +176,9 @@ for my $hunk (@hunks) {
 my $line_offset = 0;  # Cumulative (newline_inserts - newline_deletes) from prior hunks.
 
 for my $line (@header) {
-    if ($line =~ /^# semantic_cleanup/) {
+    if ($line =~ /^# diffvim raw diff/ || $line =~ /^# diffvim precomputed/) {
+        print "# diffvim post-processed v2\n";
+    } elsif ($line =~ /^# semantic_cleanup/) {
         print "# semantic_cleanup $semantic_cleanup\n";
     } elsif ($line =~ /^# indent_aware/) {
         print "# indent_aware $indent_aware\n";
@@ -185,17 +190,36 @@ for my $line (@header) {
         print "# left_to_right $val\n";
     } elsif ($line =~ /^# hunk_count/) {
         print "# hunk_count " . scalar(@hunks) . "\n";
-    } else {
+    } elsif ($line =~ /^# word_diff/) {
         print "$line\n";
     }
+    # skip unknown headers
 }
 
-# Print hunks with per-op (line, col) TSV positions.
-# Ghost-line fix: when delete \n and line has kept content, AND next ops
-# are content deletes followed by another \n delete or end (no keeps),
-# emit content deletes at (line+1, 1) + newline_delete at (line+1).
+# Helper: convert char code to readable representation
+sub char_repr {
+    my ($code) = @_;
+    return "\\n" if $code == 10;
+    return "\\t" if $code == 9;
+    return "\\r" if $code == 13;
+    return "space" if $code == 32;
+    if ($code >= 33 && $code <= 126) {
+        return "'" . chr($code) . "'";
+    }
+    return "$code";
+}
+
+# Helper: emit an op in v2 TSV format
+sub emit_op {
+    my ($type, $line, $col, $code) = @_;
+    printf "%s\t%d\t%d\t%d\t%s\n", $type, $line, $col, $code, char_repr($code);
+}
+
+# Print hunks with per-op (line, col) TSV positions (v2 format).
 for my $hunk (@hunks) {
-    printf "hunk_start\t%d\t%d\n", $hunk->{del_count}, $hunk->{ins_count};
+    printf "HUNK\t%d\t%d\t%d\t%d\t%d\n",
+        $hunk->{target}, $hunk->{del_count}, $hunk->{ins_count},
+        $hunk->{end_ins}, $hunk->{end_del};
 
     my $cur_line = $hunk->{target} + $line_offset;
     my $cur_col = 1;
@@ -209,44 +233,41 @@ for my $hunk (@hunks) {
         my ($type, $code) = @{$ops->[$i]};
         if ($code == 10) {
             if ($type eq 'keep') {
-                printf "op\tkeep\t%d\t%d\t%d\n", $cur_line, $cur_col, $code;
+                emit_op("keep", $cur_line, $cur_col, $code);
                 $cur_line++;
                 $cur_col = 1;
                 $line_has_content = 0;
             } elsif ($type eq 'delete') {
                 if ($line_has_content) {
-                    # Count content deletes that follow
                     my $j = $i + 1;
                     while ($j < $n && $ops->[$j][0] eq 'delete' && $ops->[$j][1] != 10) { $j++; }
                     my $n_content = $j - ($i + 1);
-                    # Check if followed by keep/insert (join needed)
                     my $followed_by_keep = 0;
                     if ($j < $n && ($ops->[$j][0] eq 'keep' || $ops->[$j][0] eq 'insert')) {
                         $followed_by_keep = 1;
                     }
                     if ($n_content > 0 && !$followed_by_keep) {
-                        # Ghost-line pattern!
                         for my $k ($i+1 .. $j-1) {
-                            printf "op\tdelete\t%d\t1\t%d\n", $cur_line + 1, $ops->[$k][1];
+                            emit_op("delete", $cur_line + 1, 1, $ops->[$k][1]);
                         }
-                        printf "newline_delete\t%d\n", $cur_line + 1;
+                        emit_op("delete", $cur_line + 1, 1, 10);
                         $newl_del++;
                         $i = $j;
                         next;
                     }
                 }
-                printf "newline_delete\t%d\n", $cur_line;
+                emit_op("delete", $cur_line, $cur_col, 10);
                 $newl_del++;
                 $line_has_content = 0;
             } elsif ($type eq 'insert') {
-                printf "newline_insert\t%d\t%d\n", $cur_line, $cur_col;
+                emit_op("insert", $cur_line, $cur_col, 10);
                 $cur_line++;
                 $cur_col = 1;
                 $newl_ins++;
                 $line_has_content = 0;
             }
         } else {
-            printf "op\t%s\t%d\t%d\t%d\n", $type, $cur_line, $cur_col, $code;
+            emit_op($type, $cur_line, $cur_col, $code);
             if ($type eq 'keep') {
                 $cur_col++;
                 $line_has_content = 1;
@@ -257,8 +278,10 @@ for my $hunk (@hunks) {
         $i++;
     }
 
+    print "HUNK_END\n";
     $line_offset += $newl_ins - $newl_del;
 }
+print "\n";  # blank line at bottom
 
 # --- Transformation functions ---
 

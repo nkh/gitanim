@@ -137,15 +137,17 @@ sub keep_char {
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        # Delete newline: join current line with next.
-        # A \n delete op means the \n character must be removed from the
-        # buffer. Removing the \n between lines N and N+1 means joining
-        # those two lines. Always join, regardless of line content.
+        # Ghost-line fix: if current line is empty, remove it; if has content, join
         if ($cursor_l < $#lines) {
-            # Not the last line — join with next
-            $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
-            splice(@lines, $cursor_l + 1, 1);
-            # Cursor stays at same column on the (now joined) line
+            if ($lines[$cursor_l] eq '') {
+                # Empty line — remove it
+                splice(@lines, $cursor_l, 1);
+                $cursor_c = 0;
+            } else {
+                # Has content — join with next
+                $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
+                splice(@lines, $cursor_l + 1, 1);
+            }
         } else {
             # Last line — can't join. Remove the line and move to previous.
             if ($cursor_l > 0) {
@@ -237,7 +239,7 @@ if (!$no_display) {
     print "\033[?25l";  # Hide cursor
 }
 
-# Process timed op stream (TSV format)
+# Process timed op stream (v2 TSV format)
 while (my $line = <STDIN>) {
     chomp $line;
     next if $line eq "" || $line =~ /^#/;
@@ -245,52 +247,34 @@ while (my $line = <STDIN>) {
     my @parts = split /\t/, $line;
     my $cmd = shift @parts;
 
-    if ($cmd eq 'op' && @parts >= 4) {
-        # op\t<type>\t<line>\t<col>\t<code>
-        my ($type, $op_line, $op_col, $code) = @parts;
+    # v2 format: keep/delete/insert directly (no 'op' prefix)
+    if ($cmd eq 'keep' && @parts >= 3) {
+        my ($op_line, $op_col, $code) = @parts;
         $code = int($code);
         set_cursor($op_line + 0, $op_col + 0);
-        keep_char($code) if $type eq 'keep';
-        delete_char($code) if $type eq 'delete';
-        insert_char($code) if $type eq 'insert';
+        keep_char($code);
         render();
-    } elsif ($cmd eq 'delay' && @parts >= 1) {
-        # Parse both delay\t<ms> and delay\t<type>\t<ms>
-        my $ms;
-        if (@parts >= 2) {
-            # Typed delay: delay\t<type>\t<ms>
-            $ms = int($parts[1]);
-            # Future: apply per-type multiplier based on $parts[0]
-        } else {
-            # Untyped delay: delay\t<ms>
-            $ms = int($parts[0]);
-        }
+    } elsif ($cmd eq 'delete' && @parts >= 3) {
+        my ($op_line, $op_col, $code) = @parts;
+        $code = int($code);
+        set_cursor($op_line + 0, $op_col + 0);
+        delete_char($code);
+        render();
+    } elsif ($cmd eq 'insert' && @parts >= 3) {
+        my ($op_line, $op_col, $code) = @parts;
+        $code = int($code);
+        set_cursor($op_line + 0, $op_col + 0);
+        insert_char($code);
+        render();
+    } elsif ($cmd eq 'delay' && @parts >= 2) {
+        # delay\t<ms>\t<type>
+        my $ms = int($parts[0]);
         $ms = int($ms / $speed) if $speed > 0;
         usleep($ms * 1000) if $ms > 0 && !$no_display;
-    } elsif ($cmd eq 'batch_delete' && @parts >= 3) {
-        my ($op_line, $op_col, $n) = @parts;
-        set_cursor($op_line + 0, $op_col + 0);
-        batch_delete(int($n));
-        render();
-    } elsif ($cmd eq 'batch_insert' && @parts >= 3) {
-        my ($op_line, $op_col, @codes) = @parts;
-        set_cursor($op_line + 0, $op_col + 0);
-        batch_insert(map { int($_) } @codes);
-        render();
-    } elsif ($cmd eq 'newline_delete' && @parts >= 1) {
-        my ($op_line) = @parts;
-        set_cursor($op_line + 0, 1);
-        delete_char(10);
-        render();
-    } elsif ($cmd eq 'newline_insert' && @parts >= 2) {
-        my ($op_line, $op_col) = @parts;
-        set_cursor($op_line + 0, $op_col + 0);
-        insert_char(10);
-        render();
+    } elsif ($cmd eq 'HUNK' || $cmd eq 'HUNK_END') {
+        # Metadata — no action
     } elsif ($cmd eq 'snapshot' && @parts >= 1) {
         write_buffer($parts[0]);
-    } elsif ($cmd eq 'hunk_start' || $cmd eq 'hunk_end' || $cmd eq 'file_start') {
-        # Metadata — no action
     } elsif ($cmd eq 'done') {
         last;
     }
