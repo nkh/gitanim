@@ -33,7 +33,10 @@
 
 - [Manpages](./manpages.md)
 - [Developer Guide](../DEVELOPER_GUIDE.md)
+- [Commit/File Picker](../PICKER.md)
+- [Diff Tool Replacement Analysis](../DIFF_TOOL_REPLACEMENT.md)
 - [50 UX Improvements for Following Patches](../FOLLOW_IMPROVEMENTS.md)
+- [100 Improvements](../100_IMPROVEMENTS.md)
 - [100 Option Combinations](../OPTION_COMBINATIONS.md)
 - [Option Analysis](../OPTIONS_ANALYSIS.md)
 - [Non-Character Options](../NON_CHAR_OPTIONS.md)

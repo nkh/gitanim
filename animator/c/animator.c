@@ -299,75 +299,29 @@ void batch_insert(int *codes, int count) {
         insert_char(codes[i]);
 }
 
-/* Previous screen state for incremental rendering (avoids flashing).
- * We only redraw lines that changed. */
-static char **prev_lines = NULL;
-static int prev_n_lines = 0;
-static int prev_cap = 0;
-static int prev_cursor_l = -1;
-static int prev_cursor_c = -1;
-
 void render(void) {
     if (no_display) return;
-
+    printf("\033[2J\033[H");
     int max = n_lines > 40 ? 40 : n_lines;
-    int prev_max = prev_n_lines > 40 ? 40 : prev_n_lines;
-
-    /* Ensure prev_lines has enough capacity */
-    if (max > prev_cap) {
-        prev_cap = max * 2;
-        prev_lines = (char **)realloc(prev_lines, prev_cap * sizeof(char *));
-    }
-
-    /* Redraw only changed lines */
     for (int i = 0; i < max; i++) {
-        char *cur = lines[i];
-        char *prv = (i < prev_max) ? prev_lines[i] : NULL;
-
-        /* Check if this line changed or if cursor moved to/from it */
-        int changed = (prv == NULL) || (strcmp(cur, prv) != 0);
-        int cursor_here = (i == cursor_l);
-        int cursor_was_here = (i == prev_cursor_l);
-
-        if (changed || cursor_here || cursor_was_here) {
-            /* Move cursor to this line and redraw it */
-            printf("\033[%d;1H\033[2K", i + 1);  /* move + clear line */
-
-            char *colored = NULL;
-            if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
-                colored = colormap_old[i];
-
-            if (colored) {
-                if (cursor_here)
-                    printf("\033[7m%s\033[0m", colored);
-                else
-                    printf("%s", colored);
-            } else {
-                if (cursor_here)
-                    printf("\033[7m%s\033[0m", cur);
-                else
-                    printf("%s", cur);
-            }
-
-            /* Save the line for next time */
-            if (prv) free(prv);  /* free old */
-            prev_lines[i] = strdup(cur);
+        /* Use colormap for unmodified lines; plain text for modified ones. */
+        char *colored = NULL;
+        if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
+            colored = colormap_old[i];
+        if (colored) {
+            if (i == cursor_l)
+                printf("\033[7m%s\033[0m\n", colored);
+            else
+                printf("%s\n", colored);
+        } else {
+            if (i == cursor_l)
+                printf("\033[7m%s\033[0m\n", lines[i]);
+            else
+                printf("%s\n", lines[i]);
         }
     }
-
-    /* Clear any extra lines that were removed */
-    for (int i = max; i < prev_max; i++) {
-        printf("\033[%d;1H\033[2K", i + 1);
-        if (prev_lines[i]) { free(prev_lines[i]); prev_lines[i] = NULL; }
-    }
-
-    /* Position cursor */
     printf("\033[%d;%dH", cursor_l + 1, cursor_c + 1);
     fflush(stdout);
-
-    prev_n_lines = n_lines;
-    prev_cursor_l = cursor_l;
-    prev_cursor_c = cursor_c;
 }
 
 /* Load a colormap file: one ANSI-colored string per line. */
