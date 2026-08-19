@@ -137,26 +137,13 @@ sub keep_char {
 sub delete_char {
     my ($code) = @_;
     if ($code == 10) {
-        # Delete \n — JOIN current line with next line.
-        # The ghost-line fix lives in the POSTPROCESSOR (it reorders ops
-        # so the next line is emptied before its \n is deleted). The
-        # animator just does a standard join — when the postprocessor
-        # has done its job, the joined "next" content is empty so the
-        # join is effectively a line removal.
+        # Delete \n — join current line with the next line.
+        # Natural result of removing a newline from a line-based buffer.
+        # No special cases. If there is no next line, the op is a no-op —
+        # the postprocess must not emit delete-\n at the last line.
         if ($cursor_l < $#lines) {
             $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
             splice(@lines, $cursor_l + 1, 1);
-        } else {
-            # Last line — can't join. Remove the line and move to previous.
-            if ($cursor_l > 0) {
-                pop @lines;
-                $cursor_l--;
-                $cursor_c = length($lines[$cursor_l]);
-            } else {
-                # Only line — make empty
-                @lines = ("");
-                $cursor_c = 0;
-            }
         }
     } else {
         my $line = $lines[$cursor_l];

@@ -1534,19 +1534,15 @@ endfunction
 
 function! s:TimedDeleteChar(code) abort
     if a:code == 10
-        " Delete \n — JOIN current line with next line.
-        " The ghost-line fix lives in the POSTPROCESSOR (it reorders ops
-        " so the next line is emptied before its \n is deleted). The
-        " animator just does a standard join.
+        " Delete \n — join current line with the next line.
+        " Natural result of removing a newline from a line-based buffer.
+        " No special cases. If there is no next line, the op is a no-op —
+        " the postprocess must not emit delete-\n at the last line.
         if s:cur_l < line('$')
             let l:cur = getline(s:cur_l)
             let l:next = getline(s:cur_l + 1)
             call setline(s:cur_l, l:cur . l:next)
             execute s:cur_l + 1 . 'delete _'
-        elseif s:cur_l > 1
-            execute s:cur_l . 'delete _'
-            let s:cur_l -= 1
-            let s:cur_c = strchars(getline(s:cur_l)) + 1
         endif
     else
         let l:line = getline(s:cur_l)

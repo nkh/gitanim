@@ -238,6 +238,37 @@ for my $hunk (@hunks) {
                 $cur_col = 1;
                 $line_has_content = 0;
             } elsif ($type eq 'delete') {
+                # "Delete last line" pattern: the first op in an
+                # is_end_delete hunk is a delete-\n, followed by content
+                # deletes (no keeps/inserts after).
+                #
+                # The compute generates "delete \n, delete content" for
+                # "delete last line". We reorder to: content deletes first
+                # (emptying the line), then \n delete targeting
+                # (cur_line - 1, 1) — which joins the PREVIOUS line with
+                # the now-empty last line, effectively removing the last
+                # line.
+                #
+                # This way the animator just applies ops — no special
+                # handling for "delete \n at last line".
+                if ($i == 0 && $hunk->{end_del} && $cur_line > 1) {
+                    my $j = $i + 1;
+                    while ($j < $n && $ops->[$j][0] eq 'delete' && $ops->[$j][1] != 10) { $j++; }
+                    my $n_content = $j - ($i + 1);
+                    my $followed_by_keep = 0;
+                    if ($j < $n && ($ops->[$j][0] eq 'keep' || $ops->[$j][0] eq 'insert')) {
+                        $followed_by_keep = 1;
+                    }
+                    if ($n_content > 0 && !$followed_by_keep) {
+                        for my $k ($i+1 .. $j-1) {
+                            emit_op("delete", $cur_line, 1, $ops->[$k][1]);
+                        }
+                        emit_op("delete", $cur_line - 1, 1, 10);
+                        $newl_del++;
+                        $i = $j;
+                        next;
+                    }
+                }
                 if ($line_has_content) {
                     my $j = $i + 1;
                     while ($j < $n && $ops->[$j][0] eq 'delete' && $ops->[$j][1] != 10) { $j++; }
@@ -256,6 +287,7 @@ for my $hunk (@hunks) {
                         next;
                     }
                 }
+                # Normal \n delete
                 emit_op("delete", $cur_line, $cur_col, 10);
                 $newl_del++;
                 $line_has_content = 0;
@@ -358,10 +390,9 @@ sub indent_aware {
     return \@result;
 }
 
-# Reorder ops within each line based on the op-order mode.
-# A "line" is delimited by keep-\n, delete-\n, or insert-\n (code 10).
-# Mirrors the C postprocess: split at \n, reorder each line group
-# (content deletes, \n deletes, then inserts). No special merging.
+# Reorder ops within each line group.
+# A line group is delimited by keep-\n, delete-\n, or insert-\n (code 10).
+# Within each group, reorder_line puts content deletes before \n deletes.
 sub reorder_ops {
     my ($ops, $mode) = @_;
 
@@ -377,7 +408,7 @@ sub reorder_ops {
     }
     push @lines, [@current] if @current;
 
-    # Reorder each line
+    # Reorder each line group
     my @result;
     for my $line_ops (@lines) {
         my $reordered = reorder_line($line_ops, $mode);

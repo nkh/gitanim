@@ -261,9 +261,9 @@ int semantic_cleanup(Op *in, int count, Op *out) {
     return n_out;
 }
 
-/* Reorder ops. Split at ANY \n (keep, delete, or insert).
- * Each line group includes its \n. optimize_line puts content
- * deletes before \n deletes within each group. */
+/* Reorder ops within each line group.
+ * A line group is delimited by \n (keep, delete, or insert with code 10).
+ * Within each group, optimize_line puts content deletes before \n deletes. */
 int reorder_hunk_ops(Op *in, int count, Op *out) {
     int n_out = 0;
     int line_start = 0;
@@ -395,6 +395,45 @@ void emit_op(const char *type, int line, int col, int code) {
                     cur_col = 1;
                     line_has_content = 0;
                 } else if (strcmp(op->type, "delete") == 0) {
+                    /* "Delete last line" pattern: the first op in an
+                     * is_end_delete hunk is a delete-\n, followed by
+                     * content deletes (no keeps/inserts after).
+                     *
+                     * The compute generates "delete \n, delete content"
+                     * for "delete last line". We reorder to: content
+                     * deletes first (emptying the line), then \n delete
+                     * targeting (cur_line - 1, 1) — which joins the
+                     * PREVIOUS line with the now-empty last line,
+                     * effectively removing the last line.
+                     *
+                     * This way the animator just applies ops — no
+                     * special handling for "delete \n at last line". */
+                    if (i == 0 && hunks[h].end_del && cur_line > 1) {
+                        /* Find the end of the content deletes */
+                        int j = i + 1;
+                        while (j < n_out &&
+                               strcmp(final_ops[j].type, "delete") == 0 &&
+                               final_ops[j].code != 10)
+                            j++;
+                        int n_content = j - (i + 1);
+                        int followed_by_keep_or_insert = 0;
+                        if (j < n_out) {
+                            if (strcmp(final_ops[j].type, "keep") == 0 ||
+                                strcmp(final_ops[j].type, "insert") == 0) {
+                                followed_by_keep_or_insert = 1;
+                            }
+                        }
+                        if (n_content > 0 && !followed_by_keep_or_insert) {
+                            /* Emit content deletes at (cur_line, 1) */
+                            for (int k = i + 1; k < j; k++)
+                                emit_op("delete", cur_line, 1, final_ops[k].code);
+                            /* Emit \n delete at (cur_line - 1, 1) */
+                            emit_op("delete", cur_line - 1, 1, 10);
+                            newl_del++;
+                            i = j;
+                            continue;
+                        }
+                    }
                     if (line_has_content) {
                         int j = i + 1;
                         while (j < n_out &&

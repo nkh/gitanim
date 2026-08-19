@@ -195,14 +195,11 @@ void keep_char(int code) {
 
 void delete_char(int code) {
     if (code == 10) {
-        /* Delete \n — JOIN current line with next line.
-         *
-         * The ghost-line fix lives in the POSTPROCESSOR (it reorders ops
-         * so the next line is emptied before its \n is deleted). The
-         * animator just does a standard join — when the postprocessor
-         * has done its job, the joined "next" content is empty so the
-         * join is effectively a line removal.
-         */
+        /* Delete \n — join current line with the next line.
+         * This is the natural result of removing a newline character
+         * from a line-based buffer. No special cases. If there is no
+         * next line (cursor at last line), the op is a no-op — the
+         * postprocess must not emit delete-\n at the last line. */
         if (cursor_l < n_lines - 1) {
             char *cur = lines[cursor_l];
             char *next = lines[cursor_l + 1];
@@ -216,12 +213,6 @@ void delete_char(int code) {
             for (int i = cursor_l + 1; i < n_lines - 1; i++)
                 lines[i] = lines[i + 1];
             n_lines--;
-        } else if (cursor_l > 0) {
-            /* Last line — remove it and move to previous */
-            free(lines[cursor_l]);
-            n_lines--;
-            cursor_l--;
-            cursor_c = strlen(lines[cursor_l]);
         }
     } else {
         int byte = char_to_byte(cursor_l, cursor_c);
