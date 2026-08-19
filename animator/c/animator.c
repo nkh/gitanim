@@ -1,3 +1,4 @@
+#define MAX_LINE_LEN 1048576  // 1MB — was 8192
 /* diffvim-animator — Standalone terminal animation application.
  * C implementation.
  *
@@ -25,7 +26,7 @@ static void cleanup_handler(int sig) {
     exit(1);
 }
 
-#define MAX_LINE_LEN 8192
+
 
 /* Dynamic arrays — grow as needed */
 static char **lines = NULL;

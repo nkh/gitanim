@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LINE 8192
+#define MAX_LINE 1048576  // 1MB — was 8192
 
 typedef struct {
     char type[8];  /* keep|delete|insert|newline_delete|newline_insert|hunk_start */

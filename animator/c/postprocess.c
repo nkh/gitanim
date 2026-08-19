@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LINE 4096
+#define MAX_LINE 1048576  // 1MB — was 4096
 
 typedef struct { char type[8]; int code; } Op;
 
