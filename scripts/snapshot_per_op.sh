@@ -36,20 +36,33 @@ FONT_SIZE=14
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --show-pacing)     SHOW_PACING=1; shift ;;
-        --show-keep)       SHOW_KEEP=1; shift ;;
-        --context)         CONTEXT="$2"; shift 2 ;;
-        --context=*)       CONTEXT="${1#--context=}"; shift ;;
-        --frame-op)        FRAME_OP=1; shift ;;
-        --no-buffer-frame) BUFFER_FRAME=0; shift ;;
-        --font-size)       FONT_SIZE="$2"; shift 2 ;;
-        --font-size=*)     FONT_SIZE="${1#--font-size=}"; shift ;;
-        *)                 break ;;
+        --show-pacing|--show_pacing)     SHOW_PACING=1; shift ;;
+        --show-keep|--show_keep)         SHOW_KEEP=1; shift ;;
+        --context)                       CONTEXT="$2"; shift 2 ;;
+        --context=*)                     CONTEXT="${1#--context=}"; shift ;;
+        --frame-op|--frame_op)           FRAME_OP=1; shift ;;
+        --no-buffer-frame|--no_buffer_frame)  BUFFER_FRAME=0; shift ;;
+        --font-size)                     FONT_SIZE="$2"; shift 2 ;;
+        --font-size=*)                   FONT_SIZE="${1#--font-size=}"; shift ;;
+        --*)  echo "ERROR: unknown option '$1'" >&2
+              echo "Valid options: --show-pacing, --show-keep, --context N, --frame-op, --no-buffer-frame, --font-size N" >&2
+              exit 1 ;;
+        *)    break ;;
     esac
 done
 
 OLD="${1:?Usage: snapshot_per_op.sh [options] <oldfile> <newfile>}"
 NEW="${2:?Usage: snapshot_per_op.sh [options] <oldfile> <newfile>}"
+
+# Validate files exist
+if [[ ! -f "$OLD" ]]; then
+    echo "ERROR: old file does not exist: $OLD" >&2
+    exit 1
+fi
+if [[ ! -f "$NEW" ]]; then
+    echo "ERROR: new file does not exist: $NEW" >&2
+    exit 1
+fi
 
 OUTDIR=/tmp/dv_snapshots
 rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
