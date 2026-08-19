@@ -277,9 +277,13 @@ int process_awd(FILE *w, Op *ops, int start, int count) {
 }
 
 int process_delete(FILE *w, Op *ops, int start, int total_ops) {
-    /* Count consecutive non-newline deletes */
+    /* Count consecutive non-newline deletes ON THE SAME LINE */
     int count = 0;
-    while (start + count < total_ops && ops[start + count].type[0] == 'd' && ops[start + count].code != 10)
+    int start_line = ops[start].line;
+    while (start + count < total_ops &&
+           ops[start + count].type[0] == 'd' &&
+           ops[start + count].code != 10 &&
+           ops[start + count].line == start_line)
         count++;
     if (count == 0) return start;
 

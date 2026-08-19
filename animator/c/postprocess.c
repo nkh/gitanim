@@ -317,40 +317,83 @@ void write_output(void) {
             final_ops = in;
         }
 
-        /* Compute per-op (line, col) and emit TSV. cur_line/cur_col
-         * are 1-indexed and track where the cursor SHOULD be after
-         * applying each op to the (virtual) buffer. */
+        /* Compute per-op (line, col) and emit TSV.
+         *
+         * Ghost-line fix: when delete \n and the line has kept content
+         * (not empty), AND the next ops are content deletes (the joined-in
+         * content of the next line is about to be deleted):
+         *
+         * 1. Emit the content deletes at (cur_line+1, 1) — targeting the
+         *    next line directly (the \n stays, so the next line is separate)
+         * 2. Emit newline_delete at (cur_line+1) — the next line is now
+         *    empty, so remove it (this also removes the \n between the lines)
+         * 3. cur_line stays the same (the next line was removed, lines
+         *    shifted up to fill the gap)
+         *
+         * This way: the content of the next line is deleted first (no
+         * visual jump), then the empty next line is removed (the \n is
+         * deleted, merging is implicit). The final buffer is correct. */
         int cur_line = hunks[h].target + line_offset;
         int cur_col = 1;
         int newl_ins = 0, newl_del = 0;
-        for (int i = 0; i < n_out; i++) {
+        int line_has_content = 0;
+        int i = 0;
+        while (i < n_out) {
             Op *op = &final_ops[i];
             if (op->code == 10) {
                 if (strcmp(op->type, "keep") == 0) {
-                    /* keep \n: cursor advances to next line, col resets. */
                     printf("op\tkeep\t%d\t%d\t%d\n", cur_line, cur_col, op->code);
                     cur_line++;
                     cur_col = 1;
+                    line_has_content = 0;
                 } else if (strcmp(op->type, "delete") == 0) {
-                    /* newline_delete: the line at cur_line is joined
-                     * with the next. Cursor stays at the same line+col. */
+                    /* Check if this is a ghost-line pattern:
+                     * line has content AND next ops are content deletes */
+                    if (line_has_content) {
+                        /* Count content deletes that follow */
+                        int j = i + 1;
+                        while (j < n_out &&
+                               strcmp(final_ops[j].type, "delete") == 0 &&
+                               final_ops[j].code != 10)
+                            j++;
+                        int n_content = j - (i + 1);
+
+                        if (n_content > 0) {
+                            /* Ghost-line pattern! Emit content deletes at
+                             * (cur_line+1, 1), then newline_delete at (cur_line+1).
+                             * cur_line stays the same (the next line was removed,
+                             * lines shifted up). line_has_content stays 1 because
+                             * cur_line's content is still there. */
+                            for (int k = i + 1; k < j; k++)
+                                printf("op\tdelete\t%d\t1\t%d\n", cur_line + 1, final_ops[k].code);
+                            printf("newline_delete\t%d\n", cur_line + 1);
+                            newl_del++;
+                            /* DON'T reset line_has_content — cur_line still has content */
+                            i = j;
+                            continue;
+                        }
+                    }
+                    /* Not a ghost-line pattern — emit normally */
                     printf("newline_delete\t%d\n", cur_line);
                     newl_del++;
+                    line_has_content = 0;
                 } else if (strcmp(op->type, "insert") == 0) {
-                    /* newline_insert: a new line is inserted AFTER cur_line
-                     * at cur_col. Cursor moves to the new line. */
                     printf("newline_insert\t%d\t%d\n", cur_line, cur_col);
                     cur_line++;
                     cur_col = 1;
                     newl_ins++;
+                    line_has_content = 0;
                 }
             } else {
                 printf("op\t%s\t%d\t%d\t%d\n", op->type, cur_line, cur_col, op->code);
-                if (strcmp(op->type, "keep") == 0 || strcmp(op->type, "insert") == 0) {
+                if (strcmp(op->type, "keep") == 0) {
+                    cur_col++;
+                    line_has_content = 1;
+                } else if (strcmp(op->type, "insert") == 0) {
                     cur_col++;
                 }
-                /* delete: cursor stays at the same col. */
             }
+            i++;
         }
 
         if (op_order_optimize) free(final_ops);
