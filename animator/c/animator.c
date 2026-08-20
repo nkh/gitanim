@@ -21,6 +21,10 @@
 #include <fcntl.h>
 #include <termios.h>
 
+/* --- Forward declarations --- */
+void sleep_ms(int ms);
+void disable_raw_mode(void);
+
 /* Ctrl+C handler: restore terminal before exiting */
 static void cleanup_handler(int sig) {
     disable_raw_mode();
@@ -53,10 +57,6 @@ static char snapshot_file_path[256] = "";
 static char old_file_path[256] = "";
 static char colormap_old_path[256] = "";
 static char colormap_new_path[256] = "";
-
-/* --- Forward declarations --- */
-void sleep_ms(int ms);
-void disable_raw_mode(void);
 
 /* --- Keyboard input handling ---
  *
