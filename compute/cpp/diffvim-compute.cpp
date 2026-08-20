@@ -438,32 +438,41 @@ vector<CharOp> optimize_sequence(vector<CharOp> ops) {
     return out;
 }
 
-/* --- Left-to-right: sort ops within each line by type --- */
+/* --- Left-to-right: within each change region (consecutive non-keep,
+ * non-\n ops between boundaries), emit all DELETEs first, then all
+ * INSERTs. Keeps and \n ops stay in place as anchors/line boundaries.
+ *
+ * This avoids the visual problem of interleaved delete+insert when a
+ * word is replaced by another word (e.g., "world" → "there" produces
+ * delete w, delete o, insert t, insert h... which looks horrible).
+ * With l2r: delete w, delete o, insert t, insert h (deletes grouped
+ * before inserts within each change region). */
 vector<CharOp> left_to_right(vector<CharOp> ops) {
     if (ops.size() < 2) return ops;
     vector<CharOp> out;
     out.reserve(ops.size());
     size_t i = 0;
     while (i < ops.size()) {
-        size_t line_start = i;
-        /* Find end of this line group (up to and including the \n, if any) */
-        while (i < ops.size() && ops[i].code != 10) i++;
-        size_t line_end = i;
-        /* Emit keeps first */
-        for (size_t k = line_start; k < line_end; k++)
-            if (ops[k].type == OP_KEEP) out.push_back(ops[k]);
-        /* Then deletes */
-        for (size_t k = line_start; k < line_end; k++)
-            if (ops[k].type == OP_DELETE) out.push_back(ops[k]);
-        /* Then inserts */
-        for (size_t k = line_start; k < line_end; k++)
-            if (ops[k].type == OP_INSERT) out.push_back(ops[k]);
-        /* Then the \n itself (if any) */
-        if (i < ops.size()) { out.push_back(ops[i]); i++; }
+        if (ops[i].type == OP_KEEP || ops[i].code == 10) {
+            /* Keep or \n: stays in place (anchor/line boundary) */
+            out.push_back(ops[i]);
+            i++;
+        } else {
+            /* Start of change region: collect consecutive non-keep, non-\n ops */
+            size_t region_start = i;
+            while (i < ops.size() && ops[i].type != OP_KEEP && ops[i].code != 10)
+                i++;
+            size_t region_end = i;
+            /* Emit all DELETEs first */
+            for (size_t k = region_start; k < region_end; k++)
+                if (ops[k].type == OP_DELETE) out.push_back(ops[k]);
+            /* Then all INSERTs */
+            for (size_t k = region_start; k < region_end; k++)
+                if (ops[k].type == OP_INSERT) out.push_back(ops[k]);
+        }
     }
-    /* NOTE: positions (line, col) are recomputed at write time, so the
-     * reordering above is fine — the write code walks the reordered ops
-     * and computes cur_col/cur_line based on the new order. */
+    /* Positions (line, col) are recomputed at write time by walking the
+     * output. Since keeps stayed in place, positions will be correct. */
     return out;
 }
 
