@@ -523,9 +523,21 @@ sub end_first_line {
 # positions more carefully.
 sub overwrite_transform {
     my ($ops) = @_;
-    # For now, just optimize (deletes before inserts)
-    # A full overwrite would replace delete 'a' insert 'b' with a single
-    # "overwrite" op, but our op format doesn't have that.
-    # Keep as-is for now — the animator can handle delete+insert as-is.
-    return optimize_line($ops);
+    # First optimize (deletes before inserts within change regions)
+    $ops = optimize_line($ops);
+    # Then mark delete+insert pairs as overwrite_insert
+    my @result;
+    my $i = 0;
+    while ($i < @$ops) {
+        push @result, $ops->[$i];
+        if ($i + 1 < @$ops
+            && $ops->[$i][0] eq 'delete' && $ops->[$i][1] != 10
+            && $ops->[$i+1][0] eq 'insert' && $ops->[$i+1][1] != 10) {
+            # Mark the insert as overwrite_insert
+            $i++;
+            push @result, ['overwrite_insert', $ops->[$i][1]];
+        }
+        $i++;
+    }
+    return \@result;
 }

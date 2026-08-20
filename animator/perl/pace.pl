@@ -388,12 +388,17 @@ while ($i < @lines) {
                 }
             }
         }
-    } elsif ($cmd eq 'insert') {
+    } elsif ($cmd eq 'insert' || $cmd eq 'overwrite_insert') {
         track_op_type("insert");
         my $code = $parts[3] // 0;
-        # Pass through, insert char delay
+        # Pass through op
         print "$lines[$i]\n";
-        emit_paced_delay($char_delay, "char");
+        # Insert delay based on type
+        if ($cmd eq 'overwrite_insert') {
+            emit_paced_delay(1, "overwrite");
+        } else {
+            emit_paced_delay($char_delay, "char");
+        }
         if ($code == 10) {
             # \n insert — counts as a changed line
             $changed_lines++;

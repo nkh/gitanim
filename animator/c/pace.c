@@ -591,25 +591,28 @@ int main(int argc, char **argv) {
                     process_awd(all_lines, start_idx, count, 1);
                 }
             }
-        } else if (strcmp(toks[0], "insert") == 0) {
+        } else if (strcmp(toks[0], "insert") == 0
+                   || strcmp(toks[0], "overwrite_insert") == 0) {
             track_op_type("insert");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
+            /* Pass through op */
+            passthrough(all_lines[i]);
+            /* Insert delay based on type */
+            if (strcmp(toks[0], "overwrite_insert") == 0) {
+                /* Overwrite: minimal delay (preceded by delete at same pos) */
+                emit_paced_delay(1, "overwrite");
+            } else {
+                emit_paced_delay(char_delay, "char");
+            }
             if (code == 10) {
                 /* \n insert — counts as a changed line */
-                passthrough(all_lines[i]);
-                emit_paced_delay(char_delay, "char");
                 changed_lines++;
-                /* Check pause-after-lines */
                 if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
                     && n_lines > pause_after_threshold) {
                     emit_paced_delay(pause_after_ms, "pause_after");
                 }
-                i++;
-            } else {
-                passthrough(all_lines[i]);
-                emit_paced_delay(char_delay, "char");
-                i++;
             }
+            i++;
         } else {
             /* Unknown line — pass through */
             passthrough(all_lines[i]);

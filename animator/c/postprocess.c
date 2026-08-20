@@ -344,6 +344,29 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
     return n_out;
 }
 
+/* Overwrite transform: mark delete+insert pairs as overwrite.
+ * When a delete is immediately followed by an insert (after reordering),
+ * and both are non-\n chars, mark the insert's type to "overwrite_insert".
+ * The pace tool will use zero delay between the delete and the overwrite_insert. */
+int overwrite_transform(Op *in, int count, Op *out) {
+    int n_out = 0;
+    for (int i = 0; i < count; i++) {
+        out[n_out++] = in[i];
+        /* Check if this delete is followed by an insert at same position */
+        if (do_overwrite && i + 1 < count
+            && strcmp(in[i].type, "delete") == 0 && in[i].code != 10
+            && strcmp(in[i+1].type, "insert") == 0 && in[i+1].code != 10) {
+            /* Mark the insert as overwrite_insert */
+            strcpy(out[n_out - 1].type, "delete");  /* keep as delete */
+            i++;
+            out[n_out] = in[i];
+            strcpy(out[n_out].type, "overwrite_insert");
+            n_out++;
+        }
+    }
+    return n_out;
+}
+
 /* Write ops with per-op (line, col) positions.
  *
  * For each hunk, we walk the ops and simulate the cursor position
@@ -399,7 +422,16 @@ void write_output(void) {
             Op *temp2 = (Op *)malloc(cap_ops * sizeof(Op));
             if (!temp2) { fprintf(stderr, "diffvim-postprocess: out of memory (temp2)\n"); exit(1); }
             n_out = reorder_hunk_ops(in, count, temp2);
-            final_ops = temp2;
+            /* Apply overwrite transform after reordering */
+            if (do_overwrite) {
+                Op *temp3 = (Op *)malloc(cap_ops * sizeof(Op));
+                if (!temp3) { fprintf(stderr, "out of memory\n"); exit(1); }
+                n_out = overwrite_transform(temp2, n_out, temp3);
+                free(temp2);
+                final_ops = temp3;
+            } else {
+                final_ops = temp2;
+            }
         } else {
             final_ops = in;
         }
@@ -531,11 +563,17 @@ void emit_op(const char *type, int line, int col, int code) {
                     line_has_content = 0;
                 }
             } else {
-                emit_op(op->type, cur_line, cur_col, op->code);
+                /* For overwrite_insert, emit as 'insert' in output (pace will
+                 * detect it via the op type and use zero delay) */
+                const char *emit_type = op->type;
+                if (strcmp(op->type, "overwrite_insert") == 0)
+                    emit_type = "overwrite_insert";
+                emit_op(emit_type, cur_line, cur_col, op->code);
                 if (strcmp(op->type, "keep") == 0) {
                     cur_col++;
                     line_has_content = 1;
-                } else if (strcmp(op->type, "insert") == 0) {
+                } else if (strcmp(op->type, "insert") == 0
+                           || strcmp(op->type, "overwrite_insert") == 0) {
                     cur_col++;
                 }
             }
