@@ -1472,6 +1472,11 @@ let s:cur_l = 1
 let s:cur_c = 1
 let s:timed_stopped = 0
 let s:timed_speed = 1.0
+" Read speed from DIFFVIM_SPEED env var (set by --speed flag)
+if exists('$DIFFVIM_SPEED') && !empty($DIFFVIM_SPEED)
+    let s:timed_speed = str2float($DIFFVIM_SPEED)
+    if s:timed_speed <= 0 | let s:timed_speed = 1.0 | endif
+endif
 let s:timed_timer = -1
 let s:needs_redraw = 0
 
@@ -1494,7 +1499,9 @@ function! s:TimedPlaceCursor() abort
     call cursor(l:ll, l:byte_col)
     let l:win_top = line('w0')
     let l:win_bot = line('w$')
-    if l:ll < l:win_top || l:ll > l:win_bot
+    " Always center the cursor in the viewport for smooth animation
+    " (this scrolls when the cursor moves outside the visible area)
+    if l:ll < l:win_top + 3 || l:ll > l:win_bot - 3
         normal! zz
     endif
 endfunction
@@ -1726,6 +1733,10 @@ function! s:TimedTick(timer) abort
         call timer_stop(s:timed_timer)
         let s:timed_timer = -1
         call s:TimedWriteOutput()
+        " Mark buffer as not modified so :q quits cleanly (unless --keep-dirty)
+        if !get(g:diffvim, 'keep_dirty', 0)
+            setlocal nomodified
+        endif
         return
     endif
 
@@ -1772,7 +1783,11 @@ function! s:TimedQuit() abort
         let s:timed_timer = -1
     endif
     call s:TimedWriteOutput()
-    " Restore cursor and quit
+    " Mark buffer as not modified so :q quits cleanly (unless --keep-dirty)
+    if !get(g:diffvim, 'keep_dirty', 0)
+        setlocal nomodified
+    endif
+    " Restore cursor visibility
     echo ""
     quit!
 endfunction

@@ -20,6 +20,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 
 /* --- Forward declarations --- */
 void sleep_ms(int ms);
@@ -419,9 +420,34 @@ void batch_insert(int *codes, int count) {
 void render(void) {
     if (no_display) return;
     printf("\033[2J\033[H");
-    int max = n_lines > 40 ? 40 : n_lines;
-    for (int i = 0; i < max; i++) {
-        /* Use colormap for unmodified lines; plain text for modified ones. */
+
+    /* Get terminal height (default 24 if unavailable) */
+    int term_height = 24;
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0)
+        term_height = ws.ws_row;
+    /* Reserve 1 line for status */
+    int viewport_height = term_height - 1;
+
+    /* Calculate scroll offset to keep cursor visible (centered when possible).
+     * This mirrors gitlogue's update_scroll: center the cursor in the viewport
+     * when possible, scroll only when near the top or bottom of the file. */
+    static int scroll_offset = 0;
+    int half_viewport = viewport_height / 2;
+    if (cursor_l < half_viewport) {
+        scroll_offset = 0;
+    } else if (cursor_l >= n_lines - half_viewport) {
+        scroll_offset = (n_lines > viewport_height) ? (n_lines - viewport_height) : 0;
+    } else {
+        scroll_offset = cursor_l - half_viewport;
+    }
+    if (scroll_offset < 0) scroll_offset = 0;
+
+    int max = scroll_offset + viewport_height;
+    if (max > n_lines) max = n_lines;
+
+    for (int i = scroll_offset; i < max; i++) {
+        int display_row = i - scroll_offset;
         char *colored = NULL;
         if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
             colored = colormap_old[i];
@@ -440,9 +466,11 @@ void render(void) {
         }
     }
     if (show_progress) {
-        printf("\033[%d;1H\033[2K[progress]\n", (n_lines > 40 ? 40 : n_lines) + 1);
+        printf("\033[%d;1H\033[2K[progress: line %d/%d]\n", viewport_height, cursor_l + 1, n_lines);
     }
-    printf("\033[%d;%dH", cursor_l + 1, cursor_c + 1 + (show_line_numbers ? 5 : 0));
+    /* Position cursor at the right display row */
+    int display_cursor_row = cursor_l - scroll_offset;
+    printf("\033[%d;%dH", display_cursor_row + 1, cursor_c + 1 + (show_line_numbers ? 5 : 0));
     fflush(stdout);
 }
 
