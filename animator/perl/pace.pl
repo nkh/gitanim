@@ -20,22 +20,78 @@ my $delete_speed = 'normal';
 my $delete_threshold = 3;
 my $insert_pacing = 'char';
 my $insert_speed = 'normal';
+my $pacing_mode = 'uniform';
+my $gaussian_jitter_pct = 20;
 my $snapshot_file;
 my $help = 0;
 
+# Pacing state for adaptive mode
+my $prev_op_type = '';
+my $adaptive_run_count = 0;
+
 GetOptions(
-    'delete-pacing=s'  => \$delete_pacing,
-    'delete-speed=s'    => \$delete_speed,
-    'delete-threshold=i' => \$delete_threshold,
-    'insert-pacing=s'   => \$insert_pacing,
-    'insert-speed=s'    => \$insert_speed,
-    'snapshot=s'        => \$snapshot_file,
-    'help|h'            => \$help,
+    'delete-pacing=s'      => \$delete_pacing,
+    'delete-speed=s'        => \$delete_speed,
+    'delete-threshold=i'     => \$delete_threshold,
+    'insert-pacing=s'       => \$insert_pacing,
+    'insert-speed=s'        => \$insert_speed,
+    'pacing=s'              => \$pacing_mode,
+    'gaussian-jitter-pct=i'  => \$gaussian_jitter_pct,
+    'snapshot=s'             => \$snapshot_file,
+    'help|h'                 => \$help,
 ) or die "Usage: $0 [options]\n";
 
 if ($help) {
     print STDERR "Usage: diffvim-pace [options]\n";
     exit 0;
+}
+
+srand(time());
+
+# Apply pacing mode to a delay value. Returns adjusted delay.
+sub apply_pacing {
+    my ($delay) = @_;
+    return 0 if $delay <= 0;
+
+    if ($pacing_mode eq 'review') {
+        return $delay * 2;
+    }
+
+    if ($pacing_mode eq 'gaussian') {
+        my $jitter = int(($delay * $gaussian_jitter_pct) / 100);
+        if ($jitter > 0) {
+            my $offset = int(rand(2 * $jitter + 1)) - $jitter;
+            my $result = $delay + $offset;
+            return $result < 1 ? 1 : $result;
+        }
+        return $delay;
+    }
+
+    if ($pacing_mode eq 'adaptive') {
+        return int($delay * 0.4) if $adaptive_run_count > 20;
+        return int($delay * 0.6) if $adaptive_run_count > 10;
+        return int($delay * 0.8) if $adaptive_run_count > 5;
+        return $delay;
+    }
+
+    # uniform (default): no change
+    return $delay;
+}
+
+sub track_op_type {
+    my ($type) = @_;
+    if ($type eq $prev_op_type) {
+        $adaptive_run_count++;
+    } else {
+        $prev_op_type = $type;
+        $adaptive_run_count = 0;
+    }
+}
+
+sub emit_paced_delay {
+    my ($ms, $type) = @_;
+    my $adjusted = apply_pacing($ms);
+    print "delay\t$adjusted\t$type\n";
 }
 
 # Timing defaults (ms)
@@ -99,7 +155,7 @@ while ($i < @lines) {
         if ($cmd eq 'HUNK_END' && $i + 1 < @lines) {
             my @next = split /\t/, $lines[$i + 1];
             if ($next[0] eq 'HUNK') {
-                print "delay\t$hunk_pause\thunk\n";
+                emit_paced_delay($hunk_pause, "hunk");
             }
         }
         $i++;
@@ -107,26 +163,28 @@ while ($i < @lines) {
     }
 
     if ($cmd eq 'keep') {
+        track_op_type("keep");
         # Pass through, insert char delay
         print "$lines[$i]\n";
-        print "delay\t1\tchar\n";
+        emit_paced_delay(1, "char");
         $i++;
     } elsif ($cmd eq 'delete') {
+        track_op_type("delete");
         my $code = $parts[3] // 0;
         if ($code == 10) {
             # \n delete
             print "$lines[$i]\n";
-            print "delay\t$delete_delay\tchar\n";
+            emit_paced_delay($delete_delay, "char");
             $i++;
         } else {
             # Non-newline delete: handle pacing
             if ($delete_pacing eq 'char') {
                 print "$lines[$i]\n";
-                print "delay\t$delete_delay\tchar\n";
+                emit_paced_delay($delete_delay, "char");
                 $i++;
             } elsif ($delete_pacing eq 'instant') {
                 print "$lines[$i]\n";
-                print "delay\t1\tchar\n";
+                emit_paced_delay(1, "char");
                 $i++;
             } else {
                 # AWD: collect consecutive deletes on same line
@@ -149,20 +207,20 @@ while ($i < @lines) {
                     my $c = $p[3] // 0;
                     last if $c != 32 && $c != 9;
                     print "$lines[$j]\n";
-                    print "delay\t$awd_min_ms\tawd_skip\n";
+                    emit_paced_delay($awd_min_ms, "awd_skip");
                     $j++;
                 }
                 my $remaining = $i - $j;
                 if ($remaining <= $awd_start_chars) {
                     for my $k ($j .. $i - 1) {
                         print "$lines[$k]\n";
-                        print "delay\t$awd_min_ms\tawd_fast\n";
+                        emit_paced_delay($awd_min_ms, "awd_fast");
                     }
                 } else {
                     # Phase 2: slow start
                     for my $k ($j .. $j + $awd_start_chars - 1) {
                         print "$lines[$k]\n";
-                        print "delay\t$awd_start_ms\tawd_slow\n";
+                        emit_paced_delay($awd_start_ms, "awd_slow");
                     }
                     $j += $awd_start_chars;
                     # Phase 3: accelerated
@@ -181,7 +239,7 @@ while ($i < @lines) {
                             }
                             $delay *= $awd_accel;
                             $delay = $awd_min_ms if $delay < $awd_min_ms;
-                            print "delay\t" . int($delay) . "\tawd_fast\n";
+                            emit_paced_delay(int($delay), "awd_fast");
                             $j += $word_len;
                         }
                         # Skip spaces
@@ -196,16 +254,17 @@ while ($i < @lines) {
                             for my $k ($space_start .. $j - 1) {
                                 print "$lines[$k]\n";
                             }
-                            print "delay\t$awd_min_ms\tawd_skip\n";
+                            emit_paced_delay($awd_min_ms, "awd_skip");
                         }
                     }
                 }
             }
         }
     } elsif ($cmd eq 'insert') {
+        track_op_type("insert");
         # Pass through, insert char delay
         print "$lines[$i]\n";
-        print "delay\t$char_delay\tchar\n";
+        emit_paced_delay($char_delay, "char");
         $i++;
     } else {
         # Unknown — pass through

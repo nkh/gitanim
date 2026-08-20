@@ -36,15 +36,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define MAX_LINE 1048576
-
-static char delete_pacing[32] = "word";
-static char delete_speed[32] = "normal";
-static int delete_threshold = 3;
-static char insert_pacing[32] = "char";
-static char insert_speed[32] = "normal";
-static char snapshot_file[256] = "";
 
 /* Timing defaults (ms) */
 static int char_delay = 50;      /* normal typing */
@@ -56,7 +50,20 @@ static int awd_min_ms = 15;      /* minimum accelerated delay */
 static double awd_accel = 0.85;  /* acceleration factor */
 static int word_pause = 150;     /* after a word */
 
-/* Output a delay line */
+static char delete_pacing[32] = "word";
+static char delete_speed[32] = "normal";
+static int delete_threshold = 3;
+static char insert_pacing[32] = "char";
+static char insert_speed[32] = "normal";
+static char pacing_mode[32] = "uniform";
+static int gaussian_jitter_pct = 20;  /* default ±20% */
+static char snapshot_file[256] = "";
+
+/* Pacing state for adaptive mode */
+static char prev_op_type[8] = "";
+static int adaptive_run_count = 0;
+
+/* Output a delay line (base — no pacing applied) */
 static void emit_delay(int ms, const char *type) {
     printf("delay\t%d\t%s\n", ms, type);
 }
@@ -64,6 +71,53 @@ static void emit_delay(int ms, const char *type) {
 /* Output a line verbatim (pass through) */
 static void passthrough(const char *line) {
     printf("%s\n", line);
+}
+
+/* Apply pacing mode to a delay value. Returns adjusted delay. */
+static int apply_pacing(int delay) {
+    if (delay <= 0) return 0;
+
+    if (strcmp(pacing_mode, "review") == 0) {
+        return delay * 2;
+    }
+
+    if (strcmp(pacing_mode, "gaussian") == 0) {
+        int jitter = (delay * gaussian_jitter_pct) / 100;
+        if (jitter > 0) {
+            int offset = (rand() % (2 * jitter + 1)) - jitter;
+            int result = delay + offset;
+            if (result < 1) result = 1;
+            return result;
+        }
+        return delay;
+    }
+
+    if (strcmp(pacing_mode, "adaptive") == 0) {
+        if (adaptive_run_count > 20) return (int)(delay * 0.4);
+        if (adaptive_run_count > 10) return (int)(delay * 0.6);
+        if (adaptive_run_count > 5) return (int)(delay * 0.8);
+        return delay;
+    }
+
+    /* uniform (default): no change */
+    return delay;
+}
+
+/* Track op type for adaptive mode */
+static void track_op_type(const char *type) {
+    if (strcmp(type, prev_op_type) == 0) {
+        adaptive_run_count++;
+    } else {
+        strncpy(prev_op_type, type, 7);
+        prev_op_type[7] = 0;
+        adaptive_run_count = 0;
+    }
+}
+
+/* Emit a delay with pacing applied */
+static void emit_paced_delay(int ms, const char *type) {
+    int adjusted = apply_pacing(ms);
+    emit_delay(adjusted, type);
 }
 
 void parse_args(int argc, char **argv) {
@@ -78,6 +132,10 @@ void parse_args(int argc, char **argv) {
             strncpy(insert_pacing, argv[++i], 31);
         else if (strcmp(argv[i], "--insert-speed") == 0 && i+1 < argc)
             strncpy(insert_speed, argv[++i], 31);
+        else if (strcmp(argv[i], "--pacing") == 0 && i+1 < argc)
+            strncpy(pacing_mode, argv[++i], 31);
+        else if (strcmp(argv[i], "--gaussian-jitter-pct") == 0 && i+1 < argc)
+            gaussian_jitter_pct = atoi(argv[++i]);
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc)
             strncpy(snapshot_file, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -86,6 +144,8 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "  --delete-speed MODE   slow|normal|fast|instant (default: normal)\n");
             fprintf(stderr, "  --insert-pacing MODE  char|word (default: char)\n");
             fprintf(stderr, "  --insert-speed MODE   slow|normal|fast (default: normal)\n");
+            fprintf(stderr, "  --pacing MODE         uniform|adaptive|gaussian|review (default: uniform)\n");
+            fprintf(stderr, "  --gaussian-jitter-pct N  Jitter percentage for gaussian mode (default: 20)\n");
             fprintf(stderr, "  --snapshot FILE       Insert snapshot op at end\n");
             exit(0);
         }
@@ -143,7 +203,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
 
         if (code == 32 || code == 9) {
             passthrough(lines[i]);
-            emit_delay(awd_min_ms, "awd_skip");
+            emit_paced_delay(awd_min_ms, "awd_skip");
             i++;
         } else {
             break;
@@ -155,7 +215,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
         /* Short run — delete all with awd_fast */
         for (int k = i; k < end; k++) {
             passthrough(lines[k]);
-            emit_delay(awd_min_ms, "awd_fast");
+            emit_paced_delay(awd_min_ms, "awd_fast");
         }
         return;
     }
@@ -163,7 +223,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
     /* Phase 2: Delete start_chars slowly */
     for (int k = i; k < i + awd_start_chars; k++) {
         passthrough(lines[k]);
-        emit_delay(awd_start_ms, "awd_slow");
+        emit_paced_delay(awd_start_ms, "awd_slow");
     }
     i += awd_start_chars;
 
@@ -187,7 +247,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
                 passthrough(lines[k]);
             delay *= awd_accel;
             if (delay < awd_min_ms) delay = awd_min_ms;
-            emit_delay((int)delay, "awd_fast");
+            emit_paced_delay((int)delay, "awd_fast");
             i += word_len;
         }
         /* Skip spaces */
@@ -205,12 +265,14 @@ void process_awd(char *lines[], int start, int count, int same_line) {
             }
             for (int k = space_start; k < i; k++)
                 passthrough(lines[k]);
-            emit_delay(awd_min_ms, "awd_skip");
+            emit_paced_delay(awd_min_ms, "awd_skip");
         }
     }
 }
 
+
 int main(int argc, char **argv) {
+    srand(time(NULL));
     parse_args(argc, argv);
     apply_speeds();
 
@@ -299,33 +361,35 @@ int main(int argc, char **argv) {
                 char *ntoks[8];
                 int nnt = parse_tsv(nbuf, ntoks, 8);
                 if (nnt >= 1 && strcmp(ntoks[0], "HUNK") == 0) {
-                    emit_delay(hunk_pause, "hunk");
+                    emit_paced_delay(hunk_pause, "hunk");
                 }
             }
             i++;
             continue;
         }
 
+        track_op_type("keep");
         if (strcmp(toks[0], "keep") == 0) {
             passthrough(all_lines[i]);
-            emit_delay(1, "char");
+            emit_paced_delay(1, "char");
             i++;
         } else if (strcmp(toks[0], "delete") == 0) {
+            track_op_type("delete");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
             if (code == 10) {
                 /* \n delete */
                 passthrough(all_lines[i]);
-                emit_delay(delete_delay, "char");
+                emit_paced_delay(delete_delay, "char");
                 i++;
             } else {
                 /* Non-newline delete: handle pacing */
                 if (strcmp(delete_pacing, "char") == 0) {
                     passthrough(all_lines[i]);
-                    emit_delay(delete_delay, "char");
+                    emit_paced_delay(delete_delay, "char");
                     i++;
                 } else if (strcmp(delete_pacing, "instant") == 0) {
                     passthrough(all_lines[i]);
-                    emit_delay(1, "char");
+                    emit_paced_delay(1, "char");
                     i++;
                 } else {
                     /* AWD (word pacing): collect consecutive deletes on same line */
@@ -348,15 +412,16 @@ int main(int argc, char **argv) {
                 }
             }
         } else if (strcmp(toks[0], "insert") == 0) {
+            track_op_type("insert");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
             if (code == 10) {
                 /* \n insert */
                 passthrough(all_lines[i]);
-                emit_delay(char_delay, "char");
+                emit_paced_delay(char_delay, "char");
                 i++;
             } else {
                 passthrough(all_lines[i]);
-                emit_delay(char_delay, "char");
+                emit_paced_delay(char_delay, "char");
                 i++;
             }
         } else {
