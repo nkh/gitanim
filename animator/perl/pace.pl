@@ -25,6 +25,10 @@ my $gaussian_jitter_pct = 20;
 my $pause_after_lines = 0;
 my $pause_after_threshold = 50;
 my $pause_after_ms = 500;
+my $accel_delete = 0;
+my $accel_delete_start_ms = 80;
+my $accel_delete_min_ms = 10;
+my $accel_delete_accel = 0.85;
 my $snapshot_file;
 my $help = 0;
 
@@ -43,6 +47,10 @@ GetOptions(
     'pause-after-lines=i'     => \$pause_after_lines,
     'pause-after-threshold=i'  => \$pause_after_threshold,
     'pause-after-ms=i'         => \$pause_after_ms,
+    'accel-delete'             => sub { $accel_delete = 1; },
+    'accel-delete-start-ms=i'   => \$accel_delete_start_ms,
+    'accel-delete-min-ms=i'      => \$accel_delete_min_ms,
+    'accel-delete-accel=f'       => \$accel_delete_accel,
     'snapshot=s'             => \$snapshot_file,
     'help|h'                 => \$help,
 ) or die "Usage: $0 [options]\n";
@@ -179,15 +187,46 @@ while ($i < @lines) {
         track_op_type("delete");
         my $code = $parts[3] // 0;
         if ($code == 10) {
-            # \n delete — counts as a changed line
-            print "$lines[$i]\n";
-            emit_paced_delay($delete_delay, "char");
-            $changed_lines++;
-            if ($pause_after_lines > 0 && $changed_lines % $pause_after_lines == 0
-                && scalar(@lines) > $pause_after_threshold) {
-                emit_paced_delay($pause_after_ms, "pause_after");
+            # \n delete — check for multi-line accel delete
+            if ($accel_delete) {
+                # Collect consecutive \n deletes
+                my $start_idx = $i;
+                while ($i < @lines) {
+                    my @p = split /\t/, $lines[$i];
+                    my $c = $p[3] // 0;
+                    last if $p[0] ne 'delete' || $c != 10;
+                    $i++;
+                }
+                my $count = $i - $start_idx;
+                my $delay = $accel_delete_start_ms;
+                for my $k ($start_idx .. $start_idx + $count - 1) {
+                    print "$lines[$k]\n";
+                    my $remaining = ($start_idx + $count) - $k;
+                    if ($remaining <= 3) {
+                        my $d = $accel_delete_start_ms * (4 - $remaining) / 3.0;
+                        emit_paced_delay(int($d), "accel_delete");
+                    } else {
+                        emit_paced_delay(int($delay), "accel_delete");
+                        $delay *= $accel_delete_accel;
+                        $delay = $accel_delete_min_ms if $delay < $accel_delete_min_ms;
+                    }
+                    $changed_lines++;
+                    if ($pause_after_lines > 0 && $changed_lines % $pause_after_lines == 0
+                        && scalar(@lines) > $pause_after_threshold) {
+                        emit_paced_delay($pause_after_ms, "pause_after");
+                    }
+                }
+            } else {
+                # Normal \n delete
+                print "$lines[$i]\n";
+                emit_paced_delay($delete_delay, "char");
+                $changed_lines++;
+                if ($pause_after_lines > 0 && $changed_lines % $pause_after_lines == 0
+                    && scalar(@lines) > $pause_after_threshold) {
+                    emit_paced_delay($pause_after_ms, "pause_after");
+                }
+                $i++;
             }
-            $i++;
         } else {
             # Non-newline delete: handle pacing
             if ($delete_pacing eq 'char') {

@@ -60,6 +60,10 @@ static int gaussian_jitter_pct = 20;  /* default ±20% */
 static int pause_after_lines = 0;     /* pause after N changed lines (0=off) */
 static int pause_after_threshold = 50; /* only pause if >N total lines */
 static int pause_after_ms = 500;      /* pause duration */
+static int accel_delete = 0;          /* multi-line accel delete (0=off, 1=on) */
+static int accel_delete_start_ms = 80; /* initial slow delay */
+static int accel_delete_min_ms = 10;   /* minimum accelerated delay */
+static double accel_delete_accel = 0.85; /* acceleration factor */
 static char snapshot_file[256] = "";
 
 /* Pacing state for adaptive mode */
@@ -145,6 +149,14 @@ void parse_args(int argc, char **argv) {
             pause_after_threshold = atoi(argv[++i]);
         else if (strcmp(argv[i], "--pause-after-ms") == 0 && i+1 < argc)
             pause_after_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--accel-delete") == 0)
+            accel_delete = 1;
+        else if (strcmp(argv[i], "--accel-delete-start-ms") == 0 && i+1 < argc)
+            accel_delete_start_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--accel-delete-min-ms") == 0 && i+1 < argc)
+            accel_delete_min_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--accel-delete-accel") == 0 && i+1 < argc)
+            accel_delete_accel = atof(argv[++i]);
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc)
             strncpy(snapshot_file, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -158,6 +170,10 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "  --pause-after-lines N   Pause after every N changed lines (default: 0=off)\n");
             fprintf(stderr, "  --pause-after-threshold N  Only pause if file has >N lines (default: 50)\n");
             fprintf(stderr, "  --pause-after-ms N      Pause duration in ms (default: 500)\n");
+            fprintf(stderr, "  --accel-delete         Enable multi-line accelerated deletion\n");
+            fprintf(stderr, "  --accel-delete-start-ms N  Initial slow delay (default: 80)\n");
+            fprintf(stderr, "  --accel-delete-min-ms N    Minimum accelerated delay (default: 10)\n");
+            fprintf(stderr, "  --accel-delete-accel F     Acceleration factor 0-1 (default: 0.85)\n");
             fprintf(stderr, "  --snapshot FILE       Insert snapshot op at end\n");
             exit(0);
         }
@@ -391,10 +407,52 @@ int main(int argc, char **argv) {
             track_op_type("delete");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
             if (code == 10) {
-                /* \n delete */
-                passthrough(all_lines[i]);
-                emit_paced_delay(delete_delay, "char");
-                i++;
+                /* \n delete — check for multi-line accel delete */
+                if (accel_delete) {
+                    /* Collect consecutive \n deletes */
+                    int start_idx = i;
+                    while (i < n_lines) {
+                        char abuf[MAX_LINE];
+                        strncpy(abuf, all_lines[i], MAX_LINE - 1);
+                        abuf[MAX_LINE - 1] = 0;
+                        char *at[8];
+                        int an = parse_tsv(abuf, at, 8);
+                        int ac = (an >= 4) ? atoi(at[3]) : 0;
+                        if (strcmp(at[0], "delete") != 0 || ac != 10) break;
+                        i++;
+                    }
+                    int count = i - start_idx;
+                    /* Emit with acceleration: first lines slow, middle fast, last lines slow */
+                    double delay = accel_delete_start_ms;
+                    for (int k = start_idx; k < start_idx + count; k++) {
+                        passthrough(all_lines[k]);
+                        int remaining = (start_idx + count) - k;
+                        /* Decelerate for last 3 lines */
+                        if (remaining <= 3) {
+                            double d = accel_delete_start_ms * (4 - remaining) / 3.0;
+                            emit_paced_delay((int)d, "accel_delete");
+                        } else {
+                            emit_paced_delay((int)delay, "accel_delete");
+                            delay *= accel_delete_accel;
+                            if (delay < accel_delete_min_ms) delay = accel_delete_min_ms;
+                        }
+                        changed_lines++;
+                        if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
+                            && n_lines > pause_after_threshold) {
+                            emit_paced_delay(pause_after_ms, "pause_after");
+                        }
+                    }
+                } else {
+                    /* Normal \n delete */
+                    passthrough(all_lines[i]);
+                    emit_paced_delay(delete_delay, "char");
+                    changed_lines++;
+                    if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
+                        && n_lines > pause_after_threshold) {
+                        emit_paced_delay(pause_after_ms, "pause_after");
+                    }
+                    i++;
+                }
             } else {
                 /* Non-newline delete: handle pacing */
                 if (strcmp(delete_pacing, "char") == 0) {
@@ -448,17 +506,6 @@ int main(int argc, char **argv) {
             /* Unknown line — pass through */
             passthrough(all_lines[i]);
             i++;
-        }
-        /* Also count \n deletes as changed lines */
-        if (strcmp(toks[0], "delete") == 0) {
-            int code = (nt >= 4) ? atoi(toks[3]) : 0;
-            if (code == 10) {
-                changed_lines++;
-                if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
-                    && n_lines > pause_after_threshold) {
-                    emit_paced_delay(pause_after_ms, "pause_after");
-                }
-            }
         }
     }
 
