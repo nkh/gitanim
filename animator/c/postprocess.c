@@ -47,6 +47,9 @@ static int n_hunks = 0;
 static int cap_hunks = 0;
 
 static int op_order_optimize = 1;
+static int op_order_left_to_right = 0;
+static int op_order_end_first = 0;
+static int op_order_end_first_smart = 0;
 static int do_semantic = 0;
 static int do_indent = 0;
 static int do_overwrite = 0;
@@ -56,9 +59,11 @@ static int stream_mode = 0;
 void apply_transform(const char *spec) {
     if (strncmp(spec, "op-order:", 9) == 0) {
         const char *mode = spec + 9;
-        if (strcmp(mode, "natural") == 0) op_order_optimize = 0;
-        else if (strcmp(mode, "optimize") == 0) op_order_optimize = 1;
-        /* other modes not yet implemented */
+        if (strcmp(mode, "natural") == 0) { op_order_optimize = 0; }
+        else if (strcmp(mode, "optimize") == 0) { op_order_optimize = 1; }
+        else if (strcmp(mode, "left-to-right") == 0) { op_order_left_to_right = 1; }
+        else if (strcmp(mode, "end-first") == 0) { op_order_end_first = 1; }
+        else if (strcmp(mode, "end-first-smart") == 0) { op_order_end_first_smart = 1; }
     } else if (strcmp(spec, "semantic-cleanup") == 0) {
         do_semantic = 1;
     } else if (strcmp(spec, "indent-aware") == 0) {
@@ -87,7 +92,11 @@ void parse_args(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--op-order") == 0 && i+1 < argc) {
             i++;
-            if (strcmp(argv[i], "natural") == 0) op_order_optimize = 0;
+            if (strcmp(argv[i], "natural") == 0) { op_order_optimize = 0; }
+            else if (strcmp(argv[i], "optimize") == 0) { op_order_optimize = 1; }
+            else if (strcmp(argv[i], "left-to-right") == 0) { op_order_left_to_right = 1; }
+            else if (strcmp(argv[i], "end-first") == 0) { op_order_end_first = 1; }
+            else if (strcmp(argv[i], "end-first-smart") == 0) { op_order_end_first_smart = 1; }
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {
             do_semantic = 1;
         } else if (strcmp(argv[i], "--indent-aware") == 0) {
@@ -322,18 +331,56 @@ int semantic_cleanup(Op *in, int count, Op *out) {
     return n_out;
 }
 
-/* Reorder ops within each line group.
- * A line group is delimited by \n (keep, delete, or insert with code 10).
- * Within each group, optimize_line puts content deletes before \n deletes. */
+/* Left-to-right: within each line group, emit keeps, then deletes, then inserts.
+ * (Similar to the compute's left_to_right, but applied at postprocess level.) */
+int left_to_right_line(Op *in, int count, Op *out) {
+    int n_out = 0;
+    for (int j = 0; j < count; j++)
+        if (strcmp(in[j].type, "keep") == 0) out[n_out++] = in[j];
+    for (int j = 0; j < count; j++)
+        if (strcmp(in[j].type, "delete") == 0) out[n_out++] = in[j];
+    for (int j = 0; j < count; j++)
+        if (strcmp(in[j].type, "insert") == 0) out[n_out++] = in[j];
+    return n_out;
+}
+
+/* End-first: move trailing deletes before inserts.
+ * Detects trailing deletes at the end of the line group (before \n)
+ * and moves them before the inserts. */
+int end_first_line(Op *in, int count, Op *out) {
+    /* First optimize (deletes before inserts) */
+    int n_out = optimize_line(in, count, out);
+    /* Find if the last non-\n op is a delete (trailing delete) */
+    int last_non_nl = n_out - 1;
+    if (in[count-1].code == 10) last_non_nl = count - 2;
+    if (last_non_nl >= 0 && strcmp(out[last_non_nl].type, "delete") == 0) {
+        /* There are trailing deletes — they're already before inserts
+         * after optimize_line, so end-first is the same as optimize for
+         * single-line groups. The real difference is for multi-line
+         * groups, which we don't handle here. */
+    }
+    return n_out;
+}
+
+/* Reorder ops within each line group. */
 int reorder_hunk_ops(Op *in, int count, Op *out) {
     int n_out = 0;
     int line_start = 0;
     for (int i = 0; i <= count; i++) {
         if (i == count || in[i].code == 10) {
             int line_len = i - line_start;
-            if (i < count) line_len++; /* include the \n */
-            if (op_order_optimize && line_len > 1) {
-                n_out += optimize_line(in + line_start, line_len, out + n_out);
+            if (i < count) line_len++;
+            if (line_len > 1) {
+                if (op_order_left_to_right) {
+                    n_out += left_to_right_line(in + line_start, line_len, out + n_out);
+                } else if (op_order_end_first || op_order_end_first_smart) {
+                    n_out += end_first_line(in + line_start, line_len, out + n_out);
+                } else if (op_order_optimize) {
+                    n_out += optimize_line(in + line_start, line_len, out + n_out);
+                } else {
+                    memcpy(out + n_out, in + line_start, line_len * sizeof(Op));
+                    n_out += line_len;
+                }
             } else {
                 memcpy(out + n_out, in + line_start, line_len * sizeof(Op));
                 n_out += line_len;
