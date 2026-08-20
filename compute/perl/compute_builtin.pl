@@ -93,11 +93,51 @@ print $out "# semantic_cleanup 0\n";
 print $out "# word_diff 0\n";
 print $out "# indent_aware 0\n";
 print $out "# optimize_sequence 1\n";
-print $out "# left_to_right 0\n";
+
+# Check for left_to_right env var (mirror the C++ compute tool)
+my $do_l2r = 0;
+if (exists $ENV{DIFFVIM_LEFT_TO_RIGHT} && $ENV{DIFFVIM_LEFT_TO_RIGHT} ne '' && $ENV{DIFFVIM_LEFT_TO_RIGHT} ne '0') {
+    $do_l2r = 1;
+}
+print $out "# left_to_right $do_l2r\n";
 print $out "# hunk_count " . scalar(@hunks) . "\n";
 
 for my $h (@hunks) {
     print $out "HUNK\t$h->{target_line}\t$h->{deleted_count}\t$h->{inserted_count}\t$h->{is_end_insert}\t$h->{is_end_delete}\n";
+
+    # Apply left_to_right transform if enabled (mirror C++ left_to_right)
+    my @ops = @{$h->{char_ops}};
+    if ($do_l2r && @ops >= 2) {
+        my @out;
+        my $i = 0;
+        while ($i < @ops) {
+            my $code = ($ops[$i]{code} =~ /^\d+$/) ? $ops[$i]{code} : ord($ops[$i]{code});
+            my $type = $ops[$i]{op};
+            if ($type eq 'keep' || $code == 10) {
+                # Keep or \n: stays in place (anchor/line boundary)
+                push @out, $ops[$i];
+                $i++;
+            } else {
+                # Start of change region: collect consecutive non-keep, non-\n ops
+                my $region_start = $i;
+                while ($i < @ops) {
+                    my $c = ($ops[$i]{code} =~ /^\d+$/) ? $ops[$i]{code} : ord($ops[$i]{code});
+                    last if $ops[$i]{op} eq 'keep' || $c == 10;
+                    $i++;
+                }
+                my $region_end = $i;
+                # Emit all DELETEs first
+                for my $k ($region_start .. $region_end - 1) {
+                    push @out, $ops[$k] if $ops[$k]{op} eq 'delete';
+                }
+                # Then all INSERTs
+                for my $k ($region_start .. $region_end - 1) {
+                    push @out, $ops[$k] if $ops[$k]{op} eq 'insert';
+                }
+            }
+        }
+        @ops = @out;
+    }
 
     # Walk the ops and compute (line, col) for each op, mirroring the
     # C++ compute tool: cursor starts at (target, 1). keep/insert
@@ -106,7 +146,7 @@ for my $h (@hunks) {
     my $cur_line = $h->{target_line};
     my $cur_col = 1;
 
-    for my $op (@{$h->{char_ops}}) {
+    for my $op (@ops) {
         my $code = ($op->{code} =~ /^\d+$/) ? $op->{code} : ord($op->{code});
         my $type = $op->{op};   # keep | delete | insert
 
