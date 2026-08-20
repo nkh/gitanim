@@ -57,6 +57,9 @@ static char insert_pacing[32] = "char";
 static char insert_speed[32] = "normal";
 static char pacing_mode[32] = "uniform";
 static int gaussian_jitter_pct = 20;  /* default ±20% */
+static int pause_after_lines = 0;     /* pause after N changed lines (0=off) */
+static int pause_after_threshold = 50; /* only pause if >N total lines */
+static int pause_after_ms = 500;      /* pause duration */
 static char snapshot_file[256] = "";
 
 /* Pacing state for adaptive mode */
@@ -136,6 +139,12 @@ void parse_args(int argc, char **argv) {
             strncpy(pacing_mode, argv[++i], 31);
         else if (strcmp(argv[i], "--gaussian-jitter-pct") == 0 && i+1 < argc)
             gaussian_jitter_pct = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--pause-after-lines") == 0 && i+1 < argc)
+            pause_after_lines = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--pause-after-threshold") == 0 && i+1 < argc)
+            pause_after_threshold = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--pause-after-ms") == 0 && i+1 < argc)
+            pause_after_ms = atoi(argv[++i]);
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc)
             strncpy(snapshot_file, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -146,6 +155,9 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "  --insert-speed MODE   slow|normal|fast (default: normal)\n");
             fprintf(stderr, "  --pacing MODE         uniform|adaptive|gaussian|review (default: uniform)\n");
             fprintf(stderr, "  --gaussian-jitter-pct N  Jitter percentage for gaussian mode (default: 20)\n");
+            fprintf(stderr, "  --pause-after-lines N   Pause after every N changed lines (default: 0=off)\n");
+            fprintf(stderr, "  --pause-after-threshold N  Only pause if file has >N lines (default: 50)\n");
+            fprintf(stderr, "  --pause-after-ms N      Pause duration in ms (default: 500)\n");
             fprintf(stderr, "  --snapshot FILE       Insert snapshot op at end\n");
             exit(0);
         }
@@ -287,6 +299,8 @@ int main(int argc, char **argv) {
     char buf[MAX_LINE];
     int ops_seen = 0;
     int line_no = 0;
+    int changed_lines = 0;  /* count of changed lines for --pause-after-lines */
+    int total_input_lines = 0;  /* count of input file lines */
 
     while (fgets(buf, sizeof(buf), stdin)) {
         line_no++;
@@ -415,9 +429,15 @@ int main(int argc, char **argv) {
             track_op_type("insert");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
             if (code == 10) {
-                /* \n insert */
+                /* \n insert — counts as a changed line */
                 passthrough(all_lines[i]);
                 emit_paced_delay(char_delay, "char");
+                changed_lines++;
+                /* Check pause-after-lines */
+                if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
+                    && n_lines > pause_after_threshold) {
+                    emit_paced_delay(pause_after_ms, "pause_after");
+                }
                 i++;
             } else {
                 passthrough(all_lines[i]);
@@ -428,6 +448,17 @@ int main(int argc, char **argv) {
             /* Unknown line — pass through */
             passthrough(all_lines[i]);
             i++;
+        }
+        /* Also count \n deletes as changed lines */
+        if (strcmp(toks[0], "delete") == 0) {
+            int code = (nt >= 4) ? atoi(toks[3]) : 0;
+            if (code == 10) {
+                changed_lines++;
+                if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
+                    && n_lines > pause_after_threshold) {
+                    emit_paced_delay(pause_after_ms, "pause_after");
+                }
+            }
         }
     }
 

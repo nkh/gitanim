@@ -22,6 +22,9 @@ my $insert_pacing = 'char';
 my $insert_speed = 'normal';
 my $pacing_mode = 'uniform';
 my $gaussian_jitter_pct = 20;
+my $pause_after_lines = 0;
+my $pause_after_threshold = 50;
+my $pause_after_ms = 500;
 my $snapshot_file;
 my $help = 0;
 
@@ -37,6 +40,9 @@ GetOptions(
     'insert-speed=s'        => \$insert_speed,
     'pacing=s'              => \$pacing_mode,
     'gaussian-jitter-pct=i'  => \$gaussian_jitter_pct,
+    'pause-after-lines=i'     => \$pause_after_lines,
+    'pause-after-threshold=i'  => \$pause_after_threshold,
+    'pause-after-ms=i'         => \$pause_after_ms,
     'snapshot=s'             => \$snapshot_file,
     'help|h'                 => \$help,
 ) or die "Usage: $0 [options]\n";
@@ -145,6 +151,7 @@ print "# delete_pacing $delete_pacing\n";
 print "# insert_pacing $insert_pacing\n";
 
 my $i = 0;
+my $changed_lines = 0;
 while ($i < @lines) {
     my @parts = split /\t/, $lines[$i];
     my $cmd = $parts[0];
@@ -172,9 +179,14 @@ while ($i < @lines) {
         track_op_type("delete");
         my $code = $parts[3] // 0;
         if ($code == 10) {
-            # \n delete
+            # \n delete — counts as a changed line
             print "$lines[$i]\n";
             emit_paced_delay($delete_delay, "char");
+            $changed_lines++;
+            if ($pause_after_lines > 0 && $changed_lines % $pause_after_lines == 0
+                && scalar(@lines) > $pause_after_threshold) {
+                emit_paced_delay($pause_after_ms, "pause_after");
+            }
             $i++;
         } else {
             # Non-newline delete: handle pacing
@@ -262,9 +274,18 @@ while ($i < @lines) {
         }
     } elsif ($cmd eq 'insert') {
         track_op_type("insert");
+        my $code = $parts[3] // 0;
         # Pass through, insert char delay
         print "$lines[$i]\n";
         emit_paced_delay($char_delay, "char");
+        if ($code == 10) {
+            # \n insert — counts as a changed line
+            $changed_lines++;
+            if ($pause_after_lines > 0 && $changed_lines % $pause_after_lines == 0
+                && scalar(@lines) > $pause_after_threshold) {
+                emit_paced_delay($pause_after_ms, "pause_after");
+            }
+        }
         $i++;
     } else {
         # Unknown — pass through
