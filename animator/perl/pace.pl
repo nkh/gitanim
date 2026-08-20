@@ -237,6 +237,59 @@ while ($i < @lines) {
                 print "$lines[$i]\n";
                 emit_paced_delay(1, "char");
                 $i++;
+            } elsif ($delete_pacing eq 'rapid-eol') {
+                # Rapid EOL: delete trailing chars rapidly
+                my $start_line = $parts[1] // 0;
+                my $start_idx = $i;
+                while ($i < @lines) {
+                    my @p = split /\t/, $lines[$i];
+                    my $c = $p[3] // 0;
+                    my $l = $p[1] // 0;
+                    last if $p[0] ne 'delete' || $c == 10 || $l != $start_line;
+                    $i++;
+                }
+                my $count = $i - $start_idx;
+                if ($count <= $delete_threshold) {
+                    for my $k ($start_idx .. $i - 1) {
+                        print "$lines[$k]\n";
+                        emit_paced_delay($delete_delay, "rapid_eol");
+                    }
+                } else {
+                    my $delay = $delete_delay;
+                    for my $k ($start_idx .. $i - 1) {
+                        print "$lines[$k]\n";
+                        emit_paced_delay(int($delay), "rapid_eol");
+                        $delay *= $awd_accel;
+                        $delay = $awd_min_ms if $delay < $awd_min_ms;
+                    }
+                }
+            } elsif ($delete_pacing eq 'rapid-identical') {
+                # Rapid identical: delete runs of same char rapidly
+                my $start_line = $parts[1] // 0;
+                my $start_idx = $i;
+                my $start_code = $code;
+                while ($i < @lines) {
+                    my @p = split /\t/, $lines[$i];
+                    my $c = $p[3] // 0;
+                    my $l = $p[1] // 0;
+                    last if $p[0] ne 'delete' || $c != $start_code || $l != $start_line;
+                    $i++;
+                }
+                my $count = $i - $start_idx;
+                if ($count <= $delete_threshold) {
+                    for my $k ($start_idx .. $i - 1) {
+                        print "$lines[$k]\n";
+                        emit_paced_delay($delete_delay, "rapid_identical");
+                    }
+                } else {
+                    my $delay = $delete_delay;
+                    for my $k ($start_idx .. $i - 1) {
+                        print "$lines[$k]\n";
+                        emit_paced_delay(int($delay), "rapid_identical");
+                        $delay *= $awd_accel;
+                        $delay = $awd_min_ms if $delay < $awd_min_ms;
+                    }
+                }
             } else {
                 # AWD: collect consecutive deletes on same line
                 my $start_line = $parts[1] // 0;

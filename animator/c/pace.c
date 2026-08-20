@@ -463,6 +463,76 @@ int main(int argc, char **argv) {
                     passthrough(all_lines[i]);
                     emit_paced_delay(1, "char");
                     i++;
+                } else if (strcmp(delete_pacing, "rapid-eol") == 0) {
+                    /* Rapid EOL: delete trailing chars rapidly.
+                     * Collect consecutive deletes on same line, delete first
+                     * char slowly (delete_delay), then accelerate each
+                     * subsequent char. */
+                    int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
+                    int start_idx = i;
+                    while (i < n_lines) {
+                        char buf2[MAX_LINE];
+                        strncpy(buf2, all_lines[i], MAX_LINE - 1);
+                        buf2[MAX_LINE - 1] = 0;
+                        char *t2[8];
+                        int n2 = parse_tsv(buf2, t2, 8);
+                        int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
+                        int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
+                        if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
+                            break;
+                        i++;
+                    }
+                    int count = i - start_idx;
+                    if (count <= delete_threshold) {
+                        /* Short run — just delete each char */
+                        for (int k = start_idx; k < start_idx + count; k++) {
+                            passthrough(all_lines[k]);
+                            emit_paced_delay(delete_delay, "rapid_eol");
+                        }
+                    } else {
+                        /* Long run — first char slow, then accelerate */
+                        double delay = delete_delay;
+                        for (int k = start_idx; k < start_idx + count; k++) {
+                            passthrough(all_lines[k]);
+                            emit_paced_delay((int)delay, "rapid_eol");
+                            delay *= awd_accel;
+                            if (delay < awd_min_ms) delay = awd_min_ms;
+                        }
+                    }
+                } else if (strcmp(delete_pacing, "rapid-identical") == 0) {
+                    /* Rapid identical: delete runs of the same char rapidly.
+                     * Detect consecutive deletes of the same char code,
+                     * delete first slowly, then accelerate. */
+                    int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
+                    int start_idx = i;
+                    int start_code = code;
+                    while (i < n_lines) {
+                        char buf2[MAX_LINE];
+                        strncpy(buf2, all_lines[i], MAX_LINE - 1);
+                        buf2[MAX_LINE - 1] = 0;
+                        char *t2[8];
+                        int n2 = parse_tsv(buf2, t2, 8);
+                        int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
+                        int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
+                        if (strcmp(t2[0], "delete") != 0 || c2 != start_code || l2 != start_line)
+                            break;
+                        i++;
+                    }
+                    int count = i - start_idx;
+                    if (count <= delete_threshold) {
+                        for (int k = start_idx; k < start_idx + count; k++) {
+                            passthrough(all_lines[k]);
+                            emit_paced_delay(delete_delay, "rapid_identical");
+                        }
+                    } else {
+                        double delay = delete_delay;
+                        for (int k = start_idx; k < start_idx + count; k++) {
+                            passthrough(all_lines[k]);
+                            emit_paced_delay((int)delay, "rapid_identical");
+                            delay *= awd_accel;
+                            if (delay < awd_min_ms) delay = awd_min_ms;
+                        }
+                    }
                 } else {
                     /* AWD (word pacing): collect consecutive deletes on same line */
                     int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
