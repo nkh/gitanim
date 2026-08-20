@@ -27,7 +27,7 @@
 
 #define MAX_LINE 1048576  // 1MB — was 4096
 
-typedef struct { char type[8]; int code; int line; int col; } Op;
+typedef struct { char type[20]; int code; int line; int col; } Op;
 
 /* Dynamic arrays — grow as needed */
 static Op *ops_in = NULL;

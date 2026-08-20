@@ -844,7 +844,7 @@ export DIFFVIM_WORD_ACCEL_DELETE_PCT="$WORD_ACCEL_DELETE_PCT"
 export DIFFVIM_WORD_END_PAUSE_MS="$WORD_END_PAUSE_MS"
 export DIFFVIM_LINE_CHANGE_PAUSE_MS="$LINE_CHANGE_PAUSE_MS"
 export DIFFVIM_PRESET="$PRESET"
-export DIFFVIM_LOG_TIMING="$([[ $LOG_TIMING -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_LOG_TIMING="$LOG_TIMING"
 export DIFFVIM_HIGHLIGHT_INLINE="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_INLINE_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
 export DIFFVIM_SPEED="$SPEED_MULT"
@@ -1003,7 +1003,7 @@ if [[ -n "$LOG_MODE" ]]; then
         my @pairs = @ARGV[1 .. $#ARGV];
 
         # Timing parameters (always included unless --no-log-timing)
-        my $log_timing = ($ENV{DIFFVIM_LOG_TIMING} || "1") ne "0";
+        my $log_timing = ($ENV{DIFFVIM_LOG_TIMING} // "1") ne "0" && $ENV{DIFFVIM_LOG_TIMING} ne "";
         my $accel_delete = $ENV{DIFFVIM_ACCEL_DELETE} || "";
         my $accel_start_ms = $ENV{DIFFVIM_ACCEL_DELETE_START_MS} || 80;
         my $accel_min_ms = $ENV{DIFFVIM_ACCEL_DELETE_MIN_MS} || 10;

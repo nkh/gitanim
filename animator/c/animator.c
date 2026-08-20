@@ -646,7 +646,7 @@ int main(int argc, char **argv) {
             delete_char(code);
             mark_modified(cursor_l);
             render();
-        } else if (strcmp(cmd, "insert") == 0 && ntok >= 4) {
+        } else if ((strcmp(cmd, "insert") == 0 || strcmp(cmd, "overwrite_insert") == 0) && ntok >= 4) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
             int code = atoi(toks[3]);
