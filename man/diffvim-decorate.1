@@ -1,0 +1,93 @@
+.TH DIFFVIM-DECORATE 1 "2026-08-20" "diffvim 2.0" "diffvim pipeline"
+.SH NAME
+diffvim-decorate \- insert decoration ops into the timed op stream
+.SH SYNOPSIS
+.B diffvim-decorate
+[\fIoptions\fR] < \fItimed_ops\fR > \fIdecorated_ops\fR
+.SH DESCRIPTION
+.B diffvim-decorate
+is stage 4 of the diffvim pipeline. It reads a timed op stream from
+stdin and inserts decoration ops (highlight, dim, fold, sign, marker)
+based on the options. Both the vimscript animator and the C animator
+interpret the decoration ops the same way.
+
+The pipeline is: compute \[->] postprocess \[->] pace \[->]
+.B decorate
+\[->] animator
+.SH OPTIONS
+.TP
+.BR \-\-highlight \ \fInone|inline|word|hunk\fR
+Highlight mode (default: none).
+.RS
+.TP
+none
+No highlighting
+.TP
+inline
+Highlight each changed char (DiffAdd for insert, DiffDelete for delete)
+.TP
+word
+Highlight the word containing the changed char
+.TP
+hunk
+Highlight the entire hunk region (DiffChange)
+.RE
+.TP
+.BI \-\-highlight-duration-ms \ N
+Highlight duration in milliseconds (default: 200)
+.TP
+.B \-\-dim-unchanged
+Dim unchanged anchor lines to draw attention to changes
+.TP
+.BI \-\-dim-unchanged-pct \ N
+Dimming percentage 0-100 (default: 60)
+.TP
+.BI \-\-context \ N
+Fold unchanged regions >2N lines, keeping N context lines around each hunk
+.TP
+.B \-\-fold-unchanged
+Fold all unchanged regions between hunks
+.TP
+.B \-\-sign-column
+Place +/- signs in the sign column for changed lines
+.TP
+.B \-\-git-blame
+Insert blame markers (requires git repository)
+.TP
+.BI \-\-max-hunk-chars \ N
+Skip animation for hunks with >N changed chars (emit skip_hunk op)
+.TP
+.BR \-\-theme \ \fIdark|light|high-contrast\fR
+Color theme for highlight groups
+.TP
+.B \-h, \-\-help
+Show help and exit
+.SH "OP TYPES"
+.B New op types emitted by decorate:
+.TP
+.BI highlight \t <sl> \t <sc> \t <el> \t <ec> \t <type> \t <dur>
+Highlight a region. Type: insert|delete|hunk. Renderer highlights, waits dur ms, clears.
+.TP
+.BI dim \t <sl> \t <el> \t <pct>
+Dim the specified line range.
+.TP
+.BI fold \t <sl> \t <el>
+Fold the specified line range.
+.TP
+.BI sign \t <line> \t <type>
+Place a sign. Type: add|del.
+.TP
+.BI marker \t <line> \t <col> \t <text>
+Show text at the given position (e.g., git blame).
+.TP
+.B skip_hunk
+Signal the renderer to apply the hunk instantly without animation.
+.SH "SEE ALSO"
+.BR diffvim (1),
+.BR diffvim-compute (1),
+.BR diffvim-postprocess (1),
+.BR diffvim-pace (1)
+.SH "FULL DOCS"
+.IR docs/POSTPROCESS_OPTIONS.md ,
+.IR docs/PIPELINE_DECORATE_ANALYSIS.md ,
+.IR docs/DEBUGGING.md

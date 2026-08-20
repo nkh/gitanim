@@ -1,0 +1,103 @@
+.TH DIFFVIM-TUNE 1 "2026-08-20" "diffvim 2.0" "diffvim tuning"
+.SH NAME
+diffvim-tune \- interactive workbench for tuning diffvim postprocessing and pacing
+.SH SYNOPSIS
+.B diffvim-tune
+[\fIoptions\fR] [\fIoldfile newfile\fR]
+.SH DESCRIPTION
+.B diffvim-tune
+provides a menu-driven interface for testing diffvim options on short
+files. It can stream ops to an animator running in another terminal
+via file descriptor 5 or named pipes, enabling side-by-side comparison
+of different option combinations.
+.SH OPTIONS
+.TP
+.BI \-\-workdir \ DIR
+Directory for intermediate files (default: temp dir)
+.TP
+.BI \-\-stream \ FD
+Stream ops to file descriptor FD (e.g., 5)
+.TP
+.BI \-\-stream-pipe \ PIPE
+Stream ops to a named pipe
+.TP
+.B \-\-tmux
+Run the animator in a tmux split pane
+.TP
+.B \-h, \-\-help
+Show help and exit
+.SH "INTERACTIVE COMMANDS"
+.TP
+.B r
+Run the full pipeline + animate
+.TP
+.B p
+Show post-processed ops in less
+.TP
+.B t
+Show timed ops in less
+.TP
+.B v
+Generate per-op HTML visualization
+.TP
+.B m
+Run minimal test suite
+.TP
+.B b
+Generate debug bundle (tar.gz with user description)
+.TP
+.B e / E
+Edit old / new file
+.TP
+.B s
+Swap old and new files
+.TP
+.B d
+Diff old and new files
+.TP
+.B +
+Add a setting via fzf (or manual input)
+.TP
+.B c
+Clear all changes
+.TP
+.B S / L
+Save / load settings
+.TP
+.B 1-9
+Quick toggle settings
+.TP
+.B q
+Quit
+.SH "STREAMING TO AN ANIMATOR"
+Multiple diffvim-tune instances can stream ops to a single animator:
+.PP
+.nf
+# Terminal 1: named pipe
+mkfifo /tmp/dv_pipe
+diffvim-tune --stream-pipe /tmp/dv_pipe old1.txt new1.txt
+
+# Terminal 2: animator reads from pipe
+diffvim-animator-c old1.txt < /tmp/dv_pipe
+
+# Terminal 3: another diffvim-tune with different options
+diffvim-tune --stream-pipe /tmp/dv_pipe2 old2.txt new2.txt
+.fi
+.SH "DEBUG BUNDLE"
+Pressing
+.B b
+generates a tar.gz containing:
+.IP \(bu 2
+old.txt, new.txt
+.IP \(bu 2
+raw.txt, post.txt, timed.txt, decorated.txt
+.IP \(bu 2
+settings.conf
+.IP \(bu 2
+system_info.txt
+.IP \(bu 2
+description.txt (typed by the user)
+.SH "SEE ALSO"
+.BR diffvim (1),
+.BR diffvim-decorate (1),
+.BR diffvim-animator-c (1)

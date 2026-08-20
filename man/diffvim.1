@@ -690,6 +690,133 @@ Fish shell completion script.
 .I packaging/diffvim.rb
 Homebrew formula for macOS installation.
 
+.SH "NEW OPTIONS (Category A/B/C)"
+
+.SS "Pacing"
+.TP
+.BR \-\-pacing \ \fIuniform|adaptive|gaussian|review\fR
+Timing mode (default: uniform).
+.RS
+.TP
+uniform
+Fixed delays, no modification
+.TP
+adaptive
+Speed up for long runs of same-type ops (20% faster after 5 ops, 40% after 10, 60% after 20)
+.TP
+gaussian
+Add +-N% random jitter to each delay for human-like typing
+.TP
+review
+Everything 2x slower for code review mode
+.RE
+.TP
+.BI \-\-gaussian-jitter-pct \ N
+Jitter percentage for gaussian mode (default: 20)
+.TP
+.BI \-\-pause-after-lines \ N
+Pause after every N changed lines (default: 0=off)
+.TP
+.BI \-\-pause-after-threshold \ N
+Only pause if file has >N lines (default: 50)
+.TP
+.BI \-\-pause-after-ms \ N
+Pause duration in ms (default: 500)
+
+.SS "Delete strategies"
+.TP
+.BR \-\-delete-pacing \ \fIchar|rapid-eol|rapid-identical|word|instant\fR
+Deletion strategy (default: word)
+.TP
+.B \-\-accel-delete
+Enable multi-line accelerated deletion (slow start, accelerate, slow end)
+.TP
+.BI \-\-accel-delete-start-ms \ N
+Initial slow delay for accel-delete (default: 80)
+.TP
+.BI \-\-accel-delete-min-ms \ N
+Minimum accelerated delay (default: 10)
+.TP
+.BI \-\-accel-delete-accel \ F
+Acceleration factor 0.0-1.0 (default: 0.85)
+.TP
+.BI \-\-block-delete-size \ N
+Group deletes into blocks of N, pause before/after (default: 3)
+.TP
+.BI \-\-pause-before-delete-ms \ N
+Pause before a delete block (default: 200)
+.TP
+.BI \-\-pause-after-delete-ms \ N
+Pause after a delete block (default: 200)
+
+.SS "Op ordering"
+.TP
+.BR \-\-op-order \ \fInatural|optimize|left-to-right|end-first|end-first-smart\fR
+Op reordering mode (default: optimize)
+.TP
+.B \-\-overwrite
+Transform delete+insert into in-place overwrite (zero delay between them)
+.TP
+.B \-\-semantic-cleanup
+Merge adjacent delete+insert pairs that cancel out
+
+.SS "Highlighting and display"
+.TP
+.BR \-\-highlight \ \fInone|inline|word|hunk\fR
+Highlight mode (default: none)
+.TP
+.BI \-\-highlight-duration-ms \ N
+Highlight duration in ms (default: 200)
+.TP
+.B \-\-dim-unchanged
+Dim unchanged anchor lines
+.TP
+.BI \-\-dim-unchanged-pct \ N
+Dimming percentage 0-100 (default: 60)
+.TP
+.BI \-\-context \ N
+Fold unchanged regions >2N lines, keep N context lines
+.TP
+.B \-\-fold-unchanged
+Fold all unchanged regions
+.TP
+.B \-\-sign-column
+Show +/- signs in the sign column
+.TP
+.B \-\-git-blame
+Echo git blame for the target line of each hunk
+.TP
+.BI \-\-max-hunk-chars \ N
+Skip animation for hunks with >N changed chars (0=off)
+.TP
+.BR \-\-theme \ \fIdark|light|high-contrast\fR
+Color theme for highlights
+
+.SS "Startup and control"
+.TP
+.B \-\-step-mode
+Space advances one op at a time (starts paused)
+.TP
+.B \-\-startup-pause
+Show config + help before starting
+.TP
+.B \-\-debug
+Enable verbose logging to /tmp/diffvim-debug.log
+.TP
+.BI \-\-log-mode \ 1|2
+Generate a log file without starting vim
+.TP
+.BI \-\-log-file \ FILE
+Write log to FILE (default: diffvim.log)
+.TP
+.B \-\-no-log-timing
+Disable timing info in log output
+
+.SS "Scroll"
+.TP
+.BR \-\-scroll \ \fIzz|zt|zb|none\fR
+Scroll cursor to center/top/bottom/none (default: zz)
+
 .SH SEE ALSO
 .BR vim (1),
 .BR tmux (1),
