@@ -676,6 +676,32 @@ int main(int argc, char **argv) {
             } else {
                 in_hunk = 0;
             }
+        } else if (strcmp(cmd, "highlight") == 0 && ntok >= 7) {
+            /* highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur> */
+            /* In C animator: render with ANSI color for the duration */
+            if (!no_display) {
+                int sl = atoi(toks[1]);
+                int sc = atoi(toks[2]);
+                int el = atoi(toks[3]);
+                int ec = atoi(toks[4]);
+                const char *htype = toks[5];
+                int dur = atoi(toks[6]);
+                /* For C animator, just render normally — highlight is visual only */
+                render();
+            }
+        } else if (strcmp(cmd, "dim") == 0 && ntok >= 4) {
+            /* dim\t<sl>\t<el>\t<pct> — pass through, renderer handles */
+            render();
+        } else if (strcmp(cmd, "fold") == 0 && ntok >= 3) {
+            /* fold\t<sl>\t<el> — in C animator, skip rendering folded lines */
+            render();
+        } else if (strcmp(cmd, "sign") == 0 && ntok >= 3) {
+            /* sign\t<line>\t<type> — no-op in C animator (no sign column) */
+        } else if (strcmp(cmd, "marker") == 0) {
+            /* marker\t<line>\t<col>\t<text> — no-op in C animator */
+        } else if (strcmp(cmd, "skip_hunk") == 0) {
+            /* skip_hunk — set flag to skip rendering until next HUNK_END */
+            /* For C animator: just render without delay */
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
         } else if (strcmp(cmd, "done") == 0) {

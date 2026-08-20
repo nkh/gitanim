@@ -1314,8 +1314,32 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
         debug_log "Stage 3 done: $(wc -l < "$TIMED_OPS") lines in timed_ops"
 
-        # Pass the timed op stream to the vimscript engine
-        export DIFFVIM_TIMED_OPS="$TIMED_OPS"
+        # Stage 4: Decorate (insert highlight/dim/fold/sign ops)
+        DECORATE_BIN=""
+        for d in "animator/bin/diffvim-decorate" \
+                 "/usr/local/bin/diffvim-decorate"; do
+            if [[ -f "$d" ]]; then DECORATE_BIN="$d"; break; fi
+        done
+        DECORATED_OPS="$WORKDIR/decorated_ops.txt"
+        if [[ -n "$DECORATE_BIN" ]]; then
+            DECORATE_ARGS=()
+            [[ "$HIGHLIGHT_MODE" != "none" ]] && DECORATE_ARGS+=("--highlight" "$HIGHLIGHT_MODE")
+            DECORATE_ARGS+=("--highlight-duration-ms" "${HIGHLIGHT_DURATION_MS:-200}")
+            [[ "$DIM_UNCHANGED" -eq 1 ]] && DECORATE_ARGS+=("--dim-unchanged" "--dim-unchanged-pct" "${DIM_UNCHANGED_PCT:-60}")
+            [[ "$CONTEXT_LINES" -gt 0 ]] && DECORATE_ARGS+=("--context" "$CONTEXT_LINES")
+            [[ "$FOLD_UNCHANGED" -eq 1 ]] && DECORATE_ARGS+=("--fold-unchanged")
+            [[ "$SIGN_COLUMN" -eq 1 ]] && DECORATE_ARGS+=("--sign-column")
+            [[ "$GIT_BLAME" -eq 1 ]] && DECORATE_ARGS+=("--git-blame")
+            [[ "$MAX_HUNK_CHARS" -gt 0 ]] && DECORATE_ARGS+=("--max-hunk-chars" "$MAX_HUNK_CHARS")
+            [[ -n "$THEME" ]] && DECORATE_ARGS+=("--theme" "$THEME")
+            debug_log "Stage 4: decorate ${DECORATE_ARGS[*]}"
+            "$DECORATE_BIN" "${DECORATE_ARGS[@]}" < "$TIMED_OPS" > "$DECORATED_OPS" 2>/dev/null
+            debug_log "Stage 4 done: $(wc -l < "$DECORATED_OPS") lines in decorated_ops"
+            export DIFFVIM_TIMED_OPS="$DECORATED_OPS"
+        else
+            # No decorate tool — use timed ops directly
+            export DIFFVIM_TIMED_OPS="$TIMED_OPS"
+        fi
     else
         echo "diffvim: pipeline executables not found (need compute-cpp, postprocess, pace)" >&2
         echo "  Run 'make -C compute' and rebuild the animator tools." >&2
@@ -1655,6 +1679,72 @@ function! s:TimedProcessBatch() abort
 
         elseif l:cmd ==# 'HUNK' || l:cmd ==# 'HUNK_END'
             " metadata — skip
+
+        elseif l:cmd ==# 'highlight' && len(l:parts) >= 7
+            " highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur>
+            " In vim: use matchadd to highlight the region
+            let l:sl = str2nr(l:parts[1])
+            let l:sc = str2nr(l:parts[2])
+            let l:el = str2nr(l:parts[3])
+            let l:ec = str2nr(l:parts[4])
+            let l:htype = l:parts[5]
+            let l:dur = str2nr(l:parts[6])
+            " Build match pattern
+            let l:hi_group = l:htype ==# 'insert' ? 'DiffAdd' : l:htype ==# 'delete' ? 'DiffDelete' : 'DiffChange'
+            let l:pattern = printf('\%%%dl\%%>%dc.*\%%%dl\%%<%dc', l:sl, l:sc-1, l:el, l:ec+1)
+            let l:match_id = matchadd(l:hi_group, l:pattern)
+            if s:needs_redraw
+                call s:TimedPlaceCursor()
+                redraw
+                let s:needs_redraw = 0
+            endif
+            " Schedule removal after duration (simplified: remove on next delay)
+            " Store match ID for later removal
+            let s:highlight_ids = get(s:, 'highlight_ids', [])
+            call add(s:highlight_ids, l:match_id)
+
+        elseif l:cmd ==# 'dim' && len(l:parts) >= 4
+            " dim\t<sl>\t<el>\t<pct>
+            " In vim: use matchadd with a dim color
+            let l:sl = str2nr(l:parts[1])
+            let l:el = str2nr(l:parts[2])
+            let l:pct = str2nr(l:parts[3])
+            let l:pattern = printf('\%%%dl\|\%%%dl', l:sl, l:el)
+            call matchadd('Comment', l:pattern)
+
+        elseif l:cmd ==# 'fold' && len(l:parts) >= 3
+            " fold\t<sl>\t<el>
+            " In vim: fold the line range
+            let l:sl = str2nr(l:parts[1])
+            let l:el = str2nr(l:parts[2])
+            execute l:sl . ',' . l:el . 'fold'
+
+        elseif l:cmd ==# 'sign' && len(l:parts) >= 3
+            " sign\t<line>\t<type>
+            " In vim: place a sign
+            let l:line = str2nr(l:parts[1])
+            let l:sign_type = l:parts[2]
+            if !exists('s:sign_counter')
+                let s:sign_counter = 100
+                sign define diffvim_add text=+ texthl=DiffAdd
+                sign define diffvim_del text=- texthl=DiffDelete
+            endif
+            let s:sign_counter += 1
+            if l:sign_type ==# 'add'
+                execute 'sign place ' . s:sign_counter . ' line=' . l:line . ' name=diffvim_add buffer=' . bufnr('')
+            elseif l:sign_type ==# 'del'
+                execute 'sign place ' . s:sign_counter . ' line=' . l:line . ' name=diffvim_del buffer=' . bufnr('')
+            endif
+
+        elseif l:cmd ==# 'marker' && len(l:parts) >= 4
+            " marker\t<line>\t<col>\t<text>
+            " In vim: echo the marker text
+            let l:marker_text = join(l:parts[3:], "\t")
+            echo l:marker_text
+
+        elseif l:cmd ==# 'skip_hunk'
+            " skip_hunk — apply remaining ops in current hunk instantly
+            let s:timed_skip_hunk = 1
 
         elseif l:cmd ==# 'snapshot' && len(l:parts) >= 2
             if !empty(g:diffvim.output_file)

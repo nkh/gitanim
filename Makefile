@@ -46,8 +46,9 @@ COMPUTE_BIN   := compute/bin/diffvim-compute-cpp
 POSTPROCESS_BIN := animator/bin/diffvim-postprocess
 PACE_BIN      := animator/bin/diffvim-pace
 ANIMATOR_BIN  := animator/bin/diffvim-animator-c
+DECORATE_BIN  := animator/bin/diffvim-decorate
 
-ANIMATOR_BINS := $(POSTPROCESS_BIN) $(PACE_BIN) $(ANIMATOR_BIN)
+ANIMATOR_BINS := $(POSTPROCESS_BIN) $(PACE_BIN) $(ANIMATOR_BIN) $(DECORATE_BIN)
 ALL_BINS      := $(COMPUTE_BIN) $(ANIMATOR_BINS)
 
 # --- Default target --------------------------------------------------------
@@ -84,6 +85,10 @@ $(ANIMATOR_BIN): animator/c/animator.c
 	@mkdir -p animator/bin
 	$(CC) $(CFLAGS) -o $@ $<
 
+$(DECORATE_BIN): animator/c/decorate.c
+	@mkdir -p animator/bin
+	$(CC) $(CFLAGS) -o $@ $<
+
 # --- Installation ----------------------------------------------------------
 
 .PHONY: install install-bin install-man install-comp
@@ -97,6 +102,7 @@ install-bin: all
 	install -m 755 $(POSTPROCESS_BIN) $(DESTDIR)$(BINDIR)/diffvim-postprocess
 	install -m 755 $(PACE_BIN) $(DESTDIR)$(BINDIR)/diffvim-pace
 	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/diffvim-animator-c
+	install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/diffvim-decorate
 	install -m 755 diffvim $(DESTDIR)$(BINDIR)/diffvim
 	install -m 755 animator/diffvim-pipeline $(DESTDIR)$(BINDIR)/diffvim-pipeline
 	# Perl tools
@@ -104,11 +110,12 @@ install-bin: all
 	install -m 755 animator/perl/postprocess.pl $(DESTDIR)$(BINDIR)/diffvim-postprocess-perl
 	install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/diffvim-pace-perl
 	install -m 755 animator/perl/animator.pl $(DESTDIR)$(BINDIR)/diffvim-animator-perl
+	install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/diffvim-decorate-perl
 
 install-man:
 	install -d $(DESTDIR)$(MANDIR)
 	for f in man/*.1; do \
-		install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
+	        install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
 	done
 
 install-comp:
@@ -124,9 +131,9 @@ install-comp:
 docs:
 	@echo "Building documentation..."
 	@if command -v mdbook >/dev/null 2>&1; then \
-		mdbook build docs/src/; \
+	        mdbook build docs/src/; \
 	else \
-		echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
+	        echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
 	fi
 
 man:
@@ -146,7 +153,7 @@ test-unit:
 	@for t in test_all_animators test_cross_language test_newline_fix \
 	         test_roundtrip test_roundtrip_verify test_snapshot_each_op \
 	         test_ghost_line; do \
-		perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
+	        perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
 	done
 
 test-minimal:
@@ -201,23 +208,23 @@ check:
 	@echo "Checking binary freshness..."
 	@needs_build=0; \
 	for src_bin in \
-		"compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
-		"animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
-		"animator/c/pace.c:$(PACE_BIN)" \
-		"animator/c/animator.c:$(ANIMATOR_BIN)"; do \
-		src=$${src_bin%%:*}; \
-		bin=$${src_bin##*:}; \
-		if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
-			echo "  STALE: $$bin (newer source: $$src)"; \
-			needs_build=1; \
-		fi; \
+	        "compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
+	        "animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
+	        "animator/c/pace.c:$(PACE_BIN)" \
+	        "animator/c/animator.c:$(ANIMATOR_BIN)"; do \
+	        src=$${src_bin%%:*}; \
+	        bin=$${src_bin##*:}; \
+	        if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
+	                echo "  STALE: $$bin (newer source: $$src)"; \
+	                needs_build=1; \
+	        fi; \
 	done; \
 	if [ $$needs_build -eq 1 ]; then \
-		echo ""; \
-		echo "Run 'make' to rebuild."; \
-		exit 1; \
+	        echo ""; \
+	        echo "Run 'make' to rebuild."; \
+	        exit 1; \
 	else \
-		echo "  All binaries up to date."; \
+	        echo "  All binaries up to date."; \
 	fi
 
 # --- Help ------------------------------------------------------------------

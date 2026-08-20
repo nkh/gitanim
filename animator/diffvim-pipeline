@@ -52,6 +52,11 @@ PACE_PERL="$ROOT_DIR/animator/perl/pace.pl"
 PACE="$ROOT_DIR/animator/bin/diffvim-pace"
 [ ! -f "$PACE" ] && PACE="perl $PACE_PERL"
 
+# Decorate: C preferred, Perl fallback
+DECORATE_PERL="$ROOT_DIR/animator/perl/decorate.pl"
+DECORATE="$ROOT_DIR/animator/bin/diffvim-decorate"
+[ ! -f "$DECORATE" ] && DECORATE="perl $DECORATE_PERL"
+
 # Animator: C preferred, Perl fallback
 ANIMATOR_C="$ROOT_DIR/animator/bin/diffvim-animator-c"
 ANIMATOR_PERL="$ROOT_DIR/animator/perl/animator.pl"
@@ -242,6 +247,14 @@ run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS
 
 # Stage 3: Pace
 run_stage "pace" "$TIMED_OPS" $PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt"
+
+# Stage 3b: Decorate (optional — passes through if no decoration args)
+DECORATE_ARGS=()
+DECORATED_OPS="$WORKDIR/decorated_ops.txt"
+if [[ -f "$DECORATE" ]] || [[ -f "$DECORATE_PERL" ]]; then
+    run_stage "decorate" "$DECORATED_OPS" $DECORATE "${DECORATE_ARGS[@]}" < "$TIMED_OPS"
+    TIMED_OPS="$DECORATED_OPS"
+fi
 
 # Wait for coloring to finish (if still running)
 if [[ -n "$COLORIZE_PID" ]]; then
