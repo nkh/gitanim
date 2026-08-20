@@ -1052,7 +1052,7 @@ if [[ -n "$LOG_MODE" ]]; then
             }
             print $out "\n";
 
-            # Parse precomputed file
+            # Parse precomputed file (v2 TSV format)
             open $fh, "<", $pc_file or next;
             my @hunk_ops;
             my $hunk_target;
@@ -1061,19 +1061,22 @@ if [[ -n "$LOG_MODE" ]]; then
             while (my $line = <$fh>) {
                 chomp $line;
                 next if $line =~ /^#/ || $line =~ /^\s*$/;
-                if ($line =~ /^HUNK\s+(\d+)/) {
+                if ($line =~ /^HUNK\t(\d+)/) {
                     if ($in_hunk && @hunk_ops) {
                         process_hunk($out, $log_mode, \@old_lines, $hunk_target, \@hunk_ops);
                     }
                     $hunk_target = $1;
                     @hunk_ops = ();
                     $in_hunk = 1;
+                } elsif ($line =~ /^HUNK_END/) {
+                    if ($in_hunk && @hunk_ops) {
+                        process_hunk($out, $log_mode, \@old_lines, $hunk_target, \@hunk_ops);
+                    }
+                    @hunk_ops = ();
+                    $in_hunk = 0;
                 } else {
                     push @hunk_ops, $line;
                 }
-            }
-            if ($in_hunk && @hunk_ops) {
-                process_hunk($out, $log_mode, \@old_lines, $hunk_target, \@hunk_ops);
             }
             close $fh;
             unlink $pc_file;
@@ -1094,7 +1097,9 @@ if [[ -n "$LOG_MODE" ]]; then
             my @line_ops;
 
             for my $op (@ops) {
-                my ($type, $code) = split /\s+/, $op, 2;
+                my @fields = split /\t/, $op;
+                my $type = $fields[0] // "";
+                my $code = $fields[3] // 0;
 
                 if (($type eq "keep" || $type eq "delete") && $code == 10) {
                     # End of line
