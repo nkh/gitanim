@@ -187,6 +187,8 @@ WORD_END_PAUSE_MS="${DIFFVIM_WORD_END_PAUSE_MS:-150}"
 LINE_CHANGE_PAUSE_MS="${DIFFVIM_LINE_CHANGE_PAUSE_MS:-200}"
 PRESET="${DIFFVIM_PRESET:-}"
 LOG_TIMING="${DIFFVIM_LOG_TIMING:-1}"
+DEBUG_MODE=0
+DEBUG_LOG="/tmp/diffvim-debug.log"
 
 show_help() {
     cat >&2 <<USAGE
@@ -418,6 +420,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --preset|-p)        PRESET="$2"; shift 2 ;;
         --no-log-timing) LOG_TIMING=0; shift ;;
+        --debug)          DEBUG_MODE=1; shift ;;
         --git-blame|-g)     GIT_BLAME=1; shift ;;
         --highlight)
             HIGHLIGHT_MODE="$2"; shift 2
@@ -1246,6 +1249,22 @@ WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
 
+# --- Debug mode: log everything to /tmp/diffvim-debug.log ---
+debug_log() {
+    if [[ $DEBUG_MODE -eq 1 ]]; then
+        echo "[$(date '+%H:%M:%S.%3N')] $*" >> "$DEBUG_LOG"
+    fi
+}
+
+if [[ $DEBUG_MODE -eq 1 ]]; then
+    echo "=== diffvim debug log $(date) ===" > "$DEBUG_LOG"
+    debug_log "OLD=$OLD NEW=$NEW"
+    debug_log "WORKDIR=$WORKDIR"
+    debug_log "SPEED_MULT=$SPEED_MULT OP_ORDER=$OP_ORDER"
+    debug_log "DELETE_PACING=$DELETE_PACING INSERT_PACING=$INSERT_PACING"
+    debug_log "PACING=$PACING LEFT_TO_RIGHT=$LEFT_TO_RIGHT"
+fi
+
 # Run the full external pipeline: compute → postprocess → pace → timed op stream.
 # This replaces the in-vim compute/postprocess/pace entirely. The vimscript
 # engine now only handles the animate stage (reading the timed op stream).
@@ -1277,17 +1296,23 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         echo "diffvim: running external pipeline (compute → postprocess → pace)..." >&2
 
         # Stage 1: Compute (Patience diff)
+        debug_log "Stage 1: compute $COMPUTE_BIN $OLD $NEW $RAW_OPS"
         "$COMPUTE_BIN" "$OLD" "$NEW" "$RAW_OPS" 2>&1 | grep "^compute:" >&2 || true
+        debug_log "Stage 1 done: $(wc -l < "$RAW_OPS") lines in raw_ops"
 
         # Stage 2: Postprocess (op ordering + per-op positioning)
         POSTPROCESS_ARGS=()
         [[ "$SEMANTIC_CLEANUP" -eq 1 ]] && POSTPROCESS_ARGS+=("--semantic-cleanup")
         [[ "$INDENT_AWARE" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-aware")
+        debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
+        debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 
         # Stage 3: Pace (add typed delays + batching)
         PACE_ARGS=("--delete-pacing" "${DELETE_PACING:-word}" "--insert-pacing" "${INSERT_PACING:-char}")
+        debug_log "Stage 3: pace ${PACE_ARGS[*]}"
         "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
+        debug_log "Stage 3 done: $(wc -l < "$TIMED_OPS") lines in timed_ops"
 
         # Pass the timed op stream to the vimscript engine
         export DIFFVIM_TIMED_OPS="$TIMED_OPS"
