@@ -1956,13 +1956,19 @@ function! s:StartTimedAnimation() abort
 endfunction
 
 nnoremap <buffer> <silent> q :call <SID>TimedQuit()<CR>
-nnoremap <buffer> <silent> + :let s:timed_speed = s:timed_speed * 1.5<CR>
-nnoremap <buffer> <silent> - :let s:timed_speed = s:timed_speed / 1.5<CR>
-nnoremap <buffer> <silent> = :let s:timed_speed = 1.0<CR>
+nnoremap <buffer> <silent> + :let s:timed_speed = s:timed_speed * 1.5<CR>:echo "speed: " . string(s:timed_speed)<CR>
+nnoremap <buffer> <silent> - :let s:timed_speed = s:timed_speed / 1.5<CR>:echo "speed: " . string(s:timed_speed)<CR>
+nnoremap <buffer> <silent> = :let s:timed_speed = 1.0<CR>:echo "speed: 1.0"<CR>
 nnoremap <buffer> <silent> <Space> :let s:timed_paused = !get(s:, 'timed_paused', 0)<CR>:echo get(s:, 'timed_paused', 0) ? 'PAUSED' : 'RESUMED'<CR>
 nnoremap <buffer> <silent> p :let s:timed_paused = !get(s:, 'timed_paused', 0)<CR>:echo get(s:, 'timed_paused', 0) ? 'PAUSED' : 'RESUMED'<CR>
 nnoremap <buffer> <silent> n :let s:timed_skip_hunk = 1<CR>:echo 'Skipping to next hunk...'<CR>
 nnoremap <buffer> <silent> ? :echo 'q=quit Space=pause n=next-hunk +=faster -=slower ==reset'<CR>
+
+" Also map in terminal mode (for neovim terminal buffers)
+if has('terminal')
+    tnoremap <buffer> <silent> <Space> <C-\><C-n>:let s:timed_paused = !get(s:, 'timed_paused', 0)<CR>:echo get(s:, 'timed_paused', 0) ? 'PAUSED' : 'RESUMED'<CR>
+    tnoremap <buffer> <silent> q <C-\><C-n>:call <SID>TimedQuit()<CR>
+endif
 
 " Quit handler: stop animation, write output, quit vim
 function! s:TimedQuit() abort
