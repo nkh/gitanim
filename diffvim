@@ -1534,6 +1534,52 @@ endif
 let s:timed_timer = -1
 let s:needs_redraw = 0
 
+" --- Read config from env vars ---
+let s:scroll_mode = 'zz'
+if exists('$DIFFVIM_SCROLL') && !empty($DIFFVIM_SCROLL)
+    let s:scroll_mode = $DIFFVIM_SCROLL
+endif
+
+let s:step_mode = 0
+if exists('$DIFFVIM_STEP_MODE') && !empty($DIFFVIM_STEP_MODE) && $DIFFVIM_STEP_MODE !=# '0'
+    let s:step_mode = 1
+endif
+
+let s:startup_pause = 0
+if exists('$DIFFVIM_STARTUP_PAUSE') && !empty($DIFFVIM_STARTUP_PAUSE) && $DIFFVIM_STARTUP_PAUSE !=# '0'
+    let s:startup_pause = 1
+endif
+
+let s:theme = ''
+if exists('$DIFFVIM_THEME') && !empty($DIFFVIM_THEME)
+    let s:theme = $DIFFVIM_THEME
+endif
+
+" --- Apply theme ---
+function! s:ApplyTheme() abort
+    if s:theme ==# 'dark'
+        highlight DiffAdd ctermbg=22 guibg=#1a3a1a
+        highlight DiffDelete ctermbg=52 guibg=#3a1a1a
+        highlight DiffChange ctermbg=17 guibg=#1a1a3a
+    elseif s:theme ==# 'light'
+        highlight DiffAdd ctermbg=194 guibg=#ddffdd
+        highlight DiffDelete ctermbg=217 guibg=#ffdddd
+        highlight DiffChange ctermbg=189 guibg=#ddddff
+    elseif s:theme ==# 'high-contrast'
+        highlight DiffAdd ctermbg=2 ctermfg=0 guibg=#00ff00 guifg=#000000
+        highlight DiffDelete ctermbg=1 ctermfg=0 guibg=#ff0000 guifg=#000000
+        highlight DiffChange ctermbg=4 ctermfg=0 guibg=#0000ff guifg=#ffffff
+    endif
+endfunction
+
+" --- Startup pause ---
+function! s:ShowStartup() abort
+    if !s:startup_pause | return | endif
+    echo "diffvim: press Enter to start animation..."
+    call getchar()
+    echo ""
+endfunction
+
 function! s:LoadTimedOps() abort
     let s:timed_ops = readfile($DIFFVIM_TIMED_OPS)
     let s:timed_idx = 0
@@ -1553,10 +1599,19 @@ function! s:TimedPlaceCursor() abort
     call cursor(l:ll, l:byte_col)
     let l:win_top = line('w0')
     let l:win_bot = line('w$')
-    " Always center the cursor in the viewport for smooth animation
-    " (this scrolls when the cursor moves outside the visible area)
+    " Scroll based on --scroll mode
     if l:ll < l:win_top + 3 || l:ll > l:win_bot - 3
-        normal! zz
+        if s:scroll_mode ==# 'zz'
+            normal! zz
+        elseif s:scroll_mode ==# 'zt'
+            normal! zt
+        elseif s:scroll_mode ==# 'zb'
+            normal! zb
+        elseif s:scroll_mode ==# 'none'
+            " no scroll
+        else
+            normal! zz
+        endif
     endif
 endfunction
 
@@ -1636,6 +1691,7 @@ function! s:TimedKeepChar(code) abort
 endfunction
 
 " Process ops until a delay is hit or stream ends.
+" In step mode: starts paused, Space advances one op at a time.
 function! s:TimedProcessBatch() abort
     let l:n = len(s:timed_ops)
     let l:safety = 0
@@ -1865,11 +1921,24 @@ function! s:TimedTick(timer) abort
 endfunction
 
 function! s:StartTimedAnimation() abort
+    " Apply theme before starting
+    call s:ApplyTheme()
+
+    " Startup pause (wait for user to press Enter)
+    call s:ShowStartup()
+
     call s:LoadTimedOps()
     if empty(s:timed_ops)
         echoerr 'diffvim: timed op stream is empty'
         return
     endif
+
+    " Step mode: start paused, Space advances one op
+    if s:step_mode
+        let s:timed_paused = 1
+        echo "Step mode: press Space to advance, q to quit"
+    endif
+
     " --sync mode: run without timers (for testing/headless use)
     if exists('$DIFFVIM_SYNC') && !empty($DIFFVIM_SYNC) && $DIFFVIM_SYNC !=# '0'
         let s:timed_speed = 1000000.0

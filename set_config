@@ -1,53 +1,198 @@
 #!/usr/bin/env bash
-# set_config — Source this script to apply a "balanced" set of diffvim
-# timing environment variables. Useful for previews and demos where the
-# defaults feel too fast or too slow.
+# set_config — Source this script to apply diffvim environment variables.
 #
 # Usage:
-#   source ./set_config                # apply env vars to current shell
-#   ./set_config -h | --help           # print this help
+#   source ./set_config                         # apply defaults
+#   source ./set_config review                   # apply review preset
+#   source ./set_config demo                     # apply demo preset
+#   source ./set_config fast                     # apply fast preset
+#   source ./set_config --help                    # print this help
+#
+# Presets:
+#   default  Balanced timing for normal use
+#   review   Slower timing for code review (review pacing, hunk highlight)
+#   demo     Smooth timing for demos (gaussian jitter, inline highlight)
+#   fast     Fast timing for quick iteration
+#   custom   Only set what's explicitly provided via env vars
 #
 # Variables set (all exported):
-#   DIFFVIM_TICK_MS=200        Animation frame interval (~5 fps timer)
-#   DIFFVIM_TYPE_DELAY_MS=80   Delay between typed characters (ms)
-#   DIFFVIM_DELETE_DELAY_MS=80 Delay between deleted characters (ms)
-#   DIFFVIM_MOVE_MIN_MS=100    Minimum cursor-glide duration (ms)
-#   DIFFVIM_MOVE_MAX_MS=1500   Maximum cursor-glide duration (ms)
-#   DIFFVIM_MOVE_MS_PER_UNIT=6 Milliseconds per unit of glide distance
-#   DIFFVIM_HUNK_PAUSE_MS=200  Pause between hunks (ms)
 #
-# Options:
-#   -h, --help    Show this help and exit.
+# --- Timing ---
+#   DIFFVIM_TICK_MS=200              Animation frame interval (ms)
+#   DIFFVIM_TYPE_DELAY_MS=80         Delay between typed characters (ms)
+#   DIFFVIM_DELETE_DELAY_MS=80       Delay between deleted characters (ms)
+#   DIFFVIM_HUNK_PAUSE_MS=200        Pause between hunks (ms)
+#   DIFFVIM_WORD_PAUSE_MS=150        Pause after a word (ms)
 #
-# Note: this script must be SOURCED (`source ./set_config`) to actually
-# export the variables into your shell. Running it directly only prints
-# the values.
+# --- Pacing ---
+#   DIFFVIM_PACING=uniform           Pacing mode: uniform|adaptive|gaussian|review
+#   DIFFVIM_GAUSSIAN_JITTER_PCT=20   Jitter percentage for gaussian mode
+#   DIFFVIM_DELETE_PACING=word       Delete strategy: char|rapid-eol|rapid-identical|word|instant
+#   DIFFVIM_INSERT_PACING=char       Insert strategy: char|word
+#   DIFFVIM_DELETE_SPEED=normal      Delete speed: slow|normal|fast|instant
+#   DIFFVIM_INSERT_SPEED=normal     Insert speed: slow|normal|fast
+#   DIFFVIM_DELETE_THRESHOLD=3       Min chars to trigger rapid/word modes
+#
+# --- Accel delete ---
+#   DIFFVIM_ACCEL_DELETE=             Multi-line accel delete (set to 1 to enable)
+#   DIFFVIM_ACCEL_DELETE_START_MS=80  Initial slow delay
+#   DIFFVIM_ACCEL_DELETE_MIN_MS=10   Minimum accelerated delay
+#   DIFFVIM_ACCEL_DELETE_ACCEL=85    Acceleration factor (0-100)
+#
+# --- Block delete ---
+#   DIFFVIM_BLOCK_DELETE_SIZE=3       Group deletes into blocks of N
+#   DIFFVIM_PAUSE_BEFORE_DELETE_MS=200  Pause before delete block
+#   DIFFVIM_PAUSE_AFTER_DELETE_MS=200   Pause after delete block
+#
+# --- Pause after lines ---
+#   DIFFVIM_PAUSE_AFTER_LINES=0       Pause after N changed lines (0=off)
+#   DIFFVIM_PAUSE_AFTER_THRESHOLD=50  Only pause if file has >N lines
+#   DIFFVIM_PAUSE_AFTER_MS=500        Pause duration
+#
+# --- Op ordering ---
+#   DIFFVIM_OP_ORDER=optimize        Op reordering: natural|optimize|left-to-right|end-first|end-first-smart
+#   DIFFVIM_OPTIMIZE_SEQUENCE=1      Enable op sequence optimization
+#   DIFFVIM_LEFT_TO_RIGHT=1          Enable left-to-right transform
+#   DIFFVIM_OVERWRITE_MODE=0         In-place overwrite mode
+#
+# --- Highlighting ---
+#   DIFFVIM_HIGHLIGHT=none           Highlight mode: none|inline|word|hunk
+#   DIFFVIM_HIGHLIGHT_COLOR=DiffChange  Highlight group
+#   DIFFVIM_HIGHLIGHT_DURATION_MS=1000  Highlight duration
+#   DIFFVIM_HIGHLIGHT_MIN_CHARS=10   Min chars to highlight
+#   DIFFVIM_DIM_UNCHANGED=           Dim unchanged lines (set to 1 to enable)
+#   DIFFVIM_DIM_UNCHANGED_PCT=60     Dim percentage
+#   DIFFVIM_FOLD_UNCHANGED=           Fold unchanged regions (set to 1 to enable)
+#   DIFFVIM_THEME=                   Color theme: dark|light|high-contrast
+#
+# --- Display ---
+#   DIFFVIM_SCROLL=zz                Scroll mode: zz|zt|zb|none
+#   DIFFVIM_SIGN_COLUMN=             Show +/- signs (set to 1 to enable)
+#   DIFFVIM_GIT_BLAME=               Show git blame (set to 1 to enable)
+#   DIFFVIM_MAX_HUNK_CHARS=0         Skip animation for hunks >N chars (0=off)
+#   DIFFVIM_MAX_LINE_LEN=0           Warn on lines longer than N (0=off)
+#
+# --- Startup ---
+#   DIFFVIM_STARTUP_PAUSE=           Show config before starting (set to 1 to enable)
+#   DIFFVIM_STARTUP_FEEDBACK=        Show progress during compute (set to 1 to enable)
+#   DIFFVIM_NO_STARTUP_PAUSE=        Skip startup delay (set to 1 to enable)
+#   DIFFVIM_STEP_MODE=              Step mode: Space advances one op (set to 1 to enable)
+#
+# --- Speed ---
+#   DIFFVIM_SPEED=1.0                Speed multiplier
+#
+# --- Compute ---
+#   DIFFVIM_ALGORITHM=patience       Diff algorithm: patience|lcs
+#   DIFFVIM_SEMANTIC_CLEANUP=0       Merge canceling delete+insert pairs
+#   DIFFVIM_INDENT_AWARE=0           Normalize indentation before diff
+#   DIFFVIM_WORD_DIFF=0              Use word-level diff
+#
+# --- Output ---
+#   DIFFVIM_OUTPUT=                  Write result to FILE after animation
+#   DIFFVIM_KEEP_DIRTY=              Leave buffer modified (set to 1 for :q!)
+#   DIFFVIM_NO_VIMRC=                Don't load user's vimrc (set to 1)
+#   DIFFVIM_LANGUAGE=auto            Vim filetype for syntax highlighting
 
-# Handle -h / --help
+# Handle --help
 for arg in "$@"; do
     case "$arg" in
         -h|--help)
-            sed -n '2,24p' "$0"
+            sed -n '2,95p' "$0"
             exit 0
             ;;
     esac
 done
 
-export DIFFVIM_TICK_MS=200        # Animation frame interval (~60fps)
-export DIFFVIM_TYPE_DELAY_MS=80   # Delay between typed characters (ms)
-export DIFFVIM_DELETE_DELAY_MS=80 # Delay between deleted characters (ms)
-export DIFFVIM_MOVE_MIN_MS=100    # Minimum cursor-glide duration (ms)
-export DIFFVIM_MOVE_MAX_MS=1500   # Maximum cursor-glide duration (ms)
-export DIFFVIM_MOVE_MS_PER_UNIT=6 # Milliseconds per unit of glide distance
-export DIFFVIM_HUNK_PAUSE_MS=200  # Pause between hunks (ms)
+PRESET="${1:-default}"
 
-# When sourced, print the values so the user can confirm. When executed
-# directly, print them too (so `./set_config` is informative).
-echo "diffvim timing env vars set:"
-echo "  DIFFVIM_TICK_MS=$DIFFVIM_TICK_MS"
-echo "  DIFFVIM_TYPE_DELAY_MS=$DIFFVIM_TYPE_DELAY_MS"
-echo "  DIFFVIM_DELETE_DELAY_MS=$DIFFVIM_DELETE_DELAY_MS"
-echo "  DIFFVIM_MOVE_MIN_MS=$DIFFVIM_MOVE_MIN_MS"
-echo "  DIFFVIM_MOVE_MAX_MS=$DIFFVIM_MOVE_MAX_MS"
-echo "  DIFFVIM_MOVE_MS_PER_UNIT=$DIFFVIM_MOVE_MS_PER_UNIT"
-echo "  DIFFVIM_HUNK_PAUSE_MS=$DIFFVIM_HUNK_PAUSE_MS"
+# --- Clear all DIFFVIM_ vars (so presets start clean) ---
+for var in $(env | grep '^DIFFVIM_' | cut -d= -f1); do
+    unset "$var"
+done
+
+# --- Apply preset ---
+case "$PRESET" in
+    default)
+        export DIFFVIM_TICK_MS=200
+        export DIFFVIM_TYPE_DELAY_MS=80
+        export DIFFVIM_DELETE_DELAY_MS=80
+        export DIFFVIM_HUNK_PAUSE_MS=200
+        export DIFFVIM_WORD_PAUSE_MS=150
+        export DIFFVIM_PACING=uniform
+        export DIFFVIM_DELETE_PACING=word
+        export DIFFVIM_INSERT_PACING=char
+        export DIFFVIM_DELETE_SPEED=normal
+        export DIFFVIM_INSERT_SPEED=normal
+        export DIFFVIM_DELETE_THRESHOLD=3
+        export DIFFVIM_OP_ORDER=optimize
+        export DIFFVIM_OPTIMIZE_SEQUENCE=1
+        export DIFFVIM_LEFT_TO_RIGHT=1
+        export DIFFVIM_HIGHLIGHT=none
+        export DIFFVIM_SCROLL=zz
+        export DIFFVIM_SPEED=1.0
+        export DIFFVIM_ALGORITHM=patience
+        ;;
+    review)
+        export DIFFVIM_TICK_MS=200
+        export DIFFVIM_TYPE_DELAY_MS=100
+        export DIFFVIM_DELETE_DELAY_MS=100
+        export DIFFVIM_HUNK_PAUSE_MS=400
+        export DIFFVIM_PACING=review
+        export DIFFVIM_DELETE_PACING=word
+        export DIFFVIM_INSERT_PACING=char
+        export DIFFVIM_OP_ORDER=optimize
+        export DIFFVIM_HIGHLIGHT=hunk
+        export DIFFVIM_DIM_UNCHANGED=1
+        export DIFFVIM_DIM_UNCHANGED_PCT=60
+        export DIFFVIM_SCROLL=zz
+        export DIFFVIM_SPEED=0.7
+        ;;
+    demo)
+        export DIFFVIM_TICK_MS=100
+        export DIFFVIM_TYPE_DELAY_MS=60
+        export DIFFVIM_DELETE_DELAY_MS=60
+        export DIFFVIM_HUNK_PAUSE_MS=150
+        export DIFFVIM_PACING=gaussian
+        export DIFFVIM_GAUSSIAN_JITTER_PCT=20
+        export DIFFVIM_DELETE_PACING=word
+        export DIFFVIM_INSERT_PACING=char
+        export DIFFVIM_OP_ORDER=optimize
+        export DIFFVIM_HIGHLIGHT=inline
+        export DIFFVIM_SCROLL=zz
+        export DIFFVIM_SPEED=0.8
+        ;;
+    fast)
+        export DIFFVIM_TICK_MS=50
+        export DIFFVIM_TYPE_DELAY_MS=30
+        export DIFFVIM_DELETE_DELAY_MS=30
+        export DIFFVIM_HUNK_PAUSE_MS=100
+        export DIFFVIM_PACING=adaptive
+        export DIFFVIM_DELETE_PACING=word
+        export DIFFVIM_INSERT_PACING=char
+        export DIFFVIM_DELETE_SPEED=fast
+        export DIFFVIM_INSERT_SPEED=fast
+        export DIFFVIM_OP_ORDER=optimize
+        export DIFFVIM_HIGHLIGHT=none
+        export DIFFVIM_SCROLL=zz
+        export DIFFVIM_SPEED=2.0
+        ;;
+    custom)
+        # Don't set anything — only use what's already in env
+        :
+        ;;
+    *)
+        echo "set_config: unknown preset '$PRESET'" >&2
+        echo "Available: default, review, demo, fast, custom" >&2
+        return 1 2>/dev/null || exit 1
+        ;;
+esac
+
+# When sourced, print the values so the user can confirm.
+echo "diffvim config preset: $PRESET"
+echo "  DIFFVIM_PACING=${DIFFVIM_PACING:-uniform}"
+echo "  DIFFVIM_DELETE_PACING=${DIFFVIM_DELETE_PACING:-word}"
+echo "  DIFFVIM_INSERT_PACING=${DIFFVIM_INSERT_PACING:-char}"
+echo "  DIFFVIM_HIGHLIGHT=${DIFFVIM_HIGHLIGHT:-none}"
+echo "  DIFFVIM_SPEED=${DIFFVIM_SPEED:-1.0}"
+echo "  DIFFVIM_OP_ORDER=${DIFFVIM_OP_ORDER:-optimize}"
+echo "  DIFFVIM_SCROLL=${DIFFVIM_SCROLL:-zz}"
