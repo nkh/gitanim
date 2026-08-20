@@ -64,6 +64,9 @@ static int accel_delete = 0;          /* multi-line accel delete (0=off, 1=on) *
 static int accel_delete_start_ms = 80; /* initial slow delay */
 static int accel_delete_min_ms = 10;   /* minimum accelerated delay */
 static double accel_delete_accel = 0.85; /* acceleration factor */
+static int block_delete_size = 3;     /* group deletes into blocks of N */
+static int pause_before_delete_ms = 200; /* pause before a delete block */
+static int pause_after_delete_ms = 200;  /* pause after a delete block */
 static char snapshot_file[256] = "";
 
 /* Pacing state for adaptive mode */
@@ -157,6 +160,12 @@ void parse_args(int argc, char **argv) {
             accel_delete_min_ms = atoi(argv[++i]);
         else if (strcmp(argv[i], "--accel-delete-accel") == 0 && i+1 < argc)
             accel_delete_accel = atof(argv[++i]);
+        else if (strcmp(argv[i], "--block-delete-size") == 0 && i+1 < argc)
+            block_delete_size = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--pause-before-delete-ms") == 0 && i+1 < argc)
+            pause_before_delete_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--pause-after-delete-ms") == 0 && i+1 < argc)
+            pause_after_delete_ms = atoi(argv[++i]);
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc)
             strncpy(snapshot_file, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -174,6 +183,9 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "  --accel-delete-start-ms N  Initial slow delay (default: 80)\n");
             fprintf(stderr, "  --accel-delete-min-ms N    Minimum accelerated delay (default: 10)\n");
             fprintf(stderr, "  --accel-delete-accel F     Acceleration factor 0-1 (default: 0.85)\n");
+            fprintf(stderr, "  --block-delete-size N   Group deletes into blocks of N (default: 3)\n");
+            fprintf(stderr, "  --pause-before-delete-ms N  Pause before delete block (default: 200)\n");
+            fprintf(stderr, "  --pause-after-delete-ms N   Pause after delete block (default: 200)\n");
             fprintf(stderr, "  --snapshot FILE       Insert snapshot op at end\n");
             exit(0);
         }
@@ -456,9 +468,35 @@ int main(int argc, char **argv) {
             } else {
                 /* Non-newline delete: handle pacing */
                 if (strcmp(delete_pacing, "char") == 0) {
-                    passthrough(all_lines[i]);
-                    emit_paced_delay(delete_delay, "char");
-                    i++;
+                    /* Block delete: group consecutive char deletes, pause before/after */
+                    int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
+                    int start_idx = i;
+                    while (i < n_lines) {
+                        char buf2[MAX_LINE];
+                        strncpy(buf2, all_lines[i], MAX_LINE - 1);
+                        buf2[MAX_LINE - 1] = 0;
+                        char *t2[8];
+                        int n2 = parse_tsv(buf2, t2, 8);
+                        int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
+                        int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
+                        if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
+                            break;
+                        i++;
+                    }
+                    int count = i - start_idx;
+                    /* Insert pause before if count > block_delete_size */
+                    if (count > block_delete_size) {
+                        emit_paced_delay(pause_before_delete_ms, "block_start");
+                    }
+                    /* Emit each delete char */
+                    for (int k = start_idx; k < start_idx + count; k++) {
+                        passthrough(all_lines[k]);
+                        emit_paced_delay(delete_delay, "char");
+                    }
+                    /* Insert pause after if count > block_delete_size */
+                    if (count > block_delete_size) {
+                        emit_paced_delay(pause_after_delete_ms, "block_end");
+                    }
                 } else if (strcmp(delete_pacing, "instant") == 0) {
                     passthrough(all_lines[i]);
                     emit_paced_delay(1, "char");

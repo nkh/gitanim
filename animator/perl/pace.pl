@@ -29,6 +29,9 @@ my $accel_delete = 0;
 my $accel_delete_start_ms = 80;
 my $accel_delete_min_ms = 10;
 my $accel_delete_accel = 0.85;
+my $block_delete_size = 3;
+my $pause_before_delete_ms = 200;
+my $pause_after_delete_ms = 200;
 my $snapshot_file;
 my $help = 0;
 
@@ -51,6 +54,9 @@ GetOptions(
     'accel-delete-start-ms=i'   => \$accel_delete_start_ms,
     'accel-delete-min-ms=i'      => \$accel_delete_min_ms,
     'accel-delete-accel=f'       => \$accel_delete_accel,
+    'block-delete-size=i'        => \$block_delete_size,
+    'pause-before-delete-ms=i'   => \$pause_before_delete_ms,
+    'pause-after-delete-ms=i'    => \$pause_after_delete_ms,
     'snapshot=s'             => \$snapshot_file,
     'help|h'                 => \$help,
 ) or die "Usage: $0 [options]\n";
@@ -230,9 +236,27 @@ while ($i < @lines) {
         } else {
             # Non-newline delete: handle pacing
             if ($delete_pacing eq 'char') {
-                print "$lines[$i]\n";
-                emit_paced_delay($delete_delay, "char");
-                $i++;
+                # Block delete: group consecutive char deletes, pause before/after
+                my $start_line = $parts[1] // 0;
+                my $start_idx = $i;
+                while ($i < @lines) {
+                    my @p = split /\t/, $lines[$i];
+                    my $c = $p[3] // 0;
+                    my $l = $p[1] // 0;
+                    last if $p[0] ne 'delete' || $c == 10 || $l != $start_line;
+                    $i++;
+                }
+                my $count = $i - $start_idx;
+                if ($count > $block_delete_size) {
+                    emit_paced_delay($pause_before_delete_ms, "block_start");
+                }
+                for my $k ($start_idx .. $i - 1) {
+                    print "$lines[$k]\n";
+                    emit_paced_delay($delete_delay, "char");
+                }
+                if ($count > $block_delete_size) {
+                    emit_paced_delay($pause_after_delete_ms, "block_end");
+                }
             } elsif ($delete_pacing eq 'instant') {
                 print "$lines[$i]\n";
                 emit_paced_delay(1, "char");
