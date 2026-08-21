@@ -542,73 +542,122 @@ void emit_op(const char *type, int line, int col, int code) {
                     cur_col = 1;
                     line_has_content = 0;
                 } else if (strcmp(op->type, "delete") == 0) {
-                    /* "Delete last line" pattern: the first op in an
-                     * is_end_delete hunk is a delete-\n, followed by
-                     * content deletes (no keeps/inserts after).
+                    /* CRITICAL: a \n is a LINE BOUNDARY. We must NEVER
+                     * delete a \n while there is still content on the
+                     * NEXT line that needs to be deleted. Deleting the
+                     * \n would join the next line's content onto the
+                     * current line, producing the "ghost line" bug
+                     * (e.g. "Optional    """Result...""" appears on
+                     * line 7 instead of the content being deleted on
+                     * line 8).
                      *
-                     * The compute generates "delete \n, delete content"
-                     * for "delete last line". We reorder to: content
-                     * deletes first (emptying the line), then \n delete
-                     * targeting (cur_line - 1, 1) — which joins the
-                     * PREVIOUS line with the now-empty last line,
-                     * effectively removing the last line.
-                     *
-                     * This way the animator just applies ops — no
-                     * special handling for "delete \n at last line". */
-                    if (i == 0 && hunks[h].end_del && cur_line > 1) {
-                        /* Find the end of the content deletes */
-                        int j = i + 1;
-                        while (j < n_out &&
-                               strcmp(final_ops[j].type, "delete") == 0 &&
-                               final_ops[j].code != 10)
-                            j++;
-                        int n_content = j - (i + 1);
-                        int followed_by_keep_or_insert = 0;
-                        if (j < n_out) {
-                            if (strcmp(final_ops[j].type, "keep") == 0 ||
-                                strcmp(final_ops[j].type, "insert") == 0) {
-                                followed_by_keep_or_insert = 1;
-                            }
+                     * Rule: when we encounter "delete \n", look ahead.
+                     *   - If the next ops are content deletes on the
+                     *     next line (no keep/insert after), MOVE THE
+                     *     CURSOR to the next line (cur_line++, cur_col=1),
+                     *     emit the content deletes there (on the next
+                     *     line), and DO NOT emit the \n delete. The \n
+                     *     stays as a line boundary — line 7 is preserved,
+                     *     modification happens on line 8.
+                     *   - If the next op is a keep or insert (the line
+                     *     boundary is genuinely being removed — e.g.
+                     *     two paragraphs being merged into one), emit
+                     *     the \n delete normally.
+                     *   - If there are no more ops after the \n delete
+                     *     (end of hunk, last line being deleted), emit
+                     *     the \n delete at (cur_line - 1, ...) so it
+                     *     joins with the PREVIOUS line (the previous
+                     *     line is preserved, the empty current line is
+                     *     removed). cur_line does NOT change because
+                     *     the removed line was already accounted for. */
+                    int j = i + 1;
+                    while (j < n_out &&
+                           strcmp(final_ops[j].type, "delete") == 0 &&
+                           final_ops[j].code != 10)
+                        j++;
+                    int n_content = j - (i + 1);
+                    int followed_by_keep_or_insert = 0;
+                    if (j < n_out) {
+                        if (strcmp(final_ops[j].type, "keep") == 0 ||
+                            strcmp(final_ops[j].type, "insert") == 0) {
+                            followed_by_keep_or_insert = 1;
                         }
-                        if (n_content > 0 && !followed_by_keep_or_insert) {
-                            /* Emit content deletes at (cur_line, 1) */
+                    }
+
+                    if (n_content > 0 && !followed_by_keep_or_insert) {
+                        /* "Delete next line" pattern: there are content
+                         * deletes after the \n delete, and NO keep/insert
+                         * follows. MOVE THE CURSOR to the next line and
+                         * delete the content there. The current line
+                         * (e.g. line 7 "Optional") is PRESERVED.
+                         *
+                         * After deleting the next line's content, the
+                         * next line is empty. We then emit the \n delete
+                         * targeting (cur_line) — this joins the empty
+                         * next line onto the current line (which
+                         * preserves the current line's content and
+                         * removes the empty line). cur_line does NOT
+                         * change: the next line was merged into the
+                         * current line.
+                         *
+                         * Exception: if is_end_delete and this is the
+                         * first op in the hunk, the "next line" is
+                         * actually the LAST line of the file (which
+                         * doesn't have a \n after it). The compute
+                         * generated content deletes at cur_line+1, but
+                         * the content is actually ON cur_line (the last
+                         * line). So emit content deletes at cur_line,
+                         * and the \n delete at (cur_line - 1) to join
+                         * the empty last line onto the PREVIOUS line. */
+                        if (i == 0 && hunks[h].end_del && cur_line > 1) {
+                            /* is_end_delete: content is on cur_line (last line),
+                             * not cur_line+1. Emit content deletes at cur_line,
+                             * then \n delete at (cur_line - 1). */
                             for (int k = i + 1; k < j; k++)
                                 emit_op("delete", cur_line, 1, final_ops[k].code);
-                            /* Emit \n delete at (cur_line - 1, 1) */
                             emit_op("delete", cur_line - 1, 1, 10);
-                            newl_del++;
-                            i = j;
-                            continue;
-                        }
-                    }
-                    if (line_has_content) {
-                        int j = i + 1;
-                        while (j < n_out &&
-                               strcmp(final_ops[j].type, "delete") == 0 &&
-                               final_ops[j].code != 10)
-                            j++;
-                        int n_content = j - (i + 1);
-                        int followed_by_keep_or_insert = 0;
-                        if (j < n_out) {
-                            if (strcmp(final_ops[j].type, "keep") == 0 ||
-                                strcmp(final_ops[j].type, "insert") == 0) {
-                                followed_by_keep_or_insert = 1;
-                            }
-                        }
-                        if (n_content > 0 && !followed_by_keep_or_insert) {
-                            /* Ghost-line pattern! */
+                        } else {
+                            /* Normal: content is on cur_line+1. Emit
+                             * content deletes at cur_line+1, then \n
+                             * delete at cur_line to join the empty next
+                             * line onto the current line. */
+                            int next_line = cur_line + 1;
                             for (int k = i + 1; k < j; k++)
-                                emit_op("delete", cur_line + 1, 1, final_ops[k].code);
-                            emit_op("delete", cur_line + 1, 1, 10);  /* \n delete */
-                            newl_del++;
-                            i = j;
-                            continue;
+                                emit_op("delete", next_line, 1, final_ops[k].code);
+                            emit_op("delete", cur_line, cur_col, 10);
                         }
+                        newl_del++;
+                        line_has_content = 0;
+                        i = j;
+                        continue;
                     }
-                    /* Normal \n delete */
-                    emit_op("delete", cur_line, cur_col, 10);
-                    newl_del++;
-                    line_has_content = 0;
+
+                    /* If followed by a keep or insert: the \n delete is
+                     * a legitimate line merge (e.g. deleting a line's
+                     * content then merging the next line's kept content
+                     * onto it). Emit at cur_line. cur_line does NOT
+                     * change (the next line was merged onto cur_line). */
+                    if (followed_by_keep_or_insert) {
+                        emit_op("delete", cur_line, cur_col, 10);
+                        newl_del++;
+                        line_has_content = 0;
+                    } else if (i == 0 && hunks[h].end_del && cur_line > 1) {
+                        /* "Delete last line" pattern: first op in hunk,
+                         * is_end_delete flag set. The last line of the
+                         * file is being deleted. Emit at (cur_line - 1)
+                         * to join the empty current line onto the PREVIOUS
+                         * line (preserving the previous line's content). */
+                        emit_op("delete", cur_line - 1, 1, 10);
+                        newl_del++;
+                        line_has_content = 0;
+                    } else {
+                        /* Normal \n delete — emit at cur_line. This
+                         * joins the next line onto the current line.
+                         * cur_line does NOT change. */
+                        emit_op("delete", cur_line, cur_col, 10);
+                        newl_del++;
+                        line_has_content = 0;
+                    }
                 } else if (strcmp(op->type, "insert") == 0) {
                     emit_op("insert", cur_line, cur_col, 10);
                     cur_line++;
