@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test for diffvim-debug-bundle script.
+# Test for dv_debug_bundle.sh script.
 #
 # Verifies:
 #   1. -h / --help works and exits 0
@@ -11,7 +11,7 @@
 
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT/scripts/diffvim-debug-bundle"
+SCRIPT="$ROOT/scripts/dv_debug_bundle.sh"
 PASS=0
 FAIL=0
 ERRORS=()
@@ -19,7 +19,7 @@ ERRORS=()
 ok()   { echo "  ✓ $1"; PASS=$((PASS + 1)); }
 fail() { echo "  ✗ $1"; FAIL=$((FAIL + 1)); ERRORS+=("$1"); }
 
-echo "=== diffvim-debug-bundle tests ==="
+echo "=== dv_debug_bundle.sh tests ==="
 echo ""
 
 # --- Test 1: -h flag ---

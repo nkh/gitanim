@@ -17,9 +17,9 @@
 #   make test-pipeline   Run full pipeline verification (42 examples)
 #   make test-l2r        Run l2r algorithm tests (35 tests)
 #   make test-vimscript  Run vimscript animator tests (42 examples)
-#   make test-debug-bundle  Run diffvim-debug-bundle script tests (12 tests)
+#   make test-debug-bundle  Run dv_debug_bundle.sh script tests (12 tests)
 #   make debug           Run the pipeline debugger on example 01
-#   make snapshot        Run snapshot_per_op.sh on example 01
+#   make snapshot        Run dv_snapshot_per_op.sh on example 01
 #   make clean           Remove all built binaries
 #   make clean-compute   Remove compute binaries only
 #   make clean-animator  Remove animator binaries only
@@ -174,7 +174,7 @@ test-vimscript:
 	@bash scripts/test_vimscript_animator.sh 2>&1 | tail -1
 
 test-debug-bundle:
-	@echo "=== diffvim-debug-bundle tests ==="
+	@echo "=== dv_debug_bundle.sh tests ==="
 	@bash tests/test_debug_bundle.sh 2>&1 | tail -3
 
 # --- Debugging -------------------------------------------------------------
@@ -187,7 +187,7 @@ debug:
 
 snapshot:
 	@echo "=== Per-op snapshots for example 01 ==="
-	@bash scripts/snapshot_per_op.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
+	@bash scripts/dv_snapshot_per_op.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
 	@echo "Open: file:///tmp/dv_snapshots/snapshots.html"
 
 # --- Clean -----------------------------------------------------------------
@@ -248,7 +248,7 @@ help:
 	@echo "  make test           Run unit + minimal + l2r tests"
 	@echo "  make test-pipeline  Run full 42-example verification"
 	@echo "  make test-vimscript Run vimscript animator tests"
-	@echo "  make test-debug-bundle  Run diffvim-debug-bundle tests"
+	@echo "  make test-debug-bundle  Run dv_debug_bundle.sh tests"
 	@echo "  make debug          Debug pipeline on example 01"
 	@echo "  make snapshot       Generate per-op HTML snapshots"
 	@echo "  make clean          Remove all binaries"

@@ -21,7 +21,7 @@ bash scripts/dv_debug.sh tests/minimal/11_delete_last_line/old \
                           tests/minimal/11_delete_last_line/new
 
 # Visualize every op as HTML:
-bash scripts/snapshot_per_op.sh tests/minimal/15_join_two_lines/old \
+bash scripts/dv_dv_snapshot_per_op.sh tests/minimal/15_join_two_lines/old \
                                tests/minimal/15_join_two_lines/new
 ```
 
@@ -71,4 +71,4 @@ debugging purposes.
 - `../../docs/DEBUGGING.md` — Full debugging guide
 - `../../docs/POSTPROCESS_TRANSFORMS.md` — What postprocess does
 - `../../scripts/dv_debug.sh` — Pipeline debugger
-- `../../scripts/snapshot_per_op.sh` — Per-op HTML visualization
+- `../../scripts/dv_dv_snapshot_per_op.sh` — Per-op HTML visualization
