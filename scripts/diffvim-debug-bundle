@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# diffvim-debug-bundle — Generate a debug bundle for reporting issues.
+#
+# Usage: diffvim-debug-bundle <oldfile> <newfile> [description]
+#
+# Creates a tar.gz containing everything needed to debug an issue:
+# - Binary MD5s (compute, postprocess, pace, animator, decorate)
+# - Input files (old, new)
+# - Pipeline stage outputs (raw, post, timed, decorated)
+# - Settings used
+# - System info (OS, vim version, git commit)
+# - User description of the problem
+#
+# Non-interactive: description is passed as the 3rd argument.
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+OLD="${1:?Usage: diffvim-debug-bundle <oldfile> <newfile> [description]}"
+NEW="${2:?Usage: diffvim-debug-bundle <oldfile> <newfile> [description]}"
+DESCRIPTION="${3:-No description provided.}"
+
+WORKDIR=$(mktemp -d)
+BUNDLE_NAME="diffvim_debug_$(date +%Y%m%d_%H%M%S)"
+BUNDLE_DIR="$WORKDIR/$BUNDLE_NAME"
+mkdir -p "$BUNDLE_DIR"
+
+echo "diffvim-debug-bundle: generating debug bundle..." >&2
+
+# 1. Copy input files
+cp "$OLD" "$BUNDLE_DIR/old.txt"
+cp "$NEW" "$BUNDLE_DIR/new.txt"
+
+# 2. Run pipeline with DEFAULT settings (same as launcher)
+export DIFFVIM_LEFT_TO_RIGHT=1
+"$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$BUNDLE_DIR/raw_ops.txt" 2>"$BUNDLE_DIR/compute_stderr.txt"
+"$ROOT/animator/bin/diffvim-postprocess" < "$BUNDLE_DIR/raw_ops.txt" > "$BUNDLE_DIR/post_ops.txt" 2>"$BUNDLE_DIR/postprocess_stderr.txt"
+"$ROOT/animator/bin/diffvim-pace" --delete-pacing word --insert-pacing char < "$BUNDLE_DIR/post_ops.txt" > "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/pace_stderr.txt"
+
+# 3. Run decorate if available
+if [[ -f "$ROOT/animator/bin/diffvim-decorate" ]]; then
+    "$ROOT/animator/bin/diffvim-decorate" < "$BUNDLE_DIR/timed_ops.txt" > "$BUNDLE_DIR/decorated_ops.txt" 2>"$BUNDLE_DIR/decorate_stderr.txt"
+fi
+
+# 4. Run animator
+"$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$BUNDLE_DIR/animator_output.txt" "$OLD" < "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/animator_stderr.txt"
+
+# 5. Binary MD5s
+{
+    echo "# Binary MD5s"
+    echo "compute-cpp: $(md5sum "$ROOT/compute/bin/diffvim-compute-cpp" | awk '{print $1}')"
+    echo "postprocess: $(md5sum "$ROOT/animator/bin/diffvim-postprocess" | awk '{print $1}')"
+    echo "pace: $(md5sum "$ROOT/animator/bin/diffvim-pace" | awk '{print $1}')"
+    echo "animator-c: $(md5sum "$ROOT/animator/bin/diffvim-animator-c" | awk '{print $1}')"
+    echo "decorate: $(md5sum "$ROOT/animator/bin/diffvim-decorate" | awk '{print $1}')"
+} > "$BUNDLE_DIR/binary_md5s.txt"
+
+# 6. Settings
+{
+    echo "# diffvim launcher default settings"
+    echo "DIFFVIM_LEFT_TO_RIGHT=1"
+    echo "DIFFVIM_DELETE_PACING=word"
+    echo "DIFFVIM_INSERT_PACING=char"
+    echo "DIFFVIM_OP_ORDER=optimize"
+    echo "DIFFVIM_PACING=uniform"
+    echo "DIFFVIM_HIGHLIGHT=none"
+    echo "# (all other settings are defaults — see set_config for details)"
+} > "$BUNDLE_DIR/settings.conf"
+
+# 7. System info
+{
+    echo "# System info"
+    echo "OS: $(uname -a)"
+    echo "Vim: $(vim --version 2>/dev/null | head -1 || echo 'not found')"
+    echo "Perl: $(perl --version 2>/dev/null | head -2 | tail -1 || echo 'not found')"
+    echo "GCC: $(gcc --version 2>/dev/null | head -1 || echo 'not found')"
+    echo "Git commit: $(cd "$ROOT" && git log --oneline -1 2>/dev/null || echo 'unknown')"
+    echo "Git branch: $(cd "$ROOT" && git branch --show-current 2>/dev/null || echo 'unknown')"
+    echo "Date: $(date)"
+} > "$BUNDLE_DIR/system_info.txt"
+
+# 8. User description
+echo "$DESCRIPTION" > "$BUNDLE_DIR/description.txt"
+
+# 9. Diff comparison
+diff "$NEW" "$BUNDLE_DIR/animator_output.txt" > "$BUNDLE_DIR/output_diff.txt" 2>&1 || true
+
+# 10. Op counts
+{
+    echo "# Op counts per stage"
+    echo "raw: $(grep -v "^#\|^$" "$BUNDLE_DIR/raw_ops.txt" | wc -l)"
+    echo "post: $(grep -v "^#\|^$" "$BUNDLE_DIR/post_ops.txt" | wc -l)"
+    echo "timed: $(grep -v "^#\|^$" "$BUNDLE_DIR/timed_ops.txt" | wc -l)"
+    if [[ -f "$BUNDLE_DIR/decorated_ops.txt" ]]; then
+        echo "decorated: $(grep -v "^#\|^$" "$BUNDLE_DIR/decorated_ops.txt" | wc -l)"
+    fi
+    echo ""
+    echo "# \\n deletes per stage"
+    echo "raw: $(awk -F'\t' '/^delete/ && $4==10' "$BUNDLE_DIR/raw_ops.txt" | wc -l)"
+    echo "post: $(awk -F'\t' '/^delete/ && $4==10' "$BUNDLE_DIR/post_ops.txt" | wc -l)"
+    echo "timed: $(awk -F'\t' '/^delete/ && $4==10' "$BUNDLE_DIR/timed_ops.txt" | wc -l)"
+} > "$BUNDLE_DIR/op_counts.txt"
+
+# 11. Create tarball
+TARBALL="/tmp/${BUNDLE_NAME}.tar.gz"
+tar -czf "$TARBALL" -C "$WORKDIR" "$BUNDLE_NAME"
+rm -rf "$WORKDIR"
+
+echo "diffvim-debug-bundle: bundle created at $TARBALL" >&2
+echo "Contents:"
+echo "  old.txt, new.txt              — input files"
+echo "  raw_ops.txt                   — Stage 1 (compute output)"
+echo "  post_ops.txt                  — Stage 2 (postprocess output)"
+echo "  timed_ops.txt                 — Stage 3 (pace output)"
+echo "  decorated_ops.txt             — Stage 4 (decorate output)"
+echo "  animator_output.txt           — Final animator output"
+echo "  output_diff.txt               — Diff between expected and actual"
+echo "  binary_md5s.txt               — MD5s of all binaries"
+echo "  settings.conf                 — Settings used"
+echo "  system_info.txt               — OS, vim, perl, gcc versions"
+echo "  description.txt               — User description of the problem"
+echo "  op_counts.txt                 — Op counts and \\n delete counts"
+echo "  *_stderr.txt                  — stderr from each stage"
+echo ""
+echo "To share: send $TARBALL"

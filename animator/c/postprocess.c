@@ -610,11 +610,30 @@ void emit_op(const char *type, int line, int col, int code) {
                     line_has_content = 0;
                 }
             } else {
-                /* For overwrite_insert, emit as 'insert' in output (pace will
-                 * detect it via the op type and use zero delay) */
                 const char *emit_type = op->type;
                 if (strcmp(op->type, "overwrite_insert") == 0)
                     emit_type = "overwrite_insert";
+
+                /* Ghost-line fix: if inserting at col 1 on a line that has
+                 * kept content (from previous keeps), insert a \n FIRST
+                 * to create a new line. This prevents the insert from
+                 * pushing the existing content to the right.
+                 *
+                 * This happens when the diff inserts new lines BEFORE
+                 * an existing line (e.g., adding "import json" before
+                 * "import os"). The keep ops have already placed the
+                 * existing content, and the inserts need to go on a
+                 * NEW line, not at the start of the existing line. */
+                if (strcmp(op->type, "insert") == 0
+                    && cur_col == 1 && line_has_content) {
+                    /* Insert \n to create a new line */
+                    emit_op("insert", cur_line, cur_col, 10);
+                    cur_line++;
+                    cur_col = 1;
+                    newl_ins++;
+                    line_has_content = 0;
+                }
+
                 emit_op(emit_type, cur_line, cur_col, op->code);
                 if (strcmp(op->type, "keep") == 0) {
                     cur_col++;
