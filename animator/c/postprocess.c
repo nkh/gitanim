@@ -593,22 +593,25 @@ void emit_op(const char *type, int line, int col, int code) {
                          *
                          * After deleting the next line's content, the
                          * next line is empty. We then emit the \n delete
-                         * targeting (cur_line) — this joins the empty
-                         * next line onto the current line (which
-                         * preserves the current line's content and
-                         * removes the empty line). cur_line does NOT
-                         * change: the next line was merged into the
-                         * current line.
+                         * targeting (cur_line + 1) — this joins the line
+                         * AFTER the next line onto the now-empty next
+                         * line. The cursor STAYS on the next line
+                         * (cur_line + 1) — it NEVER goes up to cur_line.
+                         *
+                         * cur_line does NOT change: the next line was
+                         * emptied and joined with the line after it, so
+                         * the NEXT group's content (originally on
+                         * cur_line + 2) is now on cur_line + 1. The next
+                         * iteration will again emit content at cur_line + 1.
                          *
                          * Exception: if is_end_delete and this is the
                          * first op in the hunk, the "next line" is
                          * actually the LAST line of the file (which
-                         * doesn't have a \n after it). The compute
-                         * generated content deletes at cur_line+1, but
-                         * the content is actually ON cur_line (the last
-                         * line). So emit content deletes at cur_line,
-                         * and the \n delete at (cur_line - 1) to join
-                         * the empty last line onto the PREVIOUS line. */
+                         * doesn't have a \n after it). The content is ON
+                         * cur_line (the last line). Emit content deletes
+                         * at cur_line, then \n delete at (cur_line - 1)
+                         * to join the empty last line onto the PREVIOUS
+                         * line. */
                         if (i == 0 && hunks[h].end_del && cur_line > 1) {
                             /* is_end_delete: content is on cur_line (last line),
                              * not cur_line+1. Emit content deletes at cur_line,
@@ -619,12 +622,14 @@ void emit_op(const char *type, int line, int col, int code) {
                         } else {
                             /* Normal: content is on cur_line+1. Emit
                              * content deletes at cur_line+1, then \n
-                             * delete at cur_line to join the empty next
-                             * line onto the current line. */
+                             * delete at cur_line+1 (NOT cur_line!) so
+                             * the cursor STAYS on the next line and
+                             * NEVER goes up. The \n delete joins the
+                             * line after next onto the empty next line. */
                             int next_line = cur_line + 1;
                             for (int k = i + 1; k < j; k++)
                                 emit_op("delete", next_line, 1, final_ops[k].code);
-                            emit_op("delete", cur_line, cur_col, 10);
+                            emit_op("delete", next_line, 1, 10);
                         }
                         newl_del++;
                         line_has_content = 0;

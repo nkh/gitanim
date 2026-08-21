@@ -246,12 +246,15 @@ void load_file(const char *path) {
 void buffer_write(const char *path) {
     FILE *f = fopen(path, "w");
     if (!f) { fprintf(stderr, "Cannot write %s\n", path); return; }
-    if (n_lines == 1 && lines[0][0] == 0) {
-        /* Empty buffer — write nothing */
-    } else {
-        for (int i = 0; i < n_lines; i++)
-            fprintf(f, "%s\n", lines[i]);
-    }
+    /* Strip trailing empty lines — when the entire file is deleted,
+     * the buffer may have multiple empty lines (one per original line).
+     * The expected output is an empty file (0 bytes), so strip ALL
+     * trailing empty lines. */
+    int effective_lines = n_lines;
+    while (effective_lines > 0 && lines[effective_lines - 1][0] == 0)
+        effective_lines--;
+    for (int i = 0; i < effective_lines; i++)
+        fprintf(f, "%s\n", lines[i]);
     fclose(f);
 }
 
