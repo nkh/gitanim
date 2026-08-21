@@ -145,9 +145,24 @@ rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
 # Run the C pipeline
 RAW="$OUTDIR/raw.txt"; POST="$OUTDIR/post.txt"; TIMED="$OUTDIR/timed.txt"
 echo "Running pipeline (compute → postprocess → pace)..." >&2
-"$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$RAW" 2>/dev/null
-"$ROOT/animator/bin/diffvim-postprocess" < "$RAW" > "$POST" 2>/dev/null
-"$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>/dev/null
+if ! "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"; then
+    echo "ERROR: compute stage failed:" >&2
+    cat "$OUTDIR/compute_stderr.txt" >&2
+    exit 1
+fi
+echo "  compute: $(wc -l < "$RAW") ops" >&2
+if ! "$ROOT/animator/bin/diffvim-postprocess" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt"; then
+    echo "ERROR: postprocess stage failed:" >&2
+    cat "$OUTDIR/postprocess_stderr.txt" >&2
+    exit 1
+fi
+echo "  postprocess: $(wc -l < "$POST") ops" >&2
+if ! "$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
+    echo "ERROR: pace stage failed:" >&2
+    cat "$OUTDIR/pace_stderr.txt" >&2
+    exit 1
+fi
+echo "  pace: $(wc -l < "$TIMED") ops" >&2
 
 # Inject snapshot after every keep/delete/insert
 INJECTED="$OUTDIR/timed_injected.txt"
@@ -310,21 +325,17 @@ fi
         [[ -n "$op_detail" ]] && echo "    <span class='op-detail'>${op_detail}</span>"
         if [[ $TRACE -eq 1 ]]; then
             # The raw TSV line from the timed ops file for this op.
-            # We use the fields we already parsed (f1..f5, rest) to
-            # reconstruct the full TSV line so the user gets the
-            # exact op text in their clipboard.
             tsv_line="${f1}"
             [[ -n "$f2" ]] && tsv_line+=$'\t'"${f2}"
             [[ -n "$f3" ]] && tsv_line+=$'\t'"${f3}"
             [[ -n "$f4" ]] && tsv_line+=$'\t'"${f4}"
             [[ -n "$f5" ]] && tsv_line+=$'\t'"${f5}"
-            # HTML-escape: replace &, <, >, " and ' with entities.
-            # Also escape single quotes with &#39; so the onclick
-            # attribute (which uses single quotes for the TSV arg)
-            # doesn't break when the TSV line contains single quotes
-            # (e.g. char_repr like 'd').
-            tsv_escaped=$(printf '%s' "$tsv_line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g')
-            echo "    <button class='trace-btn' onclick=\"traceCopy(this, '${tsv_escaped}')\" data-op-num='${op_count}' title='Copy this op to the trace panel below'>📋 Copy</button>"
+            # Store TSV in a data- attribute (double-quoted, so single
+            # quotes in char_repr like 'd' are safe). HTML-escape &,
+            # <, >, " only. The JS reads it via getAttribute and
+            # decodes entities with a textarea trick.
+            tsv_escaped=$(printf '%s' "$tsv_line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+            echo "    <button class='trace-btn' onclick='traceCopy(this)' data-op-num='${op_count}' data-tsv=\"${tsv_escaped}\" title='Copy this op to the trace panel below'>📋 Copy</button>"
         fi
         echo "  </div>"
 
@@ -395,12 +406,13 @@ fi
     var collected = [];
 
     // Exposed globally for the onclick handlers
-    window.traceCopy = function(btn, tsv) {
+    window.traceCopy = function(btn) {
         var opNum = btn.getAttribute('data-op-num');
+        var rawTsv = btn.getAttribute('data-tsv');
         // Decode HTML entities back to real characters
         var txt = document.createElement('textarea');
-        txt.innerHTML = tsv;
-        tsv = txt.value;
+        txt.innerHTML = rawTsv;
+        var tsv = txt.value;
         // Check if already collected
         for (var i = 0; i < collected.length; i++) {
             if (collected[i].num === opNum) {
@@ -412,8 +424,10 @@ fi
                 return;
             }
         }
-        // Add it
-        collected.push({num: opNum, tsv: tsv});
+        // Add it — prefix with the op index so the maintainer knows
+        // exactly which op in the sequence is problematic
+        var indexedTsv = '@' + opNum + '\t' + tsv;
+        collected.push({num: opNum, tsv: indexedTsv});
         btn.classList.add('traced');
         btn.textContent = '✓ Traced';
         render();

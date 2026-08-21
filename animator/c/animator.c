@@ -644,10 +644,28 @@ int main(int argc, char **argv) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
             int code = atoi(toks[3]);
-            set_cursor(op_line, op_col);
-            delete_char(code);
-            mark_modified(cursor_l);
-            render();
+            if (code == 10) {
+                /* For \n deletes: call set_cursor (so the internal
+                 * cursor_l is correct for the join), but save/restore
+                 * the DISPLAYED cursor position so the visual cursor
+                 * doesn't jump UP to a previous line. The \n delete
+                 * joins lines internally; the user sees the cursor
+                 * stay at the position of the previous content op. */
+                int saved_l = cursor_l, saved_c = cursor_c;
+                set_cursor(op_line, op_col);
+                delete_char(code);
+                mark_modified(cursor_l);
+                cursor_l = saved_l; cursor_c = saved_c;
+                /* Clamp saved cursor to buffer bounds (lines may have shifted) */
+                if (cursor_l >= n_lines) cursor_l = n_lines - 1;
+                if (cursor_l < 0) cursor_l = 0;
+                render();
+            } else {
+                set_cursor(op_line, op_col);
+                delete_char(code);
+                mark_modified(cursor_l);
+                render();
+            }
         } else if ((strcmp(cmd, "insert") == 0 || strcmp(cmd, "overwrite_insert") == 0) && ntok >= 4) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
