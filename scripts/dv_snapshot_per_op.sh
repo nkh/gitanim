@@ -169,7 +169,7 @@ echo "  pace: $(wc -l < "$TIMED") ops" >&2
 # no effect in the snapshot.
 if [[ -f "$ROOT/animator/bin/diffvim-decorate" ]]; then
     DECORATE_ARGS=""
-    [[ $HIGHLIGHT_MODE != "none" ]] && DECORATE_ARGS+=" --highlight $HIGHLIGHT_MODE"
+    [[ -n "${HIGHLIGHT_MODE:-}" && "$HIGHLIGHT_MODE" != "none" ]] && DECORATE_ARGS+=" --highlight $HIGHLIGHT_MODE"
     if ! "$ROOT/animator/bin/diffvim-decorate" $DECORATE_ARGS < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
         echo "WARNING: decorate stage failed, using undecorated ops:" >&2
         cat "$OUTDIR/decorate_stderr.txt" >&2

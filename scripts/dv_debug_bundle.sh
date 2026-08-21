@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# diffvim-debug-bundle — Generate a debug bundle for reporting issues.
+# dv_debug_bundle.sh — Generate a debug bundle for reporting issues.
 #
-# Usage: diffvim-debug-bundle <oldfile> <newfile> [description]
-#        diffvim-debug-bundle -h | --help
+# Usage: dv_debug_bundle.sh <oldfile> <newfile> [description]
+#        dv_debug_bundle.sh -h | --help
 #
 # Creates a tar.gz containing everything needed to debug an issue:
 # - Binary MD5s (compute, postprocess, pace, animator, decorate)
@@ -17,11 +17,11 @@
 show_help() {
 cat <<'HELP'
 NAME
-    diffvim-debug-bundle — Generate a debug bundle for reporting diffvim issues
+    dv_debug_bundle.sh — Generate a debug bundle for reporting diffvim issues
 
 SYNOPSIS
-    diffvim-debug-bundle [-h|--help]
-    diffvim-debug-bundle <oldfile> <newfile> [description]
+    dv_debug_bundle.sh [-h|--help]
+    dv_debug_bundle.sh <oldfile> <newfile> [description]
 
 DESCRIPTION
     Runs the full diffvim pipeline (compute → postprocess → pace →
@@ -63,13 +63,13 @@ BUNDLE CONTENTS
     *_stderr.txt            stderr captured from each pipeline stage.
 
 EXAMPLES
-    diffvim-debug-bundle old.py new.py
+    dv_debug_bundle.sh old.py new.py
         Generate a bundle with the default description.
 
-    diffvim-debug-bundle old.py new.py "Cursor jumps to wrong line after \\n delete"
+    dv_debug_bundle.sh old.py new.py "Cursor jumps to wrong line after \\n delete"
         Generate a bundle with a specific problem description.
 
-    diffvim-debug-bundle examples/02_large_python/old.py \\
+    dv_debug_bundle.sh examples/02_large_python/old.py \\
                          examples/02_large_python/new.py \\
                          "Line 7 shows 'O operation.' instead of 'O'"
         Reproduce the scattered-LCS bug for the maintainer.
@@ -102,9 +102,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ $# -lt 2 ]]; then
-    echo "diffvim-debug-bundle: error: requires <oldfile> and <newfile>" >&2
-    echo "Usage: diffvim-debug-bundle <oldfile> <newfile> [description]" >&2
-    echo "       diffvim-debug-bundle -h | --help   for full help" >&2
+    echo "dv_debug_bundle.sh: error: requires <oldfile> and <newfile>" >&2
+    echo "Usage: dv_debug_bundle.sh <oldfile> <newfile> [description]" >&2
+    echo "       dv_debug_bundle.sh -h | --help   for full help" >&2
     exit 1
 fi
 
@@ -114,11 +114,11 @@ DESCRIPTION="${3:-No description provided.}"
 
 # Validate files exist
 if [[ ! -f "$OLD" ]]; then
-    echo "diffvim-debug-bundle: error: old file does not exist: $OLD" >&2
+    echo "dv_debug_bundle.sh: error: old file does not exist: $OLD" >&2
     exit 1
 fi
 if [[ ! -f "$NEW" ]]; then
-    echo "diffvim-debug-bundle: error: new file does not exist: $NEW" >&2
+    echo "dv_debug_bundle.sh: error: new file does not exist: $NEW" >&2
     exit 1
 fi
 
@@ -127,7 +127,7 @@ BUNDLE_NAME="diffvim_debug_$(date +%Y%m%d_%H%M%S)"
 BUNDLE_DIR="$WORKDIR/$BUNDLE_NAME"
 mkdir -p "$BUNDLE_DIR"
 
-echo "diffvim-debug-bundle: generating debug bundle..." >&2
+echo "dv_debug_bundle.sh: generating debug bundle..." >&2
 
 # 1. Copy input files
 cp "$OLD" "$BUNDLE_DIR/old.txt"
@@ -208,7 +208,7 @@ TARBALL="/tmp/${BUNDLE_NAME}.tar.gz"
 tar -czf "$TARBALL" -C "$WORKDIR" "$BUNDLE_NAME"
 rm -rf "$WORKDIR"
 
-echo "diffvim-debug-bundle: bundle created at $TARBALL" >&2
+echo "dv_debug_bundle.sh: bundle created at $TARBALL" >&2
 echo "Contents:"
 echo "  old.txt, new.txt              — input files"
 echo "  raw_ops.txt                   — Stage 1 (compute output)"

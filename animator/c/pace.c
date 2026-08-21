@@ -44,6 +44,8 @@
 static int char_delay = 50;      /* normal typing */
 static int delete_delay = 40;    /* per-char delete */
 static int hunk_pause = 250;     /* between hunks */
+static int flash_pause_ms = 400; /* flash mode: pause after highlight */
+static int flash_highlight_ms = 300; /* flash mode: highlight duration */
 static int awd_start_chars = 3;  /* chars before acceleration */
 static int awd_start_ms = 80;    /* slow start delay */
 static int awd_min_ms = 15;      /* minimum accelerated delay */
@@ -134,6 +136,10 @@ void parse_args(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--delete-pacing") == 0 && i+1 < argc)
             strncpy(delete_pacing, argv[++i], 31);
+        else if (strcmp(argv[i], "--flash-pause-ms") == 0 && i+1 < argc)
+            flash_pause_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--flash-highlight-ms") == 0 && i+1 < argc)
+            flash_highlight_ms = atoi(argv[++i]);
         else if (strcmp(argv[i], "--delete-speed") == 0 && i+1 < argc)
             strncpy(delete_speed, argv[++i], 31);
         else if (strcmp(argv[i], "--delete-threshold") == 0 && i+1 < argc)
@@ -170,7 +176,10 @@ void parse_args(int argc, char **argv) {
             strncpy(snapshot_file, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "Usage: diffvim-pace [options]\n");
-            fprintf(stderr, "  --delete-pacing MODE  char|rapid|word|instant (default: word)\n");
+            fprintf(stderr, "  --delete-pacing MODE  char|rapid|word|instant|flash (default: word)\n");
+            fprintf(stderr, "                        flash = highlight whole line, pause, delete in one shot\n");
+            fprintf(stderr, "  --flash-pause-ms N    flash mode: pause after highlight (default: 400)\n");
+            fprintf(stderr, "  --flash-highlight-ms N flash mode: highlight duration (default: 300)\n");
             fprintf(stderr, "  --delete-speed MODE   slow|normal|fast|instant (default: normal)\n");
             fprintf(stderr, "  --insert-pacing MODE  char|word (default: char)\n");
             fprintf(stderr, "  --insert-speed MODE   slow|normal|fast (default: normal)\n");
@@ -501,6 +510,46 @@ int main(int argc, char **argv) {
                     passthrough(all_lines[i]);
                     emit_paced_delay(1, "char");
                     i++;
+                } else if (strcmp(delete_pacing, "flash") == 0) {
+                    /* Flash: highlight the whole line, pause, then
+                     * delete all content in one shot (instant).
+                     * Collect all consecutive deletes on the same line
+                     * (including the \n delete if present), emit a
+                     * highlight op for the line range, pause, then
+                     * emit all deletes with minimal delay. */
+                    int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
+                    int start_idx = i;
+                    int end_col = 1;
+                    while (i < n_lines) {
+                        char buf2[MAX_LINE];
+                        strncpy(buf2, all_lines[i], MAX_LINE - 1);
+                        buf2[MAX_LINE - 1] = 0;
+                        char *t2[8];
+                        int n2 = parse_tsv(buf2, t2, 8);
+                        int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
+                        int col2 = (n2 >= 3) ? atoi(t2[2]) : 1;
+                        if (strcmp(t2[0], "delete") != 0 || l2 != start_line)
+                            break;
+                        if (col2 > end_col) end_col = col2;
+                        i++;
+                    }
+                    int count = i - start_idx;
+                    /* Emit a highlight op for the whole line.
+                     * Format: highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur>
+                     * The animator/decorate will render this as a
+                     * colored highlight on the line before deletion. */
+                    printf("highlight\t%d\t1\t%d\t%d\tflash\t%d\n",
+                           start_line, start_line, end_col + 1,
+                           flash_highlight_ms);
+                    /* Pause to let the user see the highlight */
+                    emit_paced_delay(flash_pause_ms, "flash_pause");
+                    /* Delete all content instantly */
+                    for (int k = start_idx; k < start_idx + count; k++) {
+                        passthrough(all_lines[k]);
+                        emit_paced_delay(1, "flash_delete");
+                    }
+                    /* Brief pause after deletion */
+                    emit_paced_delay(flash_pause_ms / 2, "flash_end");
                 } else if (strcmp(delete_pacing, "rapid-eol") == 0) {
                     /* Rapid EOL: delete trailing chars rapidly.
                      * Collect consecutive deletes on same line, delete first

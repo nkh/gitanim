@@ -53,6 +53,7 @@ static int op_order_end_first_smart = 0;
 static int do_semantic = 0;
 static int do_indent = 0;
 static int do_overwrite = 0;
+static int do_indent_last = 0;  /* indent-last: delete leading whitespace last */
 static int stream_mode = 0;
 
 /* Apply a --transform NAME[:VALUE] spec. */
@@ -70,9 +71,11 @@ void apply_transform(const char *spec) {
         do_indent = 1;
     } else if (strcmp(spec, "overwrite") == 0) {
         do_overwrite = 1;
+    } else if (strcmp(spec, "indent-last") == 0) {
+        do_indent_last = 1;
     } else {
         fprintf(stderr, "diffvim-postprocess: unknown transform '%s'\n", spec);
-        fprintf(stderr, "  Available: op-order:natural|optimize, semantic-cleanup, indent-aware, overwrite\n");
+        fprintf(stderr, "  Available: op-order:natural|optimize, semantic-cleanup, indent-aware, indent-last, overwrite\n");
         exit(1);
     }
 }
@@ -83,6 +86,8 @@ void list_transforms(void) {
     printf("  op-order:optimize       Deletes before inserts within each line (default)\n");
     printf("  semantic-cleanup        Merge adjacent delete+insert pairs that cancel out\n");
     printf("  indent-aware            Handle indent-only changes as keeps\n");
+    printf("  indent-last             Delete leading whitespace (spaces/tabs at col 1) LAST\n");
+    printf("                          — prevents text from shifting left during animation\n");
     printf("  overwrite               Transform delete+insert into in-place overwrite\n");
     printf("\nTransforms are applied in the order specified.\n");
     printf("Multiple --transform flags can be given.\n");
@@ -103,6 +108,8 @@ void parse_args(int argc, char **argv) {
             do_indent = 1;
         } else if (strcmp(argv[i], "--overwrite") == 0) {
             do_overwrite = 1;
+        } else if (strcmp(argv[i], "--indent-last") == 0) {
+            do_indent_last = 1;
         } else if (strcmp(argv[i], "--stream") == 0) {
             stream_mode = 1;
         } else if (strcmp(argv[i], "--transform") == 0 && i+1 < argc) {
@@ -118,6 +125,7 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "  --semantic-cleanup       Shorthand for --transform semantic-cleanup\n");
             fprintf(stderr, "  --indent-aware           Shorthand for --transform indent-aware\n");
             fprintf(stderr, "  --overwrite              Shorthand for --transform overwrite\n");
+            fprintf(stderr, "  --indent-last           Shorthand for --transform indent-last\n");
             exit(0);
         }
     }
@@ -368,6 +376,9 @@ int end_first_line(Op *in, int count, Op *out) {
     return n_out;
 }
 
+/* Forward declaration — defined after reorder_hunk_ops */
+int indent_last_transform(Op *in, int count, Op *out);
+
 /* Reorder ops within each line group. */
 int reorder_hunk_ops(Op *in, int count, Op *out) {
     int n_out = 0;
@@ -377,16 +388,25 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
             int line_len = i - line_start;
             if (i < count) line_len++;
             if (line_len > 1) {
+                Op temp[8192];
+                int n_temp = 0;
                 if (op_order_left_to_right) {
-                    n_out += left_to_right_line(in + line_start, line_len, out + n_out);
+                    n_temp = left_to_right_line(in + line_start, line_len, temp);
                 } else if (op_order_end_first || op_order_end_first_smart) {
-                    n_out += end_first_line(in + line_start, line_len, out + n_out);
+                    n_temp = end_first_line(in + line_start, line_len, temp);
                 } else if (op_order_optimize) {
-                    n_out += optimize_line(in + line_start, line_len, out + n_out);
+                    n_temp = optimize_line(in + line_start, line_len, temp);
                 } else {
-                    memcpy(out + n_out, in + line_start, line_len * sizeof(Op));
-                    n_out += line_len;
+                    memcpy(temp, in + line_start, line_len * sizeof(Op));
+                    n_temp = line_len;
                 }
+                /* Apply indent-last transform if enabled */
+                if (do_indent_last) {
+                    n_temp = indent_last_transform(temp, n_temp, out + n_out);
+                } else {
+                    memcpy(out + n_out, temp, n_temp * sizeof(Op));
+                }
+                n_out += n_temp;
             } else {
                 memcpy(out + n_out, in + line_start, line_len * sizeof(Op));
                 n_out += line_len;
@@ -395,6 +415,78 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
         }
     }
     return n_out;
+}
+
+/* Indent-last transform: when a line is being ENTIRELY deleted (all
+ * chars are deletes, no keeps), move the leading whitespace deletes
+ * (spaces/tabs at the start of the line) to the END of the line
+ * group, just before the \n delete.
+ *
+ * This prevents the text from shifting left during animation — the
+ * content is deleted first (text shrinks from the right), then the
+ * indentation is removed last (the whole line disappears).
+ *
+ * ONLY applies when the ENTIRE line is being deleted. If there are
+ * any keeps on the line, the transform is a no-op (the line is not
+ * being wholly deleted, so whitespace order doesn't matter). */
+int indent_last_transform(Op *in, int count, Op *out) {
+    if (count <= 1) {
+        memcpy(out, in, count * sizeof(Op));
+        return count;
+    }
+    /* Check if this line group is being entirely deleted:
+     * all non-\n ops are deletes (no keeps, no inserts) */
+    int has_keep_or_insert = 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(in[i].type, "keep") == 0 || strcmp(in[i].type, "insert") == 0) {
+            /* Ignore \n keeps (line boundary markers) */
+            if (in[i].code != 10) {
+                has_keep_or_insert = 1;
+                break;
+            }
+        }
+    }
+    if (!has_keep_or_insert) {
+        /* Line is entirely deleted — move leading whitespace deletes
+         * (space/tab) to just before the \n delete */
+        int n_content = 0;
+        int n_ws = 0;
+        Op content[4096];
+        Op ws[256];
+        for (int i = 0; i < count; i++) {
+            if (strcmp(in[i].type, "delete") == 0
+                && (in[i].code == 32 || in[i].code == 9)) {
+                ws[n_ws++] = in[i];
+            } else {
+                content[n_content++] = in[i];
+            }
+        }
+        if (n_ws == 0) {
+            memcpy(out, in, count * sizeof(Op));
+            return count;
+        }
+        /* Rebuild: content first, then whitespace, then \n (which is
+         * already in content as the last op) */
+        int n_out = 0;
+        int nl_found = 0;
+        for (int i = 0; i < n_content; i++) {
+            if (!nl_found && strcmp(content[i].type, "delete") == 0
+                && content[i].code == 10) {
+                for (int k = 0; k < n_ws; k++)
+                    out[n_out++] = ws[k];
+                nl_found = 1;
+            }
+            out[n_out++] = content[i];
+        }
+        if (!nl_found) {
+            for (int k = 0; k < n_ws; k++)
+                out[n_out++] = ws[k];
+        }
+        return n_out;
+    }
+    /* Line has keeps/inserts — not entirely deleted, return as-is */
+    memcpy(out, in, count * sizeof(Op));
+    return count;
 }
 
 /* Overwrite transform: mark delete+insert pairs as overwrite.

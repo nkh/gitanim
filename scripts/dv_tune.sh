@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# diffvim-tune — Interactive workbench for tuning postprocessing and pacing.
+# dv_tune.sh — Interactive workbench for tuning postprocessing and pacing.
 #
 # Provides a menu-driven interface for testing diffvim options on short
 # files. Can stream ops to an animator running in another terminal via
@@ -204,7 +204,7 @@ generate_debug_bundle() {
 
     # Save settings
     {
-        echo "# diffvim-tune settings"
+        echo "# dv_tune.sh settings"
         for key in $ALL_SETTINGS; do
             echo "$key=${SETTINGS[$key]}"
         done
