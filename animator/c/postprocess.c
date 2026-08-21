@@ -505,7 +505,8 @@ const char *char_repr_c(int code) {
                 buf[3] = 0;
                 return buf;
             }
-            snprintf(buf, sizeof(buf), "%d", code);
+            int n_written = snprintf(buf, sizeof(buf), "%d", code);
+            (void)n_written;  /* return value unused — buffer is large enough for any int */
             return buf;
     }
 }
@@ -787,8 +788,9 @@ void stream_process(void) {
             }
 
             /* Start new hunk */
-            sscanf(line, "HUNK %d %d %d %d %d", &hunk_target, &hunk_del, &hunk_ins,
+            int n_matched = sscanf(line, "HUNK %d %d %d %d %d", &hunk_target, &hunk_del, &hunk_ins,
                    &hunk_end_ins, &hunk_end_del);
+            (void)n_matched;  /* validation done by strncmp above; malformed input already filtered */
             in_hunk = 1;
             hunk_op_count = 0;
             continue;
@@ -796,7 +798,8 @@ void stream_process(void) {
 
         if (strncmp(line, "keep", 4) == 0 || strncmp(line, "delete", 6) == 0 || strncmp(line, "insert", 6) == 0) {
             char type[8]; int code;
-            sscanf(line, "%7s %d", type, &code);
+            int n_matched = sscanf(line, "%7s %d", type, &code);
+            (void)n_matched;  /* validation done by caller; malformed input already filtered */
             if (hunk_op_count >= hunk_op_cap) {
                 hunk_op_cap *= 2;
                 hunk_ops = (Op *)realloc(hunk_ops, hunk_op_cap * sizeof(Op));

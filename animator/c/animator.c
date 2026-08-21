@@ -684,18 +684,19 @@ int main(int argc, char **argv) {
              * just re-renders the buffer (the highlight is purely visual
              * and has no effect on the buffer state).
              *
-             * The fields are still parsed (and validated by the ntok >= 7
-             * check) so that an op stream containing highlight ops is not
-             * silently truncated, but the individual values are unused
-             * here. Cast them to void to suppress -Wunused warnings under
-             * strict compile flags. */
+             * The fields are still consumed (assigned to a variable that
+             * is intentionally unused) so the op stream is parsed and
+             * validated, but the values have no effect on the C
+             * animator's buffer. */
             if (!no_display) {
-                (void)atoi(toks[1]);  /* sl — start line */
-                (void)atoi(toks[2]);  /* sc — start col */
-                (void)atoi(toks[3]);  /* el — end line */
-                (void)atoi(toks[4]);  /* ec — end col */
-                (void)toks[5];        /* htype — highlight type */
-                (void)atoi(toks[6]);  /* dur — duration ms */
+                int hl_sl  = atoi(toks[1]);  /* start line */
+                int hl_sc  = atoi(toks[2]);  /* start col */
+                int hl_el  = atoi(toks[3]);  /* end line */
+                int hl_ec  = atoi(toks[4]);  /* end col */
+                const char *hl_type = toks[5];  /* highlight type */
+                int hl_dur = atoi(toks[6]);  /* duration ms */
+                (void)hl_sl; (void)hl_sc; (void)hl_el; (void)hl_ec;
+                (void)hl_type; (void)hl_dur;
                 render();
             }
         } else if (strcmp(cmd, "dim") == 0 && ntok >= 4) {
