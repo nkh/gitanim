@@ -24,6 +24,67 @@
 # Output: /tmp/dv_snapshots/snapshots.html
 # Open in browser: file:///tmp/dv_snapshots/snapshots.html
 
+show_help() {
+cat <<'HELP'
+NAME
+    snapshot_per_op.sh — Per-op HTML snapshot visualizer for diffvim
+
+SYNOPSIS
+    snapshot_per_op.sh [-h|--help]
+    snapshot_per_op.sh [options] <oldfile> <newfile>
+
+DESCRIPTION
+    Runs the diffvim pipeline (compute → postprocess → pace) on an
+    old/new file pair, then takes a snapshot of the animator's buffer
+    after every keep / delete / insert op and renders all those
+    snapshots into a single browsable HTML page (one entry per op,
+    with the changed character highlighted).
+
+    The HTML page is written to /tmp/dv_snapshots/snapshots.html —
+    open it in a browser to step through the animation op-by-op.
+
+OPTIONS
+    -h, --help              Show this help message and exit 0.
+    --show-keep             Show keep ops (default: hidden). When
+                            hidden, each delete/insert entry still
+                            shows the buffer state (the result after
+                            the op was applied).
+    --show-pacing           Include delay ops in the output
+                            (default: excluded).
+    --context N             Show only N lines of context around the
+                            changed line (default: -1 = show whole
+                            buffer; 0 = show only the changed line).
+    --frame-op              Show a frame/border around each op entry
+                            (default: off).
+    --no-buffer-frame       Remove the thin frame around the buffer
+                            (default: on — frame is shown).
+    --font-size N           Font size in px (default: 14).
+    <oldfile>               Path to the original/source file.
+    <newfile>               Path to the target file.
+
+EXAMPLES
+    snapshot_per_op.sh examples/01_small_python/old.py \
+                       examples/01_small_python/new.py
+        Build a full-buffer, default-styled HTML visualization.
+
+    snapshot_per_op.sh --show-keep --show-pacing old.txt new.txt
+        Include keep ops and delay ops in the visualization.
+
+    snapshot_per_op.sh --context 3 old.txt new.txt
+        Show only 3 lines of context around each change.
+
+    snapshot_per_op.sh --frame-op --font-size 16 old.txt new.txt
+        Render with per-op frames and a 16px font.
+
+    snapshot_per_op.sh --no-buffer-frame old.txt new.txt
+        Render without the thin buffer border.
+
+OUTPUT
+    /tmp/dv_snapshots/snapshots.html
+    Open with: file:///tmp/dv_snapshots/snapshots.html
+HELP
+}
+
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -36,6 +97,7 @@ FONT_SIZE=14
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -h|--help)                       show_help; exit 0 ;;
         --show-pacing|--show_pacing)     SHOW_PACING=1; shift ;;
         --show-keep|--show_keep)         SHOW_KEEP=1; shift ;;
         --context)                       CONTEXT="$2"; shift 2 ;;
@@ -45,7 +107,7 @@ while [[ $# -gt 0 ]]; do
         --font-size)                     FONT_SIZE="$2"; shift 2 ;;
         --font-size=*)                   FONT_SIZE="${1#--font-size=}"; shift ;;
         --*)  echo "ERROR: unknown option '$1'" >&2
-              echo "Valid options: --show-pacing, --show-keep, --context N, --frame-op, --no-buffer-frame, --font-size N" >&2
+              echo "Valid options: -h/--help, --show-pacing, --show-keep, --context N, --frame-op, --no-buffer-frame, --font-size N" >&2
               exit 1 ;;
         *)    break ;;
     esac

@@ -1,0 +1,43 @@
+.TH TEST_VIMSCRIPT_ANIMATOR 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.SH NAME
+test_vimscript_animator \- 
+.SH SYNOPSIS
+.B test_vimscript_animator
+[\fIoptions\fR] [\fIargs\fR]
+.SH DESCRIPTION
+NAME\fR
+    test_vimscript_animator.sh — Synchronous headless test of the vimscript animator\fR
+\fR
+SYNOPSIS\fR
+    test_vimscript_animator.sh [-h|--help]\fR
+    test_vimscript_animator.sh [example_dir]\fR
+\fR
+DESCRIPTION\fR
+    Tests the vimscript animator (the engine embedded in the diffvim\fR
+    launcher) by extracting it, patching s:StartTimedAnimation to run\fR
+    synchronously (no timers), and running it headless (vim -e -s -n)\fR
+    against pre-computed timed op streams produced by the C pipeline.\fR
+    The final buffer is written out and compared byte-for-byte with\fR
+    the expected new file.\fR
+\fR
+    This complements verify_md5.sh, which tests the C and Perl\fR
+    pipelines. Together they cover all three animator implementations\fR
+    (C, Perl, vimscript). The async variant is\fR
+    test_async_vimscript.sh.\fR
+\fR
+OPTIONS\fR
+    -h, --help        Show this help message and exit 0.\fR
+    <example_dir>     Optional. Path to a single example directory\fR
+                      containing old.* and new.* files. If omitted,\fR
+                      every example under examples/ matching [0-9]*_*\fR
+                      is tested.\fR
+\fR
+EXAMPLES\fR
+    test_vimscript_animator.sh\fR
+        Test the vimscript animator against ALL examples.\fR
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show detailed help and exit
+.SH "SEE ALSO"
+.BR diffvim (1)

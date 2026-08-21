@@ -1,0 +1,43 @@
+.TH DV_DEMO 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.SH NAME
+dv_demo \- 
+.SH SYNOPSIS
+.B dv_demo
+[\fIoptions\fR] [\fIargs\fR]
+.SH DESCRIPTION
+NAME\fR
+    dv_demo.sh — Run demo animations for common use cases\fR
+\fR
+SYNOPSIS\fR
+    dv_demo.sh [-h|--help]\fR
+\fR
+DESCRIPTION\fR
+    Runs three pre-configured diffvim animations end-to-end through the\fR
+    diffvim-pipeline driver (compute → postprocess → pace → animator)\fR
+    in --no-display mode, so no terminal animator UI is shown — the\fR
+    pipeline simply runs to completion and prints progress.\fR
+\fR
+    The demos exercised are:\fR
+      1. Small Python      — examples/01_small_python   (speed 2)\fR
+      2. Python Classes    — examples/32_python_classes  (speed 2)\fR
+      3. Large Python      — examples/33_large_python    (speed 5)\fR
+\fR
+    Use this script to smoke-test the pipeline after a build, or as a\fR
+    quick "does it work?" check.\fR
+\fR
+OPTIONS\fR
+    -h, --help     Show this help message and exit 0.\fR
+                   This script takes no other arguments.\fR
+\fR
+EXAMPLES\fR
+    dv_demo.sh\fR
+        Run all three demo animations.\fR
+\fR
+    dv_demo.sh --help\fR
+        Show this help message.\fR
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show detailed help and exit
+.SH "SEE ALSO"
+.BR diffvim (1)

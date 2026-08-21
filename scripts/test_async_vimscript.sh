@@ -5,8 +5,55 @@
 #
 # Usage: bash scripts/test_async_vimscript.sh <example_dir>
 
+show_help() {
+cat <<'HELP'
+NAME
+    test_async_vimscript.sh — Test the vimscript animator in ASYNC mode
+
+SYNOPSIS
+    test_async_vimscript.sh [-h|--help]
+    test_async_vimscript.sh <example_dir>
+
+DESCRIPTION
+    Tests the vimscript animator (the engine embedded in the diffvim
+    launcher) in its REAL asynchronous mode — i.e. with timers, exactly
+    as it runs inside Vim during a live diffvim session. This catches
+    bugs that the synchronous variant (test_vimscript_animator.sh)
+    cannot, such as timer-related state issues.
+
+    Pipeline per example:
+      1. Extracts the vimscript engine from the diffvim launcher.
+      2. Runs compute-cpp + postprocess + pace to get the timed ops.
+      3. Runs headless Vim (vim -e -s -n) with the engine sourced,
+         DIFFVIM_SPEED=1000000 (delays become ~0ms), and a 60s timeout.
+      4. Compares the engine's output buffer to the expected new file.
+
+OPTIONS
+    -h, --help        Show this help message and exit 0.
+    <example_dir>     Path to an example directory containing old.*
+                      and new.* files (e.g. examples/01_small_python).
+
+EXAMPLES
+    test_async_vimscript.sh examples/01_small_python
+        Run the async test on the small Python example.
+
+    test_async_vimscript.sh /home/z/my-project/gitanim/examples/32_python_classes
+        Use an absolute path to the example directory.
+
+EXIT STATUS
+    0   PASS — engine output matches the new file exactly.
+    1   FAIL — no output produced, or output differs from the new file.
+HELP
+}
+
 set -uo pipefail
 ROOT=/home/z/my-project/gitanim
+
+# Handle -h/--help
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    show_help
+    exit 0
+fi
 
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <example_dir>"

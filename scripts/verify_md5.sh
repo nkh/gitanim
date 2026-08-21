@@ -19,7 +19,59 @@
 #
 # Outputs MD5 of saved buffer for each, compares with MD5 of new file.
 
+show_help() {
+cat <<'HELP'
+NAME
+    verify_md5.sh — Round-trip MD5 verification of the diffvim pipelines
+
+SYNOPSIS
+    verify_md5.sh [-h|--help]
+
+DESCRIPTION
+    For every example pair under examples/ (matching [0-9]*_*), runs
+    TWO diffvim pipelines in parallel (8 concurrent via xargs -P):
+
+      1. C pipeline:        compute-cpp → C postprocess → C pace → C animator
+                            (via animator/diffvim-pipeline --no-display ...)
+      2. Pure-Perl pipeline: compute_builtin.pl → postprocess.pl →
+                            pace.pl → animator.pl
+
+    Both pipelines write their final buffer to a snapshot file, the
+    MD5 of each snapshot is computed, and those MD5s are compared to
+    the MD5 of the expected new file. The script prints a table with
+    one row per example showing: example name, new-file MD5, C-pipeline
+    MD5, and Perl-pipeline MD5, followed by a summary count of
+    OK/bad for each pipeline.
+
+    This verifies that:
+      1. The C pipeline produces the correct output (its buffer's MD5
+         matches the new file's MD5).
+      2. The Perl pipeline produces byte-identical output to the C
+         pipeline (so the Perl tools are first-class, not just a
+         fallback).
+
+OPTIONS
+    -h, --help     Show this help message and exit 0.
+                   This script takes no other arguments — it always
+                   processes every example under examples/.
+
+EXAMPLES
+    verify_md5.sh
+        Run MD5 round-trip verification across all examples.
+
+OUTPUT
+    A table to stdout, plus per-example MD5 files under
+    /tmp/dv_md5_verify/.
+HELP
+}
+
 set -uo pipefail
+
+# Handle -h/--help
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    show_help
+    exit 0
+fi
 
 ROOT=/home/z/my-project/gitanim
 OUTDIR=/tmp/dv_md5_verify

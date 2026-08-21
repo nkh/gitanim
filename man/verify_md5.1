@@ -1,0 +1,43 @@
+.TH VERIFY_MD5 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.SH NAME
+verify_md5 \- 
+.SH SYNOPSIS
+.B verify_md5
+[\fIoptions\fR] [\fIargs\fR]
+.SH DESCRIPTION
+NAME\fR
+    verify_md5.sh — Round-trip MD5 verification of the diffvim pipelines\fR
+\fR
+SYNOPSIS\fR
+    verify_md5.sh [-h|--help]\fR
+\fR
+DESCRIPTION\fR
+    For every example pair under examples/ (matching [0-9]*_*), runs\fR
+    TWO diffvim pipelines in parallel (8 concurrent via xargs -P):\fR
+\fR
+      1. C pipeline:        compute-cpp → C postprocess → C pace → C animator\fR
+                            (via animator/diffvim-pipeline --no-display ...)\fR
+      2. Pure-Perl pipeline: compute_builtin.pl → postprocess.pl →\fR
+                            pace.pl → animator.pl\fR
+\fR
+    Both pipelines write their final buffer to a snapshot file, the\fR
+    MD5 of each snapshot is computed, and those MD5s are compared to\fR
+    the MD5 of the expected new file. The script prints a table with\fR
+    one row per example showing: example name, new-file MD5, C-pipeline\fR
+    MD5, and Perl-pipeline MD5, followed by a summary count of\fR
+    OK/bad for each pipeline.\fR
+\fR
+    This verifies that:\fR
+      1. The C pipeline produces the correct output (its buffer's MD5\fR
+         matches the new file's MD5).\fR
+      2. The Perl pipeline produces byte-identical output to the C\fR
+         pipeline (so the Perl tools are first-class, not just a\fR
+         fallback).\fR
+\fR
+OPTIONS\fR
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show detailed help and exit
+.SH "SEE ALSO"
+.BR diffvim (1)

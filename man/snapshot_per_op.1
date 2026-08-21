@@ -1,0 +1,43 @@
+.TH SNAPSHOT_PER_OP 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.SH NAME
+snapshot_per_op \- 
+.SH SYNOPSIS
+.B snapshot_per_op
+[\fIoptions\fR] [\fIargs\fR]
+.SH DESCRIPTION
+NAME\fR
+    snapshot_per_op.sh — Per-op HTML snapshot visualizer for diffvim\fR
+\fR
+SYNOPSIS\fR
+    snapshot_per_op.sh [-h|--help]\fR
+    snapshot_per_op.sh [options] <oldfile> <newfile>\fR
+\fR
+DESCRIPTION\fR
+    Runs the diffvim pipeline (compute → postprocess → pace) on an\fR
+    old/new file pair, then takes a snapshot of the animator's buffer\fR
+    after every keep / delete / insert op and renders all those\fR
+    snapshots into a single browsable HTML page (one entry per op,\fR
+    with the changed character highlighted).\fR
+\fR
+    The HTML page is written to /tmp/dv_snapshots/snapshots.html —\fR
+    open it in a browser to step through the animation op-by-op.\fR
+\fR
+OPTIONS\fR
+    -h, --help              Show this help message and exit 0.\fR
+    --show-keep             Show keep ops (default: hidden). When\fR
+                            hidden, each delete/insert entry still\fR
+                            shows the buffer state (the result after\fR
+                            the op was applied).\fR
+    --show-pacing           Include delay ops in the output\fR
+                            (default: excluded).\fR
+    --context N             Show only N lines of context around the\fR
+                            changed line (default: -1 = show whole\fR
+                            buffer; 0 = show only the changed line).\fR
+    --frame-op              Show a frame/border around each op entry\fR
+                            (default: off).\fR
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show detailed help and exit
+.SH "SEE ALSO"
+.BR diffvim (1)

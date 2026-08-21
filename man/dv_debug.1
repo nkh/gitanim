@@ -1,0 +1,43 @@
+.TH DV_DEBUG 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.SH NAME
+dv_debug \- 
+.SH SYNOPSIS
+.B dv_debug
+[\fIoptions\fR] [\fIargs\fR]
+.SH DESCRIPTION
+NAME\fR
+    dv_debug.sh — Debugging tool for the diffvim pipeline\fR
+\fR
+SYNOPSIS\fR
+    dv_debug.sh [-h|--help]\fR
+    dv_debug.sh [--keep] <oldfile> <newfile>\fR
+\fR
+DESCRIPTION\fR
+    Takes an old and new file, runs the full diffvim pipeline (compute →\fR
+    postprocess → pace → animator) stage by stage, prints diagnostic\fR
+    information to the terminal, AND writes the intermediate output of\fR
+    each stage to disk under /tmp/dv_debug/ so you can inspect it with\fR
+    any external tool (less, cat -A, diff, wc, etc.).\fR
+\fR
+    Stage files produced:\fR
+      /tmp/dv_debug/raw.txt    — Stage 1 (diffvim-compute-cpp output)\fR
+      /tmp/dv_debug/post.txt   — Stage 2 (diffvim-postprocess output)\fR
+      /tmp/dv_debug/timed.txt  — Stage 3 (diffvim-pace output)\fR
+      /tmp/dv_debug/snap.txt   — Stage 4 (diffvim-animator-c final buffer)\fR
+\fR
+    The script then compares the animator's final buffer (snap.txt)\fR
+    against the new file and reports either a MATCH or a MISMATCH\fR
+    (printing the diff in the latter case).\fR
+\fR
+OPTIONS\fR
+    -h, --help     Show this help message and exit 0.\fR
+    --keep         Do not clear /tmp/dv_debug/ before running. Useful\fR
+                   when you want to compare stage files across runs.\fR
+    <oldfile>      Path to the original/source file (initial buffer).\fR
+    <newfile>      Path to the target file the animation should produce.\fR
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show detailed help and exit
+.SH "SEE ALSO"
+.BR diffvim (1)

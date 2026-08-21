@@ -17,8 +17,63 @@
 #   wc -l /tmp/dv_debug/*.txt             # line counts
 #   diff /tmp/dv_debug/snap.txt <new>    # final comparison
 
+show_help() {
+cat <<'HELP'
+NAME
+    dv_debug.sh — Debugging tool for the diffvim pipeline
+
+SYNOPSIS
+    dv_debug.sh [-h|--help]
+    dv_debug.sh [--keep] <oldfile> <newfile>
+
+DESCRIPTION
+    Takes an old and new file, runs the full diffvim pipeline (compute →
+    postprocess → pace → animator) stage by stage, prints diagnostic
+    information to the terminal, AND writes the intermediate output of
+    each stage to disk under /tmp/dv_debug/ so you can inspect it with
+    any external tool (less, cat -A, diff, wc, etc.).
+
+    Stage files produced:
+      /tmp/dv_debug/raw.txt    — Stage 1 (diffvim-compute-cpp output)
+      /tmp/dv_debug/post.txt   — Stage 2 (diffvim-postprocess output)
+      /tmp/dv_debug/timed.txt  — Stage 3 (diffvim-pace output)
+      /tmp/dv_debug/snap.txt   — Stage 4 (diffvim-animator-c final buffer)
+
+    The script then compares the animator's final buffer (snap.txt)
+    against the new file and reports either a MATCH or a MISMATCH
+    (printing the diff in the latter case).
+
+OPTIONS
+    -h, --help     Show this help message and exit 0.
+    --keep         Do not clear /tmp/dv_debug/ before running. Useful
+                   when you want to compare stage files across runs.
+    <oldfile>      Path to the original/source file (initial buffer).
+    <newfile>      Path to the target file the animation should produce.
+
+EXAMPLES
+    dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py
+        Run the debugger on a small Python example, clearing any previous
+        /tmp/dv_debug/ contents first.
+
+    dv_debug.sh --keep old.txt new.txt
+        Run the debugger but keep the existing /tmp/dv_debug/ contents.
+
+    Useful follow-up commands after running:
+        less -S /tmp/dv_debug/post.txt        # view with tabs visible
+        cat -A /tmp/dv_debug/raw.txt | head   # show tabs as ^I
+        wc -l /tmp/dv_debug/*.txt              # line counts per stage
+        diff /tmp/dv_debug/snap.txt new.txt    # final comparison
+HELP
+}
+
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Handle -h/--help before any other argument processing
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    show_help
+    exit 0
+fi
 
 # Optional --keep flag: don't clear the output directory
 KEEP=0

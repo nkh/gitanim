@@ -9,10 +9,61 @@
 # Usage: bash test_vimscript_animator.sh [example_dir]
 #   With no argument, tests all examples.
 
+show_help() {
+cat <<'HELP'
+NAME
+    test_vimscript_animator.sh — Synchronous headless test of the vimscript animator
+
+SYNOPSIS
+    test_vimscript_animator.sh [-h|--help]
+    test_vimscript_animator.sh [example_dir]
+
+DESCRIPTION
+    Tests the vimscript animator (the engine embedded in the diffvim
+    launcher) by extracting it, patching s:StartTimedAnimation to run
+    synchronously (no timers), and running it headless (vim -e -s -n)
+    against pre-computed timed op streams produced by the C pipeline.
+    The final buffer is written out and compared byte-for-byte with
+    the expected new file.
+
+    This complements verify_md5.sh, which tests the C and Perl
+    pipelines. Together they cover all three animator implementations
+    (C, Perl, vimscript). The async variant is
+    test_async_vimscript.sh.
+
+OPTIONS
+    -h, --help        Show this help message and exit 0.
+    <example_dir>     Optional. Path to a single example directory
+                      containing old.* and new.* files. If omitted,
+                      every example under examples/ matching [0-9]*_*
+                      is tested.
+
+EXAMPLES
+    test_vimscript_animator.sh
+        Test the vimscript animator against ALL examples.
+
+    test_vimscript_animator.sh examples/01_small_python
+        Test only the small Python example.
+
+    test_vimscript_animator.sh 32_python_classes
+        The "examples/" prefix may be omitted.
+
+EXIT STATUS
+    0   All tested examples PASSED.
+    1   At least one example FAILED.
+HELP
+}
+
 set -uo pipefail
 ROOT=/home/z/my-project/gitanim
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
+
+# Handle -h/--help
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    show_help
+    exit 0
+fi
 
 # --- Extract the vimscript engine from the diffvim launcher ---
 ENG="$TMPDIR/engine.vim"
