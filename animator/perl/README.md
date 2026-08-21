@@ -36,10 +36,10 @@ perl animator/perl/animator.pl --no-display --speed 1000 --snapshot out.txt old.
 The Perl implementations exist as a fallback — if the C binaries
 are missing or don't work on a particular platform, the pipeline
 falls back to Perl. Both produce identical output, verified by
-`scripts/verify_md5.sh` (42/42 pass for both C and Perl).
+`tests/verify_md5.sh` (42/42 pass for both C and Perl).
 
 ## Related
 
 - `../c/` — C implementation (produces identical output)
 - `../../docs/POSTPROCESS_TRANSFORMS.md` — What postprocess does
-- `../../scripts/verify_md5.sh` — Verifies C == Perl
+- `../../tests/verify_md5.sh` — Verifies C == Perl

@@ -163,7 +163,7 @@ test-minimal:
 
 test-pipeline:
 	@echo "=== Pipeline verification (42 examples) ==="
-	@bash scripts/verify_md5.sh 2>&1 | tail -4
+	@bash tests/verify_md5.sh 2>&1 | tail -4
 
 test-l2r:
 	@echo "=== l2r algorithm tests ==="
@@ -171,7 +171,7 @@ test-l2r:
 
 test-vimscript:
 	@echo "=== Vimscript animator tests (42 examples) ==="
-	@bash scripts/test_vimscript_animator.sh 2>&1 | tail -1
+	@bash tests/test_vimscript_animator.sh 2>&1 | tail -1
 
 test-debug-bundle:
 	@echo "=== dv_debug_bundle.sh tests ==="

@@ -10,7 +10,7 @@
 #      capture md5 of snapshot
 #   4. print a table
 #
-# Usage: perl scripts/verify_md5.pl
+# Usage: perl tests/verify_md5.pl
 
 use strict;
 use warnings;

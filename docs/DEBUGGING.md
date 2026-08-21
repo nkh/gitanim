@@ -264,7 +264,7 @@ The `./diffvim old new` launcher uses the vimscript animator. To
 test it headless (no vim window), use:
 
 ```bash
-bash scripts/test_vimscript_animator.sh examples/01_small_python
+bash tests/test_vimscript_animator.sh examples/01_small_python
 ```
 
 This extracts the vimscript engine, patches it to be synchronous
@@ -352,7 +352,7 @@ what each transformation should look like.
 The diffvim launcher uses the vimscript animator, which has its
 own snapshot writer. Check:
 ```bash
-bash scripts/test_vimscript_animator.sh examples/<name>
+bash tests/test_vimscript_animator.sh examples/<name>
 ```
 
 If that passes but the launcher doesn't, the issue is in the

@@ -62,7 +62,7 @@ compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → anima
 
 ```bash
 # Run MD5 verification on all 42 examples (~2 min)
-bash scripts/verify_md5.sh
+bash tests/verify_md5.sh
 
 # Test a single file
 ./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \

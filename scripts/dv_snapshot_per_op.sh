@@ -143,8 +143,8 @@ OUTDIR=/tmp/dv_snapshots
 rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
 
 # Run the C pipeline
-RAW="$OUTDIR/raw.txt"; POST="$OUTDIR/post.txt"; TIMED="$OUTDIR/timed.txt"
-echo "Running pipeline (compute → postprocess → pace)..." >&2
+RAW="$OUTDIR/raw.txt"; POST="$OUTDIR/post.txt"; DECORATED="$OUTDIR/decorated.txt"; TIMED="$OUTDIR/timed.txt"
+echo "Running pipeline (compute → postprocess → pace → decorate)..." >&2
 if ! "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"; then
     echo "ERROR: compute stage failed:" >&2
     cat "$OUTDIR/compute_stderr.txt" >&2
@@ -163,6 +163,21 @@ if ! "$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stde
     exit 1
 fi
 echo "  pace: $(wc -l < "$TIMED") ops" >&2
+# Run the decorate (highlight) stage — adds highlight/dim/fold/sign
+# metadata ops to the stream. The animator reads these and renders
+# them visually. Without this stage, highlight/dim/fold options have
+# no effect in the snapshot.
+if [[ -f "$ROOT/animator/bin/diffvim-decorate" ]]; then
+    DECORATE_ARGS=""
+    [[ $HIGHLIGHT_MODE != "none" ]] && DECORATE_ARGS+=" --highlight $HIGHLIGHT_MODE"
+    if ! "$ROOT/animator/bin/diffvim-decorate" $DECORATE_ARGS < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
+        echo "WARNING: decorate stage failed, using undecorated ops:" >&2
+        cat "$OUTDIR/decorate_stderr.txt" >&2
+        cp "$TIMED" "$DECORATED"
+    fi
+    echo "  decorate: $(wc -l < "$DECORATED") ops" >&2
+    TIMED="$DECORATED"  # use decorated ops for the rest of the pipeline
+fi
 
 # Inject snapshot after every keep/delete/insert
 INJECTED="$OUTDIR/timed_injected.txt"

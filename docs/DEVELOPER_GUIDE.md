@@ -131,7 +131,7 @@ gitanim/
 │
 ├── examples/                     # 42 example file pairs (old/new)
 ├── tests/                        # vimscript engine tests
-├── scripts/verify_md5.sh         # Round-trip MD5 verification
+├── tests/verify_md5.sh         # Round-trip MD5 verification
 ├── DiffVim/Parser/Perl.pm        # Pure-Perl Patience diff parser
 └── packaging/diffvim.rb           # Homebrew formula
 ```
@@ -162,7 +162,7 @@ md5sum /tmp/out.txt examples/01_small_python/new.py
 # Should match
 
 # Run the full test suite
-bash scripts/verify_md5.sh
+bash tests/verify_md5.sh
 ```
 
 ### Dependencies
@@ -442,7 +442,7 @@ with the new file.
 
 ```bash
 # Quick (parallel, 8 concurrent, ~2 minutes):
-bash scripts/verify_md5.sh
+bash tests/verify_md5.sh
 
 # Single example:
 ./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
@@ -472,7 +472,7 @@ perl tests/test_delete_pacing.pl
 ### Adding a new test case
 
 1. Create `examples/NN_description/old.ext` and `new.ext`
-2. Run `bash scripts/verify_md5.sh` — the new example is automatically included
+2. Run `bash tests/verify_md5.sh` — the new example is automatically included
 3. If the MD5 doesn't match, debug with:
    ```bash
    ./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
@@ -681,7 +681,7 @@ ignore this value — they process hunks as they arrive.
 | `diffvim` | Bash launcher + embedded vimscript engine |
 | `autoload/diffvim/engine.vim` | Standalone vimscript engine (for plugin mode) |
 | `plugin/diffvim.vim` | Vim plugin (:Diffvim, :DiffvimPick) |
-| `scripts/verify_md5.sh` | Round-trip MD5 verification (42 examples) |
+| `tests/verify_md5.sh` | Round-trip MD5 verification (42 examples) |
 | `docs/PIPELINE.md` | Pipeline architecture reference |
 | `docs/GHOST_LINE_DESIGN.md` | Ghost-line fix design (historical) |
 | `docs/ARCHITECTURE_ANALYSIS.md` | Architecture analysis (historical) |

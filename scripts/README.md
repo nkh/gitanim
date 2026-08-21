@@ -28,12 +28,12 @@ Debugging, testing, and verification scripts for the diffvim pipeline.
 - `verify_md5.sh` — Round-trip MD5 verification. Runs all 42 example
   pairs through both the C and Perl pipelines, compares output MD5
   with the new file's MD5.
-  Usage: `bash scripts/verify_md5.sh`
+  Usage: `bash tests/verify_md5.sh`
 
 - `test_vimscript_animator.sh` — Test the vimscript animator (inside
   vim) headless. Extracts the engine, patches it to be synchronous,
   runs in `vim -e -s -n`.
-  Usage: `bash scripts/test_vimscript_animator.sh [example_dir]`
+  Usage: `bash tests/test_vimscript_animator.sh [example_dir]`
 
 - `verify_md5.pl` — Perl version of MD5 verification (sequential).
 - `verify_md5_parallel.pl` — Perl parallel version.
@@ -51,8 +51,8 @@ bash scripts/snapshot_per_op.sh old.py new.py
 # Then open: file:///tmp/dv_snapshots/snapshots.html
 
 # Run full test suite:
-bash scripts/verify_md5.sh
-bash scripts/test_vimscript_animator.sh
+bash tests/verify_md5.sh
+bash tests/test_vimscript_animator.sh
 
 # Run minimal test cases:
 bash ../tests/run_minimal_tests.sh

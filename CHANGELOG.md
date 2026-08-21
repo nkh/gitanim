@@ -380,7 +380,7 @@ Fix: when `cursorL >= len(lines)`, set `cursorC` to
 
 ### Added — verify_md5.sh script
 
-`scripts/verify_md5.sh`: parallel round-trip MD5 verification script.
+`tests/verify_md5.sh`: parallel round-trip MD5 verification script.
 Tests diffvim (simple-loop + ProcessCharOp) and diffvim-pipeline
 against all 42 example pairs. Runs 8 concurrent vim instances via
 `xargs -P` for speed. Outputs MD5 comparison table.

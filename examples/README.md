@@ -16,10 +16,10 @@ in a subdirectory named `NN_description/`.
 bash scripts/dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py
 
 # Run all 42 examples through the pipeline:
-bash scripts/verify_md5.sh
+bash tests/verify_md5.sh
 
 # Test the vimscript animator on all examples:
-bash scripts/test_vimscript_animator.sh
+bash tests/test_vimscript_animator.sh
 ```
 
 ## Categories
@@ -53,7 +53,7 @@ The extension matches the language (`.py`, `.js`, `.rs`, etc.).
 
 - `../tests/minimal/` — Minimal test cases (25 cases, each testing one
   specific transformation)
-- `../scripts/verify_md5.sh` — Runs all 42 examples through both C and
+- `../tests/verify_md5.sh` — Runs all 42 examples through both C and
   Perl pipelines, compares output MD5
-- `../scripts/test_vimscript_animator.sh` — Tests vimscript animator on
+- `../tests/test_vimscript_animator.sh` — Tests vimscript animator on
   all examples

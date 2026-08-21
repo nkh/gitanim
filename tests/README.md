@@ -57,6 +57,6 @@ bash scripts/dv_debug.sh tests/minimal/11_delete_last_line/old \
 ## Related
 
 - `../animator/tests/` — Current animator test suites (117 tests)
-- `../scripts/verify_md5.sh` — Full pipeline verification (42 examples)
-- `../scripts/test_vimscript_animator.sh` — Vimscript animator tests
+- `../tests/verify_md5.sh` — Full pipeline verification (42 examples)
+- `../tests/test_vimscript_animator.sh` — Vimscript animator tests
 - `../docs/DEBUGGING.md` — Debugging guide

@@ -41,8 +41,10 @@ static void cleanup_handler(int sig) {
 static char **lines = NULL;
 static int n_lines = 0;
 static int cap_lines = 0;
-static int cursor_l = 0; /* 0-indexed */
-static int cursor_c = 0; /* 0-indexed */
+static int cursor_l = 0; /* 0-indexed — internal (used for buffer ops) */
+static int cursor_c = 0; /* 0-indexed — internal */
+static int disp_l = 0;  /* 0-indexed — displayed cursor (what render() shows) */
+static int disp_c = 0;  /* 0-indexed — displayed cursor */
 
 static int no_display = 0;
 static int show_line_numbers = 0;
@@ -307,6 +309,12 @@ void set_cursor(int line, int col) {
     if (cursor_c < 0) cursor_c = 0;
     int max_col = line_chars(cursor_l);
     if (cursor_c > max_col) cursor_c = max_col;
+    /* Also update the displayed cursor — for content ops, the visual
+     * cursor follows the internal cursor. For \n deletes, the delete
+     * handler will NOT call set_cursor (it uses a separate path that
+     * updates only the internal cursor). */
+    disp_l = cursor_l;
+    disp_c = cursor_c;
 }
 
 void keep_char(int code) {
@@ -320,6 +328,9 @@ void keep_char(int code) {
     } else {
         cursor_c++;
     }
+    /* Update displayed cursor to match */
+    disp_l = cursor_l;
+    disp_c = cursor_c;
 }
 
 void delete_char(int code) {
@@ -328,7 +339,13 @@ void delete_char(int code) {
          * This is the natural result of removing a newline character
          * from a line-based buffer. No special cases. If there is no
          * next line (cursor at last line), the op is a no-op — the
-         * postprocess must not emit delete-\n at the last line. */
+         * postprocess must not emit delete-\n at the last line.
+         *
+         * IMPORTANT: do NOT update disp_l/disp_c here. The visual
+         * cursor stays at its previous position (the line being
+         * deleted), while the internal cursor_l is used for the join.
+         * This prevents the cursor from visually jumping UP to the
+         * preserved line above when deleting a \n. */
         if (cursor_l < n_lines - 1) {
             char *cur = lines[cursor_l];
             char *next = lines[cursor_l + 1];
@@ -343,6 +360,9 @@ void delete_char(int code) {
                 lines[i] = lines[i + 1];
             n_lines--;
         }
+        /* Clamp displayed cursor to new buffer bounds */
+        if (disp_l >= n_lines) disp_l = n_lines - 1;
+        if (disp_l < 0) disp_l = 0;
     } else {
         int byte = char_to_byte(cursor_l, cursor_c);
         char *s = lines[cursor_l];
@@ -350,6 +370,9 @@ void delete_char(int code) {
         int next = byte + 1;
         while (next < byte_len && (s[next] & 0xC0) == 0x80) next++;
         memmove(s + byte, s + next, byte_len - next + 1);
+        /* Update displayed cursor to match */
+        disp_l = cursor_l;
+        disp_c = cursor_c;
     }
 }
 
@@ -468,11 +491,22 @@ void render(void) {
         }
     }
     if (show_progress) {
-        printf("\033[%d;1H\033[2K[progress: line %d/%d]\n", viewport_height, cursor_l + 1, n_lines);
+        printf("\033[%d;1H\033[2K[progress: line %d/%d]\n", viewport_height, disp_l + 1, n_lines);
     }
-    /* Position cursor at the right display row */
-    int display_cursor_row = cursor_l - scroll_offset;
-    printf("\033[%d;%dH", display_cursor_row + 1, cursor_c + 1 + (show_line_numbers ? 5 : 0));
+    /* Position cursor at the right display row — use disp_l/disp_c
+     * (the displayed cursor), NOT cursor_l/cursor_c (the internal
+     * cursor used for buffer operations). This decouples the visual
+     * cursor from the internal cursor, so \n deletes can move the
+     * internal cursor without moving the visual cursor. */
+    int dl = disp_l;
+    if (dl >= n_lines) dl = n_lines - 1;
+    if (dl < 0) dl = 0;
+    int dc = disp_c;
+    int max_c = line_chars(dl);
+    if (dc > max_c) dc = max_c;
+    if (dc < 0) dc = 0;
+    int display_cursor_row = dl - scroll_offset;
+    printf("\033[%d;%dH", display_cursor_row + 1, dc + 1 + (show_line_numbers ? 5 : 0));
     fflush(stdout);
 }
 
@@ -645,20 +679,22 @@ int main(int argc, char **argv) {
             int op_col = atoi(toks[2]);
             int code = atoi(toks[3]);
             if (code == 10) {
-                /* For \n deletes: call set_cursor (so the internal
-                 * cursor_l is correct for the join), but save/restore
-                 * the DISPLAYED cursor position so the visual cursor
-                 * doesn't jump UP to a previous line. The \n delete
-                 * joins lines internally; the user sees the cursor
-                 * stay at the position of the previous content op. */
-                int saved_l = cursor_l, saved_c = cursor_c;
-                set_cursor(op_line, op_col);
+                /* For \n deletes: update ONLY the internal cursor
+                 * (cursor_l/cursor_c) for the join, but leave the
+                 * DISPLAYED cursor (disp_l/disp_c) unchanged. The
+                 * visual cursor stays at the position of the previous
+                 * content op — it NEVER jumps UP to the line where the
+                 * \n is being deleted. */
+                cursor_l = op_line - 1;
+                if (cursor_l < 0) cursor_l = 0;
+                if (cursor_l >= n_lines) cursor_l = n_lines - 1;
+                cursor_c = op_col - 1;
+                if (cursor_c < 0) cursor_c = 0;
+                int max_col = line_chars(cursor_l);
+                if (cursor_c > max_col) cursor_c = max_col;
+                /* disp_l/disp_c NOT updated — visual cursor stays put */
                 delete_char(code);
                 mark_modified(cursor_l);
-                cursor_l = saved_l; cursor_c = saved_c;
-                /* Clamp saved cursor to buffer bounds (lines may have shifted) */
-                if (cursor_l >= n_lines) cursor_l = n_lines - 1;
-                if (cursor_l < 0) cursor_l = 0;
                 render();
             } else {
                 set_cursor(op_line, op_col);

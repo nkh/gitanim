@@ -49,5 +49,5 @@ intermediate states (which is what visual flashing looks like).
 ## Related
 
 - `../../tests/minimal/` — Minimal test cases (25 cases)
-- `../../scripts/verify_md5.sh` — Full pipeline verification
+- `../../tests/verify_md5.sh` — Full pipeline verification
 - `../../docs/DEBUGGING.md` — Debugging guide

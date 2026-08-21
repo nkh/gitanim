@@ -271,6 +271,6 @@ gitanim/
 │   └── tests/               # animator-specific tests
 ├── examples/                # 42 file pairs (old/new) for testing
 ├── tests/                   # vimscript engine tests
-├── scripts/verify_md5.sh   # MD5 round-trip verification script
+├── tests/verify_md5.sh   # MD5 round-trip verification script
 └── docs/                    # documentation (including DEVELOPER_GUIDE.md)
 ```

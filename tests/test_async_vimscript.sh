@@ -3,7 +3,7 @@
 # (with timers, like real diffvim). This catches bugs that the sync
 # test misses.
 #
-# Usage: bash scripts/test_async_vimscript.sh <example_dir>
+# Usage: bash tests/test_async_vimscript.sh <example_dir>
 
 show_help() {
 cat <<'HELP'
