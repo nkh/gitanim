@@ -28,6 +28,7 @@ void disable_raw_mode(void);
 
 /* Ctrl+C handler: restore terminal before exiting */
 static void cleanup_handler(int sig) {
+    (void)sig;  /* signal number not used — handler is registered for both SIGINT/SIGTERM */
     disable_raw_mode();
     printf("\033[?25h\033[0m\033[2J\033[H");
     fflush(stdout);
@@ -354,7 +355,6 @@ void insert_char(int code) {
         /* Split line */
         int byte = char_to_byte(cursor_l, cursor_c);
         char *s = lines[cursor_l];
-        int len = strlen(s);
         char *before = strndup(s, byte);
         char *after = strdup(s + byte);
         free(lines[cursor_l]);
@@ -447,7 +447,6 @@ void render(void) {
     if (max > n_lines) max = n_lines;
 
     for (int i = scroll_offset; i < max; i++) {
-        int display_row = i - scroll_offset;
         char *colored = NULL;
         if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
             colored = colormap_old[i];
@@ -677,16 +676,26 @@ int main(int argc, char **argv) {
                 in_hunk = 0;
             }
         } else if (strcmp(cmd, "highlight") == 0 && ntok >= 7) {
-            /* highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur> */
-            /* In C animator: render with ANSI color for the duration */
+            /* highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur>
+             *
+             * The Perl/Vim animator uses these coordinates to draw a
+             * colored highlight region via matchaddpos(). The C animator
+             * has no sign column and no matchaddpos equivalent, so it
+             * just re-renders the buffer (the highlight is purely visual
+             * and has no effect on the buffer state).
+             *
+             * The fields are still parsed (and validated by the ntok >= 7
+             * check) so that an op stream containing highlight ops is not
+             * silently truncated, but the individual values are unused
+             * here. Cast them to void to suppress -Wunused warnings under
+             * strict compile flags. */
             if (!no_display) {
-                int sl = atoi(toks[1]);
-                int sc = atoi(toks[2]);
-                int el = atoi(toks[3]);
-                int ec = atoi(toks[4]);
-                const char *htype = toks[5];
-                int dur = atoi(toks[6]);
-                /* For C animator, just render normally — highlight is visual only */
+                (void)atoi(toks[1]);  /* sl — start line */
+                (void)atoi(toks[2]);  /* sc — start col */
+                (void)atoi(toks[3]);  /* el — end line */
+                (void)atoi(toks[4]);  /* ec — end col */
+                (void)toks[5];        /* htype — highlight type */
+                (void)atoi(toks[6]);  /* dur — duration ms */
                 render();
             }
         } else if (strcmp(cmd, "dim") == 0 && ntok >= 4) {

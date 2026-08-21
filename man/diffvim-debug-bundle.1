@@ -1,0 +1,112 @@
+.TH DIFFVIM-DEBUG-BUNDLE 1 "2026-08-21" "diffvim 2.0" "diffvim Manual"
+.SH NAME
+diffvim-debug-bundle \- Generate a debug bundle for reporting diffvim issues
+.SH SYNOPSIS
+.B diffvim-debug-bundle
+.RB [ \-h | \-\-help ]
+.br
+.B diffvim-debug-bundle
+.I oldfile
+.I newfile
+.RI [ description ]
+.SH DESCRIPTION
+.B diffvim-debug-bundle
+runs the full diffvim pipeline (compute \[->] postprocess \[->] pace \[->]
+decorate \[->] animator) on the given old/new file pair, then packages
+every intermediate stage output, the binary MD5s, the active settings,
+system info, and the user-supplied problem description into a single
+tar.gz archive.
+.PP
+The resulting bundle contains everything a maintainer needs to reproduce
+and debug an issue \(em no need to manually collect logs or run multiple
+commands.
+.PP
+The bundle is written to
+.I /tmp/diffvim_debug_<timestamp>.tar.gz
+and the path is printed to stdout.
+.SH OPTIONS
+.TP
+.BR \-h , " \-\-help"
+Show the help message and exit 0.
+.TP
+.I oldfile
+Path to the original/source file (required).
+.TP
+.I newfile
+Path to the target file (required).
+.TP
+.I description
+Optional free-text description of the problem (default: "No description provided.").
+.SH BUNDLE CONTENTS
+The tar.gz archive contains the following files:
+.TP
+.I old.txt
+Copy of the input old file.
+.TP
+.I new.txt
+Copy of the input new file.
+.TP
+.I raw_ops.txt
+Stage 1 \(em compute output (raw diff ops).
+.TP
+.I post_ops.txt
+Stage 2 \(em postprocess output.
+.TP
+.I timed_ops.txt
+Stage 3 \(em pace output (timed ops).
+.TP
+.I decorated_ops.txt
+Stage 4 \(em decorate output (if available).
+.TP
+.I animator_output.txt
+Final animator output buffer.
+.TP
+.I output_diff.txt
+Diff between expected (newfile) and actual.
+.TP
+.I binary_md5s.txt
+MD5 checksums of all pipeline binaries.
+.TP
+.I settings.conf
+Default diffvim launcher settings.
+.TP
+.I system_info.txt
+OS, vim, perl, gcc, git commit/branch.
+.TP
+.I description.txt
+User-supplied problem description.
+.TP
+.I op_counts.txt
+Op counts per stage + \[rs]n delete counts.
+.TP
+.I *_stderr.txt
+stderr captured from each pipeline stage.
+.SH EXAMPLES
+.TP
+Generate a bundle with the default description:
+.B diffvim-debug-bundle old.py new.py
+.TP
+Generate a bundle with a specific problem description:
+.B diffvim-debug-bundle old.py new.py "Cursor jumps to wrong line after \[rs]n delete"
+.TP
+Reproduce the scattered-LCS bug for the maintainer:
+.br
+.B diffvim-debug-bundle examples/02_large_python/old.py \[rs]
+.br
+.B                         examples/02_large_python/new.py \[rs]
+.br
+.B                         "Line 7 shows 'O operation.' instead of 'O'"
+.SH OUTPUT
+.I /tmp/diffvim_debug_<YYYYMMDD_HHMMSS>.tar.gz
+.SH "EXIT STATUS"
+.TP
+0
+Bundle created successfully.
+.TP
+1
+Invalid arguments or pipeline failure.
+.SH "SEE ALSO"
+.BR diffvim (1),
+.BR diffvim-compute-cpp (1),
+.BR diffvim-animator-c (1),
+.BR snapshot_per_op (1)

@@ -228,6 +228,7 @@ int parse_tsv(char *line, char *toks[], int max_toks) {
 /* AWD: process a run of consecutive non-newline deletes on the same line.
  * Emits each delete op verbatim, with delays between them. */
 void process_awd(char *lines[], int start, int count, int same_line) {
+    (void)same_line;  /* reserved for future use (accelerated multi-line delete) */
     int i = start;
     int end = start + count;
 
@@ -328,7 +329,6 @@ int main(int argc, char **argv) {
     int ops_seen = 0;
     int line_no = 0;
     int changed_lines = 0;  /* count of changed lines for --pause-after-lines */
-    int total_input_lines = 0;  /* count of input file lines */
 
     while (fgets(buf, sizeof(buf), stdin)) {
         line_no++;

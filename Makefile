@@ -17,6 +17,7 @@
 #   make test-pipeline   Run full pipeline verification (42 examples)
 #   make test-l2r        Run l2r algorithm tests (35 tests)
 #   make test-vimscript  Run vimscript animator tests (42 examples)
+#   make test-debug-bundle  Run diffvim-debug-bundle script tests (12 tests)
 #   make debug           Run the pipeline debugger on example 01
 #   make snapshot        Run snapshot_per_op.sh on example 01
 #   make clean           Remove all built binaries
@@ -35,8 +36,8 @@ COMPDIR := $(PREFIX)/share/bash-completion/completions
 
 CC      ?= cc
 CXX     ?= c++
-CFLAGS  ?= -O2 -Wall
-CXXFLAGS ?= -O2 -Wall -std=c++17
+CFLAGS  ?= -O2 -Wall -Wextra -Wunused -Werror
+CXXFLAGS ?= -O2 -Wall -Wextra -Wunused -Werror -std=c++17
 
 ROOT    := $(CURDIR)
 
@@ -142,9 +143,9 @@ man:
 
 # --- Testing ---------------------------------------------------------------
 
-.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript
+.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle
 
-test: test-unit test-minimal test-l2r
+test: test-unit test-minimal test-l2r test-debug-bundle
 	@echo ""
 	@echo "=== All tests passed ==="
 
@@ -171,6 +172,10 @@ test-l2r:
 test-vimscript:
 	@echo "=== Vimscript animator tests (42 examples) ==="
 	@bash scripts/test_vimscript_animator.sh 2>&1 | tail -1
+
+test-debug-bundle:
+	@echo "=== diffvim-debug-bundle tests ==="
+	@bash tests/test_debug_bundle.sh 2>&1 | tail -3
 
 # --- Debugging -------------------------------------------------------------
 
@@ -243,6 +248,7 @@ help:
 	@echo "  make test           Run unit + minimal + l2r tests"
 	@echo "  make test-pipeline  Run full 42-example verification"
 	@echo "  make test-vimscript Run vimscript animator tests"
+	@echo "  make test-debug-bundle  Run diffvim-debug-bundle tests"
 	@echo "  make debug          Debug pipeline on example 01"
 	@echo "  make snapshot       Generate per-op HTML snapshots"
 	@echo "  make clean          Remove all binaries"

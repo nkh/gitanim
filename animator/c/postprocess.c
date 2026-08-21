@@ -189,8 +189,14 @@ void read_input(void) {
                     /* not a known header but contains "HUNK " — likely v1 */
                 }
                 ensure_header_capacity(n_header + 1);
-                strncpy(header[n_header++], line, MAX_LINE - 1);
-                header[n_header - 1][MAX_LINE - 1] = 0;
+                /* Use memcpy + explicit NUL to avoid -Wstringop-truncation
+                 * (the buffer is guaranteed to be MAX_LINE bytes, and we
+                 * explicitly NUL-terminate on the next line). */
+                size_t hdr_len = strlen(line);
+                if (hdr_len > MAX_LINE - 1) hdr_len = MAX_LINE - 1;
+                memcpy(header[n_header], line, hdr_len);
+                header[n_header][hdr_len] = 0;
+                n_header++;
             }
             continue;
         }
@@ -664,6 +670,10 @@ void emit_op(const char *type, int line, int col, int code) {
  */
 int process_one_hunk(int target, int del, int ins, int end_ins, int end_del,
                       Op *in_ops, int count, int line_offset) {
+    (void)del;       /* hunk delete count — informational, not used in processing */
+    (void)ins;       /* hunk insert count — informational, not used in processing */
+    (void)end_ins;  /* is_end_insert flag — informational, not used in processing */
+    (void)end_del;  /* is_end_delete flag — informational, not used in processing */
     int cur_line = target + line_offset;
     int cur_col = 1;
     int newl_ins = 0, newl_del = 0;

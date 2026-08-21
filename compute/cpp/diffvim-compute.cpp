@@ -23,6 +23,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <tuple>
 
 using namespace std;
 using Clock = chrono::high_resolution_clock;
@@ -335,39 +336,27 @@ vector<LineOp> compute_line_diff(const vector<string>& a, const vector<string>& 
     return patience_diff(a, b);
 }
 
-vector<CharOp> char_diff(const string& a, const string& b) {
-    // Use Unicode code points (not bytes) for char-level diff.
-    // This matches vim's split(str, '\zs') behavior.
-    // Simple UTF-8 decoder: iterate over the string extracting code points.
-    vector<int> ac, bc;
-    for (size_t i = 0; i < a.size(); ) {
-        unsigned char c = a[i];
-        if (c < 0x80) { ac.push_back(c); i++; }
-        else if ((c & 0xE0) == 0xC0 && i + 1 < a.size()) {
-            ac.push_back(((c & 0x1F) << 6) | ((unsigned char)a[i+1] & 0x3F));
+vector<int> utf8_to_codepoints(const string& s) {
+    vector<int> out;
+    for (size_t i = 0; i < s.size(); ) {
+        unsigned char c = s[i];
+        if (c < 0x80) { out.push_back(c); i++; }
+        else if ((c & 0xE0) == 0xC0 && i + 1 < s.size()) {
+            out.push_back(((c & 0x1F) << 6) | ((unsigned char)s[i+1] & 0x3F));
             i += 2;
-        } else if ((c & 0xF0) == 0xE0 && i + 2 < a.size()) {
-            ac.push_back(((c & 0x0F) << 12) | (((unsigned char)a[i+1] & 0x3F) << 6) | ((unsigned char)a[i+2] & 0x3F));
+        } else if ((c & 0xF0) == 0xE0 && i + 2 < s.size()) {
+            out.push_back(((c & 0x0F) << 12) | (((unsigned char)s[i+1] & 0x3F) << 6) | ((unsigned char)s[i+2] & 0x3F));
             i += 3;
-        } else if ((c & 0xF8) == 0xF0 && i + 3 < a.size()) {
-            ac.push_back(((c & 0x07) << 18) | (((unsigned char)a[i+1] & 0x3F) << 12) | (((unsigned char)a[i+2] & 0x3F) << 6) | ((unsigned char)a[i+3] & 0x3F));
+        } else if ((c & 0xF8) == 0xF0 && i + 3 < s.size()) {
+            out.push_back(((c & 0x07) << 18) | (((unsigned char)s[i+1] & 0x3F) << 12) | (((unsigned char)s[i+2] & 0x3F) << 6) | ((unsigned char)s[i+3] & 0x3F));
             i += 4;
-        } else { ac.push_back(c); i++; }  /* invalid, treat as byte */
+        } else { out.push_back(c); i++; }  /* invalid, treat as byte */
     }
-    for (size_t i = 0; i < b.size(); ) {
-        unsigned char c = b[i];
-        if (c < 0x80) { bc.push_back(c); i++; }
-        else if ((c & 0xE0) == 0xC0 && i + 1 < b.size()) {
-            bc.push_back(((c & 0x1F) << 6) | ((unsigned char)b[i+1] & 0x3F));
-            i += 2;
-        } else if ((c & 0xF0) == 0xE0 && i + 2 < b.size()) {
-            bc.push_back(((c & 0x0F) << 12) | (((unsigned char)b[i+1] & 0x3F) << 6) | ((unsigned char)b[i+2] & 0x3F));
-            i += 3;
-        } else if ((c & 0xF8) == 0xF0 && i + 3 < b.size()) {
-            bc.push_back(((c & 0x07) << 18) | (((unsigned char)b[i+1] & 0x3F) << 12) | (((unsigned char)b[i+2] & 0x3F) << 6) | ((unsigned char)b[i+3] & 0x3F));
-            i += 4;
-        } else { bc.push_back(c); i++; }
-    }
+    return out;
+}
+
+/* Standard LCS char diff. */
+vector<CharOp> char_diff_lcs(const vector<int>& ac, const vector<int>& bc) {
     int na = ac.size(), nb = bc.size();
     vector<vector<int>> dp(na + 1, vector<int>(nb + 1, 0));
     for (int i = 1; i <= na; i++)
@@ -387,6 +376,108 @@ vector<CharOp> char_diff(const string& a, const string& b) {
     }
     reverse(ops.begin(), ops.end());
     return ops;
+}
+
+/* Find the longest common SUBSTRING (contiguous) of ac and bc.
+ * Returns (start_a, start_b, length) — the start positions in ac and bc
+ * and the length of the longest common substring. Returns (0,0,0) if
+ * either input is empty or no common substring exists. */
+tuple<int,int,int> longest_common_substring(const vector<int>& ac, const vector<int>& bc) {
+    int na = ac.size(), nb = bc.size();
+    if (na == 0 || nb == 0) return {0, 0, 0};
+    /* dp[i][j] = length of longest common substring ENDING at ac[i-1] and bc[j-1] */
+    vector<vector<int>> dp(na + 1, vector<int>(nb + 1, 0));
+    int best_len = 0, best_i = 0, best_j = 0;
+    for (int i = 1; i <= na; i++) {
+        for (int j = 1; j <= nb; j++) {
+            if (ac[i-1] == bc[j-1]) {
+                dp[i][j] = dp[i-1][j-1] + 1;
+                if (dp[i][j] > best_len) {
+                    best_len = dp[i][j];
+                    best_i = i - 1;  /* end position (inclusive, 0-indexed) */
+                    best_j = j - 1;
+                }
+            }
+        }
+    }
+    if (best_len == 0) return {0, 0, 0};
+    /* Convert end position to start position */
+    return {best_i - best_len + 1, best_j - best_len + 1, best_len};
+}
+
+/* Anchored diff: find the longest common SUBSTRING (contiguous match),
+ * use it as an anchor, then recursively diff the parts before and after.
+ * Falls back to standard LCS when the anchor is too short (< 4 chars).
+ *
+ * This produces MORE CONTIGUOUS keep blocks than standard LCS, which
+ * looks better in animation (fewer "scattered" keeps that pull content
+ * from later lines up to the current line).
+ *
+ * Specifically fixes the bug where the LCS algorithm matches trailing
+ * chars of old_text at scattered positions in new_text (e.g., matching
+ * the 'l' of "Optional" with the 'l' in "default_factory=list" on a
+ * much later line), causing the buffer to show garbage like:
+ *   "from typing import List, Dict, O operation."""
+ * instead of the correct:
+ *   "from typing import List, Dict, O"
+ *   "ptional..." (on the next line)
+ */
+vector<CharOp> anchored_diff(const vector<int>& ac, const vector<int>& bc, int depth = 0) {
+    int na = ac.size(), nb = bc.size();
+    if (na == 0 && nb == 0) return {};
+    if (na == 0) {
+        vector<CharOp> ops;
+        for (int j = 0; j < nb; j++) ops.push_back({OP_INSERT, bc[j]});
+        return ops;
+    }
+    if (nb == 0) {
+        vector<CharOp> ops;
+        for (int i = 0; i < na; i++) ops.push_back({OP_DELETE, ac[i]});
+        return ops;
+    }
+
+    /* Find the longest common substring */
+    auto [start_a, start_b, length] = longest_common_substring(ac, bc);
+
+    /* If the anchor is too short, fall back to standard LCS.
+     * Also limit recursion depth to prevent stack overflow. */
+    if (length < 4 || depth > 64) {
+        return char_diff_lcs(ac, bc);
+    }
+
+    /* Split into before/anchor/after */
+    vector<int> before_a(ac.begin(), ac.begin() + start_a);
+    vector<int> before_b(bc.begin(), bc.begin() + start_b);
+    vector<int> after_a(ac.begin() + start_a + length, ac.end());
+    vector<int> after_b(bc.begin() + start_b + length, bc.end());
+
+    /* Recursively diff before and after */
+    vector<CharOp> before_ops = anchored_diff(before_a, before_b, depth + 1);
+    vector<CharOp> after_ops = anchored_diff(after_a, after_b, depth + 1);
+
+    /* Combine: before_ops + KEEP anchor + after_ops */
+    vector<CharOp> ops;
+    ops.reserve(before_ops.size() + length + after_ops.size());
+    ops.insert(ops.end(), before_ops.begin(), before_ops.end());
+    for (int k = 0; k < length; k++) {
+        ops.push_back({OP_KEEP, ac[start_a + k]});
+    }
+    ops.insert(ops.end(), after_ops.begin(), after_ops.end());
+    return ops;
+}
+
+vector<CharOp> char_diff(const string& a, const string& b) {
+    // Use Unicode code points (not bytes) for char-level diff.
+    // This matches vim's split(str, '\zs') behavior.
+    vector<int> ac = utf8_to_codepoints(a);
+    vector<int> bc = utf8_to_codepoints(b);
+
+    /* Use anchored diff (longest common substring + recursive) instead
+     * of pure LCS. This produces more contiguous keep blocks, which
+     * looks better in animation and avoids the "scattered matches" bug
+     * where trailing chars of old_text get matched at scattered positions
+     * in new_text (potentially on different lines). */
+    return anchored_diff(ac, bc);
 }
 
 /* --- Semantic cleanup: merge adjacent delete+insert pairs that cancel --- */

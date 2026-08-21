@@ -176,11 +176,13 @@ int get_op_code(const char *line) {
 
 /* Get the op type (keep/delete/insert/overwrite_insert) */
 const char *get_op_type(const char *line) {
-    static char type[16];
-    strncpy(type, line, 15);
-    type[15] = 0;
-    char *tab = strchr(type, '\t');
-    if (tab) *tab = 0;
+    static char type[32];  /* large enough for "overwrite_insert" (16) + NUL + slack */
+    size_t n = 0;
+    while (line[n] && line[n] != '\t' && n < sizeof(type) - 1) {
+        type[n] = line[n];
+        n++;
+    }
+    type[n] = 0;
     return type;
 }
 

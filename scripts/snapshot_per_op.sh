@@ -167,6 +167,11 @@ fi
 {
     echo '<!DOCTYPE html>'
     echo '<html><head><meta charset="utf-8">'
+    # Inline SVG favicon — a green "+" / red "-" / blue "→" diff glyph,
+    # so the browser tab shows a recognizable icon for snapshot pages.
+    # Using data URI so the single .html file is self-contained (no external
+    # asset dependency, works from file:// URLs).
+    echo '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%231e1e1e%22%2F%3E%3Ctext%20x%3D%224%22%20y%3D%2223%22%20font-family%3D%22monospace%22%20font-size%3D%2218%22%20font-weight%3D%22bold%22%3E%3Ctspan%20fill%3D%22%236a9955%22%3E%2B%3C%2Ftspan%3E%3Ctspan%20fill%3D%22%23f44747%22%3E-%3C%2Ftspan%3E%3Ctspan%20fill%3D%22%23569cd6%22%3E%E2%86%92%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fsvg%3E">'
     echo '<title>diffvim snapshots — '"$OLD"' → '"$NEW"'</title>'
     echo '<style>'
     echo "  body { font-family: \"SF Mono\", \"Monaco\", \"Menlo\", \"Consolas\", monospace; background: #1e1e1e; color: #d4d4d4; margin: 0; padding: 1em; font-size: ${FONT_SIZE}px; }"

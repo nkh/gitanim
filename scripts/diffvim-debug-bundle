@@ -2,6 +2,7 @@
 # diffvim-debug-bundle — Generate a debug bundle for reporting issues.
 #
 # Usage: diffvim-debug-bundle <oldfile> <newfile> [description]
+#        diffvim-debug-bundle -h | --help
 #
 # Creates a tar.gz containing everything needed to debug an issue:
 # - Binary MD5s (compute, postprocess, pace, animator, decorate)
@@ -13,12 +14,113 @@
 #
 # Non-interactive: description is passed as the 3rd argument.
 
+show_help() {
+cat <<'HELP'
+NAME
+    diffvim-debug-bundle — Generate a debug bundle for reporting diffvim issues
+
+SYNOPSIS
+    diffvim-debug-bundle [-h|--help]
+    diffvim-debug-bundle <oldfile> <newfile> [description]
+
+DESCRIPTION
+    Runs the full diffvim pipeline (compute → postprocess → pace →
+    decorate → animator) on the given old/new file pair, then packages
+    every intermediate stage output, the binary MD5s, the active
+    settings, system info, and the user-supplied problem description
+    into a single tar.gz archive.
+
+    The resulting bundle contains everything a maintainer needs to
+    reproduce and debug an issue — no need to manually collect logs
+    or run multiple commands.
+
+    The bundle is written to /tmp/diffvim_debug_<timestamp>.tar.gz
+    and the path is printed to stdout.
+
+OPTIONS
+    -h, --help              Show this help message and exit 0.
+    <oldfile>               Path to the original/source file.
+    <newfile>               Path to the target file.
+    [description]           Optional free-text description of the
+                            problem (default: "No description provided.").
+
+BUNDLE CONTENTS
+    The tar.gz archive contains the following files:
+
+    old.txt                 Copy of the input old file.
+    new.txt                 Copy of the input new file.
+    raw_ops.txt             Stage 1 — compute output (raw diff ops).
+    post_ops.txt            Stage 2 — postprocess output.
+    timed_ops.txt           Stage 3 — pace output (timed ops).
+    decorated_ops.txt      Stage 4 — decorate output (if available).
+    animator_output.txt     Final animator output buffer.
+    output_diff.txt         Diff between expected (newfile) and actual.
+    binary_md5s.txt         MD5 checksums of all pipeline binaries.
+    settings.conf           Default diffvim launcher settings.
+    system_info.txt         OS, vim, perl, gcc, git commit/branch.
+    description.txt         User-supplied problem description.
+    op_counts.txt           Op counts per stage + \\n delete counts.
+    *_stderr.txt            stderr captured from each pipeline stage.
+
+EXAMPLES
+    diffvim-debug-bundle old.py new.py
+        Generate a bundle with the default description.
+
+    diffvim-debug-bundle old.py new.py "Cursor jumps to wrong line after \\n delete"
+        Generate a bundle with a specific problem description.
+
+    diffvim-debug-bundle examples/02_large_python/old.py \\
+                         examples/02_large_python/new.py \\
+                         "Line 7 shows 'O operation.' instead of 'O'"
+        Reproduce the scattered-LCS bug for the maintainer.
+
+OUTPUT
+    /tmp/diffvim_debug_<YYYYMMDD_HHMMSS>.tar.gz
+
+EXIT STATUS
+    0   Bundle created successfully.
+    1   Invalid arguments or pipeline failure.
+
+SEE ALSO
+    diffvim(1), diffvim-compute-cpp(1), diffvim-animator-c(1),
+    snapshot_per_op(1)
+HELP
+}
+
+# Handle -h/--help BEFORE set -euo pipefail (so we don't fail on unset
+# OLD/NEW when the user just wants help).
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+    esac
+done
+
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-OLD="${1:?Usage: diffvim-debug-bundle <oldfile> <newfile> [description]}"
-NEW="${2:?Usage: diffvim-debug-bundle <oldfile> <newfile> [description]}"
+if [[ $# -lt 2 ]]; then
+    echo "diffvim-debug-bundle: error: requires <oldfile> and <newfile>" >&2
+    echo "Usage: diffvim-debug-bundle <oldfile> <newfile> [description]" >&2
+    echo "       diffvim-debug-bundle -h | --help   for full help" >&2
+    exit 1
+fi
+
+OLD="${1:?}"
+NEW="${2:?}"
 DESCRIPTION="${3:-No description provided.}"
+
+# Validate files exist
+if [[ ! -f "$OLD" ]]; then
+    echo "diffvim-debug-bundle: error: old file does not exist: $OLD" >&2
+    exit 1
+fi
+if [[ ! -f "$NEW" ]]; then
+    echo "diffvim-debug-bundle: error: new file does not exist: $NEW" >&2
+    exit 1
+fi
 
 WORKDIR=$(mktemp -d)
 BUNDLE_NAME="diffvim_debug_$(date +%Y%m%d_%H%M%S)"
