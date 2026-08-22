@@ -309,6 +309,26 @@ HIGHLIGHTING:
   --dim-unchanged (-D)     Dim unchanged anchor lines to draw eye to changes
   --dim-unchanged-pct N    Dimming percentage 0-100 (default: 60)
 
+POSTPROCESSING:
+  --semantic-cleanup (-S)  Merge canceling delete+insert pairs
+  --indent-aware (-i)      Normalize indentation before line diff
+  --indent-last           Delete leading whitespace LAST (prevents left shift)
+  --overwrite             In-place replacement instead of delete+insert
+
+CURSOR MOVEMENT:
+  --cursor-glide-ms N      Glide duration between hunks (0=off, default: 0)
+  --cursor-glide-show-intermediate 0|1  Show lines during glide (default: 1)
+
+DISTANCE-BASED SPEED:
+  --distance-speed adaptive|off  Adaptive speed based on hunk distance
+  --distance-threshold N   Lines above which speed increases (default: 10)
+  --distance-fast-mult F   Speed multiplier for long distances (default: 3.0)
+  --distance-slow-mult F   Speed multiplier for short distances (default: 0.5)
+
+FLASH MODE:
+  --flash-pause-ms N       Pause after highlight (default: 400)
+  --flash-highlight-ms N   Highlight duration (default: 300)
+
 CONTROLS (during animation, in vim normal mode):
   <Space>  pause / resume
   n        skip current hunk (apply instantly, move to next)
@@ -1361,7 +1381,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
             end-first)    POSTPROCESS_ARGS+=("--op-order" "end-first") ;;
             end-first-smart) POSTPROCESS_ARGS+=("--op-order" "end-first-smart") ;;
         esac
-        debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
+        echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 

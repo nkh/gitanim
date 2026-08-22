@@ -1,0 +1,52 @@
+# diffvim log: /tmp/il_old.txt -> /tmp/il_new.txt
+# log mode: 1
+# timing: type=50ms delete=40ms hunk_pause=250ms
+# rapid_eol: delay=80ms
+# adaptive_word_delete: start_ms=80 min_ms=15 accel=0.85 word_pause=100ms
+# rapid_identical: accel=0.50
+
+=== HUNK at line 2 ===
+  Line 3:     return None
+  Del   : d   return None
+  Line 4: 
+  Del   : 
+
+# diffvim log: /tmp/il_old.txt -> /tmp/il_new.txt
+# log mode: 1
+# timing: type=50ms delete=40ms hunk_pause=250ms
+# rapid_eol: delay=80ms
+# adaptive_word_delete: start_ms=80 min_ms=15 accel=0.85 word_pause=100ms
+# rapid_identical: accel=0.50
+
+=== HUNK at line 2 ===
+  Line 3:     return None
+  Del   : d   return None
+  Line 4: 
+  Del   : 
+
+# diffvim log: /tmp/il_old.txt -> /tmp/il_new.txt
+# log mode: 1
+# timing: type=50ms delete=40ms hunk_pause=250ms
+# rapid_eol: delay=80ms
+# adaptive_word_delete: start_ms=80 min_ms=15 accel=0.85 word_pause=100ms
+# rapid_identical: accel=0.50
+
+=== HUNK at line 2 ===
+  Line 3:     return None
+  Del   : d   return None
+  Line 4: 
+  Del   : 
+
+# diffvim log: /tmp/il_old.txt -> /tmp/il_new.txt
+# log mode: 1
+# timing: type=50ms delete=40ms hunk_pause=250ms
+# rapid_eol: delay=80ms
+# adaptive_word_delete: start_ms=80 min_ms=15 accel=0.85 word_pause=100ms
+# rapid_identical: accel=0.50
+
+=== HUNK at line 2 ===
+  Line 3:     return None
+  Del   : d   return None
+  Line 4: 
+  Del   : 
+
