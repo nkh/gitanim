@@ -1996,8 +1996,11 @@ function! s:TimedTick(timer) abort
                 call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
                 call s:TimedKeepChar(str2nr(l:parts[3]))
             elseif l:cmd ==# 'delete' && len(l:parts) >= 4
-                call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
-                call s:TimedDeleteChar(str2nr(l:parts[3]))
+                let l:skip_del_code = str2nr(l:parts[3])
+                if l:skip_del_code != 10
+                    call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+                endif
+                call s:TimedDeleteChar(l:skip_del_code)
             elseif l:cmd ==# 'insert' && len(l:parts) >= 4
                 call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
                 call s:TimedInsertChar(str2nr(l:parts[3]))
