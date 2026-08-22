@@ -302,13 +302,23 @@ int optimize_line(Op *in, int count, Op *out) {
 
     for (int i = 0; i <= count; i++) {
         if (i == count || strcmp(in[i].type, "keep") == 0) {
-            /* Flush buffer: content deletes, \n deletes, then inserts */
+            /* Flush buffer in 4 sweeps:
+             * 1. Content deletes (code != 10) — delete old content first
+             * 2. Content inserts (code != 10) — insert new content
+             * 3. \n deletes (code == 10) — join lines AFTER content is done
+             * 4. \n inserts (code == 10) — create new lines AFTER content is done
+             *
+             * This ordering PREVENTS ghost lines: the \n delete only
+             * happens after all content changes, so it never joins a
+             * line that still has pending content ops. */
             for (int j = buf_start; j < i; j++)
                 if (strcmp(in[j].type, "delete") == 0 && in[j].code != 10) out[n_out++] = in[j];
             for (int j = buf_start; j < i; j++)
+                if (strcmp(in[j].type, "insert") == 0 && in[j].code != 10) out[n_out++] = in[j];
+            for (int j = buf_start; j < i; j++)
                 if (strcmp(in[j].type, "delete") == 0 && in[j].code == 10) out[n_out++] = in[j];
             for (int j = buf_start; j < i; j++)
-                if (strcmp(in[j].type, "insert") == 0) out[n_out++] = in[j];
+                if (strcmp(in[j].type, "insert") == 0 && in[j].code == 10) out[n_out++] = in[j];
             if (i < count) out[n_out++] = in[i]; /* the keep */
             buf_start = i + 1;
         }

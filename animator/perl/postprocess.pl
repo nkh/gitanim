@@ -471,10 +471,12 @@ sub optimize_line {
     for my $op (@$ops) {
         if ($op->[0] eq 'keep') {
             if (@buffer) {
+                # 4 sweeps: content deletes, content inserts, \n deletes, \n inserts
                 my @content_dels = grep { $_->[0] eq 'delete' && $_->[1] != 10 } @buffer;
-                my @nl_dels = grep { $_->[0] eq 'delete' && $_->[1] == 10 } @buffer;
-                my @ins = grep { $_->[0] eq 'insert' } @buffer;
-                push @result, @content_dels, @nl_dels, @ins;
+                my @content_ins  = grep { $_->[0] eq 'insert' && $_->[1] != 10 } @buffer;
+                my @nl_dels       = grep { $_->[0] eq 'delete' && $_->[1] == 10 } @buffer;
+                my @nl_ins        = grep { $_->[0] eq 'insert' && $_->[1] == 10 } @buffer;
+                push @result, @content_dels, @content_ins, @nl_dels, @nl_ins;
                 @buffer = ();
             }
             push @result, $op;
@@ -484,9 +486,10 @@ sub optimize_line {
     }
     if (@buffer) {
         my @content_dels = grep { $_->[0] eq 'delete' && $_->[1] != 10 } @buffer;
-        my @nl_dels = grep { $_->[0] eq 'delete' && $_->[1] == 10 } @buffer;
-        my @ins = grep { $_->[0] eq 'insert' } @buffer;
-        push @result, @content_dels, @nl_dels, @ins;
+        my @content_ins  = grep { $_->[0] eq 'insert' && $_->[1] != 10 } @buffer;
+        my @nl_dels       = grep { $_->[0] eq 'delete' && $_->[1] == 10 } @buffer;
+        my @nl_ins        = grep { $_->[0] eq 'insert' && $_->[1] == 10 } @buffer;
+        push @result, @content_dels, @content_ins, @nl_dels, @nl_ins;
     }
     return \@result;
 }

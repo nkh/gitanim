@@ -133,11 +133,16 @@ with more than one op. Single-op line groups are copied verbatim.
 
 **Steps taken:** Within each line group, partition the ops into "change
 regions" delimited by `keep` ops. Then, within each change region, emit in
-three sweeps:
+four sweeps:
 
-1. **Content deletes** — all `delete` ops whose `code != 10`
-2. **Newline deletes** — all `delete` ops whose `code == 10`
-3. **Inserts** — all `insert` ops
+1. **Content deletes** (code != 10) — delete old content first
+2. **Content inserts** (code != 10) — insert new content
+3. **\n deletes** (code == 10) — join lines AFTER content is done
+4. **\n inserts** (code == 10) — create new lines AFTER content is done
+
+This ordering PREVENTS ghost lines: the \n delete only happens
+after all content changes, so it never joins a line that still has
+pending content ops.
 
 `keep` ops are emitted in place (in their original position between change
 regions). The `\n` delete is moved to the end of each change region's
@@ -552,7 +557,7 @@ group); `indent_last_transform()` itself at lines 444–508.
 
 1. Scan from the start of the line group, counting the run of leading
    whitespace `delete` ops. Call the end of this run `indent_end`.
-2. Emit the line group in three sweeps:
+2. Emit the line group in four sweeps:
 
    1. **Content deletes** — all ops from `indent_end` to the end of the
       group, **excluding** the `\n` delete.
