@@ -417,76 +417,99 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
     return n_out;
 }
 
-/* Indent-last transform: when a line is being ENTIRELY deleted (all
- * chars are deletes, no keeps), move the leading whitespace deletes
- * (spaces/tabs at the start of the line) to the END of the line
- * group, just before the \n delete.
+/* Indent-last transform:
  *
- * This prevents the text from shifting left during animation — the
- * content is deleted first (text shrinks from the right), then the
- * indentation is removed last (the whole line disappears).
+ * RULES (from user, verbatim):
+ *   - when a full line is to be deleted
+ *   - when there are spaces or tabs at the BEGINNING of the line
+ *   - the spaces or tabs at the beginning are called INDENTATION
+ *   - delete everything BUT THE INDENTATION first (not the \n)
+ *   - delete the INDENTATION
+ *   - delete the \n
  *
- * ONLY applies when the ENTIRE line is being deleted. If there are
- * any keeps on the line, the transform is a no-op (the line is not
- * being wholly deleted, so whitespace order doesn't matter). */
+ * Example:
+ *   line: \t\t 12345 6789\n
+ *   delete: 12345 6789      (content, NOT the leading \t\t space)
+ *   delete: \t\t             (indentation)
+ *   delete: \n               (newline)
+ *
+ * "Leading" means: the ops are at the START of the line group,
+ * BEFORE any non-whitespace content. Once we hit a non-whitespace
+ * delete, the leading phase is over — any spaces AFTER that are
+ * content spaces, NOT indentation, and must NOT be moved.
+ *
+ * ONLY applies when the ENTIRE line is being deleted (all ops are
+ * deletes, no keeps, no inserts). If there are keeps, the line is
+ * not being wholly deleted and the transform is a no-op. */
 int indent_last_transform(Op *in, int count, Op *out) {
+    /* DEBUG */
+        fprintf(stderr, "indent_last_transform: count=%d\n", count);
+        for (int i = 0; i < count && i < 10; i++)
+            fprintf(stderr, "  [%d] type=%s code=%d\n", i, in[i].type, in[i].code);
+    }
     if (count <= 1) {
         memcpy(out, in, count * sizeof(Op));
         return count;
     }
-    /* Check if this line group is being entirely deleted:
-     * all non-\n ops are deletes (no keeps, no inserts) */
-    int has_keep_or_insert = 0;
+
+    /* Step 1: Check if the ENTIRE line is being deleted.
+     * All non-\n ops must be deletes (no keeps, no inserts). */
     for (int i = 0; i < count; i++) {
         if (strcmp(in[i].type, "keep") == 0 || strcmp(in[i].type, "insert") == 0) {
-            /* Ignore \n keeps (line boundary markers) */
             if (in[i].code != 10) {
-                has_keep_or_insert = 1;
-                break;
+                /* Line has keeps/inserts — not entirely deleted, skip */
+                memcpy(out, in, count * sizeof(Op));
+                return count;
             }
         }
     }
-    if (!has_keep_or_insert) {
-        /* Line is entirely deleted — move leading whitespace deletes
-         * (space/tab) to just before the \n delete */
-        int n_content = 0;
-        int n_ws = 0;
-        Op content[4096];
-        Op ws[256];
-        for (int i = 0; i < count; i++) {
-            if (strcmp(in[i].type, "delete") == 0
-                && (in[i].code == 32 || in[i].code == 9)) {
-                ws[n_ws++] = in[i];
-            } else {
-                content[n_content++] = in[i];
-            }
+
+    /* Step 2: Identify the LEADING indentation — the run of
+     * space/tab deletes at the START of the line group, BEFORE
+     * any non-whitespace content delete. */
+    int indent_end = 0;  /* index where indentation ends */
+    for (int i = 0; i < count; i++) {
+        if (strcmp(in[i].type, "delete") == 0
+            && (in[i].code == 32 || in[i].code == 9)) {
+            indent_end = i + 1;
+        } else {
+            /* Hit a non-whitespace op — indentation phase is over */
+            break;
         }
-        if (n_ws == 0) {
-            memcpy(out, in, count * sizeof(Op));
-            return count;
-        }
-        /* Rebuild: content first, then whitespace, then \n (which is
-         * already in content as the last op) */
-        int n_out = 0;
-        int nl_found = 0;
-        for (int i = 0; i < n_content; i++) {
-            if (!nl_found && strcmp(content[i].type, "delete") == 0
-                && content[i].code == 10) {
-                for (int k = 0; k < n_ws; k++)
-                    out[n_out++] = ws[k];
-                nl_found = 1;
-            }
-            out[n_out++] = content[i];
-        }
-        if (!nl_found) {
-            for (int k = 0; k < n_ws; k++)
-                out[n_out++] = ws[k];
-        }
-        return n_out;
     }
-    /* Line has keeps/inserts — not entirely deleted, return as-is */
-    memcpy(out, in, count * sizeof(Op));
-    return count;
+
+    if (indent_end == 0) {
+        /* No leading indentation — nothing to move */
+        memcpy(out, in, count * sizeof(Op));
+        return count;
+    }
+
+    /* Step 3: Rebuild the op list:
+     * - Content deletes (everything after indentation, before \n)
+     * - Indentation deletes (the leading whitespace)
+     * - \n delete (at the very end) */
+
+    int n_out = 0;
+
+    /* Content: ops from indent_end to end, EXCLUDING the \n delete */
+    for (int i = indent_end; i < count; i++) {
+        if (strcmp(in[i].type, "delete") == 0 && in[i].code == 10)
+            continue;  /* skip \n, add it at the end */
+        out[n_out++] = in[i];
+    }
+
+    /* Indentation: the leading whitespace deletes */
+    for (int i = 0; i < indent_end; i++) {
+        out[n_out++] = in[i];
+    }
+
+    /* \n delete: at the very end */
+    for (int i = indent_end; i < count; i++) {
+        if (strcmp(in[i].type, "delete") == 0 && in[i].code == 10)
+            out[n_out++] = in[i];
+    }
+
+    return n_out;
 }
 
 /* Overwrite transform: mark delete+insert pairs as overwrite.
