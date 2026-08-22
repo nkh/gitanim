@@ -143,9 +143,9 @@ man:
 
 # --- Testing ---------------------------------------------------------------
 
-.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features test-no-backward
+.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features test-no-backward test-pipeline-options
 
-test: test-unit test-minimal test-l2r test-debug-bundle test-new-features test-no-backward
+test: test-unit test-minimal test-l2r test-debug-bundle test-new-features test-no-backward test-pipeline-options
 	@echo ""
 	@echo "=== All tests passed ==="
 
@@ -184,6 +184,10 @@ test-new-features:
 test-no-backward:
 	@echo "=== No-backward-ops diagnostic ==="
 	@perl tests/test_no_backward_ops.pl 2>&1 | tail -5
+
+test-pipeline-options:
+	@echo "=== Pipeline options end-to-end ==="
+	@bash tests/test_pipeline_options.sh 2>&1 | tail -3
 
 # --- Debugging -------------------------------------------------------------
 

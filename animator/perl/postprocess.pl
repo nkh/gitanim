@@ -185,7 +185,12 @@ for my $line (@header) {
     } elsif ($line =~ /^# optimize_sequence/) {
         my $val = ($op_order eq 'natural') ? 0 : 1;
         print "# optimize_sequence $val\n";
-    } elsif ($line =~ /^# left_to_right/) {
+    } elsif ($line =~ /^# left_to_right\s+(\d+)/) {
+        # Read the header from compute output and set op_order if not
+        # explicitly overridden by --op-order flag
+        if ($op_order eq 'optimize' && $1 eq '1') {
+            $op_order = 'left-to-right';
+        }
         my $val = ($op_order eq 'left-to-right') ? 1 : 0;
         print "# left_to_right $val\n";
     } elsif ($line =~ /^# hunk_count/) {

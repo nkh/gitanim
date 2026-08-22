@@ -1,25 +1,34 @@
 #!/usr/bin/env bash
-# snapshot_per_op.sh — Take a snapshot of the buffer after every op
+# dv_snapshot_per_op.sh — Take a snapshot of the buffer after every op
 # and produce an HTML visualization in LIST format.
 #
+# Accepts ALL diffvim/pipeline options and passes them through to the
+# appropriate pipeline stage (compute, postprocess, pace, decorate).
+# This makes it a full debugging tool — you can reproduce any diffvim
+# animation setting and inspect the buffer state after every op.
+#
 # Usage:
-#   bash scripts/snapshot_per_op.sh <oldfile> <newfile>
-#   bash scripts/snapshot_per_op.sh --show-keep <oldfile> <newfile>
-#   bash scripts/snapshot_per_op.sh --show-pacing <oldfile> <newfile>
-#   bash scripts/snapshot_per_op.sh --context 3 <oldfile> <newfile>
-#   bash scripts/snapshot_per_op.sh --frame-op <oldfile> <newfile>
-#   bash scripts/snapshot_per_op.sh --font-size 16 <oldfile> <newfile>
+#   bash scripts/dv_snapshot_per_op.sh [options] <oldfile> <newfile>
 #
 # Options:
-#   --show-keep      Show keep ops (default: hidden). When hidden, each
-#                    delete/insert entry still shows the buffer state
-#                    (the result after the op was applied).
-#   --show-pacing    Include delay ops in the output (default: excluded)
-#   --context N      Show only N lines of context around the changed line
-#                    (default: -1 = show whole buffer; 0 = show only the line)
-#   --frame-op       Show a frame/border around each op entry (default: off)
-#   --no-buffer-frame  Remove the thin frame around the buffer (default: on)
-#   --font-size N    Font size in px (default: 14)
+#   ALL diffvim options are accepted (see 'diffvim --help' for the full list).
+#   The script routes each option to the appropriate pipeline stage:
+#     --op-order, --semantic-cleanup, --indent-aware, --overwrite,
+#     --indent-last → postprocess
+#     --delete-pacing, --insert-pacing, --delete-speed, --insert-speed,
+#     --pacing, --cursor-glide-ms, --distance-speed, --flash-* → pace
+#     --highlight, --dim-unchanged, --fold-unchanged, --sign-column,
+#     --git-blame → decorate
+#     --diff-stat, --diff-highlight, --bell, --scroll → animator
+#
+#   Snapshot-specific options (not passed to pipeline):
+#     --show-keep      Show keep ops (default: hidden)
+#     --show-pacing    Include delay ops (default: excluded)
+#     --context N      Context lines around changes (default: -1 = all)
+#     --frame-op       Frame around each op entry (default: off)
+#     --no-buffer-frame  Remove buffer border (default: on)
+#     --font-size N    Font size in px (default: 14)
+#     --trace          Enable the op-tracing debugging UI
 #
 # Output: /tmp/dv_snapshots/snapshots.html
 # Open in browser: file:///tmp/dv_snapshots/snapshots.html
@@ -34,61 +43,43 @@ SYNOPSIS
     dv_snapshot_per_op.sh [options] <oldfile> <newfile>
 
 DESCRIPTION
-    Runs the diffvim pipeline (compute → postprocess → pace) on an
-    old/new file pair, then takes a snapshot of the animator's buffer
-    after every keep / delete / insert op and renders all those
-    snapshots into a single browsable HTML page (one entry per op,
-    with the changed character highlighted).
+    Runs the full diffvim pipeline (compute → postprocess → pace →
+    decorate → animator) on an old/new file pair, then takes a snapshot
+    of the animator's buffer after every keep / delete / insert op and
+    renders all those snapshots into a single browsable HTML page.
 
-    The HTML page is written to /tmp/dv_snapshots/snapshots.html —
-    open it in a browser to step through the animation op-by-op.
+    Accepts ALL diffvim options and routes them to the appropriate
+    pipeline stage. This makes it a full debugging tool — reproduce
+    any diffvim animation setting and inspect the buffer state op-by-op.
 
-OPTIONS
+SNAPSHOT-SPECIFIC OPTIONS (not passed to the pipeline)
     -h, --help              Show this help message and exit 0.
-    --show-keep             Show keep ops (default: hidden). When
-                            hidden, each delete/insert entry still
-                            shows the buffer state (the result after
-                            the op was applied).
-    --show-pacing           Include delay ops in the output
-                            (default: excluded).
-    --context N             Show only N lines of context around the
-                            changed line (default: -1 = show whole
-                            buffer; 0 = show only the changed line).
-    --frame-op              Show a frame/border around each op entry
-                            (default: off).
-    --no-buffer-frame       Remove the thin frame around the buffer
-                            (default: on — frame is shown).
+    --show-keep             Show keep ops (default: hidden).
+    --show-pacing           Include delay ops (default: excluded).
+    --context N             Context lines around changes (default: -1).
+    --frame-op              Frame around each op entry (default: off).
+    --no-buffer-frame       Remove buffer border (default: on).
     --font-size N           Font size in px (default: 14).
-    --trace                 Enable the op-tracing debugging UI: each op
-                            gets a "📋 Copy" button. Clicking it appends
-                            the op's TSV line to a bottom panel (20% of
-                            viewport height, fixed). The bottom panel has
-                            a "Copy to clipboard" button that copies all
-                            collected ops as TSV text — useful for
-                            reporting exactly which ops cause a bug.
-    <oldfile>               Path to the original/source file.
-    <newfile>               Path to the target file.
+    --trace                 Enable the op-tracing debugging UI.
+
+PIPELINE OPTIONS (routed to the appropriate stage)
+    All diffvim options are accepted. Examples:
+      --op-order left-to-right    --delete-pacing flash
+      --indent-last               --insert-pacing word
+      --semantic-cleanup          --pacing gaussian
+      --indent-aware              --cursor-glide-ms 300
+      --overwrite                 --distance-speed adaptive
+      --highlight inline          --dim-unchanged
+      --git-blame                 --sign-column
+      --diff-stat                 --diff-highlight
+      --bell                      --scroll zt
+      --speed 2                   --delete-speed fast
 
 EXAMPLES
-    dv_snapshot_per_op.sh examples/01_small_python/old.py \
-                          examples/01_small_python/new.py
-        Build a full-buffer, default-styled HTML visualization.
-
-    dv_snapshot_per_op.sh --show-keep --show-pacing old.txt new.txt
-        Include keep ops and delay ops in the visualization.
-
-    dv_snapshot_per_op.sh --context 3 old.txt new.txt
-        Show only 3 lines of context around each change.
-
-    dv_snapshot_per_op.sh --frame-op --font-size 16 old.txt new.txt
-        Render with per-op frames and a 16px font.
-
-    dv_snapshot_per_op.sh --no-buffer-frame old.txt new.txt
-        Render without the thin buffer border.
-
-    dv_snapshot_per_op.sh --trace old.txt new.txt
-        Enable the tracing UI: click ops to collect them in the
-        bottom panel, then copy to clipboard for bug reports.
+    dv_snapshot_per_op.sh --trace old.py new.py
+    dv_snapshot_per_op.sh --op-order left-to-right --delete-pacing flash old.py new.py
+    dv_snapshot_per_op.sh --highlight inline --dim-unchanged --indent-last old.py new.py
+    dv_snapshot_per_op.sh --cursor-glide-ms 300 --distance-speed adaptive old.py new.py
 
 OUTPUT
     /tmp/dv_snapshots/snapshots.html
@@ -99,6 +90,7 @@ HELP
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# --- Snapshot-specific options ---
 SHOW_PACING=0
 SHOW_KEEP=0
 CONTEXT=-1
@@ -107,8 +99,22 @@ BUFFER_FRAME=1
 FONT_SIZE=14
 TRACE=0
 
+# --- Pipeline option collections (routed to each stage) ---
+COMPUTE_ARGS=()
+POSTPROCESS_ARGS=()
+PACE_ARGS=()
+DECORATE_ARGS=()
+ANIMATOR_ARGS=()
+
+# --- Option routing table ---
+# Each entry: "option_name:stage:value_or_flag"
+# stage = c(postprocess)|p(pace)|d(decorate)|a(animator)|s(snapshot)
+# value_or_flag = v(takes value)|f(flag)
+
+# Parse ALL options, routing them to the right stage
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        # Snapshot-specific options
         -h|--help)                       show_help; exit 0 ;;
         --show-pacing|--show_pacing)     SHOW_PACING=1; shift ;;
         --show-keep|--show_keep)         SHOW_KEEP=1; shift ;;
@@ -119,9 +125,84 @@ while [[ $# -gt 0 ]]; do
         --font-size)                     FONT_SIZE="$2"; shift 2 ;;
         --font-size=*)                   FONT_SIZE="${1#--font-size=}"; shift ;;
         --trace)                         TRACE=1; shift ;;
-        --*)  echo "ERROR: unknown option '$1'" >&2
-              echo "Valid options: -h/--help, --show-pacing, --show-keep, --context N, --frame-op, --no-buffer-frame, --font-size N, --trace" >&2
-              exit 1 ;;
+
+        # Postprocess options
+        --op-order)                      POSTPROCESS_ARGS+=("--op-order" "$2"); shift 2 ;;
+        --semantic-cleanup|-S)           POSTPROCESS_ARGS+=("--semantic-cleanup"); shift ;;
+        --indent-aware|-i)               POSTPROCESS_ARGS+=("--indent-aware"); shift ;;
+        --indent-last)                   POSTPROCESS_ARGS+=("--indent-last"); shift ;;
+        --overwrite)                     POSTPROCESS_ARGS+=("--overwrite"); shift ;;
+        --stream)                        POSTPROCESS_ARGS+=("--stream"); shift ;;
+
+        # Compute options
+        --word-diff)                     COMPUTE_ARGS+=("--word-diff"); shift ;;
+        --no-optimize-sequence)          COMPUTE_ARGS+=("--no-optimize-sequence"); shift ;;
+        --left-to-right)                 export DIFFVIM_LEFT_TO_RIGHT=1; shift ;;
+        --no-left-to-right)              export DIFFVIM_LEFT_TO_RIGHT=0; shift ;;
+
+        # Pace options
+        --delete-pacing)                 PACE_ARGS+=("--delete-pacing" "$2"); shift 2 ;;
+        --insert-pacing)                 PACE_ARGS+=("--insert-pacing" "$2"); shift 2 ;;
+        --delete-speed)                  PACE_ARGS+=("--delete-speed" "$2"); shift 2 ;;
+        --insert-speed)                  PACE_ARGS+=("--insert-speed" "$2"); shift 2 ;;
+        --delete-threshold)              PACE_ARGS+=("--delete-threshold" "$2"); shift 2 ;;
+        --pacing)                        PACE_ARGS+=("--pacing" "$2"); shift 2 ;;
+        --gaussian-jitter-pct)           PACE_ARGS+=("--gaussian-jitter-pct" "$2"); shift 2 ;;
+        --pause-after-lines)             PACE_ARGS+=("--pause-after-lines" "$2"); shift 2 ;;
+        --pause-after-threshold)         PACE_ARGS+=("--pause-after-threshold" "$2"); shift 2 ;;
+        --pause-after-ms)               PACE_ARGS+=("--pause-after-ms" "$2"); shift 2 ;;
+        --accel-delete)                  PACE_ARGS+=("--accel-delete"); shift ;;
+        --accel-delete-start-ms)         PACE_ARGS+=("--accel-delete-start-ms" "$2"); shift 2 ;;
+        --accel-delete-min-ms)           PACE_ARGS+=("--accel-delete-min-ms" "$2"); shift 2 ;;
+        --accel-delete-accel)            PACE_ARGS+=("--accel-delete-accel" "$2"); shift 2 ;;
+        --block-delete-size)             PACE_ARGS+=("--block-delete-size" "$2"); shift 2 ;;
+        --pause-before-delete-ms)        PACE_ARGS+=("--pause-before-delete-ms" "$2"); shift 2 ;;
+        --pause-after-delete-ms)         PACE_ARGS+=("--pause-after-delete-ms" "$2"); shift 2 ;;
+        --flash-pause-ms)                PACE_ARGS+=("--flash-pause-ms" "$2"); shift 2 ;;
+        --flash-highlight-ms)            PACE_ARGS+=("--flash-highlight-ms" "$2"); shift 2 ;;
+        --cursor-glide-ms)              PACE_ARGS+=("--cursor-glide-ms" "$2"); shift 2 ;;
+        --cursor-glide-show-intermediate) PACE_ARGS+=("--cursor-glide-show-intermediate" "$2"); shift 2 ;;
+        --distance-speed)                PACE_ARGS+=("--distance-speed" "$2"); shift 2 ;;
+        --distance-threshold)            PACE_ARGS+=("--distance-threshold" "$2"); shift 2 ;;
+        --distance-fast-mult)            PACE_ARGS+=("--distance-fast-mult" "$2"); shift 2 ;;
+        --distance-slow-mult)            PACE_ARGS+=("--distance-slow-mult" "$2"); shift 2 ;;
+        --hunk-pause-ms)                PACE_ARGS+=("--hunk-pause-ms" "$2"); shift 2 ;;
+        --type-delay-ms)                PACE_ARGS+=("--type-delay-ms" "$2"); shift 2 ;;
+        --delete-delay-ms)               PACE_ARGS+=("--delete-delay-ms" "$2"); shift 2 ;;
+        --word-pause-ms)                 PACE_ARGS+=("--word-pause-ms" "$2"); shift 2 ;;
+
+        # Decorate options
+        --highlight)                     DECORATE_ARGS+=("--highlight" "$2"); shift 2 ;;
+        --highlight-duration-ms)         DECORATE_ARGS+=("--highlight-duration-ms" "$2"); shift 2 ;;
+        --dim-unchanged|-D)              DECORATE_ARGS+=("--dim-unchanged"); shift ;;
+        --dim-unchanged-pct)             DECORATE_ARGS+=("--dim-unchanged-pct" "$2"); shift 2 ;;
+        --fold-unchanged)                DECORATE_ARGS+=("--fold-unchanged"); shift ;;
+        --sign-column)                   DECORATE_ARGS+=("--sign-column"); shift ;;
+        --git-blame|-g)                  DECORATE_ARGS+=("--git-blame"); shift ;;
+        --max-hunk-chars)                DECORATE_ARGS+=("--max-hunk-chars" "$2"); shift 2 ;;
+        --theme|-t)                      DECORATE_ARGS+=("--theme" "$2"); shift 2 ;;
+        --max-line-len)                  shift 2 ;;  # informational only
+
+        # Animator options (passed to the animator)
+        --diff-stat)                     ANIMATOR_ARGS+=("--diff-stat"); shift ;;
+        --diff-highlight)                ANIMATOR_ARGS+=("--diff-highlight"); shift ;;
+        --bell)                          ANIMATOR_ARGS+=("--bell"); shift ;;
+        --scroll)                        ANIMATOR_ARGS+=("--scroll" "$2"); shift 2 ;;
+        --line-numbers)                  ANIMATOR_ARGS+=("--line-numbers"); shift ;;
+        --progress)                      ANIMATOR_ARGS+=("--progress"); shift ;;
+        --speed)                         ANIMATOR_ARGS+=("--speed" "$2"); shift 2 ;;
+
+        # Generic passthrough for unknown options
+        --*)  # Unknown option — try to pass to pace (most options go there)
+              # If it takes a value, the next arg is the value
+              opt="$1"
+              shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                  PACE_ARGS+=("$opt" "$1"); shift
+              else
+                  PACE_ARGS+=("$opt")
+              fi
+              ;;
         *)    break ;;
     esac
 done
@@ -142,62 +223,77 @@ fi
 OUTDIR=/tmp/dv_snapshots
 rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
 
-# Run the C pipeline
+# --- Run the pipeline with progress feedback ---
 RAW="$OUTDIR/raw.txt"; POST="$OUTDIR/post.txt"; DECORATED="$OUTDIR/decorated.txt"; TIMED="$OUTDIR/timed.txt"
+
 echo "Running pipeline (compute → postprocess → pace → decorate)..." >&2
-if ! "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"; then
+
+# Stage 1: Compute
+if ! "$ROOT/compute/bin/diffvim-compute-cpp" "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"; then
     echo "ERROR: compute stage failed:" >&2
     cat "$OUTDIR/compute_stderr.txt" >&2
     exit 1
 fi
-echo "  compute: $(wc -l < "$RAW") ops" >&2
-if ! "$ROOT/animator/bin/diffvim-postprocess" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt"; then
+raw_ops=$(grep -cv "^#\|^$" "$RAW" 2>/dev/null || echo 0)
+echo "  [1/5] compute: $raw_ops ops" >&2
+
+# Stage 2: Postprocess
+if ! "$ROOT/animator/bin/diffvim-postprocess" "${POSTPROCESS_ARGS[@]}" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt"; then
     echo "ERROR: postprocess stage failed:" >&2
     cat "$OUTDIR/postprocess_stderr.txt" >&2
     exit 1
 fi
-echo "  postprocess: $(wc -l < "$POST") ops" >&2
-if ! "$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
+post_ops=$(grep -cv "^#\|^$" "$POST" 2>/dev/null || echo 0)
+echo "  [2/5] postprocess: $post_ops ops" >&2
+
+# Stage 3: Pace
+if ! "$ROOT/animator/bin/diffvim-pace" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
     echo "ERROR: pace stage failed:" >&2
     cat "$OUTDIR/pace_stderr.txt" >&2
     exit 1
 fi
-echo "  pace: $(wc -l < "$TIMED") ops" >&2
-# Run the decorate (highlight) stage — adds highlight/dim/fold/sign
-# metadata ops to the stream. The animator reads these and renders
-# them visually. Without this stage, highlight/dim/fold options have
-# no effect in the snapshot.
+timed_ops=$(grep -cv "^#\|^$" "$TIMED" 2>/dev/null || echo 0)
+echo "  [3/5] pace: $timed_ops ops" >&2
+
+# Stage 4: Decorate
 if [[ -f "$ROOT/animator/bin/diffvim-decorate" ]]; then
-    DECORATE_ARGS=""
-    [[ -n "${HIGHLIGHT_MODE:-}" && "$HIGHLIGHT_MODE" != "none" ]] && DECORATE_ARGS+=" --highlight $HIGHLIGHT_MODE"
-    if ! "$ROOT/animator/bin/diffvim-decorate" $DECORATE_ARGS < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
+    if ! "$ROOT/animator/bin/diffvim-decorate" "${DECORATE_ARGS[@]}" < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
         echo "WARNING: decorate stage failed, using undecorated ops:" >&2
         cat "$OUTDIR/decorate_stderr.txt" >&2
         cp "$TIMED" "$DECORATED"
     fi
-    echo "  decorate: $(wc -l < "$DECORATED") ops" >&2
-    TIMED="$DECORATED"  # use decorated ops for the rest of the pipeline
+    decorated_ops=$(grep -cv "^#\|^$" "$DECORATED" 2>/dev/null || echo 0)
+    echo "  [4/5] decorate: $decorated_ops ops" >&2
+    TIMED="$DECORATED"
 fi
 
 # Inject snapshot after every keep/delete/insert
 INJECTED="$OUTDIR/timed_injected.txt"
 > "$INJECTED"
 idx=0
+total_lines=$(wc -l < "$TIMED")
+echo "  [5/5] injecting snapshots into $total_lines lines..." >&2
 while IFS= read -r line; do
     echo "$line" >> "$INJECTED"
     first_field=$(echo "$line" | cut -f1)
     if [[ "$first_field" == "keep" || "$first_field" == "delete" || "$first_field" == "insert" ]]; then
         printf 'snapshot\t%s/snap_%04d.txt\n' "$OUTDIR" "$idx" >> "$INJECTED"
         idx=$((idx + 1))
+        # Progress feedback every 500 ops
+        if [[ $((idx % 500)) -eq 0 ]]; then
+            printf '\r  [5/5] injected %d snapshots...' "$idx" >&2
+        fi
     fi
 done < "$TIMED"
 total_snaps=$idx
+echo "" >&2
+echo "  [5/5] done: $total_snaps snapshots" >&2
 
 echo "Running animator ($total_snaps ops)..." >&2
-"$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 \
-    "$OLD" < "$INJECTED" 2>/dev/null || true
+"$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 "${ANIMATOR_ARGS[@]}" \
+    --snapshot "$OUTDIR/animator_output.txt" "$OLD" < "$INJECTED" 2>/dev/null || true
 
-# Build HTML
+# Build HTML with progress feedback
 echo "Building HTML..." >&2
 HTML="$OUTDIR/snapshots.html"
 
@@ -210,10 +306,6 @@ fi
 {
     echo '<!DOCTYPE html>'
     echo '<html><head><meta charset="utf-8">'
-    # Inline SVG favicon — a green "+" / red "-" / blue "→" diff glyph,
-    # so the browser tab shows a recognizable icon for snapshot pages.
-    # Using data URI so the single .html file is self-contained (no external
-    # asset dependency, works from file:// URLs).
     echo '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%231e1e1e%22%2F%3E%3Ctext%20x%3D%224%22%20y%3D%2223%22%20font-family%3D%22monospace%22%20font-size%3D%2218%22%20font-weight%3D%22bold%22%3E%3Ctspan%20fill%3D%22%236a9955%22%3E%2B%3C%2Ftspan%3E%3Ctspan%20fill%3D%22%23f44747%22%3E-%3C%2Ftspan%3E%3Ctspan%20fill%3D%22%23569cd6%22%3E%E2%86%92%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fsvg%3E">'
     echo '<title>diffvim snapshots — '"$OLD"' → '"$NEW"'</title>'
     echo '<style>'
@@ -252,8 +344,7 @@ fi
     echo "  .summary { margin-bottom: 1em; padding: 0.8em; background: #2d2d2d; border: 1px solid #555; font-size: ${FONT_SIZE}px; }"
     echo '  .summary b { color: #9cdcfe; }'
     if [[ $TRACE -eq 1 ]]; then
-        echo '  /* --- Trace UI --- */'
-        echo '  body { padding-bottom: 22vh; } /* leave room for trace panel */'
+        echo '  body { padding-bottom: 22vh; }'
         echo '  .trace-btn { cursor: pointer; background: #264f78; color: #fff; border: 1px solid #569cd6; border-radius: 3px; padding: 2px 8px; font-size: 12px; font-family: inherit; margin-left: 1em; }'
         echo '  .trace-btn:hover { background: #3a6fa8; }'
         echo '  .trace-btn.traced { background: #6a9955; border-color: #6a9955; }'
@@ -285,6 +376,8 @@ fi
 
     snap_idx=0
     op_count=0
+    html_entries=0
+    total_entries=$(grep -cE "^(keep|delete|insert|HUNK|delay)" "$TIMED" 2>/dev/null || echo 0)
 
     while IFS=$'\t' read -r f1 f2 f3 f4 f5 rest; do
         [[ -z "$f1" || "$f1" == \#* ]] && continue
@@ -297,7 +390,6 @@ fi
             op_detail="target=$f2 del=$f3 ins=$f4 end_ins=$f5 end_del=$rest"
             show_entry=1; show_buffer=0
         elif [[ "$f1" == "HUNK_END" ]]; then
-            # HUNK_END is never shown — either another HUNK follows or it's the end
             continue
         elif [[ "$f1" == "delay" ]]; then
             [[ $SHOW_PACING -eq 0 ]] && continue
@@ -325,6 +417,10 @@ fi
             snap_file="$OUTDIR/snap_$(printf '%04d' $snap_idx).txt"
             snap_idx=$((snap_idx + 1))
             show_entry=1; show_buffer=1
+        elif [[ "$f1" == "glide" ]]; then
+            op_class="meta"; op_type_label="glide"
+            op_detail="from=$f2 to=$f3 dur=${f4}ms show=${f5}"
+            show_entry=1; show_buffer=0
         else
             continue
         fi
@@ -339,16 +435,11 @@ fi
         [[ -n "$op_char" ]] && echo "    <span class='op-char'>${op_char}</span>"
         [[ -n "$op_detail" ]] && echo "    <span class='op-detail'>${op_detail}</span>"
         if [[ $TRACE -eq 1 ]]; then
-            # The raw TSV line from the timed ops file for this op.
             tsv_line="${f1}"
             [[ -n "$f2" ]] && tsv_line+=$'\t'"${f2}"
             [[ -n "$f3" ]] && tsv_line+=$'\t'"${f3}"
             [[ -n "$f4" ]] && tsv_line+=$'\t'"${f4}"
             [[ -n "$f5" ]] && tsv_line+=$'\t'"${f5}"
-            # Store TSV in a data- attribute (double-quoted, so single
-            # quotes in char_repr like 'd' are safe). HTML-escape &,
-            # <, >, " only. The JS reads it via getAttribute and
-            # decodes entities with a textarea trick.
             tsv_escaped=$(printf '%s' "$tsv_line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
             echo "    <button class='trace-btn' onclick='traceCopy(this)' data-op-num='${op_count}' data-tsv=\"${tsv_escaped}\" title='Copy this op to the trace panel below'>📋 Copy</button>"
         fi
@@ -356,7 +447,6 @@ fi
 
         if [[ $show_buffer -eq 1 && -f "$snap_file" ]]; then
             echo "  <div class='buffer'>"
-            # Render buffer with line numbers + highlight the specific char
             awk -v hl_line="$op_line" -v hl_col="$op_col" -v context="$CONTEXT" -v op_type="$f1" '
                 BEGIN { n = 0 }
                 { lines[++n] = $0 }
@@ -402,7 +492,13 @@ fi
         fi
         echo "</div>"
         op_count=$((op_count + 1))
+        html_entries=$((html_entries + 1))
+        # Progress feedback every 500 entries
+        if [[ $((html_entries % 500)) -eq 0 ]]; then
+            printf '\r  Building HTML: %d/%d entries...' "$html_entries" "$total_entries" >&2
+        fi
     done < "$TIMED"
+    echo "" >&2
 
     if [[ $TRACE -eq 1 ]]; then
         cat <<'TRACE_HTML'
@@ -419,19 +515,14 @@ fi
 <script>
 (function() {
     var collected = [];
-
-    // Exposed globally for the onclick handlers
     window.traceCopy = function(btn) {
         var opNum = btn.getAttribute('data-op-num');
         var rawTsv = btn.getAttribute('data-tsv');
-        // Decode HTML entities back to real characters
         var txt = document.createElement('textarea');
         txt.innerHTML = rawTsv;
         var tsv = txt.value;
-        // Check if already collected
         for (var i = 0; i < collected.length; i++) {
             if (collected[i].num === opNum) {
-                // Already collected — remove it
                 collected.splice(i, 1);
                 btn.classList.remove('traced');
                 btn.textContent = '📋 Copy';
@@ -439,117 +530,72 @@ fi
                 return;
             }
         }
-        // Add it — prefix with the op index so the maintainer knows
-        // exactly which op in the sequence is problematic
         var indexedTsv = '@' + opNum + '\t' + tsv;
         collected.push({num: opNum, tsv: indexedTsv});
         btn.classList.add('traced');
         btn.textContent = '✓ Traced';
         render();
     };
-
     window.copyToClipboard = function() {
-        if (collected.length === 0) {
-            alert('No ops collected yet. Click the 📋 Copy button on ops above to collect them.');
-            return;
-        }
+        if (collected.length === 0) { alert('No ops collected.'); return; }
         var text = collected.map(function(op) { return op.tsv; }).join('\n') + '\n';
-        // Use the Clipboard API if available, fallback to execCommand
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(function() {
-                flashBtn('Copied ' + collected.length + ' ops to clipboard!');
-            }).catch(function() {
-                fallbackCopy(text);
-            });
-        } else {
-            fallbackCopy(text);
-        }
+            navigator.clipboard.writeText(text).then(function() { flashBtn('Copied!'); }).catch(function() { fallbackCopy(text); });
+        } else { fallbackCopy(text); }
     };
-
     window.downloadFile = function() {
-        if (collected.length === 0) {
-            alert('No ops collected yet.');
-            return;
-        }
+        if (collected.length === 0) { alert('No ops collected.'); return; }
         var text = collected.map(function(op) { return op.tsv; }).join('\n') + '\n';
         var blob = new Blob([text], {type: 'text/tab-separated-values'});
         var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = 'traced_ops.tsv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        var a = document.createElement('a'); a.href = url; a.download = 'traced_ops.tsv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
-
     window.clearTrace = function() {
         collected = [];
         var btns = document.querySelectorAll('.trace-btn');
-        btns.forEach(function(btn) {
-            btn.classList.remove('traced');
-            btn.textContent = '📋 Copy';
-        });
+        btns.forEach(function(btn) { btn.classList.remove('traced'); btn.textContent = '📋 Copy'; });
         render();
     };
-
     window.removeOp = function(num) {
         for (var i = 0; i < collected.length; i++) {
-            if (collected[i].num === num) {
-                collected.splice(i, 1);
-                break;
-            }
+            if (collected[i].num === num) { collected.splice(i, 1); break; }
         }
-        // Reset the button for this op
         var btn = document.querySelector('.trace-btn[data-op-num="' + num + '"]');
-        if (btn) {
-            btn.classList.remove('traced');
-            btn.textContent = '📋 Copy';
-        }
+        if (btn) { btn.classList.remove('traced'); btn.textContent = '📋 Copy'; }
         render();
     };
-
     function render() {
         var body = document.getElementById('trace-body');
         var count = document.getElementById('trace-count');
         count.textContent = collected.length + ' op' + (collected.length !== 1 ? 's' : '') + ' collected';
         if (collected.length === 0) {
-            body.innerHTML = '<div style="color:#666;font-style:italic;">Click the 📋 Copy button on any op above to collect it here.</div>';
+            body.innerHTML = '<div style="color:#666;font-style:italic;">Click 📋 Copy on any op above to collect it here.</div>';
         } else {
             var html = '';
             for (var i = 0; i < collected.length; i++) {
                 var op = collected[i];
                 var tsvEsc = op.tsv.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                // Convert tabs to visible → for display, but keep them in the actual data
                 var tsvDisplay = tsvEsc.replace(/\t/g, ' → ');
-                html += '<div class="trace-op"><span class="op-remove" onclick="removeOp(\'' + op.num + '\')" title="Remove this op">✕</span><span class="op-num">#' + op.num + '</span> <span class="op-tsv">' + tsvDisplay + '</span></div>';
+                html += '<div class="trace-op"><span class="op-remove" onclick="removeOp(\'' + op.num + '\')" title="Remove">✕</span><span class="op-num">#' + op.num + '</span> <span class="op-tsv">' + tsvDisplay + '</span></div>';
             }
             body.innerHTML = html;
         }
     }
-
     function fallbackCopy(text) {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
+        var ta = document.createElement('textarea'); ta.value = text;
+        ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select();
         try { document.execCommand('copy'); flashBtn('Copied!'); }
-        catch(e) { alert('Clipboard not available. Use Download .tsv instead.'); }
+        catch(e) { alert('Clipboard not available.'); }
         document.body.removeChild(ta);
     }
-
     function flashBtn(msg) {
         var btns = document.querySelectorAll('.trace-action-btn');
-        if (btns.length > 0) {
-            var orig = btns[0].textContent;
-            btns[0].textContent = msg;
-            setTimeout(function() { btns[0].textContent = orig; }, 2000);
-        }
+        if (btns.length > 0) { var orig = btns[0].textContent; btns[0].textContent = msg; setTimeout(function() { btns[0].textContent = orig; }, 2000); }
     }
-
-    render(); // initial render
+    render();
 })();
 </script>
 TRACE_HTML

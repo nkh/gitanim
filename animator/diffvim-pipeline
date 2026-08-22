@@ -171,12 +171,52 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         --*|-*)
-            # Unknown option — pass to animator
-            ANIMATOR_ARGS+=("$1")
+            # Unknown option — route to the right stage
+            opt="$1"
             shift
-            if [[ $# -gt 0 && "$1" != -* ]]; then
-                ANIMATOR_ARGS+=("$1"); shift
-            fi
+            val=""
+            [[ $# -gt 0 && "$1" != -* ]] && { val="$1"; shift; }
+            case "$opt" in
+                --op-order|--semantic-cleanup|-S|--indent-aware|-i|--indent-last|--overwrite|--stream)
+                    POSTPROCESS_ARGS+=("$opt")
+                    [[ -n "$val" ]] && POSTPROCESS_ARGS+=("$dp_val")
+                    ;;
+                --word-diff|--no-optimize-sequence)
+                    COMPUTE_ARGS+=("$opt")
+                    [[ -n "$val" ]] && COMPUTE_ARGS+=("$dp_val")
+                    ;;
+                --delete-pacing|--insert-pacing|--delete-speed|--insert-speed|\
+                --delete-threshold|--pacing|--gaussian-jitter-pct|\
+                --pause-after-lines|--pause-after-threshold|--pause-after-ms|\
+                --accel-delete|--accel-delete-start-ms|--accel-delete-min-ms|--accel-delete-accel|\
+                --block-delete-size|--pause-before-delete-ms|--pause-after-delete-ms|\
+                --flash-pause-ms|--flash-highlight-ms|\
+                --cursor-glide-ms|--cursor-glide-show-intermediate|\
+                --distance-speed|--distance-threshold|--distance-fast-mult|--distance-slow-mult|\
+                --hunk-pause-ms|--type-delay-ms|--delete-delay-ms|--word-pause-ms)
+                    PACE_ARGS+=("$opt")
+                    [[ -n "$val" ]] && PACE_ARGS+=("$dp_val")
+                    ;;
+                --highlight|--highlight-duration-ms|--dim-unchanged|-D|--dim-unchanged-pct|\
+                --fold-unchanged|--sign-column|--git-blame|-g|--max-hunk-chars|--theme|-t)
+                    DECORATE_ARGS+=("$opt")
+                    [[ -n "$val" ]] && DECORATE_ARGS+=("$dp_val")
+                    ;;
+                --diff-stat|--diff-highlight|--bell|--scroll|--line-numbers|--progress|--speed)
+                    ANIMATOR_ARGS+=("$opt")
+                    [[ -n "$val" ]] && ANIMATOR_ARGS+=("$dp_val")
+                    ;;
+                --left-to-right)
+                    export DIFFVIM_LEFT_TO_RIGHT=1
+                    ;;
+                --no-left-to-right)
+                    export DIFFVIM_LEFT_TO_RIGHT=0
+                    ;;
+                *)
+                    ANIMATOR_ARGS+=("$opt")
+                    [[ -n "$val" ]] && ANIMATOR_ARGS+=("$dp_val")
+                    ;;
+            esac
             ;;
         *)
             POSITIONAL+=("$1"); shift
@@ -274,3 +314,5 @@ if [[ -f "$COLORIZE_NEW" ]]; then
 fi
 
 $ANIMATOR "${ANIMATOR_ARGS[@]}" "${ANIMATOR_COLOR_ARGS[@]}" "$OLD" < "$TIMED_OPS"
+
+# --- Unprefixed option routing ---
