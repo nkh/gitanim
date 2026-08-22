@@ -501,7 +501,39 @@ while [[ $# -gt 0 ]]; do
         --max-line-len)  MAX_LINE_LEN="$2"; shift 2 ;;
         --help|-h)       HELP=1; shift ;;
         --)              shift; while [[ $# -gt 0 ]]; do POSITIONAL+=("$1"); shift; done ;;
-        -*)              echo "Unknown option: $1" >&2; show_help; exit 1 ;;
+        -*)              # Suggest closest option
+                         _wrong="$1"; _best=""; _best_d=999
+                         for _opt in --speed --tick-ms --type-delay-ms --delete-delay-ms \
+                           --hunk-pause-ms --word-pause-ms --pacing --gaussian-jitter-pct \
+                           --pause-after-lines --pause-after-threshold --pause-after-ms \
+                           --delete-pacing --delete-speed --delete-threshold \
+                           --insert-pacing --insert-speed --accel-delete \
+                           --accel-delete-start-ms --accel-delete-min-ms --accel-delete-accel \
+                           --block-delete-size --pause-before-delete-ms --pause-after-delete-ms \
+                           --flash-pause-ms --flash-highlight-ms --cursor-glide-ms \
+                           --cursor-glide-show-intermediate --distance-speed \
+                           --distance-threshold --distance-fast-mult --distance-slow-mult \
+                           --op-order --semantic-cleanup --indent-aware --indent-last \
+                           --overwrite --highlight --highlight-color --highlight-duration-ms \
+                           --dim-unchanged --dim-unchanged-pct --fold-unchanged --context \
+                           --sign-column --git-blame --max-hunk-chars --theme \
+                           --diff-stat --diff-highlight --bell --scroll --line-numbers \
+                           --progress --verbose --dry-run --word-diff --no-optimize-sequence \
+                           --left-to-right --no-left-to-right --output --snapshot --no-display \
+                           --no-vimrc --help --version --preset; do
+                             _d=0; _w="${_wrong#--}"; _o="${_opt#--}"
+                             _len=${#_w}; _olen=${#_o}
+                             if [[ $_olen -gt $_len ]]; then _len=$_olen; fi
+                             for ((_i=0; _i<_len; _i++)); do
+                                 if [[ "${_w:_i:1}" != "${_o:_i:1}" ]]; then _d=$((_d+1)); fi
+                             done
+                             if [[ $_d -lt $_best_d ]]; then _best_d=$_d; _best=$_opt; fi
+                         done
+                         _thresh=$(( ${#_wrong} / 2 ))
+                         if [[ $_best_d -le $_thresh && -n "$_best" ]]; then
+                             echo "  Did you mean: $_best?" >&2
+                         fi
+                         echo "Unknown option: $_wrong" >&2; show_help; exit 1 ;;
         *)               POSITIONAL+=("$1"); shift ;;
     esac
 done
