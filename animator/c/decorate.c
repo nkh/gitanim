@@ -385,6 +385,19 @@ int main(int argc, char **argv) {
             if (sign_column) {
                 do_sign_column(i);
             }
+            /* Git blame: emit a marker op with the line number.
+             * The actual blame text would require running `git blame`
+             * and caching the results — this is a simplified version
+             * that just marks each changed line. */
+            if (git_blame) {
+                const char *blame_type = get_op_type(all_lines[i]);
+                if (strcmp(blame_type, "delete") == 0 || strcmp(blame_type, "insert") == 0) {
+                    int op_line = get_op_line(all_lines[i]);
+                    if (op_line > 0) {
+                        emit_marker(op_line, 1, "blame");
+                    }
+                }
+            }
         }
     }
 

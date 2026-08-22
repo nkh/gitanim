@@ -849,20 +849,24 @@ int process_one_hunk(int target, int del, int ins, int end_ins, int end_del,
         Op *op = &final_ops[i];
         if (op->code == 10) {
             if (strcmp(op->type, "keep") == 0) {
-                printf("op\tkeep\t%d\t%d\t%d\n", cur_line, cur_col, op->code);
+                /* V2 format: keep\t<line>\t<col>\t<code> */
+                printf("keep\t%d\t%d\t%d\t\\n\n", cur_line, cur_col, op->code);
                 cur_line++;
                 cur_col = 1;
             } else if (strcmp(op->type, "delete") == 0) {
-                printf("newline_delete\t%d\n", cur_line);
+                /* V2 format: delete\t<line>\t<col>\t10 */
+                printf("delete\t%d\t%d\t10\t\\n\n", cur_line, cur_col);
                 newl_del++;
             } else if (strcmp(op->type, "insert") == 0) {
-                printf("newline_insert\t%d\t%d\n", cur_line, cur_col);
+                /* V2 format: insert\t<line>\t<col>\t10 */
+                printf("insert\t%d\t%d\t10\t\\n\n", cur_line, cur_col);
                 cur_line++;
                 cur_col = 1;
                 newl_ins++;
             }
         } else {
-            printf("op\t%s\t%d\t%d\t%d\n", op->type, cur_line, cur_col, op->code);
+            /* V2 format: <type>\t<line>\t<col>\t<code> */
+            printf("%s\t%d\t%d\t%d\n", op->type, cur_line, cur_col, op->code);
             if (strcmp(op->type, "keep") == 0 || strcmp(op->type, "insert") == 0) {
                 cur_col++;
             }
@@ -925,16 +929,18 @@ void stream_process(void) {
         if (strncmp(line, "HUNK", 4) == 0) {
             /* If we were already in a hunk, process it first */
             if (in_hunk && hunk_op_count > 0) {
-                printf("hunk_start\t%d\t%d\n", hunk_del, hunk_ins);
+                /* V2 format: HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del> */
+                printf("HUNK\t%d\t%d\t%d\t%d\t%d\n", hunk_target, hunk_del, hunk_ins,
+                       hunk_end_ins, hunk_end_del);
                 line_offset += process_one_hunk(hunk_target, hunk_del, hunk_ins,
                                                   hunk_end_ins, hunk_end_del,
                                                   hunk_ops, hunk_op_count, line_offset);
-                printf("hunk_end\n");
+                printf("HUNK_END\n");
                 hunk_op_count = 0;
             }
 
-            /* Start new hunk */
-            int n_matched = sscanf(line, "HUNK %d %d %d %d %d", &hunk_target, &hunk_del, &hunk_ins,
+            /* Start new hunk — parse V2 tab-separated format */
+            int n_matched = sscanf(line, "HUNK\t%d\t%d\t%d\t%d\t%d", &hunk_target, &hunk_del, &hunk_ins,
                    &hunk_end_ins, &hunk_end_del);
             (void)n_matched;  /* validation done by strncmp above; malformed input already filtered */
             in_hunk = 1;
@@ -943,8 +949,9 @@ void stream_process(void) {
         }
 
         if (strncmp(line, "keep", 4) == 0 || strncmp(line, "delete", 6) == 0 || strncmp(line, "insert", 6) == 0) {
-            char type[8]; int code;
-            int n_matched = sscanf(line, "%7s %d", type, &code);
+            /* V2 format: <type>\t<line>\t<col>\t<code> */
+            char type[8]; int line_num, col, code;
+            int n_matched = sscanf(line, "%7s\t%d\t%d\t%d", type, &line_num, &col, &code);
             (void)n_matched;  /* validation done by caller; malformed input already filtered */
             if (hunk_op_count >= hunk_op_cap) {
                 hunk_op_cap *= 2;
@@ -959,11 +966,13 @@ void stream_process(void) {
 
     /* Process last hunk */
     if (in_hunk && hunk_op_count > 0) {
-        printf("hunk_start\t%d\t%d\n", hunk_del, hunk_ins);
+        /* V2 format */
+        printf("HUNK\t%d\t%d\t%d\t%d\t%d\n", hunk_target, hunk_del, hunk_ins,
+               hunk_end_ins, hunk_end_del);
         line_offset += process_one_hunk(hunk_target, hunk_del, hunk_ins,
                                           hunk_end_ins, hunk_end_del,
                                           hunk_ops, hunk_op_count, line_offset);
-        printf("hunk_end\n");
+        printf("HUNK_END\n");
     }
 
     free(hunk_ops);

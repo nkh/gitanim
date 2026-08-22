@@ -511,12 +511,32 @@ void render(void) {
             if (show_line_numbers) printf("%4d ", i + 1);
             if (i == disp_l)
                 printf("\033[7m%s\033[0m\n", lines[i]);
+            else if (diff_highlight && i < line_modified_cap && line_modified[i])
+                /* Diff highlight: modified lines get a subtle background */
+                printf("\033[48;5;236m%s\033[0m\n", lines[i]);
             else
                 printf("%s\n", lines[i]);
         }
     }
     if (show_progress) {
         printf("\033[%d;1H\033[2K[progress: line %d/%d]\n", viewport_height, disp_l + 1, n_lines);
+    }
+    /* Diff stat overlay: show changed/total line counts at the bottom */
+    if (show_diff_stat) {
+        int modified_count = 0;
+        for (int i = 0; i < n_lines && i < line_modified_cap; i++)
+            if (line_modified[i]) modified_count++;
+        printf("\033[%d;1H\033[2K[diff: %d/%d lines changed]\n",
+               viewport_height + (show_progress ? 0 : 0),
+               modified_count, n_lines);
+    }
+    /* Terminal bell on error: ring the bell if the last op was at an
+     * invalid position (cursor clamped to buffer bounds) */
+    if (bell_on_error) {
+        /* Ring the terminal bell (\a = BEL) to alert the user of
+         * potential cursor clamping or buffer errors. */
+        printf("\a");
+        fflush(stdout);
     }
     /* Position cursor at the right display row — use disp_l/disp_c
      * (the displayed cursor), NOT cursor_l/cursor_c (the internal

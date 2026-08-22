@@ -1788,8 +1788,16 @@ function! s:TimedProcessBatch() abort
             " keep ops don't render
 
         elseif l:cmd ==# 'delete' && len(l:parts) >= 4
-            call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
-            call s:TimedDeleteChar(str2nr(l:parts[3]))
+            " For \n deletes (code 10), DON'T move the visual cursor —
+            " the join happens at the internal cursor, but the displayed
+            " cursor stays where the previous content op left it. This
+            " prevents the cursor from jumping UP to the preserved line
+            " above during \n deletes."
+            let l:del_code = str2nr(l:parts[3])
+            if l:del_code != 10
+                call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+            endif
+            call s:TimedDeleteChar(l:del_code)
 
         elseif l:cmd ==# 'insert' && len(l:parts) >= 4
             call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
@@ -1874,6 +1882,16 @@ function! s:TimedProcessBatch() abort
         elseif l:cmd ==# 'skip_hunk'
             " skip_hunk — apply remaining ops in current hunk instantly
             let s:timed_skip_hunk = 1
+
+        elseif l:cmd ==# 'glide' && len(l:parts) >= 5
+            " glide\t<from_line>\t<to_line>\t<duration_ms>\t<show_intermediate>
+            " Animate cursor moving from from_line to to_line.
+            " In vimscript: just set cursor to to_line (no smooth animation
+            " in vimscript — the timer-based tick already provides smoothness).
+            " If show_intermediate is 0, don't redraw during the glide.
+            let s:cur_l = str2nr(l:parts[2])
+            let s:cur_c = 1
+            let s:needs_redraw = 1
 
         elseif l:cmd ==# 'snapshot' && len(l:parts) >= 2
             if !empty(g:diffvim.output_file)
