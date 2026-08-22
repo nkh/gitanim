@@ -143,9 +143,9 @@ man:
 
 # --- Testing ---------------------------------------------------------------
 
-.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle
+.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features
 
-test: test-unit test-minimal test-l2r test-debug-bundle
+test: test-unit test-minimal test-l2r test-debug-bundle test-new-features
 	@echo ""
 	@echo "=== All tests passed ==="
 
@@ -176,6 +176,10 @@ test-vimscript:
 test-debug-bundle:
 	@echo "=== dv_debug_bundle.sh tests ==="
 	@bash tests/test_debug_bundle.sh 2>&1 | tail -3
+
+test-new-features:
+	@echo "=== New features tests ==="
+	@bash tests/test_new_features.sh 2>&1 | tail -3
 
 # --- Debugging -------------------------------------------------------------
 

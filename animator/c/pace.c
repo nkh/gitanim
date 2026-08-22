@@ -46,11 +46,18 @@ static int delete_delay = 40;    /* per-char delete */
 static int hunk_pause = 250;     /* between hunks */
 static int flash_pause_ms = 400; /* flash mode: pause after highlight */
 static int flash_highlight_ms = 300; /* flash mode: highlight duration */
+static int cursor_glide_ms = 0;   /* 0 = off; >0 = glide duration between hunks */
+static int cursor_glide_show_intermediate = 1; /* 1 = render intermediate lines */
+static int distance_speed = 0;   /* 0 = off; 1 = adaptive */
+static int distance_threshold = 10; /* lines: above = fast, below = slow */
+static double distance_fast_mult = 3.0; /* multiplier for long distances */
+static double distance_slow_mult = 0.5; /* multiplier for short distances */
 static int awd_start_chars = 3;  /* chars before acceleration */
 static int awd_start_ms = 80;    /* slow start delay */
 static int awd_min_ms = 15;      /* minimum accelerated delay */
 static double awd_accel = 0.85;  /* acceleration factor */
 static int word_pause = 150;     /* after a word */
+static double dist_mult = 1.0;  /* distance-based speed multiplier (applied to delete delays) */
 
 static char delete_pacing[32] = "word";
 static char delete_speed[32] = "normal";
@@ -132,6 +139,14 @@ static void emit_paced_delay(int ms, const char *type) {
     emit_delay(adjusted, type);
 }
 
+/* Emit a delete delay, applying the distance-based speed multiplier.
+ * Only delete delays are affected (not inserts, keeps, or hunk pauses). */
+static void emit_delete_delay(int ms, const char *type) {
+    int adjusted = (int)(ms * dist_mult);
+    if (adjusted < 1) adjusted = 1;
+    emit_paced_delay(adjusted, type);
+}
+
 void parse_args(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--delete-pacing") == 0 && i+1 < argc)
@@ -140,6 +155,20 @@ void parse_args(int argc, char **argv) {
             flash_pause_ms = atoi(argv[++i]);
         else if (strcmp(argv[i], "--flash-highlight-ms") == 0 && i+1 < argc)
             flash_highlight_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--cursor-glide-ms") == 0 && i+1 < argc)
+            cursor_glide_ms = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--cursor-glide-show-intermediate") == 0 && i+1 < argc)
+            cursor_glide_show_intermediate = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--distance-speed") == 0 && i+1 < argc) {
+            const char *mode = argv[++i];
+            distance_speed = (strcmp(mode, "adaptive") == 0) ? 1 : 0;
+        }
+        else if (strcmp(argv[i], "--distance-threshold") == 0 && i+1 < argc)
+            distance_threshold = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--distance-fast-mult") == 0 && i+1 < argc)
+            distance_fast_mult = atof(argv[++i]);
+        else if (strcmp(argv[i], "--distance-slow-mult") == 0 && i+1 < argc)
+            distance_slow_mult = atof(argv[++i]);
         else if (strcmp(argv[i], "--delete-speed") == 0 && i+1 < argc)
             strncpy(delete_speed, argv[++i], 31);
         else if (strcmp(argv[i], "--delete-threshold") == 0 && i+1 < argc)
@@ -180,6 +209,12 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "                        flash = highlight whole line, pause, delete in one shot\n");
             fprintf(stderr, "  --flash-pause-ms N    flash mode: pause after highlight (default: 400)\n");
             fprintf(stderr, "  --flash-highlight-ms N flash mode: highlight duration (default: 300)\n");
+            fprintf(stderr, "  --cursor-glide-ms N   Glide duration between hunks (0=off, default: 0)\n");
+            fprintf(stderr, "  --cursor-glide-show-intermediate 0|1  Show intermediate lines during glide (default: 1)\n");
+            fprintf(stderr, "  --distance-speed adaptive|off  Adaptive speed based on hunk distance (default: off)\n");
+            fprintf(stderr, "  --distance-threshold N  Lines above which speed increases (default: 10)\n");
+            fprintf(stderr, "  --distance-fast-mult F  Speed multiplier for long distances (default: 3.0)\n");
+            fprintf(stderr, "  --distance-slow-mult F  Speed multiplier for short distances (default: 0.5)\n");
             fprintf(stderr, "  --delete-speed MODE   slow|normal|fast|instant (default: normal)\n");
             fprintf(stderr, "  --insert-pacing MODE  char|word (default: char)\n");
             fprintf(stderr, "  --insert-speed MODE   slow|normal|fast (default: normal)\n");
@@ -389,6 +424,8 @@ int main(int argc, char **argv) {
     }
 
     int i = 0;
+    int current_line = 0;  /* last op's line — for distance calculation */
+
     while (i < n_lines) {
         char *toks[8];
         char tbuf[MAX_LINE];
@@ -397,7 +434,33 @@ int main(int argc, char **argv) {
         int nt = parse_tsv(tbuf, toks, 8);
 
         if (strcmp(toks[0], "HUNK") == 0) {
+            /* Before the HUNK, emit glide ops if enabled.
+             * The HUNK's target_line is toks[1]. Calculate distance
+             * from current_line (the last op's line from the previous
+             * hunk, or 0 for the first hunk). */
+            int target_line = (nt >= 2) ? atoi(toks[1]) : 1;
+            int distance = abs(target_line - current_line);
+
+            /* Distance-based speed: adjust the multiplier for this hunk */
+            if (distance_speed) {
+                if (distance > distance_threshold) {
+                    dist_mult = distance_fast_mult;
+                } else {
+                    dist_mult = distance_slow_mult;
+                }
+            }
+
+            /* Cursor glide: emit glide ops between hunks */
+            if (cursor_glide_ms > 0 && distance > 1 && i > 0) {
+                /* Emit a glide op: glide\t<from_line>\t<to_line>\t<duration_ms>\t<show_intermediate> */
+                printf("glide\t%d\t%d\t%d\t%d\n",
+                       current_line, target_line,
+                       cursor_glide_ms, cursor_glide_show_intermediate);
+                emit_paced_delay(cursor_glide_ms, "glide");
+            }
+
             passthrough(all_lines[i]);
+            current_line = target_line;
             i++;
             continue;
         }
@@ -423,6 +486,8 @@ int main(int argc, char **argv) {
         if (strcmp(toks[0], "keep") == 0) {
             passthrough(all_lines[i]);
             emit_paced_delay(1, "char");
+            /* Track current line for glide/distance calculations */
+            if (nt >= 2) current_line = atoi(toks[1]);
             i++;
         } else if (strcmp(toks[0], "delete") == 0) {
             track_op_type("delete");
@@ -466,7 +531,7 @@ int main(int argc, char **argv) {
                 } else {
                     /* Normal \n delete */
                     passthrough(all_lines[i]);
-                    emit_paced_delay(delete_delay, "char");
+                    emit_delete_delay(delete_delay, "char");
                     changed_lines++;
                     if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
                         && n_lines > pause_after_threshold) {
@@ -500,7 +565,7 @@ int main(int argc, char **argv) {
                     /* Emit each delete char */
                     for (int k = start_idx; k < start_idx + count; k++) {
                         passthrough(all_lines[k]);
-                        emit_paced_delay(delete_delay, "char");
+                        emit_delete_delay(delete_delay, "char");
                     }
                     /* Insert pause after if count > block_delete_size */
                     if (count > block_delete_size) {
@@ -574,7 +639,7 @@ int main(int argc, char **argv) {
                         /* Short run — just delete each char */
                         for (int k = start_idx; k < start_idx + count; k++) {
                             passthrough(all_lines[k]);
-                            emit_paced_delay(delete_delay, "rapid_eol");
+                            emit_delete_delay(delete_delay, "rapid_eol");
                         }
                     } else {
                         /* Long run — first char slow, then accelerate */
@@ -609,7 +674,7 @@ int main(int argc, char **argv) {
                     if (count <= delete_threshold) {
                         for (int k = start_idx; k < start_idx + count; k++) {
                             passthrough(all_lines[k]);
-                            emit_paced_delay(delete_delay, "rapid_identical");
+                            emit_delete_delay(delete_delay, "rapid_identical");
                         }
                     } else {
                         double delay = delete_delay;
@@ -644,13 +709,55 @@ int main(int argc, char **argv) {
                    || strcmp(toks[0], "overwrite_insert") == 0) {
             track_op_type("insert");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
-            /* Pass through op */
-            passthrough(all_lines[i]);
-            /* Insert delay based on type */
+            /* Insert delay based on type and insert-pacing mode */
             if (strcmp(toks[0], "overwrite_insert") == 0) {
                 /* Overwrite: minimal delay (preceded by delete at same pos) */
+                passthrough(all_lines[i]);
                 emit_paced_delay(1, "overwrite");
+            } else if (strcmp(insert_pacing, "word") == 0) {
+                /* Word pacing: type words instantly, pause after each word.
+                 * A "word" is a run of non-whitespace chars. When we hit
+                 * a whitespace char or end of inserts, pause. */
+                /* Collect consecutive insert chars on same line */
+                int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
+                int start_idx = i;
+                while (i < n_lines) {
+                    char ibuf2[MAX_LINE];
+                    strncpy(ibuf2, all_lines[i], MAX_LINE - 1);
+                    ibuf2[MAX_LINE - 1] = 0;
+                    char *it2[8];
+                    int in2 = parse_tsv(ibuf2, it2, 8);
+                    int ic2 = (in2 >= 4) ? atoi(it2[3]) : 0;
+                    int il2 = (in2 >= 2) ? atoi(it2[1]) : 0;
+                    if (strcmp(it2[0], "insert") != 0 || ic2 == 10 || il2 != start_line)
+                        break;
+                    i++;
+                }
+                int count = i - start_idx;
+                /* Emit all inserts with minimal delay, then pause after */
+                for (int k = start_idx; k < start_idx + count; k++) {
+                    passthrough(all_lines[k]);
+                    emit_paced_delay(char_delay, "char");
+                }
+                /* Check if the last char was whitespace — if not, pause */
+                if (count > 0) {
+                    char lastbuf[MAX_LINE];
+                    strncpy(lastbuf, all_lines[start_idx + count - 1], MAX_LINE - 1);
+                    lastbuf[MAX_LINE - 1] = 0;
+                    char *lt2[8];
+                    int ln2 = parse_tsv(lastbuf, lt2, 8);
+                    int last_code = (ln2 >= 4) ? atoi(lt2[3]) : 0;
+                    if (last_code == 32 || last_code == 9) {
+                        /* Whitespace — pause after word */
+                        emit_paced_delay(word_pause, "word");
+                    }
+                }
+                /* Already advanced i, skip the i++ at the end */
+                if (nt >= 2) current_line = atoi(toks[1]);
+                continue;
             } else {
+                /* char pacing (default) */
+                passthrough(all_lines[i]);
                 emit_paced_delay(char_delay, "char");
             }
             if (code == 10) {
@@ -661,6 +768,8 @@ int main(int argc, char **argv) {
                     emit_paced_delay(pause_after_ms, "pause_after");
                 }
             }
+            /* Track current line for glide/distance calculations */
+            if (nt >= 2) current_line = atoi(toks[1]);
             i++;
         } else {
             /* Unknown line — pass through */

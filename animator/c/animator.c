@@ -55,6 +55,7 @@ static int seek_op = 0;  /* #70: start at this op index */
 static int show_diff_stat = 0;  /* #76: diff stat overlay */
 static int bell_on_error = 0;  /* #40: terminal bell on error */
 static int diff_highlight = 0;  /* #24: green/red highlighting */
+static char scroll_mode[8] = "zz";  /* zz|zt|zb|none */
 static double speed_mult = 1.0;
 static char output_file[256] = "";
 static char snapshot_file_path[256] = "";
@@ -455,36 +456,60 @@ void render(void) {
     /* Reserve 1 line for status */
     int viewport_height = term_height - 1;
 
-    /* Calculate scroll offset to keep cursor visible (centered when possible).
-     * This mirrors gitlogue's update_scroll: center the cursor in the viewport
-     * when possible, scroll only when near the top or bottom of the file. */
+    /* Calculate scroll offset based on scroll_mode.
+     * zz = center cursor (default), zt = cursor at top, zb = cursor at bottom,
+     * none = no scroll (start at line 0). Uses disp_l (displayed cursor). */
     static int scroll_offset = 0;
     int half_viewport = viewport_height / 2;
-    if (cursor_l < half_viewport) {
+    int target = disp_l;  /* use displayed cursor for scrolling */
+    if (strcmp(scroll_mode, "zt") == 0) {
+        /* Cursor at top of viewport */
+        scroll_offset = target;
+    } else if (strcmp(scroll_mode, "zb") == 0) {
+        /* Cursor at bottom of viewport */
+        scroll_offset = target - viewport_height + 1;
+    } else if (strcmp(scroll_mode, "none") == 0) {
+        /* No scroll — start at line 0 */
         scroll_offset = 0;
-    } else if (cursor_l >= n_lines - half_viewport) {
-        scroll_offset = (n_lines > viewport_height) ? (n_lines - viewport_height) : 0;
     } else {
-        scroll_offset = cursor_l - half_viewport;
+        /* zz (default) — center cursor in viewport */
+        if (target < half_viewport) {
+            scroll_offset = 0;
+        } else if (target >= n_lines - half_viewport) {
+            scroll_offset = (n_lines > viewport_height) ? (n_lines - viewport_height) : 0;
+        } else {
+            scroll_offset = target - half_viewport;
+        }
     }
     if (scroll_offset < 0) scroll_offset = 0;
+    if (scroll_offset > n_lines - viewport_height && n_lines > viewport_height)
+        scroll_offset = n_lines - viewport_height;
 
     int max = scroll_offset + viewport_height;
     if (max > n_lines) max = n_lines;
 
     for (int i = scroll_offset; i < max; i++) {
         char *colored = NULL;
-        if (colormap_old && i < colormap_old_count && i < line_modified_cap && !line_modified[i])
-            colored = colormap_old[i];
+        /* Use colormap_old for unmodified lines (original syntax colors),
+         * colormap_new for modified lines (new syntax colors). */
+        if (line_modified && i < line_modified_cap && line_modified[i]) {
+            /* Line was modified — use colormap_new if available */
+            if (colormap_new && i < colormap_new_count)
+                colored = colormap_new[i];
+        } else {
+            /* Unmodified line — use colormap_old if available */
+            if (colormap_old && i < colormap_old_count)
+                colored = colormap_old[i];
+        }
         if (colored) {
             if (show_line_numbers) printf("%4d ", i + 1);
-            if (i == cursor_l)
+            if (i == disp_l)
                 printf("\033[7m%s\033[0m\n", colored);
             else
                 printf("%s\n", colored);
         } else {
             if (show_line_numbers) printf("%4d ", i + 1);
-            if (i == cursor_l)
+            if (i == disp_l)
                 printf("\033[7m%s\033[0m\n", lines[i]);
             else
                 printf("%s\n", lines[i]);
@@ -559,6 +584,11 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--diff-stat") == 0) show_diff_stat = 1;
         else if (strcmp(argv[i], "--bell") == 0) bell_on_error = 1;
         else if (strcmp(argv[i], "--diff-highlight") == 0) diff_highlight = 1;
+        else if (strcmp(argv[i], "--scroll") == 0 && i+1 < argc) {
+            /* Scroll mode: zz|zt|zb|none (default: zz)
+             * zz = center cursor, zt = top, zb = bottom, none = no scroll */
+            strncpy(scroll_mode, argv[++i], 7);
+        }
         else if (strcmp(argv[i], "--version") == 0) { printf("diffvim-animator-c 2.0\n"); exit(0); }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "Usage: diffvim-animator [options] <oldfile>\n");
@@ -769,6 +799,53 @@ int main(int argc, char **argv) {
         } else if (strcmp(cmd, "skip_hunk") == 0) {
             /* skip_hunk — set flag to skip rendering until next HUNK_END */
             /* For C animator: just render without delay */
+        } else if (strcmp(cmd, "glide") == 0 && ntok >= 5) {
+            /* glide\t<from_line>\t<to_line>\t<duration_ms>\t<show_intermediate>
+             *
+             * Animate the cursor moving from from_line to to_line over
+             * duration_ms, using ease-in-out interpolation. If
+             * show_intermediate is 1, render each intermediate line
+             * (the buffer content scrolls past). If 0, just animate
+             * the cursor position without rendering intermediate lines.
+             *
+             * Interruptible: if the user presses a key during the glide,
+             * the glide is skipped to the end. */
+            int from_line = atoi(toks[1]);
+            int to_line = atoi(toks[2]);
+            int duration_ms = atoi(toks[3]);
+            int show_intermediate = atoi(toks[4]);
+            if (!no_display && duration_ms > 0) {
+                int steps = duration_ms / 16;  /* ~60fps */
+                if (steps < 2) steps = 2;
+                for (int s = 0; s <= steps; s++) {
+                    double t = (double)s / steps;
+                    /* Ease-in-out (smoothstep) */
+                    double ease = t * t * (3 - 2 * t);
+                    disp_l = (int)(from_line + (to_line - from_line) * ease);
+                    if (disp_l < 0) disp_l = 0;
+                    if (disp_l >= n_lines) disp_l = n_lines - 1;
+                    disp_c = 0;
+                    if (show_intermediate) {
+                        render();
+                    } else {
+                        /* Just position cursor, don't render full buffer */
+                        int dl = disp_l;
+                        if (dl >= n_lines) dl = n_lines - 1;
+                        if (dl < 0) dl = 0;
+                        printf("\033[%d;1H", dl + 1);
+                        fflush(stdout);
+                    }
+                    /* Check for keypress to interrupt */
+                    if (poll_key() > 0) break;
+                    sleep_ms(duration_ms / steps);
+                }
+                /* Ensure we end at the target */
+                disp_l = to_line - 1;
+                if (disp_l < 0) disp_l = 0;
+                if (disp_l >= n_lines) disp_l = n_lines - 1;
+                disp_c = 0;
+                render();
+            }
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
         } else if (strcmp(cmd, "done") == 0) {

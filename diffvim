@@ -127,6 +127,19 @@ ACCEL_DELETE_ACCEL="${DIFFVIM_ACCEL_DELETE_ACCEL:-0.85}"
 # than delete-all-then-insert-all. Shorter=overwrite+delete-extra;
 # same=overwrite-only; longer=overwrite+insert-remainder.
 OVERWRITE_MODE=0
+# Indent-last: delete leading whitespace last when deleting a whole line
+INDENT_LAST="${DIFFVIM_INDENT_LAST:-0}"
+# Flash mode: highlight whole line, pause, delete in one shot
+FLASH_PAUSE_MS="${DIFFVIM_FLASH_PAUSE_MS:-400}"
+FLASH_HIGHLIGHT_MS="${DIFFVIM_FLASH_HIGHLIGHT_MS:-300}"
+# Cursor glide: ease-in-out interpolation between hunks
+CURSOR_GLIDE_MS="${DIFFVIM_CURSOR_GLIDE_MS:-0}"
+CURSOR_GLIDE_SHOW_INTERMEDIATE="${DIFFVIM_CURSOR_GLIDE_SHOW_INTERMEDIATE:-1}"
+# Distance-based speed: adaptive speed based on hunk distance
+DISTANCE_SPEED="${DIFFVIM_DISTANCE_SPEED:-off}"
+DISTANCE_THRESHOLD="${DIFFVIM_DISTANCE_THRESHOLD:-10}"
+DISTANCE_FAST_MULT="${DIFFVIM_DISTANCE_FAST_MULT:-3.0}"
+DISTANCE_SLOW_MULT="${DIFFVIM_DISTANCE_SLOW_MULT:-0.5}"
 # Delete-end-before-insert: when a line has both inserts and end-deletes,
 # delete the end first, then insert.
 DELETE_END_FIRST=0
@@ -434,6 +447,25 @@ while [[ $# -gt 0 ]]; do
             ;;
         --highlight-color) HIGHLIGHT_COLOR="$2"; shift 2 ;;
         --highlight-duration-ms) HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
+        --indent-last)      INDENT_LAST=1; shift ;;
+        --overwrite)        OVERWRITE_MODE=1; shift ;;
+        --flash-pause-ms)   FLASH_PAUSE_MS="$2"; shift 2 ;;
+        --flash-highlight-ms) FLASH_HIGHLIGHT_MS="$2"; shift 2 ;;
+        --cursor-glide-ms)  CURSOR_GLIDE_MS="$2"; shift 2 ;;
+        --cursor-glide-show-intermediate) CURSOR_GLIDE_SHOW_INTERMEDIATE="$2"; shift 2 ;;
+        --distance-speed)
+            DISTANCE_SPEED="$2"; shift 2
+            case "$DISTANCE_SPEED" in
+                adaptive|off) : ;;
+                *)
+                    echo "diffvim: invalid --distance-speed value '$DISTANCE_SPEED'" >&2
+                    echo "  valid: adaptive | off" >&2
+                    exit 1 ;;
+            esac
+            ;;
+        --distance-threshold) DISTANCE_THRESHOLD="$2"; shift 2 ;;
+        --distance-fast-mult) DISTANCE_FAST_MULT="$2"; shift 2 ;;
+        --distance-slow-mult) DISTANCE_SLOW_MULT="$2"; shift 2 ;;
         --git-rev|-R)       GIT_REV="$2"; shift 2 ;;
         --max-line-len)  MAX_LINE_LEN="$2"; shift 2 ;;
         --help|-h)       HELP=1; shift ;;
@@ -1304,12 +1336,53 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         POSTPROCESS_ARGS=()
         [[ "$SEMANTIC_CLEANUP" -eq 1 ]] && POSTPROCESS_ARGS+=("--semantic-cleanup")
         [[ "$INDENT_AWARE" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-aware")
+        [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--overwrite")
+        [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-last")
+        # Op ordering
+        case "${OP_ORDER:-optimize}" in
+            natural)      POSTPROCESS_ARGS+=("--op-order" "natural") ;;
+            optimize)     POSTPROCESS_ARGS+=("--op-order" "optimize") ;;
+            left-to-right) POSTPROCESS_ARGS+=("--op-order" "left-to-right") ;;
+            end-first)    POSTPROCESS_ARGS+=("--op-order" "end-first") ;;
+            end-first-smart) POSTPROCESS_ARGS+=("--op-order" "end-first-smart") ;;
+        esac
         debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 
         # Stage 3: Pace (add typed delays + batching)
         PACE_ARGS=("--delete-pacing" "${DELETE_PACING:-word}" "--insert-pacing" "${INSERT_PACING:-char}")
+        # Delete/insert speed
+        [[ -n "${DELETE_SPEED:-}" ]] && PACE_ARGS+=("--delete-speed" "$DELETE_SPEED")
+        [[ -n "${INSERT_SPEED:-}" ]] && PACE_ARGS+=("--insert-speed" "$INSERT_SPEED")
+        [[ -n "${DELETE_THRESHOLD:-}" ]] && PACE_ARGS+=("--delete-threshold" "$DELETE_THRESHOLD")
+        # Pacing mode
+        [[ -n "${PACING:-}" ]] && PACE_ARGS+=("--pacing" "$PACING")
+        [[ -n "${GAUSSIAN_JITTER_PCT:-}" ]] && PACE_ARGS+=("--gaussian-jitter-pct" "$GAUSSIAN_JITTER_PCT")
+        # Pause after lines
+        [[ -n "${PAUSE_AFTER_LINES:-}" && "$PAUSE_AFTER_LINES" -gt 0 ]] && PACE_ARGS+=("--pause-after-lines" "$PAUSE_AFTER_LINES")
+        [[ -n "${PAUSE_AFTER_THRESHOLD:-}" ]] && PACE_ARGS+=("--pause-after-threshold" "$PAUSE_AFTER_THRESHOLD")
+        [[ -n "${PAUSE_AFTER_MS:-}" ]] && PACE_ARGS+=("--pause-after-ms" "$PAUSE_AFTER_MS")
+        # Accel delete
+        [[ "${ACCEL_DELETE:-0}" -eq 1 ]] && PACE_ARGS+=("--accel-delete"
+            "--accel-delete-start-ms" "${ACCEL_DELETE_START_MS:-80}"
+            "--accel-delete-min-ms" "${ACCEL_DELETE_MIN_MS:-15}"
+            "--accel-delete-accel" "${ACCEL_DELETE_ACCEL:-85}")
+        # Block delete
+        [[ -n "${BLOCK_DELETE_SIZE:-}" ]] && PACE_ARGS+=("--block-delete-size" "$BLOCK_DELETE_SIZE")
+        [[ -n "${PAUSE_BEFORE_DELETE_MS:-}" ]] && PACE_ARGS+=("--pause-before-delete-ms" "$PAUSE_BEFORE_DELETE_MS")
+        [[ -n "${PAUSE_AFTER_DELETE_MS:-}" ]] && PACE_ARGS+=("--pause-after-delete-ms" "$PAUSE_AFTER_DELETE_MS")
+        # Flash mode
+        [[ -n "${FLASH_PAUSE_MS:-}" ]] && PACE_ARGS+=("--flash-pause-ms" "$FLASH_PAUSE_MS")
+        [[ -n "${FLASH_HIGHLIGHT_MS:-}" ]] && PACE_ARGS+=("--flash-highlight-ms" "$FLASH_HIGHLIGHT_MS")
+        # Cursor glide
+        [[ -n "${CURSOR_GLIDE_MS:-}" && "$CURSOR_GLIDE_MS" -gt 0 ]] && PACE_ARGS+=("--cursor-glide-ms" "$CURSOR_GLIDE_MS")
+        [[ -n "${CURSOR_GLIDE_SHOW_INTERMEDIATE:-}" ]] && PACE_ARGS+=("--cursor-glide-show-intermediate" "$CURSOR_GLIDE_SHOW_INTERMEDIATE")
+        # Distance-based speed
+        [[ -n "${DISTANCE_SPEED:-}" && "$DISTANCE_SPEED" != "off" ]] && PACE_ARGS+=("--distance-speed" "$DISTANCE_SPEED")
+        [[ -n "${DISTANCE_THRESHOLD:-}" ]] && PACE_ARGS+=("--distance-threshold" "$DISTANCE_THRESHOLD")
+        [[ -n "${DISTANCE_FAST_MULT:-}" ]] && PACE_ARGS+=("--distance-fast-mult" "$DISTANCE_FAST_MULT")
+        [[ -n "${DISTANCE_SLOW_MULT:-}" ]] && PACE_ARGS+=("--distance-slow-mult" "$DISTANCE_SLOW_MULT")
         debug_log "Stage 3: pace ${PACE_ARGS[*]}"
         "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
         debug_log "Stage 3 done: $(wc -l < "$TIMED_OPS") lines in timed_ops"
