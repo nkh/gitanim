@@ -160,8 +160,10 @@ while [[ $# -gt 0 ]]; do
                 ANIMATOR_ARGS+=("$1"); shift
             fi
             ;;
-        --no-display|--speed|--output|--snapshot|--scroll|--syntax)
-            # Unprefixed animator options
+        --no-display|--speed|--output|--snapshot|--scroll|--syntax|\
+        --diff-stat|--diff-highlight|--bell|--line-numbers|--progress|\
+        --verbose|--dry-run)
+            # Unprefixed animator options (boolean or with value)
             ANIMATOR_ARGS+=("$1")
             shift
             if [[ $# -gt 0 && "$1" != -* ]]; then

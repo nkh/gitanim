@@ -129,6 +129,10 @@ ACCEL_DELETE_ACCEL="${DIFFVIM_ACCEL_DELETE_ACCEL:-0.85}"
 OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
 INDENT_LAST="${DIFFVIM_INDENT_LAST:-0}"
+# Display options (forwarded to C animator)
+DIFF_STAT="${DIFFVIM_DIFF_STAT:-0}"
+DIFF_HIGHLIGHT="${DIFFVIM_DIFF_HIGHLIGHT:-0}"
+BELL_ON_ERROR="${DIFFVIM_BELL_ON_ERROR:-0}"
 # Flash mode: highlight whole line, pause, delete in one shot
 FLASH_PAUSE_MS="${DIFFVIM_FLASH_PAUSE_MS:-400}"
 FLASH_HIGHLIGHT_MS="${DIFFVIM_FLASH_HIGHLIGHT_MS:-300}"
@@ -230,6 +234,10 @@ CORE OPTIONS:
   --language LANG          Set vim filetype for syntax highlighting (default: auto)
   --sign-column            Show +/- signs in the sign column during animation
   --git-blame (-g)         Echo git blame for the target line of each hunk
+  --diff-stat              Show diff statistics overlay (changed/total lines)
+  --diff-highlight         Highlight modified lines with a subtle background
+  --bell                   Ring terminal bell on potential errors
+  --scroll MODE            Scroll mode: zz|zt|zb|none (default: zz)
   --max-line-len N         Warn on lines longer than N characters
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim, default: off)
@@ -265,7 +273,7 @@ OP ORDER (post-processing):
 
 DELETION PACING:
   --delete-pacing MODE     Deletion strategy: char|rapid-eol|rapid-identical|
-                           accel|word|instant (default: word)
+                           accel|word|instant|flash (default: word)
     char                   One char at a time (no acceleration)
     rapid-eol              Rapid shot at end of line
     rapid-identical        Accelerate identical char runs (---, ===)
@@ -389,10 +397,10 @@ while [[ $# -gt 0 ]]; do
         --delete-pacing)
             DELETE_PACING="$2"; shift 2
             case "$DELETE_PACING" in
-                char|rapid-eol|rapid-identical|accel|word|instant) : ;;
+                char|rapid-eol|rapid-identical|accel|word|instant|flash) : ;;
                 *)
                     echo "diffvim: invalid --delete-pacing value '$DELETE_PACING'" >&2
-                    echo "  valid: char | rapid-eol | rapid-identical | accel | word | instant" >&2
+                    echo "  valid: char | rapid-eol | rapid-identical | accel | word | instant | flash" >&2
                     exit 1 ;;
             esac
             ;;
@@ -449,6 +457,9 @@ while [[ $# -gt 0 ]]; do
         --highlight-duration-ms) HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
         --indent-last)      INDENT_LAST=1; shift ;;
         --overwrite)        OVERWRITE_MODE=1; shift ;;
+        --diff-stat)        DIFF_STAT=1; shift ;;
+        --diff-highlight)   DIFF_HIGHLIGHT=1; shift ;;
+        --bell)             BELL_ON_ERROR=1; shift ;;
         --flash-pause-ms)   FLASH_PAUSE_MS="$2"; shift 2 ;;
         --flash-highlight-ms) FLASH_HIGHLIGHT_MS="$2"; shift 2 ;;
         --cursor-glide-ms)  CURSOR_GLIDE_MS="$2"; shift 2 ;;
@@ -838,6 +849,10 @@ export DIFFVIM_ACCEL_DELETE_START_MS="$ACCEL_DELETE_START_MS"
 export DIFFVIM_ACCEL_DELETE_MIN_MS="$ACCEL_DELETE_MIN_MS"
 export DIFFVIM_ACCEL_DELETE_ACCEL="$ACCEL_DELETE_ACCEL"
 export DIFFVIM_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_INDENT_LAST="$([[ $INDENT_LAST -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DIFF_STAT="$([[ $DIFF_STAT -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_DIFF_HIGHLIGHT="$([[ $DIFF_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
+export DIFFVIM_BELL_ON_ERROR="$([[ $BELL_ON_ERROR -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_DELETE_END_FIRST="$([[ $DELETE_END_FIRST -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_DELETE_END_FIRST_DELAY_MS="$DELETE_END_FIRST_DELAY_MS"
 export DIFFVIM_DELETE_END_FIRST_SMART="$([[ $DELETE_END_FIRST_SMART -eq 1 ]] && echo 1 || echo '')"
