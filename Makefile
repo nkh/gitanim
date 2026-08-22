@@ -65,8 +65,8 @@ all: compute animator
 compute: $(COMPUTE_BIN)
 
 $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
-	@mkdir -p compute/bin
-	$(CXX) $(CXXFLAGS) -o $@ $<
+        @mkdir -p compute/bin
+        $(CXX) $(CXXFLAGS) -o $@ $<
 
 # --- Animator --------------------------------------------------------------
 
@@ -75,186 +75,190 @@ $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
 animator: $(ANIMATOR_BINS)
 
 $(POSTPROCESS_BIN): animator/c/postprocess.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+        @mkdir -p animator/bin
+        $(CC) $(CFLAGS) -o $@ $<
 
 $(PACE_BIN): animator/c/pace.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+        @mkdir -p animator/bin
+        $(CC) $(CFLAGS) -o $@ $<
 
 $(ANIMATOR_BIN): animator/c/animator.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+        @mkdir -p animator/bin
+        $(CC) $(CFLAGS) -o $@ $<
 
 $(DECORATE_BIN): animator/c/decorate.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+        @mkdir -p animator/bin
+        $(CC) $(CFLAGS) -o $@ $<
 
 # --- Installation ----------------------------------------------------------
 
 .PHONY: install install-bin install-man install-comp
 
 install: install-bin install-man install-comp
-	@echo "Installed to $(PREFIX)"
+        @echo "Installed to $(PREFIX)"
 
 install-bin: all
-	install -d $(DESTDIR)$(BINDIR)
-	install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/diffvim-compute-cpp
-	install -m 755 $(POSTPROCESS_BIN) $(DESTDIR)$(BINDIR)/diffvim-postprocess
-	install -m 755 $(PACE_BIN) $(DESTDIR)$(BINDIR)/diffvim-pace
-	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/diffvim-animator-c
-	install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/diffvim-decorate
-	install -m 755 diffvim $(DESTDIR)$(BINDIR)/diffvim
-	install -m 755 animator/diffvim-pipeline $(DESTDIR)$(BINDIR)/diffvim-pipeline
-	# Perl tools
-	install -m 755 compute/perl/compute_builtin.pl $(DESTDIR)$(BINDIR)/diffvim-compute-perl
-	install -m 755 animator/perl/postprocess.pl $(DESTDIR)$(BINDIR)/diffvim-postprocess-perl
-	install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/diffvim-pace-perl
-	install -m 755 animator/perl/animator.pl $(DESTDIR)$(BINDIR)/diffvim-animator-perl
-	install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/diffvim-decorate-perl
+        install -d $(DESTDIR)$(BINDIR)
+        install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/diffvim-compute-cpp
+        install -m 755 $(POSTPROCESS_BIN) $(DESTDIR)$(BINDIR)/diffvim-postprocess
+        install -m 755 $(PACE_BIN) $(DESTDIR)$(BINDIR)/diffvim-pace
+        install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/diffvim-animator-c
+        install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/diffvim-decorate
+        install -m 755 diffvim $(DESTDIR)$(BINDIR)/diffvim
+        install -m 755 animator/diffvim-pipeline $(DESTDIR)$(BINDIR)/diffvim-pipeline
+        # Perl tools
+        install -m 755 compute/perl/compute_builtin.pl $(DESTDIR)$(BINDIR)/diffvim-compute-perl
+        install -m 755 animator/perl/postprocess.pl $(DESTDIR)$(BINDIR)/diffvim-postprocess-perl
+        install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/diffvim-pace-perl
+        install -m 755 animator/perl/animator.pl $(DESTDIR)$(BINDIR)/diffvim-animator-perl
+        install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/diffvim-decorate-perl
 
 install-man:
-	install -d $(DESTDIR)$(MANDIR)
-	for f in man/*.1; do \
-	        install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
-	done
+        install -d $(DESTDIR)$(MANDIR)
+        for f in man/*.1; do \
+                install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
+        done
 
 install-comp:
-	install -d $(DESTDIR)$(COMPDIR)
-	install -m 644 completion/diffvim.bash $(DESTDIR)$(COMPDIR)/diffvim
-	install -m 644 completion/diffvim.fish $(DESTDIR)$(PREFIX)/share/fish/completions/diffvim.fish
-	install -m 644 completion/_diffvim $(DESTDIR)$(PREFIX)/share/zsh/site-functions/_diffvim
+        install -d $(DESTDIR)$(COMPDIR)
+        install -m 644 completion/diffvim.bash $(DESTDIR)$(COMPDIR)/diffvim
+        install -m 644 completion/diffvim.fish $(DESTDIR)$(PREFIX)/share/fish/completions/diffvim.fish
+        install -m 644 completion/_diffvim $(DESTDIR)$(PREFIX)/share/zsh/site-functions/_diffvim
 
 # --- Documentation ---------------------------------------------------------
 
 .PHONY: docs man
 
 docs:
-	@echo "Building documentation..."
-	@if command -v mdbook >/dev/null 2>&1; then \
-	        mdbook build docs/src/; \
-	else \
-	        echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
-	fi
+        @echo "Building documentation..."
+        @if command -v mdbook >/dev/null 2>&1; then \
+                mdbook build docs/src/; \
+        else \
+                echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
+        fi
 
 man:
-	@echo "Manpages are pre-built in man/*.1"
-	@ls man/*.1
+        @echo "Manpages are pre-built in man/*.1"
+        @ls man/*.1
 
 # --- Testing ---------------------------------------------------------------
 
-.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features
+.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features test-no-backward
 
-test: test-unit test-minimal test-l2r test-debug-bundle test-new-features
-	@echo ""
-	@echo "=== All tests passed ==="
+test: test-unit test-minimal test-l2r test-debug-bundle test-new-features test-no-backward
+        @echo ""
+        @echo "=== All tests passed ==="
 
 test-unit:
-	@echo "=== Animator unit tests ==="
-	@for t in test_all_animators test_cross_language test_newline_fix \
-	         test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-	         test_ghost_line; do \
-	        perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
-	done
+        @echo "=== Animator unit tests ==="
+        @for t in test_all_animators test_cross_language test_newline_fix \
+                 test_roundtrip test_roundtrip_verify test_snapshot_each_op \
+                 test_ghost_line; do \
+                perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
+        done
 
 test-minimal:
-	@echo "=== Minimal test cases ==="
-	@bash tests/run_minimal_tests.sh 2>&1 | tail -1
+        @echo "=== Minimal test cases ==="
+        @bash tests/run_minimal_tests.sh 2>&1 | tail -1
 
 test-pipeline:
-	@echo "=== Pipeline verification (42 examples) ==="
-	@bash tests/verify_md5.sh 2>&1 | tail -4
+        @echo "=== Pipeline verification (42 examples) ==="
+        @bash tests/verify_md5.sh 2>&1 | tail -4
 
 test-l2r:
-	@echo "=== l2r algorithm tests ==="
-	@bash l2r_test/test_l2r.sh 2>&1 | tail -1
+        @echo "=== l2r algorithm tests ==="
+        @bash l2r_test/test_l2r.sh 2>&1 | tail -1
 
 test-vimscript:
-	@echo "=== Vimscript animator tests (42 examples) ==="
-	@bash tests/test_vimscript_animator.sh 2>&1 | tail -1
+        @echo "=== Vimscript animator tests (42 examples) ==="
+        @bash tests/test_vimscript_animator.sh 2>&1 | tail -1
 
 test-debug-bundle:
-	@echo "=== dv_debug_bundle.sh tests ==="
-	@bash tests/test_debug_bundle.sh 2>&1 | tail -3
+        @echo "=== dv_debug_bundle.sh tests ==="
+        @bash tests/test_debug_bundle.sh 2>&1 | tail -3
 
 test-new-features:
-	@echo "=== New features tests ==="
-	@bash tests/test_new_features.sh 2>&1 | tail -3
+        @echo "=== New features tests ==="
+        @bash tests/test_new_features.sh 2>&1 | tail -3
+
+test-no-backward:
+        @echo "=== No-backward-ops diagnostic ==="
+        @perl tests/test_no_backward_ops.pl 2>&1 | tail -5
 
 # --- Debugging -------------------------------------------------------------
 
 .PHONY: debug snapshot
 
 debug:
-	@echo "=== Pipeline debugger on example 01 ==="
-	@bash scripts/dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1 | tail -20
+        @echo "=== Pipeline debugger on example 01 ==="
+        @bash scripts/dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1 | tail -20
 
 snapshot:
-	@echo "=== Per-op snapshots for example 01 ==="
-	@bash scripts/dv_snapshot_per_op.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
-	@echo "Open: file:///tmp/dv_snapshots/snapshots.html"
+        @echo "=== Per-op snapshots for example 01 ==="
+        @bash scripts/dv_snapshot_per_op.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
+        @echo "Open: file:///tmp/dv_snapshots/snapshots.html"
 
 # --- Clean -----------------------------------------------------------------
 
 .PHONY: clean distclean
 
 clean: clean-compute clean-animator
-	@echo "All binaries removed"
+        @echo "All binaries removed"
 
 clean-compute:
-	rm -rf compute/bin
+        rm -rf compute/bin
 
 clean-animator:
-	rm -f $(ANIMATOR_BINS)
+        rm -f $(ANIMATOR_BINS)
 
 distclean: clean
-	rm -rf docs/src/book
-	rm -rf /tmp/dv_debug /tmp/dv_snapshots /tmp/dv_md5_verify
+        rm -rf docs/src/book
+        rm -rf /tmp/dv_debug /tmp/dv_snapshots /tmp/dv_md5_verify
 
 # --- Check -----------------------------------------------------------------
 
 check:
-	@echo "Checking binary freshness..."
-	@needs_build=0; \
-	for src_bin in \
-	        "compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
-	        "animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
-	        "animator/c/pace.c:$(PACE_BIN)" \
-	        "animator/c/animator.c:$(ANIMATOR_BIN)"; do \
-	        src=$${src_bin%%:*}; \
-	        bin=$${src_bin##*:}; \
-	        if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
-	                echo "  STALE: $$bin (newer source: $$src)"; \
-	                needs_build=1; \
-	        fi; \
-	done; \
-	if [ $$needs_build -eq 1 ]; then \
-	        echo ""; \
-	        echo "Run 'make' to rebuild."; \
-	        exit 1; \
-	else \
-	        echo "  All binaries up to date."; \
-	fi
+        @echo "Checking binary freshness..."
+        @needs_build=0; \
+        for src_bin in \
+                "compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
+                "animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
+                "animator/c/pace.c:$(PACE_BIN)" \
+                "animator/c/animator.c:$(ANIMATOR_BIN)"; do \
+                src=$${src_bin%%:*}; \
+                bin=$${src_bin##*:}; \
+                if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
+                        echo "  STALE: $$bin (newer source: $$src)"; \
+                        needs_build=1; \
+                fi; \
+        done; \
+        if [ $$needs_build -eq 1 ]; then \
+                echo ""; \
+                echo "Run 'make' to rebuild."; \
+                exit 1; \
+        else \
+                echo "  All binaries up to date."; \
+        fi
 
 # --- Help ------------------------------------------------------------------
 
 help:
-	@echo "diffvim build system"
-	@echo ""
-	@echo "Targets:"
-	@echo "  make                Build all binaries"
-	@echo "  make compute        Build compute tool only"
-	@echo "  make animator       Build animator tools only"
-	@echo "  make install        Install everything to $(PREFIX)"
-	@echo "  make install-bin    Install binaries only"
-	@echo "  make install-man    Install manpages only"
-	@echo "  make docs           Build documentation"
-	@echo "  make test           Run unit + minimal + l2r tests"
-	@echo "  make test-pipeline  Run full 42-example verification"
-	@echo "  make test-vimscript Run vimscript animator tests"
-	@echo "  make test-debug-bundle  Run dv_debug_bundle.sh tests"
-	@echo "  make debug          Debug pipeline on example 01"
-	@echo "  make snapshot       Generate per-op HTML snapshots"
-	@echo "  make clean          Remove all binaries"
-	@echo "  make check          Check if binaries are up to date"
-	@echo "  make help           Show this help"
+        @echo "diffvim build system"
+        @echo ""
+        @echo "Targets:"
+        @echo "  make                Build all binaries"
+        @echo "  make compute        Build compute tool only"
+        @echo "  make animator       Build animator tools only"
+        @echo "  make install        Install everything to $(PREFIX)"
+        @echo "  make install-bin    Install binaries only"
+        @echo "  make install-man    Install manpages only"
+        @echo "  make docs           Build documentation"
+        @echo "  make test           Run unit + minimal + l2r tests"
+        @echo "  make test-pipeline  Run full 42-example verification"
+        @echo "  make test-vimscript Run vimscript animator tests"
+        @echo "  make test-debug-bundle  Run dv_debug_bundle.sh tests"
+        @echo "  make debug          Debug pipeline on example 01"
+        @echo "  make snapshot       Generate per-op HTML snapshots"
+        @echo "  make clean          Remove all binaries"
+        @echo "  make check          Check if binaries are up to date"
+        @echo "  make help           Show this help"

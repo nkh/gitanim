@@ -1,119 +1,174 @@
 # diffvim Vocabulary
 
-## Files and Data
+Think of diffvim as a tiny movie studio for your code. The old file
+is the "before" shot, the new file is the "after" shot, and diffvim
+films the transformation — typing, deleting, and rearranging — as if
+a human were doing it live.
 
-| Term | Definition |
+---
+
+## The Cast (Files and Data)
+
+| Term | What it is |
 |------|------------|
-| **old file** | The original file before changes |
-| **new file** | The target file after changes |
-| **snapshot** | The buffer state written to a file at the end of animation (or on demand) |
-| **intermediary file** | Any file produced by one pipeline stage and consumed by the next (raw ops, post-processed ops, timed ops) |
+| **old file** | The "before" — your original code, before changes |
+| **new file** | The "after" — what the code should look like when done |
+| **snapshot** | A photo of the buffer at a specific moment. The final snapshot is the result. |
+| **colormap** | A makeup file — each line of source code, pre-colored with syntax highlighting (ANSI codes). Applied to the buffer for visual flair. |
 
-## Pipeline Stages
+---
 
-| Term | Definition |
-|------|------------|
-| **compute** | First stage. Reads old + new files, produces a char-level diff (raw ops). Implemented in C++ (Patience algorithm). |
-| **postprocess** | Second stage. Reads raw ops, reorders/transforms them, adds per-op (line, col) positioning. Produces post-processed ops. |
-| **pace** | Third stage. Reads post-processed ops, inserts delays between ops. Does NOT modify, reorder, or add any ops — only inserts delay lines. Produces timed ops. |
-| **animate** | Fourth stage. Reads timed ops, applies them to a virtual buffer, renders to terminal or vim. |
+## The Production Pipeline (Stages)
 
-## Diff Operations (ops)
+Think of the pipeline as an assembly line. Each stage takes the
+previous stage's output, does one job, and passes it along.
 
-| Term | Definition |
-|------|------------|
-| **op** | A single operation in the diff: keep, delete, or insert |
-| **keep** | A character that exists in both old and new file — it stays in the buffer, cursor advances |
-| **delete** | A character that exists in old but not new — it is removed from the buffer |
-| **insert** | A character that exists in new but not old — it is added to the buffer |
-| **char code** | The Unicode code point of a character (e.g., 65 for 'A', 10 for '\n') |
-| **char repr** | The human-readable representation of a character in the diff format (e.g., `'A'`, `'space'`, `'\n'`, `'\t'`) |
+| Stage | Job | Analogy |
+|-------|-----|---------|
+| **compute** | Figures out WHAT changed (char-level diff) | The script — "remove this, add that" |
+| **postprocess** | Figures out the ORDER and POSITION of each change | The storyboard — "do this first, then that, at this line and column" |
+| **pace** | Adds TIMING — how long to pause between each action | The director's timing notes — "pause here for drama" |
+| **decorate** | Adds VISUAL FX — highlights, dimming, fold markers | The special effects department |
+| **animate** | PLAYS the animation — applies ops to a virtual buffer and renders | The screening — the audience watches |
+
+---
+
+## The Script (Operations / Ops)
+
+Every action in the animation is an "op" — a single instruction.
+
+| Op | What it does | Think of it as |
+|----|-------------|----------------|
+| **keep** | "This char is fine — leave it, move cursor forward" | A walk-on extra |
+| **delete** | "This char shouldn't be here — remove it" | A cut scene |
+| **insert** | "Add this new char right here" | A new line of dialogue |
+| **delay** | "Wait N milliseconds before the next op" | A dramatic pause |
+| **highlight** | "Flash this region with color" | A spotlight |
+| **glide** | "Smoothly move the cursor from line A to line B" | A camera pan |
+| **HUNK** | "A new section of changes starts here" | A new scene |
+
+---
 
 ## Positions
 
-| Term | Definition |
-|------|------------|
-| **line** | 1-indexed line number in the buffer |
-| **col** | 1-indexed column number in the buffer (character position, not byte) |
-| **position** | The (line, col) pair identifying where an op should be applied |
-| **target line** | The line in the old file where a hunk starts |
+| Term | Meaning |
+|------|---------|
+| **line** | 1-indexed row number (line 1 is the first line) |
+| **col** | 1-indexed column (character position, not bytes — Unicode-aware) |
+| **target line** | Where in the old file a hunk begins |
 
-## Hunk
+---
 
-| Term | Definition |
-|------|------------|
-| **HUNK** | A group of ops that target a specific region of the file. Format: `HUNK\t<target_line>\t<del_count>\t<ins_count>\t<is_end_insert>\t<is_end_delete>` |
-| **HUNK_END** | Marks the end of a hunk's ops |
-| **del_count** | Number of lines deleted in this hunk |
-| **ins_count** | Number of lines inserted in this hunk |
-| **is_end_insert** | 1 if this hunk appends content at end of file |
-| **is_end_delete** | 1 if this hunk truncates the end of the file |
+## Hunk Metadata
 
-## Delays
+A HUNK header carries stats about the scene:
 
-| Term | Definition |
-|------|------------|
-| **delay** | A pause inserted by the pace stage between ops. Format: `delay\t<milliseconds>\t<type>` |
-| **delay type** | The category of delay, determined by the pacing options. Allows the animator to adjust delays per type at runtime. Multiple delays can follow each other. |
-| **char** | Delay type: per-character delay (normal typing speed) |
-| **word** | Delay type: pause after completing a word |
-| **pause** | Delay type: pause between hunks |
-| **rapid** | Delay type: rapid burst (fast consecutive deletes) |
-| **start** | Delay type: initial slow delay at the start of a delete run |
+```
+HUNK  <target_line>  <del_count>  <ins_count>  <is_end_insert>  <is_end_delete>
+```
 
-## Pacing
+| Field | Meaning |
+|-------|---------|
+| **target line** | Where the action starts in the old file |
+| **del count** | How many old lines are being removed |
+| **ins count** | How many new lines are being added |
+| **is_end_insert** | 1 if we're appending at the very end of the file |
+| **is_end_delete** | 1 if we're chopping off the end of the file |
 
-| Term | Definition |
-|------|------------|
-| **delete pacing** | Strategy for how deletes are paced: char, rapid, word, instant |
-| **insert pacing** | Strategy for how inserts are paced: char, word |
-| **pacing mode** | Overall timing mode: uniform, adaptive, gaussian, review |
-| **AWD** | Adaptive Word Delete: spaces instant, first 3 chars slow, then word batches with acceleration |
+---
 
-## Ghost Line
+## Timing (Pacing)
 
-| Term | Definition |
-|------|------------|
-| **ghost line** | The visual artifact when a `\n` delete joins two lines and the next line's content visually jumps up onto the current line |
-| **ghost-line fix** | In postprocess: when `delete '\n'` and the line has kept content, and the next ops are content deletes not followed by keeps, emit the content deletes at (line+1, 1) and the `\n` delete at (line+1) — the next line's content is deleted first, then the empty line is removed |
+Pacing controls the rhythm of the animation — fast, slow, jittery, smooth.
 
-## Coloring
+| Term | What it controls |
+|------|-----------------|
+| **delete pacing** | How deletions feel: `char` (one at a time), `word` (word-by-word), `instant` (zap!), `flash` (highlight then zap), `rapid-eol` (accelerate at end of line) |
+| **insert pacing** | How typing feels: `char` (one at a time), `word` (type whole words, pause after spaces) |
+| **pacing mode** | Overall rhythm: `uniform` (steady), `adaptive` (varies), `gaussian` (natural jitter), `review` (slow, careful) |
+| **AWD** | Adaptive Word Delete: spaces vanish instantly, first few chars are slow, then accelerate — feels like a human getting impatient |
+| **cursor glide** | Between hunks, the cursor glides smoothly instead of teleporting |
+| **distance speed** | Hunks far away play fast (quick glance); nearby hunks play slow (every char visible) |
 
-| Term | Definition |
-|------|------------|
-| **colormap** | A file containing ANSI-colored versions of each line of a source file. Used by the animator for syntax highlighting. |
-| **colorize** | The tool that produces colormaps. Backends: vim, pygmentize, none. |
-| **progressive decoloring** | Unmodified lines render with colormap colors; modified lines fall back to plain text |
+---
 
-## Animator
+## The Ghost Line Bug (and its fix)
 
-| Term | Definition |
-|------|------------|
-| **virtual buffer** | The in-memory representation of the file being animated. A list of lines. |
-| **cursor** | The current (line, col) position in the virtual buffer |
-| **render** | Drawing the virtual buffer to the terminal or vim |
-| **incremental render** | Only redrawing lines that changed (avoids flashing) |
-| **scroll** | Moving the viewport when the cursor goes off-screen |
+**The Ghost Line** is a visual hiccup: when a `\n` (newline) is
+deleted, two lines merge. If the second line still has content,
+that content "jumps up" onto the first line — like a ghost
+appearing where it shouldn't.
 
-## Formats
+**The Fix**: Delete the content FIRST (emptying the line), THEN
+delete the `\n` (joining the empty line with the next). The content
+never jumps — the line just quietly disappears.
 
-| Term | Definition |
-|------|------------|
-| **raw ops** | Output of compute. Char-level ops with HUNK headers. |
-| **post-processed ops** | Output of postprocess. Ops with (line, col) positioning, reordered/transformed. |
-| **timed ops** | Output of pace. Post-processed ops with delays inserted between them. |
+**The Cursor Fix**: Even after the ghost-line fix, the op stream
+may have backward line numbers. The animator decouples the
+"internal cursor" (where the buffer operation happens) from the
+"displayed cursor" (what the user sees). For `\n` deletes, only
+the internal cursor moves — the displayed cursor stays put, so
+the user never sees the cursor jump backwards.
 
-## TSV
+---
 
-All intermediary files use **tab-separated values** (TSV). Fields are separated by `\t`. Every file ends with a blank line.
+## Syntax Highlighting (Colormap)
 
-## Delay Types (updated names)
+| Term | How it works |
+|------|-------------|
+| **colormap-old** | Pre-colored version of the old file (syntax-highlighted) |
+| **colormap-new** | Pre-colored version of the new file |
+| **progressive recoloring** | Unmodified lines show old colors; as lines are modified, they switch to new colors — visual feedback of what changed |
+| **colorize** | The tool that generates colormaps (backends: vim, pygmentize, bat, none) |
 
-| Type | Description | When inserted |
-|------|-------------|---------------|
-| `char` | Per-character (normal typing speed) | After each keep or insert |
-| `word` | After completing a word | After a batch of inserts forming a word |
-| `hunk` | Between hunks | After HUNK_END, before next HUNK |
-| `awd_slow` | AWD: initial slow chars | First 3 chars of a delete run |
-| `awd_fast` | AWD: accelerated word batches | After word batches in a delete run |
-| `awd_skip` | AWD: spaces deleted instantly | After deleting spaces |
+---
+
+## Display Modes
+
+| Term | What you see |
+|------|-------------|
+| **scroll mode** | How the viewport follows the cursor: `zz` (center), `zt` (top), `zb` (bottom), `none` (don't scroll) |
+| **diff-stat** | An overlay showing "N/M lines changed" |
+| **diff-highlight** | Modified lines get a subtle background tint |
+| **bell** | Terminal bell rings on potential errors |
+| **sign column** | `+` and `-` signs in the margin for added/removed lines |
+| **dim-unchanged** | Unchanged lines are dimmed to draw focus to changes |
+
+---
+
+## The Formats
+
+| Format | What it contains |
+|--------|-----------------|
+| **raw ops** | Compute output — char-level keep/delete/insert with HUNK headers |
+| **post-processed ops** | Postprocess output — same ops but reordered, positioned, with ghost-line fix applied |
+| **timed ops** | Pace output — post-processed ops with `delay` lines inserted between them |
+| **decorated ops** | Decorate output — timed ops with highlight/dim/fold/sign metadata |
+
+All formats are **TSV** (tab-separated values). Every field is
+separated by `\t`. Every file ends with a blank line.
+
+---
+
+## Delay Types
+
+The pace stage inserts delays with a "type" tag so the animator
+can adjust timing per category:
+
+| Type | When it's used |
+|------|----------------|
+| `char` | After each character (normal typing) |
+| `word` | After completing a word |
+| `hunk` | Between hunks |
+| `glide` | During a cursor glide between hunks |
+| `awd_slow` | AWD: first few chars of a delete run |
+| `awd_fast` | AWD: accelerated word batches |
+| `awd_skip` | AWD: spaces deleted instantly |
+| `flash_pause` | Flash mode: pause after highlight |
+| `flash_delete` | Flash mode: instant delete after pause |
+| `rapid_eol` | Rapid end-of-line acceleration |
+| `rapid_identical` | Rapid runs of the same character |
+| `overwrite` | Minimal delay for overwrite (delete+insert at same position) |
+| `pause_after` | Pause after N changed lines |
+| `block_start` | Pause before a delete block |
+| `block_end` | Pause after a delete block |
