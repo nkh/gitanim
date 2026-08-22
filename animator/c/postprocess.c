@@ -442,11 +442,6 @@ int reorder_hunk_ops(Op *in, int count, Op *out) {
  * deletes, no keeps, no inserts). If there are keeps, the line is
  * not being wholly deleted and the transform is a no-op. */
 int indent_last_transform(Op *in, int count, Op *out) {
-    /* DEBUG */
-        fprintf(stderr, "indent_last_transform: count=%d\n", count);
-        for (int i = 0; i < count && i < 10; i++)
-            fprintf(stderr, "  [%d] type=%s code=%d\n", i, in[i].type, in[i].code);
-    }
     if (count <= 1) {
         memcpy(out, in, count * sizeof(Op));
         return count;
