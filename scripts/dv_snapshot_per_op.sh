@@ -87,6 +87,7 @@ OUTPUT
 HELP
 }
 
+export DIFFVIM_LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-1}"
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
