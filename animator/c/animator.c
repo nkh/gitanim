@@ -757,6 +757,10 @@ int main(int argc, char **argv) {
             int op_col = atoi(toks[2]);
             int code = atoi(toks[3]);
             set_cursor(op_line, op_col);
+            if (strcmp(cmd, "overwrite_insert") == 0) {
+                /* Overwrite: delete the char at cursor first, then insert */
+                delete_char(code);  /* code parameter ignored for non-\n */
+            }
             insert_char(code);
             mark_modified(cursor_l);
             render();
