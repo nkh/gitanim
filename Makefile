@@ -19,7 +19,7 @@
 #   make test-vimscript  Run vimscript animator tests (42 examples)
 #   make test-debug-bundle  Run dv_debug_bundle.sh script tests (12 tests)
 #   make debug           Run the pipeline debugger on example 01
-#   make snapshot        Run dv_snapshot_per_op.sh on example 01
+#   make snapshot        Run dv_snapshot.sh on example 01
 #   make clean           Remove all built binaries
 #   make clean-compute   Remove compute binaries only
 #   make clean-animator  Remove animator binaries only
@@ -203,7 +203,7 @@ debug:
 
 snapshot:
 	@echo "=== Per-op snapshots for example 01 ==="
-	@bash scripts/dv_snapshot_per_op.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
+	@bash scripts/dv_snapshot.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
 	@echo "Open: file:///tmp/dv_snapshots/snapshots.html"
 
 # --- Clean -----------------------------------------------------------------

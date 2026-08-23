@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dv_snapshot_per_op.sh — Take a snapshot of the buffer after every op
+# dv_snapshot.sh — Take a snapshot of the buffer after every op
 # and produce an HTML visualization in LIST format.
 #
 # Accepts ALL diffvim/pipeline options and passes them through to the
@@ -8,7 +8,7 @@
 # animation setting and inspect the buffer state after every op.
 #
 # Usage:
-#   bash scripts/dv_snapshot_per_op.sh [options] <oldfile> <newfile>
+#   bash scripts/dv_snapshot.sh [options] <oldfile> <newfile>
 #
 # Options:
 #   ALL diffvim options are accepted (see 'diffvim --help' for the full list).
@@ -36,11 +36,11 @@
 show_help() {
 cat <<'HELP'
 NAME
-    dv_snapshot_per_op.sh — Per-op HTML snapshot visualizer for diffvim
+    dv_snapshot.sh — Per-op HTML snapshot visualizer for diffvim
 
 SYNOPSIS
-    dv_snapshot_per_op.sh [-h|--help]
-    dv_snapshot_per_op.sh [options] <oldfile> <newfile>
+    dv_snapshot.sh [-h|--help]
+    dv_snapshot.sh [options] <oldfile> <newfile>
 
 DESCRIPTION
     Runs the full diffvim pipeline (compute → postprocess → pace →
@@ -76,10 +76,10 @@ PIPELINE OPTIONS (routed to the appropriate stage)
       --speed 2                   --delete-speed fast
 
 EXAMPLES
-    dv_snapshot_per_op.sh --trace old.py new.py
-    dv_snapshot_per_op.sh --op-order left-to-right --delete-pacing flash old.py new.py
-    dv_snapshot_per_op.sh --highlight inline --dim-unchanged --indent-last old.py new.py
-    dv_snapshot_per_op.sh --cursor-glide-ms 300 --distance-speed adaptive old.py new.py
+    dv_snapshot.sh --trace old.py new.py
+    dv_snapshot.sh --op-order left-to-right --delete-pacing flash old.py new.py
+    dv_snapshot.sh --highlight inline --dim-unchanged --indent-last old.py new.py
+    dv_snapshot.sh --cursor-glide-ms 300 --distance-speed adaptive old.py new.py
 
 OUTPUT
     /tmp/dv_snapshots/snapshots.html
@@ -208,8 +208,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-OLD="${1:?Usage: dv_snapshot_per_op.sh [options] <oldfile> <newfile>}"
-NEW="${2:?Usage: dv_snapshot_per_op.sh [options] <oldfile> <newfile>}"
+OLD="${1:?Usage: dv_snapshot.sh [options] <oldfile> <newfile>}"
+NEW="${2:?Usage: dv_snapshot.sh [options] <oldfile> <newfile>}"
 
 # Validate files exist
 if [[ ! -f "$OLD" ]]; then

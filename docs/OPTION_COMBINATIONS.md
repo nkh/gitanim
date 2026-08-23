@@ -127,19 +127,19 @@ diffvim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 
 
 ---
 
-## Using dv_snapshot_per_op for Debugging
+## Using dv_snapshot for Debugging
 
 **Goal:** Inspect the buffer state after every op.
 
 ```bash
 # Basic
-bash scripts/dv_snapshot_per_op.sh old.py new.py
+bash scripts/dv_snapshot.sh old.py new.py
 
 # With all the same options as diffvim
-bash scripts/dv_snapshot_per_op.sh --op-order left-to-right --delete-pacing flash --highlight inline --indent-last --cursor-glide-ms 300 old.py new.py
+bash scripts/dv_snapshot.sh --op-order left-to-right --delete-pacing flash --highlight inline --indent-last --cursor-glide-ms 300 old.py new.py
 
 # With trace UI (click ops to collect them)
-bash scripts/dv_snapshot_per_op.sh --trace --diff-stat --diff-highlight old.py new.py
+bash scripts/dv_snapshot.sh --trace --diff-stat --diff-highlight old.py new.py
 ```
 
 ---
