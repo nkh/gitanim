@@ -1,22 +1,28 @@
 /*
- * pp_common.h — Shared types and helpers for postprocess layers.
+ * pp_common.h — Shared infrastructure for postprocess layers.
  *
- * All layers (C) include this header. It provides:
- *   - The Op struct (one diff operation)
- *   - Debug/logging helpers (pp_debug_init, pp_log, pp_logf, pp_dump)
- *   - The layer main loop (read TSV → Op array → process → write TSV)
+ * Design principles (from user spec):
+ *   1. Each layer is a pure function: Op[] → Op[]. No side effects.
+ *   2. Each layer can be enabled/disabled.
+ *   3. Each layer can dump input/output for debugging.
+ *      DV_DEBUG_POSTPROCESS=path → dumps to $path/N_layername_input.txt
+ *      and $path/N_layername_output.txt (TSV format).
+ *   4. No ghost-line fix. Not now, not ever.
+ *   5. Layers can be piped (standalone) or linked into one executable.
+ *   6. Layers may need the input file (old file path passed via env var).
  *
- * Design:
- *   Each layer is a function: int layer_N(Op *in, int count, Op *out)
- *   The function reads N ops, processes them, writes M ops.
- *   M can be < N (some ops merged), = N (passthrough), or > N (ops added).
+ * Layer function signature:
+ *   int layer_N(Op *in, int in_count, Op *out, int out_cap,
+ *               const char *old_file);
+ *   Returns: number of output ops.
  *
- *   The layer can be:
- *     1. Compiled into the main postprocess executable (linked)
- *     2. Compiled standalone (cc -DPP_STANDALONE -o pp_layerN pp_layerN.c)
+ * Standalone mode:
+ *   cc -DPP_STANDALONE -I animator/c -o pp_layerN pp_layerN.c
+ *   Reads TSV stdin → parses to Op[] → calls layer → writes TSV stdout.
  *
- *   In standalone mode, the binary reads TSV from stdin, parses into
- *   Op array, calls the layer function, writes TSV to stdout.
+ * Include mode:
+ *   #include "pp_layerN.c"  (or link object file)
+ *   Calls layer_N() directly with in-memory Op array.
  */
 
 #ifndef PP_COMMON_H
@@ -30,10 +36,8 @@
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 
-#define PP_MAX_LINE  1048576   /* 1MB max line length */
-#define PP_MAX_OPS   1000000   /* max ops in one hunk (grows dynamically) */
-#define PP_TYPE_LEN  20        /* max length of op type string */
-#define PP_NUM_LAYERS 4        /* total number of layers */
+#define PP_MAX_LINE   1048576   /* 1MB max line */
+#define PP_TYPE_LEN   20        /* max op type string length */
 
 /* ── Op struct ─────────────────────────────────────────────────────── */
 
@@ -47,90 +51,116 @@ typedef struct {
 /* ── Hunk struct ───────────────────────────────────────────────────── */
 
 typedef struct {
-    int target;     /* target line in old file */
-    int del;        /* deleted line count */
-    int ins;        /* inserted line count */
-    int end_ins;    /* is_end_insert flag */
-    int end_del;    /* is_end_delete flag */
-    int op_start;   /* index into ops array where this hunk's ops begin */
-    int op_count;   /* number of ops in this hunk */
+    int target;
+    int del;
+    int ins;
+    int end_ins;
+    int end_del;
 } Hunk;
 
 /* ── Debug/Logging ─────────────────────────────────────────────────── */
+/*
+ * DV_DEBUG_POSTPROCESS=path  →  dumps to $path/N_layername_input.txt
+ *                                and $path/N_layername_output.txt (TSV)
+ *
+ * If DV_DEBUG_POSTPROCESS=1 (just "1"), uses /tmp/dv_debug/ as the path.
+ */
 
-static int pp_debug = 0;
+static const char *pp_debug_dir = NULL;
 static FILE *pp_log_file = NULL;
-static const char *pp_layer_name = "unknown";
 
-/* Initialize debug logging. Call once at startup. */
-static void pp_debug_init(const char *layer_name) {
-    pp_layer_name = layer_name;
+/* Initialize debug for a layer. Call at start of main() or layer init. */
+static void pp_debug_init(const char *layer_id, const char *layer_name) {
     const char *env = getenv("DV_DEBUG_POSTPROCESS");
-    pp_debug = (env && env[0] == '1');
-    if (pp_debug) {
-        mkdir("/tmp/dv_debug", 0755);
-        /* Append to the log (all layers share one log) */
-        pp_log_file = fopen("/tmp/dv_debug/postprocess.log", "a");
-        if (pp_log_file) {
-            fprintf(pp_log_file, "\n--- %s ---\n", layer_name);
-        }
+    if (!env || env[0] == 0) return;
+
+    /* "1" means use default path */
+    if (strcmp(env, "1") == 0)
+        pp_debug_dir = "/tmp/dv_debug";
+    else
+        pp_debug_dir = env;
+
+    /* Create directory */
+    mkdir(pp_debug_dir, 0755);
+
+    /* Open log (append — all layers share one log) */
+    char log_path[512];
+    snprintf(log_path, sizeof(log_path), "%s/postprocess.log", pp_debug_dir);
+    pp_log_file = fopen(log_path, "a");
+    if (pp_log_file) {
+        fprintf(pp_log_file, "\n--- %s: %s ---\n", layer_id, layer_name);
     }
 }
 
 /* Log a message. */
-static void pp_log(const char *msg) {
-    if (!pp_debug || !pp_log_file) return;
-    fprintf(pp_log_file, "[%s] %s\n", pp_layer_name, msg);
+__attribute__((unused)) static void pp_log(const char *msg) {
+    if (!pp_log_file) return;
+    fprintf(pp_log_file, "%s\n", msg);
+    fflush(pp_log_file);
 }
 
 /* Log a formatted message. */
 static void pp_logf(const char *fmt, ...) {
-    if (!pp_debug || !pp_log_file) return;
+    if (!pp_log_file) return;
     va_list args;
     va_start(args, fmt);
-    fprintf(pp_log_file, "[%s] ", pp_layer_name);
     vfprintf(pp_log_file, fmt, args);
     fprintf(pp_log_file, "\n");
     va_end(args);
+    fflush(pp_log_file);
 }
 
-/* Dump an Op array to a file (for layer debugging). */
-static void pp_dump_ops(const char *filename, Op *ops, int count) {
-    if (!pp_debug) return;
-    char path[256];
-    snprintf(path, sizeof(path), "/tmp/dv_debug/%s", filename);
+/* Dump Op array to a TSV file. Filename: $dir/N_layername_suffix.txt */
+static void pp_dump_ops(const char *layer_id, const char *suffix,
+                        Op *ops, int count) {
+    if (!pp_debug_dir) return;
+    char path[512];
+    snprintf(path, sizeof(path), "%s/%s_%s", pp_debug_dir, layer_id, suffix);
     FILE *f = fopen(path, "w");
     if (!f) return;
     for (int i = 0; i < count; i++) {
-        fprintf(f, "%s\t%d\t%d\t%d\n", ops[i].type, ops[i].line, ops[i].col, ops[i].code);
+        fprintf(f, "%s\t%d\t%d\t%d\n", ops[i].type, ops[i].line,
+                ops[i].col, ops[i].code);
     }
     fclose(f);
 }
 
-/* Dump raw TSV data to a file. */
-__attribute__((unused))
-static void pp_dump_raw(const char *filename, const char *data, size_t len) {
-    if (!pp_debug) return;
-    char path[256];
-    snprintf(path, sizeof(path), "/tmp/dv_debug/%s", filename);
-    FILE *f = fopen(path, "w");
-    if (!f) return;
-    fwrite(data, 1, len, f);
-    fclose(f);
+/* ── char_repr helper ───────────────────────────────────────────────── */
+/*
+ * Returns a human-readable representation of a char code.
+ * Used for the 5th TSV field (cosmetic, not stored in Op struct).
+ *   10 → \n, 9 → \t, 32 → space, 33-126 → 'x', else → number
+ */
+static const char *pp_char_repr(int code) {
+    static char buf[8];
+    switch (code) {
+        case 10: return "\\n";
+        case 9:  return "\\t";
+        case 13: return "\\r";
+        case 32: return "space";
+        default:
+            if (code >= 33 && code <= 126) {
+                buf[0] = '\''; buf[1] = (char)code; buf[2] = '\''; buf[3] = 0;
+                return buf;
+            }
+            snprintf(buf, sizeof(buf), "%d", code);
+            return buf;
+    }
 }
 
 /* ── TSV Parsing ──────────────────────────────────────────────────── */
 
-/* Parse a TSV line into an Op. Returns 1 on success, 0 on failure. */
+/* Parse a TSV line into an Op. Returns 1 on success, 0 on failure.
+ * Format: type\tline\tcol\tcode  (char_repr field ignored if present) */
 static int pp_parse_op(const char *line, Op *op) {
-    /* Format: type\tline\tcol\tcode */
-    /* Note: compute output may have extra fields (char_repr) — ignore them */
     char type[PP_TYPE_LEN];
     int l, c, code;
     int n = sscanf(line, "%19s\t%d\t%d\t%d", type, &l, &c, &code);
     if (n >= 4) {
-        strncpy(op->type, type, PP_TYPE_LEN - 1);
-        op->type[PP_TYPE_LEN - 1] = 0;
+        size_t tlen = strlen(type);
+        if (tlen >= PP_TYPE_LEN) tlen = PP_TYPE_LEN - 1;
+        memcpy(op->type, type, tlen);
+        op->type[tlen] = 0;
         op->line = l;
         op->col = c;
         op->code = code;
@@ -141,14 +171,16 @@ static int pp_parse_op(const char *line, Op *op) {
 
 /* ── TSV Writing ──────────────────────────────────────────────────── */
 
-/* Write an Op to stdout in TSV format. */
+/* Write an Op to stdout in V2 TSV format (5 fields, with char_repr). */
 static void pp_write_op(Op *op) {
-    printf("%s\t%d\t%d\t%d\n", op->type, op->line, op->col, op->code);
+    printf("%s\t%d\t%d\t%d\t%s\n", op->type, op->line, op->col,
+           op->code, pp_char_repr(op->code));
 }
 
 /* Write a HUNK header. */
 static void pp_write_hunk(Hunk *h) {
-    printf("HUNK\t%d\t%d\t%d\t%d\t%d\n", h->target, h->del, h->ins, h->end_ins, h->end_del);
+    printf("HUNK\t%d\t%d\t%d\t%d\t%d\n", h->target, h->del, h->ins,
+           h->end_ins, h->end_del);
 }
 
 /* Write HUNK_END. */
@@ -156,96 +188,103 @@ static void pp_write_hunk_end(void) {
     printf("HUNK_END\n");
 }
 
-/* ── Standalone Layer Runner ──────────────────────────────────────── */
-
+/* ── Debug op insertion ───────────────────────────────────────────── */
 /*
- * A standalone layer binary uses this function as its main().
- * It:
- *   1. Reads TSV from stdin
- *   2. Parses into Op array
- *   3. Calls the layer function
- *   4. Writes the result to stdout
+ * Insert a debug op into the stream. Debug ops are ignored by all
+ * other layers and the animator. They carry human-readable text
+ * that explains what a layer did.
  *
- * The layer function signature:
- *   int layer_func(Op *in, int in_count, Op *out, int out_cap)
- *   Returns: number of output ops (can be <, =, or > input)
+ * Format: debug\t<layer_id>\t<message>
+ *
+ * The message is a single line of text (no tabs, no newlines).
+ * Example: debug\tL2_indent_last\tmoved 4 leading spaces to end of group
+ */
+__attribute__((unused)) static void pp_write_debug_op(const char *layer_id, const char *message) {
+    printf("debug\t%s\t%s\n", layer_id, message);
+}
+
+/* Check if an op is a debug op (so layers can skip them). */
+__attribute__((unused)) static int pp_is_debug_op(Op *op) {
+    return strcmp(op->type, "debug") == 0;
+}
+
+/* ── Standalone Layer Runner ──────────────────────────────────────── */
+/*
+ * Reads TSV from stdin, parses into Op array per hunk, calls the
+ * layer function for each hunk, writes the result to stdout.
+ *
+ * Headers and HUNK/HUNK_END are passed through.
+ * Debug ops (type="debug") are passed through unchanged.
  *
  * Usage in standalone file:
- *   #include "pp_common.h"
- *   int my_layer(Op *in, int in_count, Op *out, int out_cap) { ... }
+ *   int my_layer(Op *in, int in_count, Op *out, int out_cap,
+ *                const char *old_file) { ... }
  *   #ifdef PP_STANDALONE
  *   int main(void) {
- *       pp_debug_init("Layer N: Name");
+ *       pp_debug_init("L1", "Reorder");
  *       return pp_run_layer(my_layer);
  *   }
  *   #endif
  */
 
-static int pp_run_layer(int (*layer_func)(Op *in, int in_count, Op *out, int out_cap)) {
+__attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in_count,
+                                          Op *out, int out_cap,
+                                          const char *old_file)) {
     char line[PP_MAX_LINE];
     Op *in_ops = NULL;
     int in_count = 0;
     int in_cap = 0;
     int in_hunk = 0;
-    Hunk current_hunk;
+    Hunk current_hunk = {0};
     int hunk_count = 0;
 
-    /* Read all input into Op array, tracking hunks */
-    /* We read line by line. Headers and HUNK/HUNK_END are handled inline.
-     * Op lines are parsed and added to the array. */
-    
+    /* Get old file path from env (layers may need it) */
+    const char *old_file = getenv("DV_OLD_FILE");
+    if (!old_file) old_file = "";
+
     /* Allocate initial capacity */
     in_cap = 4096;
     in_ops = (Op *)malloc(in_cap * sizeof(Op));
     if (!in_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
-    /* Read headers and pass through */
     while (fgets(line, sizeof(line), stdin)) {
-        /* Strip newline */
         line[strcspn(line, "\n\r")] = 0;
 
         /* Skip empty lines */
         if (line[0] == 0) continue;
 
-        /* Headers (# ...) — pass through */
+        /* Headers (# ...) — rewrite top header, pass through rest */
         if (line[0] == '#') {
-            /* Rewrite the top header */
-            if (strstr(line, "raw diff") || strstr(line, "post-processed")) {
+            if (strstr(line, "raw diff") || strstr(line, "post-processed"))
                 printf("# diffvim post-processed v2\n");
-            } else {
+            else
                 printf("%s\n", line);
-            }
             continue;
         }
 
         /* HUNK header */
-        if (strncmp(line, "HUNK\t", 5) == 0 || strncmp(line, "HUNK ", 5) == 0) {
-            /* If we were in a hunk, process it */
+        if (strncmp(line, "HUNK\t", 5) == 0) {
+            /* If we were in a hunk, process it first */
             if (in_hunk && in_count > 0) {
-                /* Run the layer on this hunk's ops */
                 Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
                 if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
-                pp_logf("Processing hunk %d: %d ops input", hunk_count, in_count);
-                pp_dump_ops("layer_input.txt", in_ops, in_count);
+                pp_dump_ops("L", "input.txt", in_ops, in_count);
 
-                int out_count = layer_func(in_ops, in_count, out_ops, in_cap);
+                int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
 
+                pp_dump_ops("L", "output.txt", out_ops, out_count);
                 pp_logf("Hunk %d: %d ops → %d ops", hunk_count, in_count, out_count);
-                pp_dump_ops("layer_output.txt", out_ops, out_count);
 
-                /* Write the hunk header and ops */
                 pp_write_hunk(&current_hunk);
-                for (int i = 0; i < out_count; i++) {
+                for (int i = 0; i < out_count; i++)
                     pp_write_op(&out_ops[i]);
-                }
                 pp_write_hunk_end();
 
                 free(out_ops);
                 in_count = 0;
             }
 
-            /* Parse new hunk header */
             sscanf(line, "HUNK\t%d\t%d\t%d\t%d\t%d",
                    &current_hunk.target, &current_hunk.del, &current_hunk.ins,
                    &current_hunk.end_ins, &current_hunk.end_del);
@@ -260,18 +299,16 @@ static int pp_run_layer(int (*layer_func)(Op *in, int in_count, Op *out, int out
                 Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
                 if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
-                pp_logf("Processing hunk %d: %d ops input", hunk_count, in_count);
-                pp_dump_ops("layer_input.txt", in_ops, in_count);
+                pp_dump_ops("L", "input.txt", in_ops, in_count);
 
-                int out_count = layer_func(in_ops, in_count, out_ops, in_cap);
+                int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
 
+                pp_dump_ops("L", "output.txt", out_ops, out_count);
                 pp_logf("Hunk %d: %d ops → %d ops", hunk_count, in_count, out_count);
-                pp_dump_ops("layer_output.txt", out_ops, out_count);
 
                 pp_write_hunk(&current_hunk);
-                for (int i = 0; i < out_count; i++) {
+                for (int i = 0; i < out_count; i++)
                     pp_write_op(&out_ops[i]);
-                }
                 pp_write_hunk_end();
 
                 free(out_ops);
@@ -281,7 +318,21 @@ static int pp_run_layer(int (*layer_func)(Op *in, int in_count, Op *out, int out
             continue;
         }
 
-        /* Op line — parse and add to array */
+        /* Debug ops — pass through unchanged */
+        if (strncmp(line, "debug\t", 6) == 0) {
+            if (in_hunk) {
+                if (in_count >= in_cap) {
+                    in_cap *= 2;
+                    in_ops = (Op *)realloc(in_ops, in_cap * sizeof(Op));
+                }
+                /* Parse as a regular op (type="debug", line/col from fields) */
+                pp_parse_op(line, &in_ops[in_count]);
+                in_count++;
+            }
+            continue;
+        }
+
+        /* Op line — parse and add to current hunk's array */
         if (in_hunk) {
             if (in_count >= in_cap) {
                 in_cap *= 2;
@@ -294,33 +345,28 @@ static int pp_run_layer(int (*layer_func)(Op *in, int in_count, Op *out, int out
         }
     }
 
-    /* Handle last hunk if no HUNK_END was seen */
+    /* Handle last hunk if no HUNK_END */
     if (in_hunk && in_count > 0) {
         Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
         if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
-        pp_logf("Processing last hunk: %d ops", in_count);
-        pp_dump_ops("layer_input.txt", in_ops, in_count);
+        pp_dump_ops("L", "input.txt", in_ops, in_count);
 
-        int out_count = layer_func(in_ops, in_count, out_ops, in_cap);
+        int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
 
+        pp_dump_ops("L", "output.txt", out_ops, out_count);
         pp_logf("Last hunk: %d ops → %d ops", in_count, out_count);
-        pp_dump_ops("layer_output.txt", out_ops, out_count);
 
         pp_write_hunk(&current_hunk);
-        for (int i = 0; i < out_count; i++) {
+        for (int i = 0; i < out_count; i++)
             pp_write_op(&out_ops[i]);
-        }
         pp_write_hunk_end();
 
         free(out_ops);
     }
 
-    /* Trailing blank line */
-    printf("\n");
-
-    pp_logf("Total: %d hunks processed", hunk_count);
-
+    printf("\n");  /* trailing blank line */
+    pp_logf("Total: %d hunks", hunk_count);
     free(in_ops);
     return 0;
 }
