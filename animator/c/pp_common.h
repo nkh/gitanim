@@ -70,7 +70,7 @@ static const char *pp_debug_dir = NULL;
 static FILE *pp_log_file = NULL;
 
 /* Initialize debug for a layer. Call at start of main() or layer init. */
-static void pp_debug_init(const char *layer_id, const char *layer_name) {
+__attribute__((unused)) static void pp_debug_init(const char *layer_id, const char *layer_name) {
     const char *env = getenv("DV_DEBUG_POSTPROCESS");
     if (!env || env[0] == 0) return;
 
