@@ -183,9 +183,30 @@ int layer_indent_last(Op *in, int in_count, Op *out, int out_cap,
                         out[n_out++] = in[j];
                     }
 
-                    /* b) Indentation: the leading whitespace deletes */
+                    /* b) Indentation: the leading whitespace deletes.
+                     *
+                     * Mark each deferred delete with pos_set=1 and col=1.
+                     * Layer 3 will respect this position instead of
+                     * computing it from cursor state.
+                     *
+                     * Why col=1 for ALL deferred deletes (not 1, 2, 3, 4)?
+                     *   In the animator's cursor-tracking model, deletes
+                     *   don't advance the cursor — chars shift left to fill
+                     *   the gap. So after the first delete at col 1, the next
+                     *   leading-whitespace char shifts to col 1, and the
+                     *   next delete (also at col 1) removes it. All deferred
+                     *   deletes are at col 1.
+                     *
+                     * This requires Layer 3's buffer simulation to find
+                     * the content deletes at their actual positions (e.g.,
+                     * col 5+ if there are 4 leading spaces), so that the
+                     * leading whitespace remains in the buffer when these
+                     * deferred deletes execute. */
                     for (int j = seg_start; j < indent_end; j++) {
-                        out[n_out++] = in[j];
+                        out[n_out] = in[j];
+                        out[n_out].col = 1;
+                        out[n_out].pos_set = 1;
+                        n_out++;
                     }
 
                     /* c) \n op (if present) */

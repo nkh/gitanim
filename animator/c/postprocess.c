@@ -222,8 +222,11 @@ int main(int argc, char **argv) {
         if (strncmp(line, "HUNK_END", 8) == 0) {
             /* End of hunk — run layers and write output */
             if (in_hunk && n_ops > 0) {
-                /* Adjust first op line for cross-hunk offset */
-                if (n_ops > 0) ops[0].line = current_hunk.target + line_offset;
+                /* NOTE: Do NOT adjust line numbers before Layer 3.
+                 * Layer 3's buffer simulation uses the line number to
+                 * index into the OLD file, which has ORIGINAL line
+                 * numbers (not the offset-adjusted LOGICAL line numbers).
+                 * We adjust to LOGICAL after Layer 3. */
                 hunk_count++;
 
                 /* Run Layer 1 (reorder) */
@@ -242,11 +245,22 @@ int main(int argc, char **argv) {
                                                 "overwrite", old_file);
                 }
 
-                /* Run Layer 3 (cursor recomputation) */
-                /* Count newlines for line_offset */
-                { int ni=0, nd=0; for (int j=0; j<n_ops; j++) { if (strcmp(ops[j].type,"insert")==0 && ops[j].code==10) ni++; if (strcmp(ops[j].type,"delete")==0 && ops[j].code==10) nd++; } line_offset += ni - nd; }
+                /* Run Layer 3 (cursor recomputation) — uses ORIGINAL
+                 * line numbers for buffer simulation. */
                 n_ops = run_layer_on_buffer(layer3_cursor, ops, n_ops,
                                             "cursor", old_file);
+
+                /* Count newlines for line_offset (after Layer 3, since
+                 * Layer 3 may have reordered ops), then adjust output
+                 * line numbers from ORIGINAL to LOGICAL.
+                 *
+                 * - line_offset is currently the PRE-hunk offset
+                 *   (cumulative from prior hunks)
+                 * - delta is THIS hunk's net \n change
+                 * - After this hunk, line_offset becomes line_offset + delta
+                 * - The output line numbers should be: original + pre_hunk_offset
+                 *   (where pre_hunk_offset = current line_offset, before delta) */
+                { int ni=0, nd=0; for (int j=0; j<n_ops; j++) { if (strcmp(ops[j].type,"insert")==0 && ops[j].code==10) ni++; if (strcmp(ops[j].type,"delete")==0 && ops[j].code==10) nd++; } int delta = ni - nd; int pre_hunk_offset = line_offset; line_offset += delta; for (int j = 0; j < n_ops; j++) ops[j].line += pre_hunk_offset; }
 
                 /* Write hunk header and ops to stdout */
                 pp_write_hunk(&current_hunk);
@@ -275,7 +289,7 @@ int main(int argc, char **argv) {
     /* Handle last hunk if no HUNK_END */
     if (in_hunk && n_ops > 0) {
         hunk_count++;
-        if (n_ops > 0) ops[0].line = current_hunk.target + line_offset;
+        /* Don't adjust line before Layer 3 — see comment above. */
         n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                     "reorder", old_file);
         if (do_indent_last) {
@@ -288,6 +302,8 @@ int main(int argc, char **argv) {
         }
         n_ops = run_layer_on_buffer(layer3_cursor, ops, n_ops,
                                     "cursor", old_file);
+        /* Count newlines + apply pre-hunk offset */
+        { int ni=0, nd=0; for (int j=0; j<n_ops; j++) { if (strcmp(ops[j].type,"insert")==0 && ops[j].code==10) ni++; if (strcmp(ops[j].type,"delete")==0 && ops[j].code==10) nd++; } int delta = ni - nd; int pre_hunk_offset = line_offset; line_offset += delta; for (int j = 0; j < n_ops; j++) ops[j].line += pre_hunk_offset; }
         pp_write_hunk(&current_hunk);
         for (int i = 0; i < n_ops; i++) {
             pp_write_op(&ops[i]);
