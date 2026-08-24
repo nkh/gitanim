@@ -1414,6 +1414,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
             end-first-smart) POSTPROCESS_ARGS+=("--op-order" "end-first-smart") ;;
         esac
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
+        export DV_OLD_FILE="$OLD"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 

@@ -284,7 +284,8 @@ run_stage() {
 # Stage 1: Compute
 run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS"
 
-# Stage 2: Postprocess
+# Stage 2: Postprocess (pass old file path for buffer simulation)
+export DV_OLD_FILE="$OLD"
 run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 
 # Stage 3: Pace
