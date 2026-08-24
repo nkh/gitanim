@@ -41,6 +41,8 @@ extern int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
                             const char *old_file);
 extern int layer_overwrite(Op *in, int in_count, Op *out, int out_cap,
                             const char *old_file);
+extern int layer_indent_last(Op *in, int in_count, Op *out, int out_cap,
+                             const char *old_file);
 extern int layer3_cursor(Op *in, int in_count, Op *out, int out_cap,
                          const char *old_file);
 
@@ -95,6 +97,7 @@ static int run_layer_on_buffer(int (*layer_func)(Op *in, int in_count,
 
 int main(int argc, char **argv) {
     int do_overwrite = 0;
+    int do_indent_last = 0;
     int op_debug = 0;
     const char *old_file = getenv("DV_OLD_FILE");
     if (!old_file) old_file = "";
@@ -103,6 +106,8 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--overwrite") == 0) {
             do_overwrite = 1;
+        } else if (strcmp(argv[i], "--indent-last") == 0) {
+            do_indent_last = 1;
         } else if (strcmp(argv[i], "--op-debug") == 0) {
             op_debug = 1;
             setenv("DV_OP_DEBUG", "1", 1);
@@ -225,6 +230,12 @@ int main(int argc, char **argv) {
                 n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                             "reorder", old_file);
 
+                /* Run indent-last layer (if enabled) */
+                if (do_indent_last) {
+                    n_ops = run_layer_on_buffer(layer_indent_last, ops, n_ops,
+                                                "indent_last", old_file);
+                }
+
                 /* Run overwrite layer (if enabled) */
                 if (do_overwrite) {
                     n_ops = run_layer_on_buffer(layer_overwrite, ops, n_ops,
@@ -264,8 +275,13 @@ int main(int argc, char **argv) {
     /* Handle last hunk if no HUNK_END */
     if (in_hunk && n_ops > 0) {
         hunk_count++;
+        if (n_ops > 0) ops[0].line = current_hunk.target + line_offset;
         n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                     "reorder", old_file);
+        if (do_indent_last) {
+            n_ops = run_layer_on_buffer(layer_indent_last, ops, n_ops,
+                                        "indent_last", old_file);
+        }
         if (do_overwrite) {
             n_ops = run_layer_on_buffer(layer_overwrite, ops, n_ops,
                                         "overwrite", old_file);
