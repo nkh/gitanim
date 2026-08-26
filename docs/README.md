@@ -43,7 +43,6 @@ Documentation for the diffvim project.
 ## Other
 
 - `NEXT_SESSION.md` — Handoff doc for the next session.
-- `GHOST_LINE_DESIGN.md` — Design doc for the ghost-line fix.
 - `USER_REQUESTS.md` — User requests and responses.
 - `100_IMPROVEMENTS.md` — 100 improvement ideas.
 - `DIFF_STUDY.md` — Diff algorithm study.

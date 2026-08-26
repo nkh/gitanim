@@ -13,12 +13,9 @@ Since every op carries its own `(line, col)` position, do we still need
 1. **The pace stage** — it uses keep ops to insert the right delays
    (1ms per keep char, so the cursor "walks" through unchanged text
    at a natural pace)
-2. **The postprocess ghost-line fix** — it looks ahead for "followed
-   by keep or insert" to decide whether to apply the ghost-line
-   reordering
-3. **The op ordering logic** — keeps are the anchors that define
+2. **The op ordering logic** — keeps are the anchors that define
    "change regions" (sequences of deletes/inserts between keeps)
-4. **The animator's keep_char** — currently a no-op except for cursor
+3. **The animator's keep_char** — currently a no-op except for cursor
    advancement, BUT removing keeps would remove the visual effect of
    the cursor walking through unchanged text
 
@@ -84,26 +81,7 @@ sub-line region between keeps. The current behavior (deletes before
 inserts within each inter-keep region) produces more natural
 animation.
 
-### 3. Postprocess ghost-line fix (looks ahead for keeps)
-
-The ghost-line fix checks if a `delete \n` is followed by keeps or
-inserts:
-
-```c
-int followed_by_keep_or_insert = 0;
-if (j < n_out) {
-    if (strcmp(final_ops[j].type, "keep") == 0 ||
-        strcmp(final_ops[j].type, "insert") == 0) {
-        followed_by_keep_or_insert = 1;
-    }
-}
-```
-
-If there are no keep ops, this check would always be false (only
-inserts would trigger it), which would change when the ghost-line
-fix is applied.
-
-### 4. Pace stage (inserts delays based on keeps)
+### 3. Pace stage (inserts delays based on keeps)
 
 The pace stage inserts a 1ms delay after each keep:
 
@@ -127,7 +105,7 @@ N+1 is at col 20, insert 10ms of "walking" delay). But this would
 require the pace stage to understand positions, which it currently
 doesn't — it just emits delays op-by-op.
 
-### 5. Animator (keep_char is mostly redundant)
+### 4. Animator (keep_char is mostly redundant)
 
 The animator's `keep_char` function:
 
@@ -159,7 +137,7 @@ already does via `set_cursor()`. So `keep_char` is truly redundant
 IF the animator renders cursor position based on `set_cursor()` and
 not based on incremental advancement.
 
-### 6. What would change if keeps were removed?
+### 5. What would change if keeps were removed?
 
 **If keeps were removed from the timed stream:**
 

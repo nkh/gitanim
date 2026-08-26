@@ -20,10 +20,10 @@ The postprocess output is v2 TSV (tab-separated values):
 # indent_aware 0
 # optimize_sequence 1
 # hunk_count N
-HUNK	<target>	<del>	<ins>	<end_ins>	<end_del>
-keep	<line>	<col>	<code>	<char_repr>
-delete	<line>	<col>	<code>	<char_repr>
-insert	<line>	<col>	<code>	<char_repr>
+HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
+keep    <line>  <col>   <code>  <char_repr>
+delete  <line>  <col>   <code>  <char_repr>
+insert  <line>  <col>   <code>  <char_repr>
 HUNK_END
 ```
 
@@ -49,13 +49,13 @@ ops and simulates the cursor:
 
 Raw input (from compute):
 ```
-HUNK	2	1	1	0	0
-keep	2	1	104	'h'
-keep	2	2	101	'e'
-delete	2	3	108	'l'
-insert	2	3	112	'p'
-keep	2	4	112	'p'
-keep	2	5	111	'o'
+HUNK    2       1       1       0       0
+keep    2       1       104     'h'
+keep    2       2       101     'e'
+delete  2       3       108     'l'
+insert  2       3       112     'p'
+keep    2       4       112     'p'
+keep    2       5       111     'o'
 ```
 
 The postprocess passes through these positions unchanged (the
@@ -75,18 +75,18 @@ Keeps stay in their original position (they don't move).
 
 **Example — without optimize:**
 ```
-keep	2	1	104	'h'
-insert	2	2	112	'p'     ← insert before delete (wrong visual)
-delete	2	2	101	'e'
-keep	2	3	108	'l'
+keep    2       1       104     'h'
+insert  2       2       112     'p'     ← insert before delete (wrong visual)
+delete  2       2       101     'e'
+keep    2       3       108     'l'
 ```
 
 **Example — with optimize (default):**
 ```
-keep	2	1	104	'h'
-delete	2	2	101	'e'     ← delete first
-insert	2	2	112	'p'     ← then insert
-keep	2	3	108	'l'
+keep    2       1       104     'h'
+delete  2       2       101     'e'     ← delete first
+insert  2       2       112     'p'     ← then insert
+keep    2       3       108     'l'
 ```
 
 This makes the animation look like: keep 'h', delete 'e', insert 'p',
@@ -99,55 +99,13 @@ the line), then the `\n` delete removes the empty line.
 
 **Example — delete the line "def":**
 ```
-delete	3	1	100	'd'     ← content first
-delete	3	1	101	'e'
-delete	3	1	102	'f'
-delete	3	1	10	\n      ← \n last (line is now empty, can be removed)
+delete  3       1       100     'd'     ← content first
+delete  3       1       101     'e'
+delete  3       1       102     'f'
+delete  3       1       10      \n      ← \n last (line is now empty, can be removed)
 ```
 
-### 4. Ghost-line fix (for delete \n that joins two lines)
-
-When a `delete \n` would join two lines, the next line's content
-visually jumps up onto the current line. To prevent this, the
-postprocess redirects the next line's content deletes to
-`(line+1, 1)` BEFORE the `\n` delete.
-
-**Trigger:** `delete \n` AND the current line has kept content AND
-the next ops are content deletes (not followed by keeps/inserts).
-
-**Example — old `"hello world\nfoo"`, new `"hello foo"`**
-
-Without the fix (would cause visual jump):
-```
-keep	1	1	104	'h'
-...
-keep	1	7	32	space
-delete	1	8	119	'w'      ← 'w' is on line 1
-delete	1	9	111	'o'      ← 'o' is on line 1
-...
-delete	1	12	100	'd'      ← 'd' is on line 1
-delete	1	13	10	\n       ← joins line 2 onto line 1
-keep	2	1	102	'f'      ← 'f' jumps up onto line 1 (BAD VISUAL)
-```
-
-With the ghost-line fix:
-```
-keep	1	1	104	'h'
-...
-keep	1	7	32	space
-delete	2	1	119	'w'      ← delete 'w' on line 2 (still separate)
-delete	2	1	111	'o'      ← delete 'o' on line 2
-...
-delete	2	1	100	'd'      ← delete 'd' on line 2 (line 2 now empty)
-delete	2	1	10	\n       ← delete \n joins empty line 2 with line 1
-keep	2	1	102	'f'      ← 'f' is on line 1 (line 2's content was on line 2)
-```
-
-The line numbers in the output may seem odd (deletes on line 2 when
-the original content was on line 1), but they make the animation
-look right: the next line is emptied BEFORE it's joined.
-
-### 5. End-delete hunk fix (for "delete last line")
+### 4. End-delete hunk fix (for "delete last line")
 
 When the last line of the file is being deleted, the compute
 generates `delete \n, delete content` (the `\n` that precedes the
@@ -162,30 +120,30 @@ last line, then the last line's content). The postprocess:
 
 Raw input from compute:
 ```
-HUNK	3	1	0	0	1
-delete	3	1	10	\n       ← delete \n first (v1 ordering)
-delete	4	1	108	'l'    ← delete 'l' on line 4 (the "line3")
-delete	4	1	105	'i'
-delete	4	1	110	'n'
-delete	4	1	101	'e'
-delete	4	1	51	'3'
+HUNK    3       1       0       0       1
+delete  3       1       10      \n       ← delete \n first (v1 ordering)
+delete  4       1       108     'l'    ← delete 'l' on line 4 (the "line3")
+delete  4       1       105     'i'
+delete  4       1       110     'n'
+delete  4       1       101     'e'
+delete  4       1       51      '3'
 ```
 
 Postprocess output:
 ```
-HUNK	3	1	0	0	1
-delete	3	1	108	'l'    ← content first (on line 3)
-delete	3	1	105	'i'
-delete	3	1	110	'n'
-delete	3	1	101	'e'
-delete	3	1	51	'3'
-delete	2	1	10	\n       ← \n redirected to line 2 (joins line 2 with empty line 3)
+HUNK    3       1       0       0       1
+delete  3       1       108     'l'    ← content first (on line 3)
+delete  3       1       105     'i'
+delete  3       1       110     'n'
+delete  3       1       101     'e'
+delete  3       1       51      '3'
+delete  2       1       10      \n       ← \n redirected to line 2 (joins line 2 with empty line 3)
 ```
 
 The animator just applies these ops — no special "last line" handling
 needed.
 
-### 6. Hunk end_insert / end_delete flags passed through
+### 5. Hunk end_insert / end_delete flags passed through
 
 The HUNK line carries `end_ins` and `end_del` flags:
 - `end_ins=1` — pure insertion at EOF (no need to position cursor, just append)
@@ -206,11 +164,11 @@ identical) into a single `keep X` op. Also merges `insert X` + `delete X`.
 **Example:**
 ```
 # Input:
-delete	2	3	108	'l'
-insert	2	3	108	'l'
+delete  2       3       108     'l'
+insert  2       3       108     'l'
 
 # After semantic-cleanup:
-keep	2	3	108	'l'
+keep    2       3       108     'l'
 ```
 
 Useful when the diff algorithm produces redundant delete+insert
@@ -225,22 +183,22 @@ got re-indented).
 **Example — old `"    foo"`, new `"\tfoo"`:**
 ```
 # Without --indent-aware:
-delete	1	1	32	space
-delete	1	2	32	space
-delete	1	3	32	space
-delete	1	4	32	space
-insert	1	1	9	\t
-insert	1	1	9	\t
-keep	1	5	102	'f'
+delete  1       1       32      space
+delete  1       2       32      space
+delete  1       3       32      space
+delete  1       4       32      space
+insert  1       1       9       \t
+insert  1       1       9       \t
+keep    1       5       102     'f'
 
 # With --indent-aware:
-keep	1	1	32	space     ← all converted to keeps
-keep	1	2	32	space
-keep	1	3	32	space
-keep	1	4	32	space
-keep	1	1	9	\t
-keep	1	1	9	\t
-keep	1	5	102	'f'
+keep    1       1       32      space     ← all converted to keeps
+keep    1       2       32      space
+keep    1       3       32      space
+keep    1       4       32      space
+keep    1       1       9       \t
+keep    1       1       9       \t
+keep    1       5       102     'f'
 ```
 
 Off by default. Note: the current implementation has a bug — it
@@ -256,16 +214,16 @@ the compute stage, with positions but no reordering.
 **Example:**
 ```
 # With --op-order optimize (default):
-keep	2	1	104	'h'
-delete	2	2	101	'e'     ← delete first
-insert	2	2	112	'p'     ← then insert
-keep	2	3	108	'l'
+keep    2       1       104     'h'
+delete  2       2       101     'e'     ← delete first
+insert  2       2       112     'p'     ← then insert
+keep    2       3       108     'l'
 
 # With --op-order natural:
-keep	2	1	104	'h'
-insert	2	2	112	'p'     ← raw order
-delete	2	2	101	'e'
-keep	2	3	108	'l'
+keep    2       1       104     'h'
+insert  2       2       112     'p'     ← raw order
+delete  2       2       101     'e'
+keep    2       3       108     'l'
 ```
 
 Useful for debugging — shows what the compute stage actually produced.
@@ -311,9 +269,8 @@ Transforms are applied in this order:
 3. **op_order** (always — `optimize` by default, `natural` if `--op-order natural`)
 4. **overwrite** (if `--overwrite`)
 
-The always-on transformations (positioning, ghost-line fix,
-end-delete fix) are applied AFTER the optional transforms, during
-the output emission phase.
+The always-on transformations (positioning, end-delete fix) are
+applied AFTER the optional transforms, during the output emission phase.
 
 ## How to test each transformation
 
@@ -326,11 +283,11 @@ transformation:
 | `04_word_replace` | Op reordering for a whole word |
 | `05_delete_to_eol` | Content deletes + \n delete last |
 | `08_line_replace` | Mixed deletes + inserts + keep \n |
-| `09_delete_middle_line` | Ghost-line fix (delete \n joins) |
+| `09_delete_middle_line` | `\n` delete that joins two lines |
 | `11_delete_last_line` | End-delete hunk fix |
-| `15_join_two_lines` | Ghost-line fix (pure join) |
-| `16_split_line` | Insert \n (split) |
-| `17_multi_line_delete` | Multiple ghost-line fixes |
+| `15_join_two_lines` | `\n` delete (pure join) |
+| `16_split_line` | Insert `\n` (split) |
+| `17_multi_line_delete` | Multiple `\n` deletes that join lines |
 | `18_indent_change` | `--indent-aware` (when enabled) |
 | `20_unicode` | UTF-8 handling |
 | `21_empty_old` | Pure inserts (end-insert hunk) |
@@ -366,11 +323,10 @@ Check `post.txt`:
 
 ### "The next line's content jumps up onto the current line"
 
-The ghost-line fix isn't being applied. Check:
-- Is the `delete \n` op followed by content deletes?
-- Are the content deletes followed by keeps/inserts? (If yes, the
-  fix is intentionally not applied — there's no ghost-line problem
-  in that case)
+This is a symptom of `\n` deletes happening BEFORE content deletes
+on the joined line. Check `post.txt`:
+- Are `\n` deletes coming LAST in their line group (after content deletes)?
+- The 4-sweep reorder in Layer 1 should already handle this.
 - Is the line `delete \n` op at the right position?
 
 ### "The last line isn't being deleted"

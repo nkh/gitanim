@@ -1177,8 +1177,7 @@ visual buffer has empty lines).
 
 **Future fix:** The standalone animation application (see
 `ANIMATOR_REQUIREMENTS.md`) solves this with a virtual text buffer
-that supports "ghost lines" — deleted lines that maintain their line
-number but are not rendered.
+that it fully controls.
 
 ### 11.2 Timer-Based Architecture
 
@@ -1223,7 +1222,6 @@ selectors. They still use the old individual flags. Only the bash
 |------|-----------|
 | **AWD** | Adaptive Word Delete — the state machine that deletes chars→words→rapid with acceleration |
 | **Char op** | A single character operation: keep, delete, or insert |
-| **Ghost line** | A deleted line that maintains its line number (proposed for standalone app, not in current vim implementation) |
 | **Hunk** | A group of consecutive non-keep line operations |
 | **Patience** | The diff algorithm used for diff computation |
 | **removed Myers diff** | REMOVED — OOM on large files, same op count as patience |

@@ -153,7 +153,7 @@ test-unit:
 	@echo "=== Animator unit tests ==="
 	@for t in test_all_animators test_cross_language test_newline_fix \
 	         test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-	         test_ghost_line; do \
+	         ; do \
 	        perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
 	done
 

@@ -59,10 +59,10 @@ Produces raw char-level ops from the diff between old and new files.
 # diffvim raw diff v2
 # algorithm patience
 # hunk_count N
-HUNK	<target>	<del>	<ins>	<end_ins>	<end_del>
-keep	<line>	<col>	<code>	<char_repr>
-delete	<line>	<col>	<code>	<char_repr>
-insert	<line>	<col>	<code>	<char_repr>
+HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
+keep    <line>  <col>   <code>  <char_repr>
+delete  <line>  <col>   <code>  <char_repr>
+insert  <line>  <col>   <code>  <char_repr>
 HUNK_END
 ```
 
@@ -90,10 +90,10 @@ Reads raw ops, reorders them, computes per-op (line, col) positions.
 **Output format (v2 TSV):**
 ```
 # diffvim post-processed v2
-HUNK	<target>	<del>	<ins>	<end_ins>	<end_del>
-keep	<line>	<col>	<code>	<char_repr>
-delete	<line>	<col>	<code>	<char_repr>
-insert	<line>	<col>	<code>	<char_repr>
+HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
+keep    <line>  <col>   <code>  <char_repr>
+delete  <line>  <col>   <code>  <char_repr>
+insert  <line>  <col>   <code>  <char_repr>
 HUNK_END
 ```
 
@@ -124,15 +124,15 @@ modify, reorder, or add ops.** Only inserts `delay` lines.
 # diffvim timed ops v2
 # delete_pacing word
 # insert_pacing char
-HUNK	<target>	<del>	<ins>	<end_ins>	<end_del>
-keep	<line>	<col>	<code>	<char_repr>
-delay	1	char
-delete	<line>	<col>	<code>	<char_repr>
-delay	40	char
+HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
+keep    <line>  <col>   <code>  <char_repr>
+delay   1       char
+delete  <line>  <col>   <code>  <char_repr>
+delay   40      char
 ...
 HUNK_END
-delay	250	hunk
-HUNK	...
+delay   250     hunk
+HUNK    ...
 ```
 
 **What to check:**
@@ -180,8 +180,8 @@ Run `bash scripts/dv_debug.sh <old> <new>` to get a full breakdown:
 
 ─── INPUT FILES ──────────────────────────────────────────────
 OLD: old
-     1	1234 67890
-     2	abc
+     1  1234 67890
+     2  abc
      ...
 
 ─── STAGE 1: RAW DIFF OPS (compute) ──────────────────────────
@@ -202,10 +202,10 @@ compute: 0.34 ms (read 0.06 + diff 0.01 + write 0.25)
 
 ─── RESULT COMPARISON ────────────────────────────────────────
 Expected (new file):
-     1	1234
+     1  1234
 ...
 Actual (animator output):
-     1	1234
+     1  1234
 ...
 
 ✓ MATCH — animator output matches new file
@@ -234,7 +234,7 @@ grep '^HUNK' /tmp/dv_debug/post.txt
 grep '^delete' /tmp/dv_debug/post.txt
 
 # Show the \n deletes specifically:
-grep '^delete.*	10	' /tmp/dv_debug/post.txt
+grep '^delete.* 10      ' /tmp/dv_debug/post.txt
 
 # Compare final output with expected:
 diff /tmp/dv_debug/snap.txt new.txt
@@ -317,9 +317,7 @@ The key sanity checks:
 1. **Each op carries (line, col)** — keep/insert advance col, delete doesn't
 2. **Deletes come before inserts** within each line group
 3. **\n deletes come LAST** in their line group (content first, then \n)
-4. **The ghost-line pattern** redirects content deletes to `(line+1, 1)`
-   before a `delete \n` that would join two lines
-5. **End-delete hunks** redirect the `\n delete` to `(line-1, 1)` because
+4. **End-delete hunks** redirect the `\n delete` to `(line-1, 1)` because
    there's no next line to join with
 
 ## Common symptoms and their causes
@@ -342,7 +340,6 @@ This is usually a problem in the **postprocess** — the ops are
 correct but they're in an order that produces bad visuals. Check:
 - Are deletes coming before inserts within each line?
 - Are `\n` deletes coming after content deletes?
-- Is the ghost-line pattern applied where it should be?
 
 See [POSTPROCESS_TRANSFORMS.md](POSTPROCESS_TRANSFORMS.md) for
 what each transformation should look like.

@@ -36,18 +36,23 @@ int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
         }
 
         if (is_flush_point) {
-            /* Flush buffer in 4 sweeps */
+            /* Flush buffer in 4 sweeps.
+             * overwrite_insert is treated like insert (it advances col). */
             for (int j = buf_start; j < i; j++)
                 if (strcmp(in[j].type, "delete") == 0 && in[j].code != 10 && n_out < out_cap)
                     out[n_out++] = in[j];
             for (int j = buf_start; j < i; j++)
-                if (strcmp(in[j].type, "insert") == 0 && in[j].code != 10 && n_out < out_cap)
+                if ((strcmp(in[j].type, "insert") == 0 ||
+                     strcmp(in[j].type, "overwrite_insert") == 0) &&
+                    in[j].code != 10 && n_out < out_cap)
                     out[n_out++] = in[j];
             for (int j = buf_start; j < i; j++)
                 if (strcmp(in[j].type, "delete") == 0 && in[j].code == 10 && n_out < out_cap)
                     out[n_out++] = in[j];
             for (int j = buf_start; j < i; j++)
-                if (strcmp(in[j].type, "insert") == 0 && in[j].code == 10 && n_out < out_cap)
+                if ((strcmp(in[j].type, "insert") == 0 ||
+                     strcmp(in[j].type, "overwrite_insert") == 0) &&
+                    in[j].code == 10 && n_out < out_cap)
                     out[n_out++] = in[j];
             /* Pass through debug ops */
             for (int j = buf_start; j < i; j++)

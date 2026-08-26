@@ -73,12 +73,10 @@ Each stage reads from stdin and writes to stdout, enabling:
 - Using the animator without animation (headless mode) for testing
 - Adding new post-processing or pacing tools without touching the animator
 
-### 1.4 Key Advantage: Ghost Lines
+### 1.4 Key Advantage: Virtual Buffer
 
 A standalone application has a **virtual text buffer** that it fully
 controls. It can:
-- Keep deleted lines in the buffer as "ghost lines" (invisible but
-  maintaining line numbers) — solving the `\n` merge problem
 - Move the cursor freely without buffer manipulation overhead
 - Render only what changed (incremental redraw)
 - Support any terminal, not just vim
@@ -161,7 +159,7 @@ old.py + new.py
 │   batch_delete 10 │    (delete 10 chars instantly)
 │   delay 15        │
 │   snapshot        │    (write buffer to file — for testing)
-│   newline_delete  │    (mark line as ghost)
+│   newline_delete  │    (delete the `\n`)
 │   delay 100       │
 │                   │
 │ Note: cursor      │  (Since the Phase C refactor, pace no
@@ -367,7 +365,7 @@ and pacing instructions.
 | `delay` | `<ms>` | Wait N milliseconds |
 | `batch_delete` | `<line> <col> <count>` | Delete N chars at (line, col) instantly |
 | `batch_insert` | `<line> <col> <codes...>` | Insert N chars at (line, col) instantly |
-| `newline_delete` | `<line>` | Mark current line as ghost, move cursor down |
+| `newline_delete` | `<line>` | Delete the newline (join current line with next), move cursor down |
 | `newline_insert` | `<line> <col>` | Split line at cursor, move cursor to new line |
 | `highlight` | `<mode> <line> <col> <len>` | Apply highlight |
 | `clear_highlight` | `<id>` | Clear a specific highlight |
@@ -424,9 +422,8 @@ This is used for:
 - **CI:** Run the animator with `--no-display`, insert snapshots at
   key points, compare buffer states with expected output
 
-The snapshot file contains the raw buffer content (visible lines only,
-ghost lines excluded). This allows round-trip testing: snapshot after
-all ops should match the new file.
+The snapshot file contains the raw buffer content. This allows
+round-trip testing: snapshot after all ops should match the new file.
 
 ---
 
@@ -444,7 +441,6 @@ buffer at startup.
 
 **FR-1.3:** The animator SHALL maintain a virtual text buffer with:
 - Lines as arrays of Unicode characters (runes/code points)
-- Ghost line support (deleted lines that maintain position but aren't rendered)
 - Logical cursor position (line, column) that can exceed line length
 - Line offset tracking for multi-hunk animation
 
@@ -452,7 +448,7 @@ buffer at startup.
 - `op`: Set cursor to the op's `(line, col)`, then apply the char operation to the buffer
 - `delay`: Wait the specified time (divided by speed multiplier)
 - `batch_delete`/`batch_insert`: Set cursor to the op's `(line, col)`, then apply multiple chars in one frame
-- `newline_delete`: Mark line as ghost, move cursor to next line
+- `newline_delete`: Delete the newline (join current line with next), move cursor to next line
 - `newline_insert`: Split line at cursor
 - `highlight`/`clear_highlight`/`dim`: Apply visual effects
 - `snapshot`: Write buffer to file
@@ -470,7 +466,7 @@ buffer at startup.
 - Also, `snapshot` ops in the stream write to their specified files
 
 **FR-1.7:** The animator SHALL support `--output FILE`:
-- Write the final buffer (with ghost lines removed) to FILE
+- Write the final buffer to FILE
 
 **FR-1.8:** The animator SHALL support `--speed N`:
 - Multiply all delays by 1/N
@@ -489,9 +485,6 @@ buffer at startup.
 
 **FR-1.11:** The animator SHALL support `--dry-run`:
 - Print op stream summary without processing
-
-**FR-1.12:** The animator SHALL clean up ghost lines before writing
-output, so the final buffer matches the expected new file.
 
 #### FR-2: The Post-Processing Tool (diffvim-postprocess)
 
@@ -564,37 +557,12 @@ All three SHALL produce identical timed op streams.
 **FR-4.1:** The buffer SHALL support lines as arrays of Unicode
 characters (not bytes).
 
-**FR-4.2:** The buffer SHALL support ghost lines — lines marked as
-deleted but kept in the data structure to preserve line numbering.
+**FR-4.2:** The cursor SHALL be able to move to any line (for
+positioning during animation).
 
-**FR-4.3:** Ghost lines SHALL NOT be rendered (skipped during display).
-
-**FR-4.4:** Ghost lines SHALL be removed before writing output.
-
-**FR-4.5:** The cursor SHALL be able to move to any line, including
-ghost lines (for positioning during animation).
-
-**FR-4.6:** The buffer SHALL support split (insert \n) and merge
-(delete \n) operations that respect ghost line semantics.
-
-#### FR-5: Ghost Line Implementation
-
-**FR-5.1:** When `newline_delete` is processed:
-- Mark the current line as a ghost (invisible)
-- Move the cursor to the next line
-- Do NOT remove the line from the buffer
-- Do NOT shift subsequent lines up
-
-**FR-5.2:** During rendering:
-- Ghost lines are skipped (not drawn)
-- The cursor position is mapped from logical (including ghosts) to
-  physical (visible lines only) for display
-
-**FR-5.3:** At animation end:
-- Remove all ghost lines from the buffer
-- Write the final buffer (visible lines only) to output
-
-This solves the `\n` merge problem completely.
+**FR-4.3:** The buffer SHALL support split (insert \n) and merge
+(delete \n) operations that keep the buffer state consistent with the
+op stream.
 
 ### 5.2 Non-Functional Requirements
 
@@ -766,7 +734,7 @@ diffvim-animator-c/
 │   ├── postprocess.pl           # Post-processing tool
 │   ├── pace.pl                  # Pacing tool
 │   └── lib/
-│       ├── Buffer.pm            # Virtual buffer with ghost lines
+│       ├── Buffer.pm            # Virtual buffer
 │       ├── Renderer.pm          # Terminal renderer
 │       └── Input.pm             # Keyboard input
 │
@@ -800,7 +768,7 @@ diffvim-animator-c/
 └── docs/
     ├── ARCHITECTURE.md          # Pipeline architecture
     ├── TIMED_OP_FORMAT.md       # Timed op stream format spec
-    ├── BUFFER_MODEL.md          # Virtual buffer & ghost lines
+    ├── BUFFER_MODEL.md          # Virtual buffer
     ├── PACING.md                # Pacing algorithm reference
     ├── RENDERING.md             # Terminal rendering guide
     ├── TESTING.md               # Testing strategy
@@ -820,7 +788,7 @@ diffvim-animator-c/
 
 ### 9.2 Phase 2: Implement the animator
 
-- Implement the virtual buffer with ghost lines (C primary, Perl fallback)
+- Implement the virtual buffer (C primary, Perl fallback)
 - Implement the terminal renderer (C primary, Perl fallback)
 - Implement `--no-display` + `snapshot` mode for testing
 - Test with timed op streams from Phase 1
@@ -858,12 +826,7 @@ diffvim-animator-c/
    `Term::ReadKey` (input) and `Term::ANSIScreen` (rendering) are
    recommended. Both are widely available.
 
-5. **Snapshot format:** Should snapshots include ghost lines (for
-   debugging) or exclude them (for output comparison)? Both: a
-   `--snapshot-debug` flag includes ghost lines; `--snapshot` excludes
-   them.
-
-6. **Back button:** The current vim engine supports `b` (back to
+5. **Back button:** The current vim engine supports `b` (back to
    previous hunk) via snapshot/restore. Should the animator support
    this? It would require the pace tool to insert `snapshot` ops at
    hunk boundaries, and the animator to restore from snapshots.

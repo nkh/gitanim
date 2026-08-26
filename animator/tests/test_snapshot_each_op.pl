@@ -74,7 +74,7 @@ sub ref_apply_op {
         }
     } elsif ($type eq 'delete') {
         if ($code == 10) {
-            # Standard "join with next" — no ghost-line special case
+            # Standard "join with next" for \n deletes
             # (the postprocess handles that, not the animator).
             if ($cursor_l < $#$lines) {
                 $lines->[$cursor_l] = $lines->[$cursor_l] . $lines->[$cursor_l + 1];

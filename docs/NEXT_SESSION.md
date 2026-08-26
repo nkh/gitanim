@@ -26,7 +26,6 @@ compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → anima
   (`delay\t<type>\t<ms>`). Does NOT modify ops.
 - **Animate**: `diffvim-animator-c` (C) or `diffvim` (vimscript) — reads
   the timed op stream and renders. Incremental rendering (no flashing).
-  Ghost-line fix: empty lines are removed, not joined.
 
 ## What WORKS right now
 
@@ -34,7 +33,6 @@ compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → anima
 - 96 Perl tests pass
 - Cross-language parity (C == Perl) for postprocess and pace
 - No flashing (incremental rendering in both animators)
-- Ghost-line fix in all three animators (C, Perl, vimscript)
 - Syntax coloring via `diffvim-colorize` (vim/pygmentize backends, runs
   in parallel with the pipeline)
 - `--stream` mode in postprocess (true Unix pipes)
@@ -51,10 +49,7 @@ compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → anima
    Use `redraw` (incremental) and only render at delay boundaries.
 4. **Do NOT use `\033[2J`** (clear screen) in the C animator — use
    per-line clear (`\033[<line>;1H\033[2K`) and only redraw changed lines.
-5. **Do NOT put the ghost-line fix in postprocess.** It belongs in the
-   animator's `delete_char(10)` — check if the line is empty, if so
-   remove it instead of joining.
-6. **Do NOT allocate fixed-size arrays that don't grow.** The
+5. **Do NOT allocate fixed-size arrays that don't grow.** The
    `line_modified` array caused a heap-buffer-overflow that corrupted
    large-file output. Always use `ensure_*_capacity()` patterns.
 
@@ -96,7 +91,6 @@ cc -O0 -g -fsanitize=address -o /tmp/anim_asan animator/c/animator.c
 
 - `docs/PIPELINE.md` — pipeline architecture reference
 - `docs/DEVELOPER_GUIDE.md` — comprehensive developer/onboarding guide
-- `docs/GHOST_LINE_DESIGN.md` — ghost-line fix design (historical)
 - `docs/ARCHITECTURE_ANALYSIS.md` — architecture analysis (historical)
 - `CHANGELOG.md` — full change history
 

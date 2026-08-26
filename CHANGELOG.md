@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — 2026-08-19 — Flashing Fix + Ghost-Line + Developer Guide
+## [Unreleased] — 2026-08-19 — Flashing Fix + Developer Guide
 
 ### Fixed — Flashing in both animators
 
@@ -26,23 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Only redraws lines whose content or cursor state changed
 - Uses `\033[<line>;1H\033[2K` (move + clear line) for individual lines
 - Eliminates the full-screen flash on every op
-
-### Fixed — Ghost-line fix in all three animators
-
-When `delete_char(10)` is called and the current line is already empty
-(all content deleted by preceding char deletes), remove the empty line
-entirely instead of joining it with the next line. The cursor stays at
-the same line index, which now points to what was the next line. This
-avoids the visual jump where the next line's content appears on the
-current line.
-
-If the current line still has content, the original join behavior is
-preserved (needed for mixed delete+insert sequences).
-
-Applied to:
-- `animator/c/animator.c` — `delete_char()` function
-- `animator/perl/animator.pl` — `delete_char()` function
-- `diffvim` (vimscript) — `s:TimedDeleteChar()` function
 
 ### Fixed — Heap-buffer-overflow in line_modified array
 
@@ -66,7 +49,6 @@ New `docs/DEVELOPER_GUIDE.md` — comprehensive onboarding guide covering:
 - The timed op stream format (v2 TSV)
 - How each animator works (vimscript + C + Perl)
 - The coloring system
-- Ghost-line fix explanation
 - Testing guide
 - How to add new languages, transforms, and pacing modes
 - Debugging tips and common pitfalls

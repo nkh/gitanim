@@ -41,7 +41,7 @@ If `DV_OP_DEBUG=1`, a `debug` op is inserted before each
 `overwrite_insert`:
 
 ```
-debug	overwrite	merged delete(108) + insert(112) → overwrite_insert(112) at line=1 col=2
+debug   overwrite       merged delete(108) + insert(112) → overwrite_insert(112) at line=1 col=2
 ```
 
 Debug ops are ignored by all other layers and the animator.
@@ -53,9 +53,15 @@ Debug ops are ignored by all other layers and the animator.
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror \
    -I animator/c -o animator/bin/pp_overwrite animator/c/pp_layer_overwrite.c
 
-# In pipeline
-compute | pp_layer0 | pp_overwrite | pp_layer3 | pace | animator
+# In pipeline (via diffvim-postprocess, which also runs adjust_positions)
+compute | diffvim-postprocess --overwrite | pace | animator
 ```
+
+> Standalone `pp_overwrite` does NOT run `adjust_positions`. The
+> position-fixing pass lives only inside `postprocess.c`. Use
+> `diffvim-postprocess --overwrite` to get the full pipeline.
+> If you pipe layers manually, you must apply your own equivalent
+> of `adjust_positions` afterwards (or just use `diffvim-postprocess`).
 
 ## Debug Logging
 
@@ -87,8 +93,12 @@ bash tests/test_overwrite_layer.sh
 ## Interaction with Other Layers
 
 - **Layer 0 (V2 conversion):** Overwrite runs after V2 conversion.
-- **Layer 3 (cursor recomp):** Overwrite runs before cursor recomp.
-  The overwrite_insert ops have the original line/col from compute.
-  Layer 3 will recompute them.
+- **Layer 1 (reorder):** Overwrite runs after reorder.
+- **delete-indent-last (--indent-last):** Overwrite runs after
+  delete-indent-last, when both are enabled.
+- **adjust_positions (inline in postprocess.c):** Runs AFTER overwrite.
+  The `overwrite_insert` ops have the original line/col from compute;
+  `adjust_positions` then fixes them in-place based on `\n` deletes.
+  There is no separate `pp_layer3` step.
 - **Pace:** The pace tool uses minimal delay for `overwrite_insert`
   ops (1ms, type "overwrite").

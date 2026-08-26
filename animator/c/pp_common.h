@@ -7,7 +7,7 @@
  *   3. Each layer can dump input/output for debugging.
  *      DV_DEBUG_POSTPROCESS=path → dumps to $path/N_layername_input.txt
  *      and $path/N_layername_output.txt (TSV format).
- *   4. No ghost-line fix. Not now, not ever.
+ * *   4. No special-case line fixes. The 4-sweep reorder handles ordering.
  *   5. Layers can be piped (standalone) or linked into one executable.
  *   6. Layers may need the input file (old file path passed via env var).
  *
@@ -46,10 +46,6 @@ typedef struct {
     int  code;               /* char code (10=\n, 32=space, 9=tab, etc.) */
     int  line;               /* 1-indexed line number */
     int  col;                /* 1-indexed column number */
-    int  pos_set;            /* 1 = position set by a previous layer, Layer 3
-                              * should respect (line, col) and only update
-                              * its cursor accordingly. 0 = Layer 3 should
-                              * compute position from cursor state. */
 } Op;
 
 /* ── Hunk struct ───────────────────────────────────────────────────── */
@@ -168,7 +164,6 @@ static int pp_parse_op(const char *line, Op *op) {
         op->line = l;
         op->col = c;
         op->code = code;
-        op->pos_set = 0;  /* default: position not set, Layer 3 computes it */
         return 1;
     }
     return 0;

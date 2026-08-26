@@ -17,13 +17,6 @@ During animation in vim, press `-` to slow down or `+` to speed up.
 
 In vim, press `n` to skip the current hunk (apply instantly).
 
-## What is the ghost-line problem?
-
-When a diff deletes a `\n` (joining two lines), the content of the next
-line visually jumps up onto the current line. The ghost-line fix prevents
-this by deleting the next line's content first, then removing the empty
-line — no visual jump.
-
 ## Why does diffvim use Patience diff instead of LCS?
 
 LCS and Patience produce identical op counts on most files. Patience

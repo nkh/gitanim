@@ -84,27 +84,6 @@ Marks adjacent `delete`+`insert` as in-place overwrite.
 - Codes need not match — position-based, not value-based.
 - **Trigger:** `--overwrite`.
 
-### Ghost-line Fix (delete \n)
-Look-ahead on `delete \n` to prevent ghost-line joins.
-- From `i+1`, scan `j` while `delete` and `code != 10`. Count `n_content = j - (i+1)`.
-- Check if `final_ops[j]` is `keep` or `insert` → `followed_by_keep_or_insert`.
-- Dispatch:
-  - `n_content > 0` && not followed && not end-del: emit content deletes at `cur_line+1`, then `\n` delete at `cur_line+1`. `cur_line` unchanged.
-  - `n_content > 0` && `i==0 && end_del`: emit content at `cur_line`, `\n` delete at `cur_line-1`.
-  - `followed_by_keep_or_insert`: emit `\n` delete at `(cur_line, cur_col)`.
-  - `n_content == 0` && `i==0 && end_del && cur_line>1`: emit `\n` delete at `(cur_line-1, 1)`.
-  - Else: normal `\n` delete at `(cur_line, cur_col)`.
-- `newl_del++`; `line_has_content = 0`; jump `i = j`.
-- **Trigger:** default (always, batch mode; NOT in `--stream`).
-
-### Ghost-line Fix (insert at col 1)
-Inserts synthetic `\n` before col-1 inserts on a content line.
-- Triggered when `op->type == "insert"`, `code != 10`, `cur_col == 1`, `line_has_content == 1`.
-- Emit synthetic `insert \n` at `(cur_line, 1)`.
-- `cur_line++; cur_col = 1; newl_ins++; line_has_content = 0`.
-- Then emit the original insert op normally.
-- **Trigger:** default (always, batch mode; NOT in `--stream`).
-
 ### line_offset Accounting
 Carries net newline delta across hunks.
 - Initialize `line_offset = 0` before hunk loop.
@@ -119,8 +98,8 @@ Walks final ops, computes `(line, col)` per op.
 - `keep` code != 10: emit, `cur_col++`, `line_has_content = 1`.
 - `keep` code == 10: emit, `cur_line++; cur_col = 1`, reset content.
 - `delete` code != 10: emit, cursor unchanged.
-- `delete` code == 10: ghost-line fix branch (see above).
-- `insert` code != 10: ghost-line fix check, then emit, `cur_col++`.
+- `delete` code == 10: emit `delete \n` at `(cur_line, cur_col)`, advance `cur_line++` if `line_has_content`, else stay; `newl_del++`, `line_has_content = 0`.
+- `insert` code != 10: emit, `cur_col++`.
 - `insert` code == 10: emit, `cur_line++; cur_col = 1; newl_ins++`.
 - `overwrite_insert`: same as `insert` for cursor; emits type string `overwrite_insert`.
 - Emit format: `op\t<type>\t<line>\t<col>\t<code>\t<char_repr>`.
@@ -140,8 +119,6 @@ Walks final ops, computes `(line, col)` per op.
 | `indent_last_transform` | `--indent-last` | moves leading ws deletes to end | deletes in all-delete line groups |
 | `semantic_cleanup` | `--semantic-cleanup` | merges adjacent pairs | `delete`+`insert` same code → `keep` |
 | `overwrite_transform` | `--overwrite` | rewrites type, no reorder | adjacent `delete`+`insert` → `overwrite_insert` |
-| Ghost-line fix (delete `\n`) | default | rewrites emitted line/col | `delete \n` ops |
-| Ghost-line fix (insert col 1) | default | injects synthetic `insert \n` | non-`\n` `insert` at col 1 |
 | `line_offset` accounting | default | — (cursor base) | `cur_line` per hunk |
 | Per-op cursor simulation | default | — (computes positions) | every op |
 
@@ -155,16 +132,12 @@ raw ops
       └── [if --indent-last]    indent_last_transform
   → [if --overwrite]             overwrite_transform
   → emit loop:
-        ├── per-op cursor sim
-        ├── ghost-line fix (delete \n)
-        └── ghost-line fix (insert at col 1)
+        └── per-op cursor sim
 ```
 
 ## Streaming Caveats
 
 `--stream` mode (`stream_process` → `process_one_hunk`) skips:
 - `overwrite_transform`
-- Ghost-line fix on `delete \n`
-- Ghost-line fix on insert at col 1
 
 Header `# hunk_count` emitted as `-1`. `end_del` / `end_ins` flags parsed but ignored.

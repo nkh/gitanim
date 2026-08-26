@@ -92,26 +92,6 @@ Pacing controls the rhythm of the animation — fast, slow, jittery, smooth.
 
 ---
 
-## The Ghost Line Bug (and its fix)
-
-**The Ghost Line** is a visual hiccup: when a `\n` (newline) is
-deleted, two lines merge. If the second line still has content,
-that content "jumps up" onto the first line — like a ghost
-appearing where it shouldn't.
-
-**The Fix**: Delete the content FIRST (emptying the line), THEN
-delete the `\n` (joining the empty line with the next). The content
-never jumps — the line just quietly disappears.
-
-**The Cursor Fix**: Even after the ghost-line fix, the op stream
-may have backward line numbers. The animator decouples the
-"internal cursor" (where the buffer operation happens) from the
-"displayed cursor" (what the user sees). For `\n` deletes, only
-the internal cursor moves — the displayed cursor stays put, so
-the user never sees the cursor jump backwards.
-
----
-
 ## Syntax Highlighting (Colormap)
 
 | Term | How it works |
@@ -141,7 +121,7 @@ the user never sees the cursor jump backwards.
 | Format | What it contains |
 |--------|-----------------|
 | **raw ops** | Compute output — char-level keep/delete/insert with HUNK headers |
-| **post-processed ops** | Postprocess output — same ops but reordered, positioned, with ghost-line fix applied |
+| **post-processed ops** | Postprocess output — same ops but reordered, positioned (per-op `(line, col)`) |
 | **timed ops** | Pace output — post-processed ops with `delay` lines inserted between them |
 | **decorated ops** | Decorate output — timed ops with highlight/dim/fold/sign metadata |
 

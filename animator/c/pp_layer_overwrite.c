@@ -85,12 +85,28 @@ int layer_overwrite(Op *in, int in_count, Op *out, int out_cap,
     int i = 0;
     int merges = 0;
     while (i < in_count) {
-        /* Check: is this a delete (code != 10) followed by insert (code != 10)
-         * at the same position? */
+        /* Check: is this a SINGLE delete (code != 10) immediately followed
+         * by a SINGLE insert (code != 10) at the same position?
+         *
+         * "Single" means: the delete is NOT preceded by another delete
+         * at the same position (i.e., it's not part of a multi-char
+         * delete run), AND the insert is NOT followed by another insert
+         * (not part of a multi-char insert run).
+         *
+         * This prevents merging delete 'o' + insert 'u' when they're
+         * part of delete 'wo' + insert 'unive' (a multi-char replacement). */
+        int prev_is_same_del = (i > 0 &&
+            strcmp(in[i-1].type, "delete") == 0 && in[i-1].code != 10 &&
+            in[i-1].line == in[i].line && in[i-1].col == in[i].col);
+        int next_is_same_ins = (i + 2 < in_count &&
+            strcmp(in[i+2].type, "insert") == 0 && in[i+2].code != 10 &&
+            in[i+2].line == in[i+1].line);
+
         if (i + 1 < in_count &&
             strcmp(in[i].type, "delete") == 0 && in[i].code != 10 &&
             strcmp(in[i+1].type, "insert") == 0 && in[i+1].code != 10 &&
-            in[i].line == in[i+1].line && in[i].col == in[i+1].col) {
+            in[i].line == in[i+1].line && in[i].col == in[i+1].col &&
+            !prev_is_same_del && !next_is_same_ins) {
 
             /* Merge: skip the delete, convert insert to overwrite_insert */
             if (op_debug && n_out + 2 <= out_cap) {

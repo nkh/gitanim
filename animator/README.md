@@ -18,7 +18,7 @@ the op.
 
 | Subdir | Contents |
 |--------|----------|
-| `c/` | C implementation (animator.c, postprocess.c, pace.c) |
+| `c/` | C implementation (animator.c, postprocess.c, pp_layer0_v2.c, pp_layer1_reorder.c, pp_layer_indent_last.c, pp_layer_overwrite.c, pace.c) |
 | `perl/` | Perl implementation (animator.pl, postprocess.pl, pace.pl, colorize.pl) |
 | `bin/` | Compiled C binaries (tracked in git) |
 | `docs/` | Animator-specific documentation |
@@ -36,16 +36,24 @@ the op.
 - `animator.c` — Terminal animator. Reads timed ops from stdin,
   applies them to a buffer, renders to the terminal.
   Keyboard controls: q=quit, Space=pause, n=next hunk, +/-=speed.
-- `postprocess.c` — Reads raw ops, reorders them, computes per-op
-  (line, col) positions. See `docs/POSTPROCESS_TRANSFORMS.md` for
-  what transformations it applies.
+- `postprocess.c` — Orchestrates the layered postprocess pipeline
+  (Layer 0 V2 conversion → Layer 1 reorder → optional
+  delete-indent-last → optional overwrite → inline
+  `adjust_positions()`). The `adjust_positions()` step is a recursive
+  in-place walk that fixes per-op `(line, col)` based on `\n` deletes —
+  it is NOT a separate layer (there is no `pp_layer3`). See
+  `docs/POSTPROCESS_LAYERS.md` for the layer breakdown and
+  `docs/POSTPROCESS_TRANSFORMS.md` for what the transforms do.
 - `pace.c` — Reads post-processed ops, inserts `delay` lines between
   them. Does NOT modify, reorder, or add ops (except delays).
 
 Build:
 ```bash
 cc -O2 -o bin/diffvim-animator-c c/animator.c
-cc -O2 -o bin/diffvim-postprocess c/postprocess.c
+cc -O2 -Wall -Wextra -Wunused -Werror -I c \
+   -o bin/diffvim-postprocess \
+   c/postprocess.c c/pp_layer0_v2.c c/pp_layer1_reorder.c \
+   c/pp_layer_indent_last.c c/pp_layer_overwrite.c
 cc -O2 -o bin/diffvim-pace c/pace.c
 ```
 
@@ -65,7 +73,7 @@ Run all tests:
 ```bash
 for t in test_all_animators test_cross_language test_newline_fix \
          test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-         test_ghost_line; do
+
     perl tests/$t.pl
 done
 ```
@@ -81,5 +89,6 @@ See `tests/README.md` for details on each test.
 
 - `../compute/` — Stage 1 (diff computation)
 - `../docs/DEBUGGING.md` — How to debug the pipeline
+- `../docs/POSTPROCESS_LAYERS.md` — Layer-by-layer breakdown of postprocess
 - `../docs/POSTPROCESS_TRANSFORMS.md` — What postprocess does
 - `../scripts/dv_debug.sh` — Run all stages and inspect output

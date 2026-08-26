@@ -16,10 +16,10 @@ Produced by `diffvim-compute-cpp`. Contains char-level diff ops with positions.
 # left_to_right 0
 # hunk_count N
 
-HUNK	<target_line>	<del_count>	<ins_count>	<is_end_insert>	<is_end_delete>
-keep	<line>	<col>	<char_code>	<char_repr>
-delete	<line>	<col>	<char_code>	<char_repr>
-insert	<line>	<col>	<char_code>	<char_repr>
+HUNK    <target_line>   <del_count>     <ins_count>     <is_end_insert> <is_end_delete>
+keep    <line>  <col>   <char_code>     <char_repr>
+delete  <line>  <col>   <char_code>     <char_repr>
+insert  <line>  <col>   <char_code>     <char_repr>
 HUNK_END
 ...
 <blank line>
@@ -66,10 +66,10 @@ Produced by `diffvim-postprocess`. Same format as raw diff, with ops reordered/t
 # optimize_sequence 1
 # hunk_count N
 
-HUNK	<target_line>	<del_count>	<ins_count>	<is_end_insert>	<is_end_delete>
-keep	<line>	<col>	<char_code>	<char_repr>
-delete	<line>	<col>	<char_code>	<char_repr>
-insert	<line>	<col>	<char_code>	<char_repr>
+HUNK    <target_line>   <del_count>     <ins_count>     <is_end_insert> <is_end_delete>
+keep    <line>  <col>   <char_code>     <char_repr>
+delete  <line>  <col>   <char_code>     <char_repr>
+insert  <line>  <col>   <char_code>     <char_repr>
 HUNK_END
 ...
 <blank line>
@@ -79,7 +79,6 @@ HUNK_END
 
 - **Op ordering** (`--transform op-order:optimize`): reorders ops within each line — content deletes before \n deletes, deletes before inserts
 - **Semantic cleanup** (`--transform semantic-cleanup`): merges adjacent delete+insert pairs that cancel out
-- **Ghost-line fix**: when `delete \n` and the line has kept content, and the next ops are content deletes not followed by keeps, repositions the content deletes to (line+1, 1) and the \n delete to (line+1)
 
 ## 3. Timed Ops Format (pace output)
 
@@ -90,14 +89,14 @@ Produced by `diffvim-pace`. Same ops as post-processed, with **delay lines inser
 # delete_pacing word
 # insert_pacing char
 
-HUNK	<target_line>	<del_count>	<ins_count>	<is_end_insert>	<is_end_delete>
-keep	<line>	<col>	<char_code>	<char_repr>
-delay	<ms>	<type>
-delete	<line>	<col>	<char_code>	<char_repr>
-delay	<ms>	<type>
-delay	<ms>	<type>
+HUNK    <target_line>   <del_count>     <ins_count>     <is_end_insert> <is_end_delete>
+keep    <line>  <col>   <char_code>     <char_repr>
+delay   <ms>    <type>
+delete  <line>  <col>   <char_code>     <char_repr>
+delay   <ms>    <type>
+delay   <ms>    <type>
 HUNK_END
-delay	<ms>	<type>
+delay   <ms>    <type>
 ...
 <blank line>
 ```
@@ -105,7 +104,7 @@ delay	<ms>	<type>
 ### Delay format
 
 ```
-delay	<milliseconds>	<type>
+delay   <milliseconds>  <type>
 ```
 
 Delays have **no position** — they apply after whatever op preceded them. Multiple delays can follow each other.

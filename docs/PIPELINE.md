@@ -91,38 +91,6 @@ refactor, also owns cursor positioning so the animator is scroll-safe.
    whole file so each op targets the right *current* buffer line. This
    is what lets the animator be position-less and scroll-safe.
 
-**THE GHOST LINE PROBLEM — UNRESOLVED (Phase F):**
-
-When the diff algorithm produces a sequence like:
-```
-keep "foo"
-delete \n
-keep "bar"
-```
-(joining two lines into "foobar"), the animator mechanically joins the
-lines. Visually, "bar" jumps up onto the "foo" line — this looks bad.
-
-The correct fix belongs in **postprocess**, not in the animator. The
-postprocessor should detect this pattern (a `\n` delete between two
-`keep` runs) and transform it into a sequence that animates naturally.
-This is pending (Phase F).
-
-Possible postprocess transformations (NOT YET IMPLEMENTED):
-
-- **Split into delete+insert**: transform `keep "foo", delete \n, keep
-  "bar"` into `keep "foo\n", delete "bar", insert "bar"` — i.e., delete
-  the entire second line and re-insert it as new content. The `\n` is
-  preserved with the keep, and the second line is deleted then re-inserted
-  in place. Visually: "bar" disappears and reappears on the same line.
-
-- **Defer the join**: the postprocessor reorders ops so all char deletes
-  on a line happen before the `\n` delete. Then the `\n` delete can use
-  the "remove empty line" path (the line is already empty by then).
-
-The postprocessor currently does NOT do this. It passes the raw diff
-ops through (with optional reordering and per-op positioning). This is
-the core unresolved issue.
-
 ## Stage 3: Pace
 
 **Input:** positioned char ops from postprocess (TSV, per-op `(line, col)`)
@@ -208,9 +176,7 @@ The animator maintains a virtual buffer (list of lines) and a cursor
    buffer at that position
 2. **batch_delete/batch_insert** — `set_cursor(line, col)`, then apply
    multiple ops at once
-3. **newline_delete** — remove `\n`. **Ghost-line fix**: if the current
-   line is empty (all content deleted), remove the empty line entirely
-   instead of joining. This avoids the visual jump.
+3. **newline_delete** — remove `\n` (joins current line with next)
 4. **newline_insert** — split the current line at the cursor
 5. **delay** — sleep for N ms (scaled by `--speed`). Delays are typed
    (`delay\t<type>\t<ms>`) enabling future per-type dynamic pacing.
@@ -245,7 +211,6 @@ decoloring).
 ### What works:
 - **42/42 examples pass** MD5 verification with the C animator
 - Cross-language parity: C and Perl postprocess/pace produce identical output
-- Ghost-line fix applied in all three animators (C, Perl, vimscript)
 - Syntax coloring via `diffvim-colorize` (vim/pygmentize backends)
 - Streaming mode (`--stream`) in postprocess for true Unix pipes
 - `--transform NAME` flags in postprocess for composable transformations

@@ -12,7 +12,6 @@ Test suites for the animator pipeline. All tests are in Perl.
 | `test_roundtrip.pl` | Round-trip: old → pipeline → should equal new | 15 |
 | `test_roundtrip_verify.pl` | Extended round-trip with more cases | 30 |
 | `test_snapshot_each_op.pl` | Per-op snapshot verification | 14 |
-| `test_ghost_line.pl` | Ghost-line fix tests | 8 |
 | `test_delete_pacing_modes.pl` | Delete pacing mode tests | — |
 | `test_streaming.pl` | Streaming mode tests | — |
 | `test_property.pl` | Property-based tests | — |
@@ -28,12 +27,10 @@ Total: **117 tests** (excluding the open-ended ones).
 # All unit tests:
 for t in test_all_animators test_cross_language test_newline_fix \
          test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-         test_ghost_line; do
     perl animator/tests/$t.pl
 done
 
 # One test:
-perl animator/tests/test_ghost_line.pl
 ```
 
 ## test_snapshot_each_op.pl

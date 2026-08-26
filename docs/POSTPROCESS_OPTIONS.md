@@ -14,8 +14,7 @@ raw ops from compute
     ├── 2. [optional] semantic_cleanup (--semantic-cleanup)
     ├── 3. [optional] indent_aware (--indent-aware)
     ├── 4. [always] per-op (line, col) position computation
-    ├── 5. [always] ghost-line fix (content deletes before \n delete)
-    └── 6. [always] end-delete hunk fix (\n delete redirected)
+    └── 5. [always] end-delete hunk fix (\n delete redirected)
         │
         ▼
 post-processed ops (to pace)
@@ -95,9 +94,5 @@ in order. Available transforms:
 1. **Per-op (line, col) position computation** — walks the ops and
    computes cursor positions. Always applied.
 
-2. **Ghost-line fix** — when `delete \n` would join two lines and the
-   line has kept content, reorders the next line's content deletes to
-   target `(line+1, 1)` before the `\n` delete.
-
-3. **End-delete hunk fix** — when the last line is being deleted
+2. **End-delete hunk fix** — when the last line is being deleted
    (is_end_delete hunk), redirects the `\n` delete to `(line-1, 1)`.

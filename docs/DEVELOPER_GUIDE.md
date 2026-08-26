@@ -17,14 +17,13 @@ layout, development workflow, and how to extend the project.
 7. [How diffvim (vimscript) Works](#7-how-diffvim-vimscript-works)
 8. [How diffvim-pipeline (standalone) Works](#8-how-diffvim-pipeline-standalone-works)
 9. [The Coloring System](#9-the-coloring-system)
-10. [Ghost-Line Fix](#10-ghost-line-fix)
-11. [Testing](#11-testing)
-12. [Adding a New Language](#12-adding-a-new-language)
-13. [Adding a New Postprocess Transform](#13-adding-a-new-postprocess-transform)
-14. [Adding a New Pacing Mode](#14-adding-a-new-pacing-mode)
-15. [Debugging Tips](#15-debugging-tips)
-16. [Common Pitfalls](#16-common-pitfalls)
-17. [Coding Conventions](#17-coding-conventions)
+10. [Testing](#10-testing)
+11. [Adding a New Language](#11-adding-a-new-language)
+12. [Adding a New Postprocess Transform](#12-adding-a-new-postprocess-transform)
+13. [Adding a New Pacing Mode](#13-adding-a-new-pacing-mode)
+14. [Debugging Tips](#14-debugging-tips)
+15. [Common Pitfalls](#15-common-pitfalls)
+16. [Coding Conventions](#16-coding-conventions)
 
 ---
 
@@ -80,9 +79,6 @@ The project has two modes:
 4. **Typed delays.** Every delay has a type (`type`, `keep`, `delete`,
    `hunk_pause`, `awd_start`, `awd_word`, etc.) so the animator can
    dynamically scale delays per type at runtime.
-
-5. **Ghost-line fix in the animator.** When deleting `\n` and the current
-   line is already empty, remove the empty line instead of joining.
 
 ---
 
@@ -257,9 +253,6 @@ The animator:
 3. For each op, calls `set_cursor(line, col)` then applies the op
 4. Renders incrementally (only redraws changed lines)
 
-**Ghost-line fix**: when `delete_char(10)` is called and the current
-line is empty, removes the empty line instead of joining.
-
 ---
 
 ## 6. The Timed Op Stream Format (v2 TSV)
@@ -396,44 +389,7 @@ The C animator:
 
 ---
 
-## 10. Ghost-Line Fix
-
-### The problem
-
-When a diff produces:
-```
-keep "foo"
-delete \n        ← joins line N with line N+1
-delete "bar"     ← content of line N+1
-```
-
-The animator's `delete_char(10)` removes the `\n` between lines N and N+1,
-**joining** them. Visually, line N+1's content ("bar") jumps up onto
-line N — this looks bad.
-
-### The fix (in the animator only)
-
-When `delete_char(10)` is called:
-- **If the current line is empty** (all content already deleted by
-  preceding char deletes): **remove the empty line entirely**. The cursor
-  stays at the same line index, which now points to what was the next line.
-  No visual jump.
-- **If the current line has content**: **join** it with the next line
-  (original behavior — needed for mixed delete+insert sequences).
-
-This fix is in:
-- `animator/c/animator.c` — `delete_char()` function
-- `animator/perl/animator.pl` — `delete_char()` function
-- `diffvim` (vimscript) — `s:TimedDeleteChar()` function
-
-No postprocess changes needed. No op reordering. No position tracking
-changes. The postprocess already emits content deletes BEFORE the `\n`
-delete (that's how `optimize_line` works), so the line is already empty
-when the `\n` delete arrives.
-
----
-
-## 11. Testing
+## 10. Testing
 
 ### MD5 round-trip verification
 
@@ -482,7 +438,7 @@ perl tests/test_delete_pacing.pl
 
 ---
 
-## 12. Adding a New Language
+## 11. Adding a New Language
 
 diffvim auto-detects language from file extension. To add a new one:
 
@@ -498,7 +454,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 ---
 
-## 13. Adding a New Postprocess Transform
+## 12. Adding a New Postprocess Transform
 
 1. **Implement the transform** in both:
    - `animator/c/postprocess.c` — add a function and wire it into `write_output()`
@@ -515,7 +471,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 ---
 
-## 14. Adding a New Pacing Mode
+## 13. Adding a New Pacing Mode
 
 1. **Add the mode** to `process_delete()` or `process_awd()` in:
    - `animator/c/pace.c`
@@ -534,7 +490,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 ---
 
-## 15. Debugging Tips
+## 14. Debugging Tips
 
 ### Enable debug logging
 
@@ -597,7 +553,7 @@ vim -u NONE -N -n -es -V9 \
 
 ---
 
-## 16. Common Pitfalls
+## 15. Common Pitfalls
 
 ### "The animator produces wrong output on large files"
 
@@ -610,13 +566,6 @@ corrupt adjacent heap memory. Use AddressSanitizer to find it.
 The animator is using `redraw!` (vimscript) or `\033[2J` (C) on every op.
 These clear the entire screen. Use `redraw` (incremental) or only redraw
 changed lines.
-
-### "Cursor positions are wrong after ghost-line fix"
-
-The ghost-line fix must ONLY be in the animator's `delete_char(10)`,
-NOT in postprocess. The postprocess emits ops in the correct order
-(content deletes before `\n` delete). The animator just needs to check
-if the line is empty before deciding to join vs remove.
 
 ### "pace batches deletes across line boundaries"
 
@@ -633,7 +582,7 @@ ignore this value — they process hunks as they arrive.
 
 ---
 
-## 17. Coding Conventions
+## 16. Coding Conventions
 
 ### C code
 - Use `static` for all file-local functions and variables
@@ -683,5 +632,4 @@ ignore this value — they process hunks as they arrive.
 | `plugin/diffvim.vim` | Vim plugin (:Diffvim, :DiffvimPick) |
 | `tests/verify_md5.sh` | Round-trip MD5 verification (42 examples) |
 | `docs/PIPELINE.md` | Pipeline architecture reference |
-| `docs/GHOST_LINE_DESIGN.md` | Ghost-line fix design (historical) |
 | `docs/ARCHITECTURE_ANALYSIS.md` | Architecture analysis (historical) |

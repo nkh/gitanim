@@ -31,12 +31,10 @@ etc.).
 Two entry modes exist:
 
 - **Batch** — `read_input()` slurps the whole file, then `write_output()`
-  processes all hunks with the full transform stack **and** the ghost-line
-  fix logic.
+  processes all hunks with the full transform stack.
 - **Streaming** (`--stream`) — `stream_process()` calls `process_one_hunk()`
   per hunk. The streaming path applies `semantic_cleanup` and
-  `reorder_hunk_ops` but **does NOT** apply `overwrite_transform`, the
-  ghost-line `\n`-delete look-ahead, or the insert-`\n`-first fix. See
+  `reorder_hunk_ops` but **does NOT** apply `overwrite_transform`. See
   *Caveats — streaming mode* at the end.
 
 ## Transform pipeline (batch mode)
@@ -53,14 +51,12 @@ Per hunk, in `write_output()` (lines 541–828):
                                   then [if do_indent_last]    ─► indent_last_transform
               ──►  [if do_overwrite]     overwrite_transform
               ──►  emit loop:
-                     ├── per-op (line,col) cursor simulation
-                     ├── ghost-line fix on "delete \n"
-                     └── ghost-line fix on inserts at col 1 with line_has_content
+                     └── per-op (line,col) cursor simulation
 ```
 
 **Order is fixed** — semantic-cleanup always runs before reordering; reordering
-always runs before overwrite; the ghost-line fix always runs last, in the
-emit loop. None of these can be reordered by the user.
+always runs before overwrite; the emit loop always runs last. None of these
+can be reordered by the user.
 
 **Default flags:**
 | Flag                       | Default | Activated by |
@@ -116,8 +112,7 @@ HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>
 ```
 is emitted. The `end_ins` / `end_del` flags come from `compute` and indicate
 whether the hunk is inserting/deleting the very last line of the file (which
-has no trailing `\n`). These flags are consulted by the ghost-line fix
-(§1.6) and otherwise ignored.
+has no trailing `\n`). These flags are otherwise ignored.
 
 After all ops in a hunk, `HUNK_END` is printed; after all hunks, a single
 blank line is printed at the bottom of the file.
@@ -140,9 +135,9 @@ four sweeps:
 3. **\n deletes** (code == 10) — join lines AFTER content is done
 4. **\n inserts** (code == 10) — create new lines AFTER content is done
 
-This ordering PREVENTS ghost lines: the \n delete only happens
-after all content changes, so it never joins a line that still has
-pending content ops.
+This ordering puts `\n` deletes last in each change region, so the `\n`
+that joins two lines is only removed after all content changes on the
+current line are done.
 
 `keep` ops are emitted in place (in their original position between change
 regions). The `\n` delete is moved to the end of each change region's
@@ -203,15 +198,15 @@ the *original* file as if the buffer were being edited in place. Variables:
   current line)
 - `newl_ins`, `newl_del` (counters added to `line_offset` for the next hunk)
 
-**Cursor rules** (when no ghost-line fix triggers):
+**Cursor rules:**
 
 | Op type        | code | Action                                                         | Effect on cursor |
 |----------------|------|----------------------------------------------------------------|------------------|
 | `keep`         | ≠ 10 | emit `op\tkeep\t<cur_line>\t<cur_col>\t<code>`                  | `cur_col++`, `line_has_content = 1` |
 | `keep`         | = 10 | emit `keep\t<cur_line>\t<cur_col>\t10`                         | `cur_line++`, `cur_col = 1`, `line_has_content = 0` |
 | `delete`       | ≠ 10 | emit `op\tdelete\t<cur_line>\t<cur_col>\t<code>`                | cursor unchanged |
-| `delete`       | = 10 | **see ghost-line fix (§1.6)**                                  | varies |
-| `insert`       | ≠ 10 | **see ghost-line fix (§1.7)** first, then `op\tinsert\t<cur_line>\t<cur_col>\t<code>` | `cur_col++` |
+| `delete`       | = 10 | emit `op\tdelete\t<cur_line>\t<cur_col>\t10`                  | `cur_line++` if `line_has_content`, else stays; `newl_del++`, `line_has_content = 0` |
+| `insert`       | ≠ 10 | emit `op\tinsert\t<cur_line>\t<cur_col>\t<code>`                | `cur_col++` |
 | `insert`       | = 10 | emit `insert\t<cur_line>\t<cur_col>\t10`                      | `cur_line++`, `cur_col = 1`, `newl_ins++`, `line_has_content = 0` |
 | `overwrite_insert` | ≠ 10 | emit `op\toverwrite_insert\t<cur_line>\t<cur_col>\t<code>` | `cur_col++` (same as insert, but pace will use zero delay) |
 
@@ -228,169 +223,7 @@ op\t<keep|delete|insert|overwrite_insert>\t<line>\t<col>\t<code>\t<char_repr>
 where `<char_repr>` is `\n`, `\t`, `\r`, `space`, `'c'` for printable, or
 the decimal code otherwise. (Emit is via `emit_op()` line 625.)
 
-## 1.5 Ghost-line fix — "delete `\n`" look-ahead
-
-**Where:** `write_output()`, lines 654–775, inside the `\n` `delete` branch.
-
-This is the most subtle part of the postprocessor. Without it, deleting a
-`\n` *before* deleting the next line's content would join the next line's
-content onto the current line, producing the "ghost line" bug (the joined-in
-content briefly appears in the wrong place during animation).
-
-**Triggering pattern:** an op `delete \n` (i.e. `type == "delete"` and
-`code == 10`) anywhere in the hunk.
-
-**Look-ahead logic:**
-
-1. From position `i+1`, scan forward `j` while the ops are
-   `delete` with `code != 10`. Let `n_content = j - (i+1)` be the count of
-   content deletes that follow the `\n` delete.
-2. Check what follows at position `j`:
-   - If `j < n_out` and `final_ops[j]` is `keep` or `insert`, set
-     `followed_by_keep_or_insert = 1`.
-3. Dispatch on the combination:
-
-| `n_content` | `followed_by_keep_or_insert` | `i == 0 && end_del` | Action |
-|-------------|------------------------------|---------------------|--------|
-| > 0         | 0                            | no                  | **"Delete next line" pattern** — see below |
-| > 0         | 0                            | yes                 | **"End-delete with content" variant** — see below |
-| (any)       | 1                            | —                   | **Legitimate line merge** — emit `delete \n` at `(cur_line, cur_col)`, `newl_del++`, `line_has_content = 0`. Cursor unchanged. |
-| 0           | 0                            | yes (`i==0 && end_del && cur_line>1`) | **"Delete last line" pattern** — emit `delete \n` at `(cur_line - 1, 1)`, `newl_del++`. Cursor unchanged. |
-| 0           | 0                            | no                  | **Normal `\n` delete** — emit `delete \n` at `(cur_line, cur_col)`, `newl_del++`. Cursor unchanged. |
-
-### "Delete next line" pattern (the main case)
-
-Triggered when content deletes follow the `\n` delete, and no `keep`/`insert`
-intervenes. The fix: do *not* delete the `\n` from `cur_line` (which would
-join the next line onto `cur_line`). Instead, advance the cursor to the
-next line, delete its content there, *then* delete the (now empty) next
-line's `\n` to join the line *after* next.
-
-**Pseudocode (normal branch, no end_del):**
-```
-next_line = cur_line + 1
-for k in (i+1 .. j-1):
-    emit delete  <next_line>  1  <code>     // delete content on next line
-emit delete  <next_line>  1  10            // delete the empty next line's \n
-newl_del++
-line_has_content = 0
-i = j                                        // skip past content deletes
-continue                                     // skip the normal `i++`
-```
-
-`cur_line` is intentionally **not** incremented here. After this branch the
-next op (originally at index `j`) is treated as being on `cur_line + 1`
-(because the line *after* the emptied next line has now shifted up into the
-next line's slot).
-
-**End-delete variant** (when `i == 0` and the hunk's `end_del` flag is set):
-the "next line" is actually the *last line of the file* (which has no `\n`
-after it). The content lives on `cur_line` itself, not `cur_line+1`:
-
-```
-for k in (i+1 .. j-1):
-    emit delete  <cur_line>  1  <code>
-emit delete  <cur_line - 1>  1  10    // join empty last line onto previous
-newl_del++
-line_has_content = 0
-i = j
-continue
-```
-
-### "Delete last line" pattern
-
-When `delete \n` is the first op of a hunk (`i == 0`) and the hunk's
-`end_del` flag is set, the file's *last* line is being deleted (there is no
-content after it to look ahead at). Emit the `\n` delete at
-`(cur_line - 1, 1)`, joining the empty current line onto the *previous*
-line, preserving the previous line's content. `cur_line` is unchanged.
-
-### "Legitimate line merge"
-
-When the `\n` delete is immediately followed by a `keep` or `insert` (not
-content deletes), the line boundary is being genuinely removed — e.g. two
-paragraphs being merged into one. Emit `delete \n` at `(cur_line, cur_col)`
-normally. Cursor unchanged.
-
-### Normal `\n` delete
-
-Catch-all: emit `delete \n` at `(cur_line, cur_col)`. Cursor unchanged.
-
-**Example (delete-next-line pattern):**
-
-Input ops (already optimized):
-```
-delete 'X'  ← line 7's content
-delete '\n' ← line 7's terminator
-delete 'Y'  ← line 8's content (next line)
-delete 'Z'
-```
-
-Without the fix, emitting at `cur_line` would join "YZ" onto line 7's tail
-during animation (the ghost-line bug). With the fix:
-
-```
-delete  line=7   col=1   'X'        ← delete line 7's content (already there)
-delete  line=8   col=1   'Y'        ← delete line 8's content at cur_line+1
-delete  line=8   col=1   'Z'
-delete  line=8   col=1   10         ← delete the now-empty line 8's \n
-```
-
-`cur_line` stays at 7 (line 9's content shifts up into line 8's slot, so
-the next iteration again operates on what is now line 8 = original line 9).
-
-**How other options interfere:**
-- The fix operates on `final_ops`, i.e. *after* `semantic_cleanup`,
-  `reorder_hunk_ops`, and `overwrite_transform`. So all three transforms
-  must have already run.
-- `--semantic-cleanup` may merge some `delete + insert` pairs into `keep`s,
-  reducing the number of `\n` deletes that reach this branch.
-- `--indent-last` reorders so the `\n` delete is last in its line group;
-  this is *helpful* because the look-ahead for "delete next line" pattern
-  depends on the `\n` delete being followed by content deletes —
-  `indent-last` doesn't change whether content follows, only its order
-  within the *current* line.
-- `--overwrite` may convert a `delete+insert` pair into
-  `delete+overwrite_insert`. The `\n` look-ahead only counts *content*
-  deletes (code != 10), and only triggers the merge behavior on `keep`/
-  `insert` (it does **not** check `overwrite_insert` — so an
-  `overwrite_insert` immediately after a `\n` delete is *not* treated as
-  a "legitimate merge"; the dispatcher's `followed_by_keep_or_insert`
-  check ignores it). This is a subtle interaction worth noting.
-
-**Related options:** none that control whether the fix runs. It is always
-active in batch mode. (In `--stream` mode it is *not* applied — see
-caveats.)
-
-## 1.6 Ghost-line fix — insert `\n` first when inserting at col 1 with content
-
-**Where:** `write_output()`, lines 798–806.
-
-**Triggering pattern:** an op `insert` with `code != 10`, where `cur_col == 1`
-and `line_has_content == 1` (i.e. a non-`\n` keep has already been emitted
-on the current line, but the cursor is back at column 1).
-
-**Steps taken:** before emitting the user-facing insert, emit a synthetic
-`insert \n` at `(cur_line, 1)` to push the existing content onto a new
-line. Then advance `cur_line++`, `cur_col = 1`, `newl_ins++`,
-`line_has_content = 0`. Finally, emit the original insert op.
-
-This prevents the inserted character from pushing the existing line's
-content rightward (a visual artifact the comment calls out as
-"adding `import json` before `import os`" — though in practice, in
-`optimize` mode the keeps come before the inserts in each line group, so
-this branch fires only in narrow scenarios where the cursor has been
-reset to col 1 by an intermediate `\n`-delete without resetting
-`line_has_content`).
-
-**How other options interfere:** none directly — it is unconditional in the
-emit loop. It interacts with `--op-order` modes that change which ops are
-emitted at `cur_col == 1` (e.g. `left-to-right` puts keeps first; deletes
-and inserts follow, by which point `cur_col > 1`).
-
-**Related options:** none.
-
-## 1.7 `line_offset` cross-hunk accounting
+## 1.5 `line_offset` cross-hunk accounting
 
 **Where:** `write_output()`, line 562 (`line_offset = 0`) and line 824
 (`line_offset += newl_ins - newl_del`).
@@ -488,8 +321,6 @@ delete '\n'
 - `--overwrite` may find fewer adjacent `delete+insert` pairs than in
   `optimize` mode, because deletes are all grouped together (interrupted
   only by other deletes), not interleaved with inserts.
-- The ghost-line fix (§1.5) runs on the result; the look-ahead still works
-  because it scans for `delete` ops regardless of order.
 
 **Related options:** mutually exclusive with the other op-order modes.
 Conflicts conceptually with `optimize` (the default) — they produce
@@ -675,7 +506,7 @@ insert 'c'
 
 **How other options interfere:**
 - Runs **before** every other transform, so its output feeds
-  `reorder_hunk_ops`, `overwrite_transform`, and the ghost-line fix.
+  `reorder_hunk_ops` and `overwrite_transform`.
 - By converting `delete+insert` pairs to `keep`s, it can change which line
   groups satisfy `indent_last`'s "all deletes" condition (turning a
   formerly all-delete line into a line with a `keep`, which disables
@@ -770,16 +601,6 @@ visual effect of in-place character replacement (no gap, no flicker).
 - Runs **after** `indent_last`, but `indent_last` only applies to
   all-delete line groups (no inserts), so `overwrite` finds nothing to
   convert in those groups anyway.
-- Runs **before** the ghost-line fix's `followed_by_keep_or_insert` check.
-  The check explicitly tests for `"keep"` or `"insert"` — it does **not**
-  recognize `"overwrite_insert"`. So a `\n` delete immediately followed by
-  an `overwrite_insert` is treated as if it's followed by neither — i.e.
-  it can fall into the "delete next line" pattern. This is a subtle
-  interaction: if `overwrite` has converted the post-`\n`-delete `insert`
-  into `overwrite_insert`, the ghost-line dispatcher may misclassify the
-  pattern. In practice, `\n` deletes are rarely adjacent to content
-  inserts because `optimize_line` puts `\n` deletes at the *end* of each
-  change region's delete sweep, after content deletes.
 - The emit loop (§1.4) handles `overwrite_insert` exactly like `insert`
   for cursor purposes (`cur_col++`), but emits the type string
   `op\toverwrite_insert\t...` so `pace` can recognize it.
@@ -801,22 +622,17 @@ The streaming code path (`stream_process()` → `process_one_hunk()`) is a
 | `reorder_hunk_ops` (incl. all op-order modes) | ✓ if `op_order_optimize` | ✓ if `op_order_optimize` |
 | `indent_last_transform` (inside `reorder_hunk_ops`) | ✓ if `do_indent_last` | ✓ if `do_indent_last` |
 | `overwrite_transform`                | ✓ if `do_overwrite`    | **✗ NOT applied**              |
-| Ghost-line fix on `delete \n`        | ✓ always               | **✗ NOT applied**              |
-| Ghost-line fix on `insert` at col 1  | ✓ always               | **✗ NOT applied**              |
 | `line_offset` cross-hunk accounting  | ✓                      | ✓                              |
 | Header `# hunk_count`                | ✓ (actual count)       | emitted as `-1` (unknown)      |
-| `end_del` / `end_ins` flags          | consulted by ghost-line fix | parsed but ignored        |
+| `end_del` / `end_ins` flags          | parsed and ignored     | parsed but ignored             |
 
 In streaming mode the emit loop is a simple `for` over `final_ops`: each
 `\n` op emits at `(cur_line, cur_col)`, content ops emit at the current
-cursor with `cur_col++` for `keep`/`insert`. No look-ahead. This means
-streaming output can exhibit the ghost-line bug for diffs that delete a
-line whose content extends to the next line.
+cursor with `cur_col++` for `keep`/`insert`. No look-ahead. The output is
+otherwise identical to batch mode minus `overwrite_transform`.
 
-Streaming mode is appropriate when latency matters more than correctness
-(e.g. piping through `pace` for live animation), or when the input is
-known to not trigger the ghost-line bug (single-line hunks, no `\n`
-deletes adjacent to content deletes).
+Streaming mode is appropriate when latency matters more than full
+transform coverage (e.g. piping through `pace` for live animation).
 
 ---
 
@@ -826,8 +642,6 @@ deletes adjacent to content deletes).
 |--------------------|---------|--------------|-----------------------------------|-----------------------|
 | (header rewrite)   | always  | header       | header lines                      | all flags             |
 | (cursor sim)       | always  | emit         | `(line, col)` per op             | `target`, `line_offset` |
-| (ghost-line: `\n`) | always  | emit         | `delete \n` line numbers          | `end_del` flag, lookahead |
-| (ghost-line: ins)  | always  | emit         | inserts synthetic `insert \n`     | `line_has_content`    |
 | `optimize`         | ON      | reorder      | order within line groups          | line-group boundaries |
 | `natural`          | off     | reorder      | (none — raw memcpy)              | —                     |
 | `left-to-right`     | off     | reorder      | order within line groups          | line-group boundaries |
@@ -842,7 +656,7 @@ deletes adjacent to content deletes).
 
 - `semantic-cleanup` first, then op-order mode, then `indent-last`
   (inside the same call to `reorder_hunk_ops`), then `overwrite`, then
-  the emit-loop ghost-line fixes.
+  the emit loop.
 - `indent-last` and `overwrite` are non-overlapping by construction
   (`indent-last` only touches all-delete line groups; `overwrite` only
   touches `delete+insert` adjacent pairs).
@@ -875,15 +689,10 @@ To reimplement `postprocess.c` from this document:
    3. If `do_overwrite`: run `overwrite_transform` on the reordered ops.
    4. Emit the hunk header `HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>`.
    5. Walk `final_ops` with the cursor-simulation emit loop:
-      - For `delete \n`: run the look-ahead (§1.5) and dispatch to one of
-        the five branches.
-      - For non-`\n` `insert` at `cur_col == 1 && line_has_content`:
-        emit a synthetic `insert \n` first (§1.6).
-      - For all other ops: emit at `(cur_line, cur_col)` and update the
+      - For each op: emit at `(cur_line, cur_col)` and update the
         cursor per the table in §1.4.
    6. Emit `HUNK_END` and accumulate `line_offset += newl_ins - newl_del`.
 4. After all hunks, emit a trailing blank line.
 
-Streaming mode skips step 3.3 (overwrite) and simplifies step 3.5 to a
-plain cursor walk (no ghost-line fix), and emits `# hunk_count -1` in
+Streaming mode skips step 3.3 (overwrite) and emits `# hunk_count -1` in
 the header.
