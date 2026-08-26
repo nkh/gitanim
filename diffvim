@@ -17,7 +17,6 @@
 # required to quit).
 #
 # Unified option selectors (run 'diffvim --help' for full list):
-#   --op-order MODE          Op reordering (natural|optimize|left-to-right|...)
 #   --delete-pacing MODE     Deletion strategy (char|rapid-eol|word|instant|...)
 #   --insert-pacing MODE     Insertion strategy (char|word|accel)
 #   --pacing MODE            Timing mode (uniform|adaptive|gaussian|review)
@@ -111,8 +110,6 @@ PRECOMPUTED_FILE=""
 AUTO_PRECOMPUTE="${DIFFVIM_AUTO_PRECOMPUTE:-1}"
 STARTUP_PAUSE=0
 ALGORITHM="${DIFFVIM_ALGORITHM:-lcs}"
-SEMANTIC_CLEANUP=0
-INDENT_AWARE=0
 HIGHLIGHT_WORD=0
 HIGHLIGHT_WORD_COLOR="${DIFFVIM_HIGHLIGHT_WORD_COLOR:-Search}"
 HIGHLIGHT_WORD_DURATION_MS="${DIFFVIM_HIGHLIGHT_WORD_DURATION_MS:-300}"
@@ -174,11 +171,6 @@ PAUSE_AFTER_DELETE_MS="${DIFFVIM_PAUSE_AFTER_DELETE_MS:-200}"
 BLOCK_DELETE_SIZE="${DIFFVIM_BLOCK_DELETE_SIZE:-3}"
 FOLD_UNCHANGED=0
 THEME="${DIFFVIM_THEME:-}"
-# --op-order: unified post-processing mode selector.
-# Replaces the individual --optimize-sequence / --left-to-right /
-# --delete-end-first / --delete-end-first-smart / --overwrite flags.
-# Old flags still work and are mapped to this variable below.
-OP_ORDER="${DIFFVIM_OP_ORDER:-optimize}"
 OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
@@ -257,19 +249,7 @@ CORE OPTIONS:
 
 DIFF ALGORITHM:
   --algorithm (-a)              [removed] Patience diff is now the only algorithm
-  --semantic-cleanup (-S)  Merge adjacent delete+insert pairs that cancel out
-  --indent-aware (-i)      Normalize indentation before line diff
   --word-diff (-w)         Use word-level diff (groups changes by word tokens)
-
-OP ORDER (post-processing):
-  --op-order MODE          Op reordering: natural|optimize|left-to-right|
-                           end-first|end-first-smart|overwrite (default: optimize)
-    natural                No post-processing (raw LCS order)
-    optimize               Deletes before inserts (default)
-    left-to-right          Keeps, then deletes, then inserts per line
-    end-first              Trailing deletes before inserts
-    end-first-smart        Trailing deletes + word batching
-    overwrite              In-place replacement instead of delete+insert
 
 DELETION PACING:
   --delete-pacing MODE     Deletion strategy: char|rapid-eol|rapid-identical|
@@ -310,8 +290,6 @@ HIGHLIGHTING:
   --dim-unchanged-pct N    Dimming percentage 0-100 (default: 60)
 
 POSTPROCESSING:
-  --semantic-cleanup (-S)  Merge canceling delete+insert pairs
-  --indent-aware (-i)      Normalize indentation before line diff
   --indent-last           Delete leading whitespace LAST (prevents left shift)
   --overwrite             In-place replacement instead of delete+insert
 
@@ -349,15 +327,15 @@ GIT REPLAY CONTROLS (only with --replay or --git-rev):
 
 ENVIRONMENT VARIABLES:
   All options can be set via DIFFVIM_<OPTION_NAME> env vars
-  (e.g. DIFFVIM_OP_ORDER, DIFFVIM_DELETE_PACING, DIFFVIM_PACING, etc.)
+  (e.g. DIFFVIM_DELETE_PACING, DIFFVIM_PACING, etc.)
   Timing: DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
   DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_HUNK_PAUSE_MS
 
 PRESETS:
-  fast-delete              --delete-pacing word --delete-speed fast --op-order optimize
-  review                   --pacing review --highlight hunk --dim-unchanged --op-order left-to-right
+  fast-delete              --delete-pacing word --delete-speed fast
+  review                   --pacing review --highlight hunk --dim-unchanged
   demo                     --pacing gaussian --speed 0.7 --highlight inline
-  ai-code                  --op-order end-first-smart --highlight inline --pacing adaptive
+  ai-code                  --highlight inline --pacing adaptive
 
 SEE ALSO:
   man diffvim, man diffvim-compute
@@ -440,25 +418,12 @@ while [[ $# -gt 0 ]]; do
         --precomputed)      PRECOMPUTED_FILE="$2"; shift 2 ;;
         --startup-pause)    STARTUP_PAUSE=1; shift ;;
         --algorithm|-a)     shift 2 ;;  # deprecated: patience is now the only algorithm
-        --semantic-cleanup|-S) SEMANTIC_CLEANUP=1; shift ;;
-        --indent-aware|-i)  INDENT_AWARE=1; shift ;;
         --startup-feedback|-F) STARTUP_FEEDBACK=1; shift ;;
         --dim-unchanged|-D) DIM_UNCHANGED=1; shift ;;
         --dim-unchanged-pct) DIM_UNCHANGED_PCT="$2"; shift 2 ;;
         --theme|-t)          THEME="$2"; shift 2 ;;
         --log-mode)      LOG_MODE="$2"; shift 2 ;;
         --log-file)      LOG_FILE="$2"; shift 2 ;;
-        --op-order)
-            OP_ORDER="$2"; shift 2
-            case "$OP_ORDER" in
-                natural|optimize|left-to-right|end-first|end-first-smart|overwrite)
-                    : ;; # valid
-                *)
-                    echo "diffvim: invalid --op-order value '$OP_ORDER'" >&2
-                    echo "  valid: natural | optimize | left-to-right | end-first | end-first-smart | overwrite" >&2
-                    exit 1 ;;
-            esac
-            ;;
         --preset|-p)        PRESET="$2"; shift 2 ;;
         --no-log-timing) LOG_TIMING=0; shift ;;
         --debug)          DEBUG_MODE=1; shift ;;
@@ -513,7 +478,7 @@ while [[ $# -gt 0 ]]; do
                            --flash-pause-ms --flash-highlight-ms --cursor-glide-ms \
                            --cursor-glide-show-intermediate --distance-speed \
                            --distance-threshold --distance-fast-mult --distance-slow-mult \
-                           --op-order --semantic-cleanup --indent-aware --indent-last \
+                           --indent-last \
                            --overwrite --highlight --highlight-color --highlight-duration-ms \
                            --dim-unchanged --dim-unchanged-pct --fold-unchanged --context \
                            --sign-column --git-blame --max-hunk-chars --theme \
@@ -577,15 +542,11 @@ if [[ -n "$PRESET" ]]; then
             fast-delete)
                 DELETE_PACING=word
                 DELETE_SPEED=fast
-                OP_ORDER=optimize
-                SEMANTIC_CLEANUP=1
                 ;;
             review)
                 PACING=review
                 HIGHLIGHT_MODE=hunk
                 DIM_UNCHANGED=1
-                OP_ORDER=left-to-right
-                SEMANTIC_CLEANUP=1
                 ;;
             demo)
                 PACING=gaussian
@@ -593,10 +554,8 @@ if [[ -n "$PRESET" ]]; then
                 HIGHLIGHT_MODE=inline
                 ;;
             ai-code)
-                OP_ORDER=end-first-smart
                 HIGHLIGHT_MODE=inline
                 PACING=adaptive
-                SEMANTIC_CLEANUP=1
                 ;;
             custom)
                 # Read custom options from DIFFVIM_PRESET_CUSTOM env var
@@ -635,55 +594,6 @@ fi
 [[ $DIFFVIM_TICK_MS -lt 1 ]] && DIFFVIM_TICK_MS=1 && export DIFFVIM_TICK_MS
 [[ $DIFFVIM_TYPE_DELAY_MS -lt 1 ]] && DIFFVIM_TYPE_DELAY_MS=1 && export DIFFVIM_TYPE_DELAY_MS
 [[ $DIFFVIM_DELETE_DELAY_MS -lt 1 ]] && DIFFVIM_DELETE_DELAY_MS=1 && export DIFFVIM_DELETE_DELAY_MS
-
-# Resolve --op-order into the individual post-processing variables.
-# --op-order is the unified selector; the individual flags
-# (--optimize-sequence, --left-to-right, --delete-end-first,
-# --delete-end-first-smart, --overwrite) are kept for backwards
-# compatibility and override the op-order default.
-#
-# Mapping:
-#   natural          -> optimize=0, l2r=0, def=0, def-smart=0, overwrite=0
-#   optimize         -> optimize=1, l2r=0, def=0, def-smart=0, overwrite=0 (default)
-#   left-to-right    -> optimize=1, l2r=1, def=0, def-smart=0, overwrite=0
-#   end-first        -> optimize=1, l2r=0, def=1, def-smart=0, overwrite=0
-#   end-first-smart  -> optimize=1, l2r=0, def=1, def-smart=1, overwrite=0
-#   overwrite        -> optimize=1, l2r=0, def=0, def-smart=0, overwrite=1
-#
-# We only apply the op-order defaults for variables that were NOT
-# explicitly set on the command line. We detect "explicitly set" by
-# comparing against the DIFFVIM_* env var defaults (if the shell
-# variable differs from the env default, it was set on CLI).
-case "$OP_ORDER" in
-    natural)
-        OPTIMIZE_SEQUENCE=0
-        LEFT_TO_RIGHT=0
-        DELETE_END_FIRST=0
-        DELETE_END_FIRST_SMART=0
-        OVERWRITE_MODE=0
-        ;;
-    optimize)
-        # Default — keep OPTIMIZE_SEQUENCE=1, others 0
-        OPTIMIZE_SEQUENCE=1
-        ;;
-    left-to-right)
-        OPTIMIZE_SEQUENCE=1
-        LEFT_TO_RIGHT=1
-        ;;
-    end-first)
-        OPTIMIZE_SEQUENCE=1
-        DELETE_END_FIRST=1
-        ;;
-    end-first-smart)
-        OPTIMIZE_SEQUENCE=1
-        DELETE_END_FIRST=1
-        DELETE_END_FIRST_SMART=1
-        ;;
-    overwrite)
-        OPTIMIZE_SEQUENCE=1
-        OVERWRITE_MODE=1
-        ;;
-esac
 
 # Resolve --delete-pacing into the individual deletion-strategy variables.
 # --delete-pacing is the unified selector; the individual flags
@@ -754,7 +664,6 @@ case "$DELETE_SPEED" in
 esac
 export DIFFVIM_DELETE_DELAY_MS
 
-export DIFFVIM_OP_ORDER="$OP_ORDER"
 export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_DELETE_PACING="$DELETE_PACING"
 export DIFFVIM_DELETE_SPEED="$DELETE_SPEED"
@@ -890,8 +799,6 @@ export DIFFVIM_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
 export DIFFVIM_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_ALGORITHM="$ALGORITHM"
-export DIFFVIM_SEMANTIC_CLEANUP="$([[ $SEMANTIC_CLEANUP -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INDENT_AWARE="$([[ $INDENT_AWARE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
 export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
@@ -1359,7 +1266,7 @@ if [[ $DEBUG_MODE -eq 1 ]]; then
     echo "=== diffvim debug log $(date) ===" > "$DEBUG_LOG"
     debug_log "OLD=$OLD NEW=$NEW"
     debug_log "WORKDIR=$WORKDIR"
-    debug_log "SPEED_MULT=$SPEED_MULT OP_ORDER=$OP_ORDER"
+    debug_log "SPEED_MULT=$SPEED_MULT"
     debug_log "DELETE_PACING=$DELETE_PACING INSERT_PACING=$INSERT_PACING"
     debug_log "PACING=$PACING LEFT_TO_RIGHT=$LEFT_TO_RIGHT"
 fi
@@ -1399,20 +1306,10 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         "$COMPUTE_BIN" "$OLD" "$NEW" "$RAW_OPS" 2>&1 | grep "^compute:" >&2 || true
         debug_log "Stage 1 done: $(wc -l < "$RAW_OPS") lines in raw_ops"
 
-        # Stage 2: Postprocess (op ordering + per-op positioning)
+        # Stage 2: Postprocess (line/col adjustment + per-op positioning)
         POSTPROCESS_ARGS=()
-        [[ "$SEMANTIC_CLEANUP" -eq 1 ]] && POSTPROCESS_ARGS+=("--semantic-cleanup")
-        [[ "$INDENT_AWARE" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-aware")
         [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--overwrite")
         [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-last")
-        # Op ordering
-        case "${OP_ORDER:-optimize}" in
-            natural)      POSTPROCESS_ARGS+=("--op-order" "natural") ;;
-            optimize)     POSTPROCESS_ARGS+=("--op-order" "optimize") ;;
-            left-to-right) POSTPROCESS_ARGS+=("--op-order" "left-to-right") ;;
-            end-first)    POSTPROCESS_ARGS+=("--op-order" "end-first") ;;
-            end-first-smart) POSTPROCESS_ARGS+=("--op-order" "end-first-smart") ;;
-        esac
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         export DV_OLD_FILE="$OLD"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
@@ -1557,8 +1454,6 @@ let g:diffvim = extend({
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
     \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
     \ 'word_diff':          !empty($DIFFVIM_WORD_DIFF)        ? 1 : 0,
-    \ 'semantic_cleanup':   !empty($DIFFVIM_SEMANTIC_CLEANUP) ? 1 : 0,
-    \ 'indent_aware':       !empty($DIFFVIM_INDENT_AWARE)     ? 1 : 0,
     \ 'step_mode':          !empty($DIFFVIM_STEP_MODE)        ? 1 : 0,
     \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
     \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
@@ -1609,7 +1504,6 @@ let g:diffvim = extend({
     \ 'pause_after_delete_ms': !empty($DIFFVIM_PAUSE_AFTER_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_AFTER_DELETE_MS) : 200,
     \ 'block_delete_size':  !empty($DIFFVIM_BLOCK_DELETE_SIZE)   ? str2nr($DIFFVIM_BLOCK_DELETE_SIZE) : 3,
     \ 'theme':              !empty($DIFFVIM_THEME)              ? $DIFFVIM_THEME                   : '',
-    \ 'op_order':           !empty($DIFFVIM_OP_ORDER)           ? $DIFFVIM_OP_ORDER                : 'optimize',
     \ 'optimize_sequence':  empty($DIFFVIM_OPTIMIZE_SEQUENCE) ? 1 : ($DIFFVIM_OPTIMIZE_SEQUENCE ==# '0' ? 0 : 1),
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',

@@ -49,27 +49,15 @@ for the semantics of each.
 (Myers was removed in the refactor.)
 
 .SH OPTION COMBINATIONS
-Eight combinations of post-processing flags are exercised:
+Two combinations of post-processing flags are exercised:
 .RS
 .IP \(bu 3
 (default — no flags)
 .IP \(bu 3
 \-\-word-diff
-.IP \(bu 3
-\-\-semantic-cleanup
-.IP \(bu 3
-\-\-indent-aware
-.IP \(bu 3
-\-\-word-diff \-\-semantic-cleanup
-.IP \(bu 3
-\-\-word-diff \-\-indent-aware
-.IP \(bu 3
-\-\-semantic-cleanup \-\-indent-aware
-.IP \(bu 3
-\-\-word-diff \-\-semantic-cleanup \-\-indent-aware
 .RE
 
-This produces 2 \(mu 8 = 16 diff files in the output directory, named
+This produces 2 \(mu 2 = 4 diff files in the output directory, named
 .IR <algorithm>-<options>.diff .
 
 .SH OUTPUT

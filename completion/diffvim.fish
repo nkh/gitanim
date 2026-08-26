@@ -35,9 +35,6 @@ set -l diffvim_opts \
     --language \
     --max-line-len \
     --precomputed \
-    --semantic-cleanup \
-    --indent-aware \
-    --op-order \
     --delete-pacing \
     --delete-speed \
     --delete-threshold \
@@ -63,7 +60,6 @@ for cmd in diffvim diffvim-tmux diffvim.pl
     complete -c $cmd -f -r -a "perl" -d "Diff parser" -n '__fish_seen_argument --parser -c $cmd'
     complete -c $cmd -f -r -a "zz zt zb none" -d "Scroll position" -n '__fish_seen_argument --scroll -c $cmd'
     # (algorithm removed — patience is the only algorithm)
-    complete -c $cmd -f -r -a "natural optimize left-to-right end-first end-first-smart overwrite" -d "Op order mode" -n '__fish_seen_argument --op-order -c $cmd'
     complete -c $cmd -f -r -a "char rapid-eol rapid-identical accel word instant" -d "Delete pacing" -n '__fish_seen_argument --delete-pacing -c $cmd'
     complete -c $cmd -f -r -a "slow normal fast instant" -d "Delete speed" -n '__fish_seen_argument --delete-speed -c $cmd'
     complete -c $cmd -f -r -a "char word accel" -d "Insert pacing" -n '__fish_seen_argument --insert-pacing -c $cmd'

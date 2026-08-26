@@ -61,9 +61,9 @@ Press `n` to advance to the next hunk. Press `b` to go back.
 ### `ai-code`
 
 Tuned for AI-generated diffs, which tend to be messy with
-interleaved inserts and deletes. Enables `--semantic-cleanup`,
-`--left-to-right`, `--highlight-inline`, and `--word-diff` so the
-animation reads naturally even when the underlying Patience is chaotic.
+interleaved inserts and deletes. Enables `--highlight-inline` and
+`--word-diff` so the animation reads naturally even when the underlying
+Patience is chaotic.
 
 ```bash
 diffvim --preset ai-code old.py new.py
@@ -102,7 +102,7 @@ diffvim --preset presentation --output result.py old.py new.py
 | `default`      | 1.0x  | off       | none        | optimize_sequence                | Everyday use            |
 | `fast-delete`  | 1.0x  | off       | none        | optimize + rapid-EOL + word-accel| Large refactors         |
 | `review`       | 1.0x  | hunk      | after hunk  | optimize + dim-unchanged         | Code review             |
-| `ai-code`      | 1.0x  | inline    | none        | semantic + L2R + word-diff       | AI-generated diffs      |
+| `ai-code`      | 1.0x  | inline    | none        | word-diff                        | AI-generated diffs      |
 | `demo`         | 0.7x  | inline    | after word  | optimize + word-pause            | Live demos              |
 | `presentation` | 1.2x  | off       | none        | optimize                         | Screencast recording    |
 

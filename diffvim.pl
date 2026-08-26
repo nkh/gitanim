@@ -107,10 +107,8 @@ my $max_line_len   = _env_or('DIFFVIM_MAX_LINE_LEN', 10000);
 my $adaptive_timing= 0;
 my $word_diff_mode = 0;
 my $diff_input     = '';
-my $semantic_cleanup = 0;
 my $diff_algorithm   = 'lcs';
 my $use_remote       = 0;
-my $indent_aware     = 0;
 my $highlight_hunk   = 0;
 my $highlight_color  = _env_or('DIFFVIM_HIGHLIGHT_COLOR', 'DiffChange');
 my $highlight_duration_ms = _env_or('DIFFVIM_HIGHLIGHT_DURATION_MS', 1000);
@@ -142,10 +140,8 @@ GetOptions(
     'adaptive-timing'  => \$adaptive_timing,
     'word-diff'        => \$word_diff_mode,
     'diff=s'           => \$diff_input,
-    'semantic-cleanup' => \$semantic_cleanup,
     'algorithm=s'      => \$diff_algorithm,
     'remote'           => \$use_remote,
-    'indent-aware'     => \$indent_aware,
     'highlight-hunk'   => \$highlight_hunk,
     'highlight-color=s'=> \$highlight_color,
     'highlight-duration-ms=i' => sub { $highlight_duration_ms = $_[1]; },
@@ -251,10 +247,8 @@ Options:
   --adaptive-timing        Auto-slow for complex hunks, speed up for simple ones
   --word-diff              Use word-level diff (groups changes by word)
   --diff FILE              Animate a unified diff file (- for stdin)
-  --semantic-cleanup       Merge adjacent insert/delete pairs that cancel out
   --algorithm lcs|myers|patience  Line-level diff algorithm (default: lcs)
   --remote                 Use vim --remote-send instead of tmux (#2)
-  --indent-aware           Detect indent changes separately (#22)
   --highlight-hunk         Visually highlight hunk before changing it
   --highlight-color COLOR  Highlight group/color (default: DiffChange)
   --highlight-duration-ms N  Highlight duration in ms (default: 1000)
@@ -1122,7 +1116,7 @@ sub compute_diff {
         return;
     }
 
-    my $options = { word_diff => $word_diff_mode, semantic_cleanup => $semantic_cleanup, algorithm => $diff_algorithm, indent_aware => $indent_aware };
+    my $options = { word_diff => $word_diff_mode, algorithm => $diff_algorithm };
     my $result = DiffVim::Parser::Perl::parse_diff($old, $new, $options);
     @hunks = @{$result->{hunks}};
     $parser_used = $result->{parser};

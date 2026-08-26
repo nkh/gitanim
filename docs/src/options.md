@@ -96,35 +96,6 @@ Line-level diff algorithm (default: `patience`). (Myers was removed in the
 refactor: it OOMs on 15K-line files and produces the same op count as
 Patience.)
 
-### `--semantic-cleanup` / `-S`
-Merge adjacent delete+insert pairs that cancel out, reducing
-unnecessary typing.
-
-### `--indent-aware` / `-i`
-Normalize indentation before line-level diff, so lines that differ
-only in indentation are treated as "keep" at the line level.
-
----
-
-## Op Order (Post-Processing)
-
-### `--op-order MODE`
-Controls how char ops within a line are ordered. Default: `optimize`.
-
-| Mode              | Description                                          |
-| ----------------- | ---------------------------------------------------- |
-| `natural`         | No post-processing (raw Patience order)                   |
-| `optimize`        | Deletes before inserts (default)                     |
-| `left-to-right`   | Keeps, then deletes, then inserts per line           |
-| `end-first`       | Trailing deletes before inserts                      |
-| `end-first-smart` | Trailing deletes + word batching                     |
-| `overwrite`       | In-place replacement instead of delete+insert        |
-
-```bash
-diffvim --op-order left-to-right old.py new.py
-diffvim --op-order end-first-smart old.py new.py
-```
-
 ---
 
 ## Deletion Pacing
@@ -233,7 +204,6 @@ All options can be set via `DIFFVIM_<OPTION_NAME>` environment
 variables. For example:
 
 ```bash
-DIFFVIM_OP_ORDER=left-to-right diffvim old.py new.py
 DIFFVIM_DELETE_PACING=word diffvim old.py new.py
 DIFFVIM_PACING=gaussian diffvim old.py new.py
 DIFFVIM_HIGHLIGHT=inline diffvim old.py new.py
@@ -266,7 +236,6 @@ Core timing env vars:
 | `DIFFVIM_BLOCK_DELETE_SIZE`    | 3         | Group deletes into blocks of N           |
 | `DIFFVIM_PAUSE_BEFORE_DELETE_MS`| 200      | Pause before delete block                |
 | `DIFFVIM_PAUSE_AFTER_DELETE_MS`| 200       | Pause after delete block                 |
-| `DIFFVIM_OP_ORDER`             | optimize  | Op reordering mode                       |
 | `DIFFVIM_OVERWRITE_MODE`       | 0         | In-place overwrite mode                  |
 | `DIFFVIM_SCROLL`               | zz        | Scroll mode (zz\|zt\|zb\|none)            |
 | `DIFFVIM_SIGN_COLUMN`          | (off)     | Show +/- signs                           |

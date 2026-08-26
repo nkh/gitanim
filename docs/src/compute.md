@@ -47,10 +47,6 @@ is present they pre-compute before launching vim, so the manual
 # Compute the diff and write to a file
 compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
 
-# Use a specific algorithm
-compute/bin/diffvim-compute-cpp --algorithm patience --semantic-cleanup \
-    old.py new.py /tmp/diff.txt
-
 # Convert a unified diff to diffvim's format
 compute/bin/diffvim-compute-cpp --diff patch.diff /tmp/diff.txt
 compute/bin/diffvim-compute-cpp --diff - /tmp/diff.txt < patch.diff
@@ -70,9 +66,7 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 | Option                       | Description                                          |
 | ---------------------------- | ---------------------------------------------------- |
 | `--algorithm patience\|patience`  | Diff algorithm (default: `patience`)                     |
-| `--semantic-cleanup`         | Merge adjacent delete/insert pairs into keeps        |
 | `--word-diff`                | Batch word runs in char ops                          |
-| `--indent-aware`             | Treat indent-only changes specially                  |
 | `--optimize-sequence`        | Reorder ops within a line (default: on)              |
 | `--no-optimize-sequence`     | Disable op reordering                                |
 | `--left-to-right`            | Emit keeps, then deletes, then inserts per line      |
@@ -87,9 +81,7 @@ produces the same op count as patience.
 | Variable                       | Effect                                          |
 | ------------------------------ | ----------------------------------------------- |
 | `DIFFVIM_ALGORITHM`            | Default `--algorithm` value                     |
-| `DIFFVIM_SEMANTIC_CLEANUP`     | Set to `1` to enable by default                 |
 | `DIFFVIM_WORD_DIFF`            | Set to `1` to enable by default                 |
-| `DIFFVIM_INDENT_AWARE`         | Set to `1` to enable by default                 |
 | `DIFFVIM_OPTIMIZE_SEQUENCE`    | Default `1`; set to `0` to disable              |
 | `DIFFVIM_LEFT_TO_RIGHT`        | Set to `1` to enable by default                 |
 | `DIFFVIM_COMPUTE_BIN`          | Override path to the compute binary (advanced)  |
@@ -101,9 +93,7 @@ The compute tool writes a line-oriented diff file that diffvim's
 
 ```
 # algorithm patience
-# semantic_cleanup 0
 # word_diff 0
-# indent_aware 0
 # optimize_sequence 1
 # left_to_right 0
 # hunk_count 3

@@ -13,9 +13,7 @@ parse_diff($old_file, $new_file, \%options)
 ### Options
 
 - `word_diff => 1` — use word-level diff instead of char-level
-- `semantic_cleanup => 1` — merge adjacent delete/insert pairs
 - `algorithm => 'patience'|'patience'` — line-level algorithm
-- `indent_aware => 1` — handle indent-only changes specially
 
 ### Return Value
 
@@ -49,8 +47,6 @@ Pure-Perl Patience diff. No external dependencies beyond Perl core.
   Patience algorithm (Patience is the default)
 - Char-level: Patience on character arrays
 - Word-level: Patience on word/whitespace tokens (with `--word-diff`)
-- Semantic cleanup: merges adjacent delete/insert pairs that cancel
-- Indent-aware: detects indent-only changes and treats them as keeps
 
 ## Selecting the Parser
 

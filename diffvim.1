@@ -167,32 +167,6 @@ These are the recommended option selectors. Each replaces multiple
 individual flags from earlier versions.
 
 .TP
-.BR \-\-op-order\  natural | optimize | left-to-right | end-first | end-first-smart | overwrite
-Unified op reordering mode (default:
-.BR optimize ).
-Controls how char ops within a line are ordered.
-.RS
-.IP \(bu 3
-.B natural
-\(em no post-processing (raw Patience order)
-.IP \(bu 3
-.B optimize
-\(em deletes before inserts (default)
-.IP \(bu 3
-.B left-to-right
-\(em keeps, then deletes, then inserts
-.IP \(bu 3
-.B end-first
-\(em trailing deletes before inserts
-.IP \(bu 3
-.B end-first-smart
-\(em trailing deletes before inserts + word batching
-.IP \(bu 3
-.B overwrite
-\(em in-place replacement instead of delete+insert
-.RE
-
-.TP
 .BR \-\-delete-pacing\  char | rapid-eol | rapid-identical | accel | word | instant
 Unified deletion strategy (default:
 .BR word ).
@@ -317,16 +291,6 @@ animation and apply the entire hunk instantly.
 .BI \-\-max-line-len\  N
 Warn if any line exceeds N characters (char-level diff may be slow).
 Default: 10000.
-
-.TP
-.B \-\-semantic-cleanup
-Post-process char ops to merge adjacent insert/delete pairs that cancel
-out, reducing unnecessary typing.
-
-.TP
-.B \-\-indent-aware
-Normalize indentation before line-level diff, so lines that differ only
-in indentation are treated as "keep" at the line level.
 
 .SS Git Options
 
@@ -479,9 +443,6 @@ Pause between hunks in milliseconds (default: 250).
 
 .SS Unified Selectors
 .TP
-.B DIFFVIM_OP_ORDER
-Op reordering mode (default: optimize).
-.TP
 .B DIFFVIM_DELETE_PACING
 Deletion strategy (default: word).
 .TP
@@ -570,20 +531,11 @@ diffvim \-\-algorithm patience old.py new.py
 
 # Word-level diff
 diffvim \-\-word-diff old.py new.py
-
-# Semantic cleanup
-diffvim \-\-semantic-cleanup old.py new.py
 .fi
 
 .SS Unified Options
 .PP
 .nf
-# Op reordering: deletes before inserts (default)
-diffvim \-\-op-order optimize old.py new.py
-
-# Left-to-right reading order
-diffvim \-\-op-order left-to-right old.py new.py
-
 # Deletion strategy: word-by-word with acceleration
 diffvim \-\-delete-pacing word old.py new.py
 

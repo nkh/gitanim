@@ -22,10 +22,6 @@ _diffvim() {
             COMPREPLY=( $(compgen -W "zz zt zb none" -- "$cur") )
             return 0
             ;;
-        --op-order)
-            COMPREPLY=( $(compgen -W "natural optimize left-to-right end-first end-first-smart overwrite" -- "$cur") )
-            return 0
-            ;;
         --delete-pacing)
             COMPREPLY=( $(compgen -W "char rapid-eol rapid-identical accel word instant" -- "$cur") )
             return 0
@@ -75,8 +71,7 @@ _diffvim() {
               --word-diff -w --step-mode --no-startup-pause --language
               --sign-column --git-blame -g --max-line-len --keep-dirty
               --no-vimrc -N --precomputed --startup-pause --startup-feedback -F
-              --semantic-cleanup -S --indent-aware -i
-              --op-order --delete-pacing --delete-speed --delete-threshold
+              --delete-pacing --delete-speed --delete-threshold
               --insert-pacing --insert-speed --pacing --highlight
               --highlight-color --highlight-duration-ms
               --dim-unchanged -D --dim-unchanged-pct

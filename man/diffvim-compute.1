@@ -76,14 +76,8 @@ Patience).
 (Myers was removed: it OOMs on 15K-line files and produces the same
 op count as patience.)
 .TP
-.B \-\-semantic-cleanup
-Merge adjacent delete/insert pairs into keeps where possible.
-.TP
 .B \-\-word-diff
 Batch word runs in char ops (instead of one char per op).
-.TP
-.B \-\-indent-aware
-Treat indent-only changes specially (preserve indentation).
 .TP
 .B \-\-optimize-sequence
 Reorder ops within a line so deletes come before inserts (default:
@@ -109,17 +103,7 @@ Show help and exit.
 Same as
 .B \-\-algorithm.
 .TP
-.B DIFFVIM_SEMANTIC_CLEANUP
-Set to
-.I 1
-to enable by default.
-.TP
 .B DIFFVIM_WORD_DIFF
-Set to
-.I 1
-to enable by default.
-.TP
-.B DIFFVIM_INDENT_AWARE
 Set to
 .I 1
 to enable by default.
@@ -142,9 +126,7 @@ The output file is line-oriented:
 .RS
 .nf
 # algorithm <name>
-# semantic_cleanup <0|1>
 # word_diff <0|1>
-# indent_aware <0|1>
 # optimize_sequence <0|1>
 # left_to_right <0|1>
 # hunk_count <N>
@@ -188,9 +170,6 @@ make -C compute benchmark OLD=... NEW=...
 .B diffvim-compute-cpp old.py new.py /tmp/diff.txt
 Compute the diff and write to
 .IR /tmp/diff.txt .
-.TP
-.B diffvim-compute-cpp --algorithm patience --semantic-cleanup old.py new.py out.txt
-Use Patience algorithm with semantic cleanup.
 .TP
 .B diffvim-compute-cpp --diff patch.diff out.txt
 Read a unified diff and convert to diffvim format.

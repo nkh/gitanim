@@ -25,7 +25,7 @@ re-typed — surrounding text is never touched.
 - **Git replay** — animate a file's git history commit by commit
 - **Plugin mode** — run as `:Diffvim` inside an existing vim
 - **50+ CLI options** — speed, scroll, sign column, git blame, word diff,
-  indent-aware, semantic cleanup, rapid-EOL delete, presets, and more
+  rapid-EOL delete, presets, and more
 - **External compute tool** — a native C++ binary that pre-computes
   diffs 10-100x faster than vimscript Patience, for large files. Falls back
   to the embedded vimscript Patience (or Perl `compute_builtin.pl` for the
@@ -33,7 +33,7 @@ re-typed — surrounding text is never touched.
 - **Six built-in presets** — `default`, `fast-delete`, `review`,
   `ai-code`, `demo`, `presentation` for common use cases
 - **Post-processing pipeline** — `optimize_sequence`, `left_to_right`,
-  `semantic_cleanup`, `delete_end_first`, `overwrite` to make the
+  `delete_end_first`, `overwrite` to make the
   animation read naturally even on messy diffs
 
 ## Quick Example
