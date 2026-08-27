@@ -16,10 +16,12 @@ while [[ $# -gt 0 ]]; do
 done
 OPS=$(mktemp /tmp/pp_XXXXXX.txt); trap 'rm -f "$OPS"' EXIT
 cat > "$OPS"
-# 1. Reorder + position adjustment (always runs first)
-"$BIN_DIR/pp_reorder" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"
-# 2. Overwrite (optional) — runs after positions are correct
+# 1. Overwrite (optional) — merge delete+insert pairs
 if [[ $DO_OVERWRITE -eq 1 ]]; then "$BIN_DIR/pp_overwrite" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"; fi
-# 3. Delete-indent-last (optional) — adjusts its own positions
+# 2. Delete-indent-last (optional) — move indent deletes to end of line
 if [[ $DO_INDENT_LAST -eq 1 ]]; then "$BIN_DIR/pp_indent_last" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"; fi
+# 3. Reorder (always) — 4-sweep reorder within line groups
+"$BIN_DIR/pp_reorder" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"
+# 4. Adjust positions (always) — fix line/col for all ops
+"$BIN_DIR/pp_adjust" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"
 cat "$OPS"

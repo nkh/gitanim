@@ -98,9 +98,9 @@ $(DECORATE_BIN): animator/c/decorate.c
 # Standalone layer binaries (for bash orchestrator)
 $(LAYER_BINS): animator/c/pp_common.h animator/c/pp_adjust.c
 
-animator/bin/pp_reorder: animator/c/pp_reorder.c animator/c/pp_adjust.c
+animator/bin/pp_reorder: animator/c/pp_reorder.c
 	@mkdir -p animator/bin
-	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_reorder.c animator/c/pp_adjust.c
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_reorder.c
 
 animator/bin/pp_indent_last: animator/c/pp_indent_last.c
 	@mkdir -p animator/bin
