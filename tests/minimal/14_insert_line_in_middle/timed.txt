@@ -1,0 +1,18 @@
+# diffvim timed ops v2
+# delete_pacing word
+# insert_pacing char
+HUNK	2	0	1	0	0
+insert	2	1	108	'l'
+delay	50	char
+insert	2	2	105	'i'
+delay	50	char
+insert	2	3	110	'n'
+delay	50	char
+insert	2	4	101	'e'
+delay	50	char
+insert	2	5	50	'2'
+delay	50	char
+insert	2	6	10	\n
+delay	50	char
+HUNK_END
+

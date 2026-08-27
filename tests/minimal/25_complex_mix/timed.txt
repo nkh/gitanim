@@ -1,0 +1,81 @@
+# diffvim timed ops v2
+# delete_pacing word
+# insert_pacing char
+HUNK	3	0	1	0	0
+insert	3	1	105	'i'
+delay	50	char
+insert	3	2	109	'm'
+delay	50	char
+insert	3	3	112	'p'
+delay	50	char
+insert	3	4	111	'o'
+delay	50	char
+insert	3	5	114	'r'
+delay	50	char
+insert	3	6	116	't'
+delay	50	char
+insert	3	7	32	space
+delay	50	char
+insert	3	8	106	'j'
+delay	50	char
+insert	3	9	115	's'
+delay	50	char
+insert	3	10	111	'o'
+delay	50	char
+insert	3	11	110	'n'
+delay	50	char
+insert	3	12	10	\n
+delay	50	char
+HUNK_END
+delay	250	hunk
+HUNK	5	1	1	0	0
+keep	6	1	32	space
+delay	1	char
+keep	6	2	32	space
+delay	1	char
+keep	6	3	32	space
+delay	1	char
+keep	6	4	32	space
+delay	1	char
+keep	6	5	112	'p'
+delay	1	char
+keep	6	6	114	'r'
+delay	1	char
+keep	6	7	105	'i'
+delay	1	char
+keep	6	8	110	'n'
+delay	1	char
+keep	6	9	116	't'
+delay	1	char
+keep	6	10	40	'('
+delay	1	char
+keep	6	11	39	'''
+delay	1	char
+keep	6	12	104	'h'
+delay	1	char
+keep	6	13	101	'e'
+delay	1	char
+keep	6	14	108	'l'
+delay	1	char
+keep	6	15	108	'l'
+delay	1	char
+keep	6	16	111	'o'
+delay	1	char
+insert	6	17	32	space
+delay	50	char
+insert	6	18	119	'w'
+delay	50	char
+insert	6	19	111	'o'
+delay	50	char
+insert	6	20	114	'r'
+delay	50	char
+insert	6	21	108	'l'
+delay	50	char
+insert	6	22	100	'd'
+delay	50	char
+keep	6	23	39	'''
+delay	1	char
+keep	6	24	41	')'
+delay	1	char
+HUNK_END
+

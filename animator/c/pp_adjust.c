@@ -108,7 +108,7 @@ void adjust_positions(Op *ops, int n_ops, int current_characters_in,
 }
 
 /* Wrapper for top-level call */
-int run_adjust_positions(Op *ops, int n_ops) {
+__attribute__((unused)) int run_adjust_positions(Op *ops, int n_ops) {
     int deleted_lines, ops_consumed;
     adjust_positions(ops, n_ops, 0, 0, &deleted_lines, &ops_consumed);
     return deleted_lines;

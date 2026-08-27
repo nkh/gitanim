@@ -1,0 +1,17 @@
+# diffvim post-processed v2
+# algorithm patience
+# semantic_cleanup 0
+# word_diff 0
+# indent_aware 0
+# optimize_sequence 1
+# left_to_right 0
+# hunk_count 1
+HUNK	3	1	0	0	1
+delete	3	1	10	\n
+delete	3	1	108	'l'
+delete	3	1	105	'i'
+delete	3	1	110	'n'
+delete	3	1	101	'e'
+delete	3	1	51	'3'
+HUNK_END
+

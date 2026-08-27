@@ -1,0 +1,4 @@
+# diffvim timed ops v2
+# delete_pacing word
+# insert_pacing char
+

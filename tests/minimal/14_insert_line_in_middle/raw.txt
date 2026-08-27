@@ -1,0 +1,17 @@
+# diffvim raw diff v2
+# algorithm patience
+# semantic_cleanup 0
+# word_diff 0
+# indent_aware 0
+# optimize_sequence 1
+# left_to_right 0
+# hunk_count 1
+HUNK	2	0	1	0	0
+insert	2	1	108	'l'
+insert	2	2	105	'i'
+insert	2	3	110	'n'
+insert	2	4	101	'e'
+insert	2	5	50	'2'
+insert	2	6	10	\n
+HUNK_END
+

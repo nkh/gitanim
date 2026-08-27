@@ -1,0 +1,23 @@
+# diffvim post-processed v2
+# algorithm patience
+# semantic_cleanup 0
+# word_diff 0
+# indent_aware 0
+# optimize_sequence 1
+# left_to_right 0
+# hunk_count 1
+HUNK	1	1	1	0	0
+keep	1	1	104	'h'
+keep	1	2	101	'e'
+keep	1	3	108	'l'
+keep	1	4	108	'l'
+keep	1	5	111	'o'
+keep	1	6	32	space
+keep	1	7	119	'w'
+keep	1	8	111	'o'
+keep	1	9	114	'r'
+keep	1	10	108	'l'
+keep	1	11	100	'd'
+insert	1	12	33	'!'
+HUNK_END
+

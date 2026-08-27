@@ -51,7 +51,7 @@ DECORATE_BIN  := animator/bin/diffvim-decorate
 
 ANIMATOR_BINS := $(PACE_BIN) $(ANIMATOR_BIN) $(DECORATE_BIN)
 # Standalone layer binaries
-LAYER_BINS := animator/bin/pp_layer1 animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_line_delete_in_place animator/bin/pp_adjust
+LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_line_delete_in_place animator/bin/pp_adjust
 ALL_BINS      := $(COMPUTE_BIN) $(ANIMATOR_BINS)
 
 # --- Default target --------------------------------------------------------
@@ -76,7 +76,7 @@ $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
 
 animator: $(ANIMATOR_BINS) $(LAYER_BINS)
 
-POSTPROCESS_SRCS := animator/c/postprocess.c animator/c/pp_layer1_reorder.c 	animator/c/pp_layer_indent_last.c animator/c/pp_layer_overwrite.c animator/c/pp_layer_line_delete_in_place.c animator/c/pp_adjust.c
+POSTPROCESS_SRCS := animator/c/postprocess.c animator/c/pp_reorder.c 	animator/c/pp_indent_last.c animator/c/pp_overwrite.c animator/c/pp_line_delete_in_place.c animator/c/pp_adjust.c
 
 $(POSTPROCESS_BIN): $(POSTPROCESS_SRCS) animator/c/pp_common.h
 	@mkdir -p animator/bin
@@ -98,21 +98,21 @@ $(DECORATE_BIN): animator/c/decorate.c
 # Standalone layer binaries (for bash orchestrator)
 $(LAYER_BINS): animator/c/pp_common.h animator/c/pp_adjust.c
 
-animator/bin/pp_layer1: animator/c/pp_layer1_reorder.c animator/c/pp_adjust.c
+animator/bin/pp_reorder: animator/c/pp_reorder.c animator/c/pp_adjust.c
 	@mkdir -p animator/bin
-	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer1_reorder.c animator/c/pp_adjust.c
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_reorder.c animator/c/pp_adjust.c
 
-animator/bin/pp_indent_last: animator/c/pp_layer_indent_last.c
+animator/bin/pp_indent_last: animator/c/pp_indent_last.c
 	@mkdir -p animator/bin
-	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer_indent_last.c
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_indent_last.c
 
-animator/bin/pp_overwrite: animator/c/pp_layer_overwrite.c
+animator/bin/pp_overwrite: animator/c/pp_overwrite.c
 	@mkdir -p animator/bin
-	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer_overwrite.c
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_overwrite.c
 
-animator/bin/pp_line_delete_in_place: animator/c/pp_layer_line_delete_in_place.c
+animator/bin/pp_line_delete_in_place: animator/c/pp_line_delete_in_place.c
 	@mkdir -p animator/bin
-	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer_line_delete_in_place.c
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_line_delete_in_place.c
 
 animator/bin/pp_adjust: animator/c/pp_adjust.c
 	@mkdir -p animator/bin

@@ -1,0 +1,39 @@
+# diffvim timed ops v2
+# delete_pacing word
+# insert_pacing char
+HUNK	2	3	0	0	0
+delete	2	1	108	'l'
+delay	80	awd_slow
+delete	2	1	105	'i'
+delay	80	awd_slow
+delete	2	1	110	'n'
+delay	80	awd_slow
+delete	2	1	101	'e'
+delete	2	1	50	'2'
+delay	68	awd_fast
+delete	2	1	10	\n
+delay	40	char
+delete	2	1	108	'l'
+delay	80	awd_slow
+delete	2	1	105	'i'
+delay	80	awd_slow
+delete	2	1	110	'n'
+delay	80	awd_slow
+delete	2	1	101	'e'
+delete	2	1	51	'3'
+delay	68	awd_fast
+delete	2	1	10	\n
+delay	40	char
+delete	2	1	108	'l'
+delay	80	awd_slow
+delete	2	1	105	'i'
+delay	80	awd_slow
+delete	2	1	110	'n'
+delay	80	awd_slow
+delete	2	1	101	'e'
+delete	2	1	52	'4'
+delay	68	awd_fast
+delete	2	1	10	\n
+delay	40	char
+HUNK_END
+

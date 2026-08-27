@@ -1,5 +1,5 @@
 /*
- * pp_layer1_reorder.c — Reorder + Position Adjustment
+ * pp_layer_reorder.c — Reorder + Position Adjustment
  *
  * Always runs. Does two things:
  *   1. 4-sweep reorder within each line group:
@@ -14,7 +14,7 @@
  *
  * Build standalone:
  *   cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror \
- *      -I animator/c -o animator/bin/pp_layer1 animator/c/pp_layer1_reorder.c \
+ *      -I animator/c -o animator/bin/pp_reorder animator/c/pp_layer_reorder.c \
  *      animator/c/pp_adjust.c
  */
 
@@ -26,7 +26,7 @@ extern void adjust_positions(Op *ops, int n_ops, int current_characters_in,
                               int *deleted_lines_out, int *ops_consumed_out);
 extern int run_adjust_positions(Op *ops, int n_ops);
 
-int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
+int layer_reorder(Op *in, int in_count, Op *out, int out_cap,
                    const char *old_file) {
     (void)old_file;
     int n_out = 0;
@@ -81,7 +81,7 @@ int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
 
 #ifdef PP_STANDALONE
 int main(void) {
-    pp_debug_init("L1", "Reorder+Adjust");
-    return pp_run_layer(layer1_reorder);
+    pp_debug_init("reorder", "Reorder");
+    return pp_run_layer(layer_reorder);
 }
 #endif
