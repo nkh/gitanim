@@ -1,4 +1,4 @@
-/*
+/* ---
  * pp_common.h — Shared infrastructure for postprocess layers.
  *
  * Design principles (from user spec):
@@ -59,7 +59,7 @@ typedef struct {
 } Hunk;
 
 /* ── Debug/Logging ─────────────────────────────────────────────────── */
-/*
+/* ---
  * DV_DEBUG_POSTPROCESS=path  →  dumps to $path/N_layername_input.txt
  *                                and $path/N_layername_output.txt (TSV)
  *
@@ -126,7 +126,7 @@ static void pp_dump_ops(const char *layer_id, const char *suffix,
 }
 
 /* ── char_repr helper ───────────────────────────────────────────────── */
-/*
+/* ---
  * Returns a human-readable representation of a char code.
  * Used for the 5th TSV field (cosmetic, not stored in Op struct).
  *   10 → \n, 9 → \t, 32 → space, 33-126 → 'x', else → number
@@ -189,7 +189,7 @@ static void pp_write_hunk_end(void) {
 }
 
 /* ── Debug op insertion ───────────────────────────────────────────── */
-/*
+/* ---
  * Insert a debug op into the stream. Debug ops are ignored by all
  * other layers and the animator. They carry human-readable text
  * that explains what a layer did.
@@ -208,8 +208,68 @@ __attribute__((unused)) static int pp_is_debug_op(Op *op) {
     return strcmp(op->type, "debug") == 0;
 }
 
-/* ── Standalone Layer Runner ──────────────────────────────────────── */
-/*
+/* ── Debug dump helpers (used by pp_run_layer) ──────────────────── */
+
+/* Dump ops to a file in V2 TSV format */
+__attribute__((unused)) static void pp_dump_ops_to_file(FILE *f, Op *ops, int count) {
+    if (!f) return;
+    for (int i = 0; i < count; i++) {
+        fprintf(f, "%s\t%d\t%d\t%d\t%s\n", ops[i].type, ops[i].line,
+                ops[i].col, ops[i].code, pp_char_repr(ops[i].code));
+    }
+}
+
+/* Dump changes between input and output ops.
+ * Since layers may reorder ops (different positions in the array),
+ * we compare each output op against ALL input ops to find a match.
+ * If no match found, it's a new/changed op. */
+__attribute__((unused)) static void pp_dump_changes_to_file(FILE *f,
+        Op *in_ops, int in_count, Op *out_ops, int out_count) {
+    if (!f) return;
+    fprintf(f, "=== Changes (input: %d ops, output: %d ops) ===\n", in_count, out_count);
+
+    for (int i = 0; i < out_count; i++) {
+        /* Try to find this op in the input (same type+code, different position) */
+        int found = 0;
+        for (int j = 0; j < in_count; j++) {
+            if (strcmp(out_ops[i].type, in_ops[j].type) == 0 &&
+                out_ops[i].code == in_ops[j].code) {
+                if (out_ops[i].line != in_ops[j].line || out_ops[i].col != in_ops[j].col) {
+                    fprintf(f, "[%2d] %s (%d,%d) → (%d,%d) code=%d  [position changed]\n",
+                            i, out_ops[i].type,
+                            in_ops[j].line, in_ops[j].col,
+                            out_ops[i].line, out_ops[i].col,
+                            out_ops[i].code);
+                }
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            fprintf(f, "[%2d] %s (%d,%d) code=%d  [NEW/changed op]\n",
+                    i, out_ops[i].type, out_ops[i].line, out_ops[i].col,
+                    out_ops[i].code);
+        }
+    }
+
+    /* Check for dropped ops (in input but not output) */
+    for (int j = 0; j < in_count; j++) {
+        int found = 0;
+        for (int i = 0; i < out_count; i++) {
+            if (strcmp(out_ops[i].type, in_ops[j].type) == 0 &&
+                out_ops[i].code == in_ops[j].code) {
+                found = 1; break;
+            }
+        }
+        if (!found) {
+            fprintf(f, "     %s (%d,%d) code=%d  [DROPPED]\n",
+                    in_ops[j].type, in_ops[j].line, in_ops[j].col,
+                    in_ops[j].code);
+        }
+    }
+}
+
+/* ── Standalone Layer Runner ────────────────────────────────────────
  * Reads TSV from stdin, parses into Op array per hunk, calls the
  * layer function for each hunk, writes the result to stdout.
  *
@@ -238,6 +298,26 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
     Hunk current_hunk = {0};
     int hunk_count = 0;
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
+
+    /* Debug flags from env / command line */
+    const char *dump_input  = getenv("DV_DUMP_INPUT");
+    const char *dump_output = getenv("DV_DUMP_OUTPUT");
+    const char *dump_changes = getenv("DV_DUMP_CHANGES");
+    /* int trace_decisions = getenv("DV_TRACE_DECISIONS") != NULL; */
+    FILE *dump_in_f = NULL, *dump_out_f = NULL, *dump_chg_f = NULL;
+
+    if (dump_input && dump_input[0]) {
+        dump_in_f = fopen(dump_input, "w");
+        if (dump_in_f) fprintf(stderr, "dump-input: %s\n", dump_input);
+    }
+    if (dump_output && dump_output[0]) {
+        dump_out_f = fopen(dump_output, "w");
+        if (dump_out_f) fprintf(stderr, "dump-output: %s\n", dump_output);
+    }
+    if (dump_changes && dump_changes[0]) {
+        dump_chg_f = fopen(dump_changes, "w");
+        if (dump_chg_f) fprintf(stderr, "dump-changes: %s\n", dump_changes);
+    }
 
     /* Get old file path from env (layers may need it) */
     const char *old_file = getenv("DV_OLD_FILE");
@@ -279,6 +359,9 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
                 int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
 
                 pp_dump_ops("L", "output.txt", out_ops, out_count);
+                if (dump_in_f) pp_dump_ops_to_file(dump_in_f, in_ops, in_count);
+                if (dump_out_f) pp_dump_ops_to_file(dump_out_f, out_ops, out_count);
+                if (dump_chg_f) pp_dump_changes_to_file(dump_chg_f, in_ops, in_count, out_ops, out_count);
                 pp_logf("Hunk %d: %d ops → %d ops", hunk_count, in_count, out_count);
 
                 pp_write_hunk(&current_hunk);
@@ -322,6 +405,9 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
                 int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
 
                 pp_dump_ops("L", "output.txt", out_ops, out_count);
+                if (dump_in_f) pp_dump_ops_to_file(dump_in_f, in_ops, in_count);
+                if (dump_out_f) pp_dump_ops_to_file(dump_out_f, out_ops, out_count);
+                if (dump_chg_f) pp_dump_changes_to_file(dump_chg_f, in_ops, in_count, out_ops, out_count);
                 pp_logf("Hunk %d: %d ops → %d ops", hunk_count, in_count, out_count);
 
                 pp_write_hunk(&current_hunk);
@@ -386,6 +472,9 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
         int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
 
         pp_dump_ops("L", "output.txt", out_ops, out_count);
+        if (dump_in_f) pp_dump_ops_to_file(dump_in_f, in_ops, in_count);
+        if (dump_out_f) pp_dump_ops_to_file(dump_out_f, out_ops, out_count);
+        if (dump_chg_f) pp_dump_changes_to_file(dump_chg_f, in_ops, in_count, out_ops, out_count);
         pp_logf("Last hunk: %d ops → %d ops", in_count, out_count);
 
         pp_write_hunk(&current_hunk);

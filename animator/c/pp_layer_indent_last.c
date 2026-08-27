@@ -85,13 +85,25 @@ int layer_indent_last(Op *in, int in_count, Op *out, int out_cap,
 
                     /* Emit: content ops (indent_end..content_end),
                      *       then indent deletes (seg_start..indent_end),
-                     *       then \n op (if present). */
+                     *       then \n op (if present).
+                     *
+                     * POSITION ADJUSTMENT:
+                     * The content ops originally had col=1 (from compute, all
+                     * deletes start at col 1). After moving indent deletes
+                     * to the end, the content ops run FIRST — but the indent
+                     * is still in the buffer. So content is at col n_indent+1.
+                     * We shift content ops' col by n_indent.
+                     * The indent deletes stay at col 1 (where the indent is). */
                     int content_end = (nl_pos >= 0) ? nl_pos : i;
                     for (int j = indent_end; j < content_end; j++) {
-                        out[n_out++] = in[j];
+                        out[n_out] = in[j];
+                        out[n_out].col = in[j].col + n_indent;
+                        n_out++;
                     }
                     for (int j = seg_start; j < indent_end; j++) {
-                        out[n_out++] = in[j];
+                        out[n_out] = in[j];
+                        out[n_out].col = 1;  /* indent is at col 1 */
+                        n_out++;
                     }
                     if (nl_pos >= 0) {
                         out[n_out++] = in[nl_pos];

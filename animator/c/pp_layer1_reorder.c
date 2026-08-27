@@ -32,7 +32,7 @@ int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
     int n_out = 0;
     int buf_start = 0;
 
-    pp_logf("Reorder+adjust: %d input ops", in_count);
+    pp_logf("Reorder: %d input ops", in_count);
 
     for (int i = 0; i <= in_count; i++) {
         int is_flush_point = (i == in_count);
@@ -68,7 +68,11 @@ int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
         }
     }
 
-    /* Position adjustment: fix (line, col) based on \n deletes */
+    /* Position adjustment: fix (line, col) based on \n deletes.
+     * This runs HERE because the reorder changes when \n deletes
+     * happen relative to content ops, which affects line numbers.
+     * Layers that run AFTER this (indent_last, overwrite) do their
+     * own position adjustment on top of these corrected positions. */
     run_adjust_positions(out, n_out);
 
     pp_logf("Reorder+adjust: %d ops → %d ops", in_count, n_out);
