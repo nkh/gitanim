@@ -34,6 +34,8 @@ extern int layer_overwrite(Op *in, int in_count, Op *out, int out_cap,
                             const char *old_file);
 extern int layer_indent_last(Op *in, int in_count, Op *out, int out_cap,
                              const char *old_file);
+extern int layer_delete_line_first(Op *in, int in_count, Op *out, int out_cap,
+                                    const char *old_file);
 
 /* ── adjust_positions: recursive line/col adjustment ──────────────── */
 /*
@@ -286,6 +288,11 @@ int main(int argc, char **argv) {
                 n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                             "reorder", old_file);
 
+                /* 4. delete-line-content-first layer — always runs.
+                 * Reorders "join then delete" into "delete content, then \n". */
+                n_ops = run_layer_on_buffer(layer_delete_line_first, ops, n_ops,
+                                            "delete_line_first", old_file);
+
                 /* Apply cross-hunk line_offset to all ops */
                 { for (int j = 0; j < n_ops; j++) ops[j].line += line_offset; }
 
@@ -330,6 +337,8 @@ int main(int argc, char **argv) {
         }
         n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                     "reorder", old_file);
+        n_ops = run_layer_on_buffer(layer_delete_line_first, ops, n_ops,
+                                    "delete_line_first", old_file);
         { for (int j = 0; j < n_ops; j++) ops[j].line += line_offset; }
         run_adjust_positions(ops, n_ops);
         pp_write_hunk(&current_hunk);

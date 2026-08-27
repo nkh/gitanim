@@ -74,7 +74,7 @@ $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
 
 animator: $(ANIMATOR_BINS)
 
-POSTPROCESS_SRCS := animator/c/postprocess.c animator/c/pp_layer1_reorder.c 	animator/c/pp_layer_indent_last.c animator/c/pp_layer_overwrite.c
+POSTPROCESS_SRCS := animator/c/postprocess.c animator/c/pp_layer1_reorder.c 	animator/c/pp_layer_indent_last.c animator/c/pp_layer_overwrite.c animator/c/pp_layer_delete_line_first.c 
 
 $(POSTPROCESS_BIN): $(POSTPROCESS_SRCS) animator/c/pp_common.h
 	@mkdir -p animator/bin
