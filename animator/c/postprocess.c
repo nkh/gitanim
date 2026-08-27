@@ -34,144 +34,15 @@ extern int layer_overwrite(Op *in, int in_count, Op *out, int out_cap,
                             const char *old_file);
 extern int layer_indent_last(Op *in, int in_count, Op *out, int out_cap,
                              const char *old_file);
-extern int layer_delete_line_first(Op *in, int in_count, Op *out, int out_cap,
+extern int layer_line_delete_in_place(Op *in, int in_count, Op *out, int out_cap,
                                     const char *old_file);
 
-/* ── adjust_positions: recursive line/col adjustment ──────────────── */
-/*
- * Walks ops in order and adjusts (line, col) based on \n deletes.
- *
- * A line always has at least 1 char (the \n). So current_characters
- * starts at op.col (≥1). JOIN is detected when current_characters > 1
- * (i.e., there are content chars BEYOND the \n).
- *
- * Returns: deleted_lines and ops_consumed via output params.
- */
-static int ap_depth = 0;  /* recursion depth for debug */
-
-static void adjust_positions(Op *ops, int n_ops, int current_characters_in,
+/* adjust_positions from pp_adjust.c */
+extern void adjust_positions(Op *ops, int n_ops, int current_characters_in,
                               int deleted_lines_in,
-                              int *deleted_lines_out, int *ops_consumed_out) {
-    int deleted_lines = deleted_lines_in;
-    int current_characters = current_characters_in;
-    int content_on_line = 0;  /* keeps+inserts on current line (for JOIN detection) */
-    /* For top-level call (current_characters_in == 0):
-     *   - Set current_line = -1 so Rule 1 fires for the first op.
-     * For recursive call (current_characters_in > 0, the carry):
-     *   - Set current_line = ops[0].line - deleted_lines so Rule 1 does NOT
-     *     fire for the first op (joined line), keeping the carry. */
-    int current_line = (current_characters_in == 0) ? -1 : (ops[0].line - deleted_lines);
-    int i = 0;
+                              int *deleted_lines_out, int *ops_consumed_out);
+extern int run_adjust_positions(Op *ops, int n_ops);
 
-    /* Debug: print call info */
-    if (getenv("DV_DEBUG_ADJUST")) {
-        fprintf(stderr, "%*sCALL depth=%d n_ops=%d carry=%d dl_in=%d first_op_line=%d\n",
-                ap_depth * 2, "", ap_depth, n_ops, current_characters_in,
-                deleted_lines_in, n_ops > 0 ? ops[0].line : -1);
-    }
-    ap_depth++;
-
-    while (i < n_ops) {
-        if (pp_is_debug_op(&ops[i])) { i++; continue; }
-
-        /* Debug: print op before processing */
-        if (getenv("DV_DEBUG_ADJUST")) {
-            fprintf(stderr, "%*s  [%2d] %s\t%d\t%d\t%d  (dl=%d cc=%d col=%d)",
-                    ap_depth * 2, "", i, ops[i].type, ops[i].line, ops[i].col,
-                    ops[i].code, deleted_lines, current_characters, content_on_line);
-        }
-
-        /* Rule 1: line changed? */
-        int line_changed = 0;
-        if ((ops[i].line - deleted_lines) != current_line) {
-            current_characters = ops[i].col;
-            current_line = ops[i].line - deleted_lines;
-            content_on_line = 0;
-            line_changed = 1;
-        }
-
-        /* Rule 3: set this op's position (in place) */
-        ops[i].line = ops[i].line - deleted_lines;
-        ops[i].col  = current_characters;
-
-        /* Rule 2: advance current_characters (code != \n first) */
-        if (ops[i].code != 10) {
-            if (strcmp(ops[i].type, "keep") == 0) {
-                current_characters += 1;
-                content_on_line++;
-            } else if (strcmp(ops[i].type, "insert") == 0) {
-                current_characters += 1;
-                content_on_line++;
-            }
-            /* delete: no change */
-            /* overwrite_insert: net 0 */
-        }
-
-        /* Debug: print result */
-        if (getenv("DV_DEBUG_ADJUST")) {
-            if (line_changed) fprintf(stderr, " LINE_CHANGED");
-            fprintf(stderr, " → line=%d col=%d", ops[i].line, ops[i].col);
-        }
-
-        /* Rules 4 & 5: \n ops */
-        if (ops[i].code == 10) {
-            if (strcmp(ops[i].type, "delete") == 0) {
-                /* Rule 4: \n delete */
-                deleted_lines += 1;
-                if (content_on_line > 0) {
-                    /* JOIN: content chars remain on this line.
-                     * Recursive call on the merged line's ops. */
-                    if (getenv("DV_DEBUG_ADJUST")) {
-                        fprintf(stderr, " JOIN(cc=%d)→RECURSE", current_characters);
-                    }
-                    int sub_deleted, sub_consumed;
-                    adjust_positions(&ops[i + 1], n_ops - i - 1,
-                                      current_characters,
-                                      deleted_lines,  /* pass current deleted_lines */
-                                      &sub_deleted, &sub_consumed);
-                    /* sub_deleted is the TOTAL deleted_lines from the recursive
-                     * call (including the passed-in deleted_lines). So we
-                     * set deleted_lines = sub_deleted (not += ). */
-                    deleted_lines = sub_deleted;
-                    if (getenv("DV_DEBUG_ADJUST")) {
-                        fprintf(stderr, " (sub_del=%d sub_con=%d → dl=%d)",
-                                sub_deleted, sub_consumed, deleted_lines);
-                    }
-                    i += 1 + sub_consumed;
-                    if (getenv("DV_DEBUG_ADJUST")) fprintf(stderr, "\n");
-                    continue;
-                } else {
-                    if (getenv("DV_DEBUG_ADJUST")) fprintf(stderr, " FULL_DEL");
-                }
-            } else {
-                /* Rule 5: \n keep / \n insert / \n overwrite_insert */
-                current_characters = 0;
-                content_on_line = 0;
-                if (getenv("DV_DEBUG_ADJUST")) fprintf(stderr, " RESET");
-            }
-        }
-
-        if (getenv("DV_DEBUG_ADJUST")) fprintf(stderr, "\n");
-        i++;
-    }
-
-    ap_depth--;
-    if (getenv("DV_DEBUG_ADJUST")) {
-        fprintf(stderr, "%*sRETURN depth=%d deleted_lines=%d (added %d) ops_consumed=%d\n",
-                ap_depth * 2, "", ap_depth, deleted_lines,
-                deleted_lines - deleted_lines_in, i);
-    }
-
-    *deleted_lines_out = deleted_lines;
-    *ops_consumed_out = i;
-}
-
-/* Wrapper for top-level call */
-static int run_adjust_positions(Op *ops, int n_ops) {
-    int deleted_lines, ops_consumed;
-    adjust_positions(ops, n_ops, 0, 0, &deleted_lines, &ops_consumed);
-    return deleted_lines;
-}
 
 /* ── Buffer-based layer runner ─────────────────────────────────────── */
 static int run_layer_on_buffer(int (*layer_func)(Op *in, int in_count,
@@ -288,15 +159,16 @@ int main(int argc, char **argv) {
                 n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                             "reorder", old_file);
 
-                /* 4. delete-line-content-first layer — always runs.
-                 * Reorders "join then delete" into "delete content, then \n". */
-                n_ops = run_layer_on_buffer(layer_delete_line_first, ops, n_ops,
-                                            "delete_line_first", old_file);
+                /* 4. line-delete-in-place layer — always runs.
+                 * TODO: This layer has a bug that breaks large examples.
+                 * Disabled until fixed. */
+                /* n_ops = run_layer_on_buffer(layer_line_delete_in_place, ops, n_ops, */
+                /*                             "line_delete_in_place", old_file); */
 
                 /* Apply cross-hunk line_offset to all ops */
                 { for (int j = 0; j < n_ops; j++) ops[j].line += line_offset; }
 
-                /* 4. Adjust line/col based on \n deletes */
+                /* 5. Adjust line/col based on \n deletes (ONCE, after all layers) */
                 run_adjust_positions(ops, n_ops);
 
                 /* Update line_offset for next hunk */
@@ -337,8 +209,9 @@ int main(int argc, char **argv) {
         }
         n_ops = run_layer_on_buffer(layer1_reorder, ops, n_ops,
                                     "reorder", old_file);
-        n_ops = run_layer_on_buffer(layer_delete_line_first, ops, n_ops,
-                                    "delete_line_first", old_file);
+        /* TODO: line_delete_in_place disabled — breaks large examples */
+        /* n_ops = run_layer_on_buffer(layer_line_delete_in_place, ops, n_ops, */
+        /*                             "line_delete_in_place", old_file); */
         { for (int j = 0; j < n_ops; j++) ops[j].line += line_offset; }
         run_adjust_positions(ops, n_ops);
         pp_write_hunk(&current_hunk);
