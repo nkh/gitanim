@@ -1,23 +1,30 @@
 /*
- * pp_layer1_reorder.c — Layer 1: Reorder (4-sweep, per line group)
+ * pp_layer1_reorder.c — Reorder + Position Adjustment
  *
- * Purpose:
- *   Reorder ops within each line group. A "line group" is the
- *   sequence of ops between two \n ops (or between a keep and a \n).
+ * Always runs. Does two things:
+ *   1. 4-sweep reorder within each line group:
+ *      content deletes → content inserts → \n deletes → \n inserts
+ *   2. Position adjustment: walks ops and fixes (line, col) based on
+ *      \n deletes (lines shift after joins).
  *
- *   Within each line group, the 4-sweep order is:
- *     1. Content deletes (code != 10)
- *     2. Content inserts (code != 10)
- *     3. \n deletes (code == 10) — at the end of the group
- *     4. \n inserts (code == 10) — at the end of the group
+ * The position adjustment is part of THIS layer because the reorder
+ * is what changes when \n deletes happen relative to content ops.
+ * After reordering, the layer knows the final op order and can
+ * compute correct positions.
  *
- *   Keeps stay in their original position (they anchor the groups).
- *
- *   This ordering ensures that \n deletes happen AFTER all content
- *   is settled, preventing content from appearing on the wrong line.
+ * Build standalone:
+ *   cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror \
+ *      -I animator/c -o animator/bin/pp_layer1 animator/c/pp_layer1_reorder.c \
+ *      animator/c/pp_adjust.c
  */
 
 #include "pp_common.h"
+
+/* From pp_adjust.c */
+extern void adjust_positions(Op *ops, int n_ops, int current_characters_in,
+                              int deleted_lines_in,
+                              int *deleted_lines_out, int *ops_consumed_out);
+extern int run_adjust_positions(Op *ops, int n_ops);
 
 int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
                    const char *old_file) {
@@ -25,19 +32,17 @@ int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
     int n_out = 0;
     int buf_start = 0;
 
+    pp_logf("Reorder+adjust: %d input ops", in_count);
+
     for (int i = 0; i <= in_count; i++) {
-        /* Flush at: end of array, keep op, or \n op (code == 10) */
         int is_flush_point = (i == in_count);
         if (i < in_count && !pp_is_debug_op(&in[i])) {
             if (strcmp(in[i].type, "keep") == 0 || in[i].code == 10)
                 is_flush_point = 1;
-            /* Don't flush at \n — \n is part of the current line group.
-             * Flush AFTER the \n (i.e., the \n is the last op in the group). */
         }
 
         if (is_flush_point) {
-            /* Flush buffer in 4 sweeps.
-             * overwrite_insert is treated like insert (it advances col). */
+            /* 4-sweep reorder */
             for (int j = buf_start; j < i; j++)
                 if (strcmp(in[j].type, "delete") == 0 && in[j].code != 10 && n_out < out_cap)
                     out[n_out++] = in[j];
@@ -54,22 +59,25 @@ int layer1_reorder(Op *in, int in_count, Op *out, int out_cap,
                      strcmp(in[j].type, "overwrite_insert") == 0) &&
                     in[j].code == 10 && n_out < out_cap)
                     out[n_out++] = in[j];
-            /* Pass through debug ops */
             for (int j = buf_start; j < i; j++)
                 if (pp_is_debug_op(&in[j]) && n_out < out_cap)
                     out[n_out++] = in[j];
-            /* Emit the keep (if not at end) */
             if (i < in_count && n_out < out_cap)
                 out[n_out++] = in[i];
             buf_start = i + 1;
         }
     }
+
+    /* Position adjustment: fix (line, col) based on \n deletes */
+    run_adjust_positions(out, n_out);
+
+    pp_logf("Reorder+adjust: %d ops → %d ops", in_count, n_out);
     return n_out;
 }
 
 #ifdef PP_STANDALONE
 int main(void) {
-    pp_debug_init("L1", "Reorder");
+    pp_debug_init("L1", "Reorder+Adjust");
     return pp_run_layer(layer1_reorder);
 }
 #endif

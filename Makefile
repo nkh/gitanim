@@ -49,7 +49,9 @@ PACE_BIN      := animator/bin/diffvim-pace
 ANIMATOR_BIN  := animator/bin/diffvim-animator-c
 DECORATE_BIN  := animator/bin/diffvim-decorate
 
-ANIMATOR_BINS := $(POSTPROCESS_BIN) $(PACE_BIN) $(ANIMATOR_BIN) $(DECORATE_BIN)
+ANIMATOR_BINS := $(PACE_BIN) $(ANIMATOR_BIN) $(DECORATE_BIN)
+# Standalone layer binaries
+LAYER_BINS := animator/bin/pp_layer1 animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_line_delete_in_place animator/bin/pp_adjust
 ALL_BINS      := $(COMPUTE_BIN) $(ANIMATOR_BINS)
 
 # --- Default target --------------------------------------------------------
@@ -72,7 +74,7 @@ $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
 
 .PHONY: animator clean-animator
 
-animator: $(ANIMATOR_BINS)
+animator: $(ANIMATOR_BINS) $(LAYER_BINS)
 
 POSTPROCESS_SRCS := animator/c/postprocess.c animator/c/pp_layer1_reorder.c 	animator/c/pp_layer_indent_last.c animator/c/pp_layer_overwrite.c animator/c/pp_layer_line_delete_in_place.c animator/c/pp_adjust.c
 
@@ -91,6 +93,30 @@ $(ANIMATOR_BIN): animator/c/animator.c
 $(DECORATE_BIN): animator/c/decorate.c
 	@mkdir -p animator/bin
 	$(CC) $(CFLAGS) -o $@ $<
+
+
+# Standalone layer binaries (for bash orchestrator)
+$(LAYER_BINS): animator/c/pp_common.h animator/c/pp_adjust.c
+
+animator/bin/pp_layer1: animator/c/pp_layer1_reorder.c animator/c/pp_adjust.c
+	@mkdir -p animator/bin
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer1_reorder.c animator/c/pp_adjust.c
+
+animator/bin/pp_indent_last: animator/c/pp_layer_indent_last.c
+	@mkdir -p animator/bin
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer_indent_last.c
+
+animator/bin/pp_overwrite: animator/c/pp_layer_overwrite.c
+	@mkdir -p animator/bin
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer_overwrite.c
+
+animator/bin/pp_line_delete_in_place: animator/c/pp_layer_line_delete_in_place.c
+	@mkdir -p animator/bin
+	$(CC) -DPP_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_layer_line_delete_in_place.c
+
+animator/bin/pp_adjust: animator/c/pp_adjust.c
+	@mkdir -p animator/bin
+	$(CC) -DPP_ADJUST_STANDALONE $(CFLAGS) -I animator/c -o $@ animator/c/pp_adjust.c
 
 # --- Installation ----------------------------------------------------------
 
@@ -219,7 +245,7 @@ clean-compute:
 	rm -rf compute/bin
 
 clean-animator:
-	rm -f $(ANIMATOR_BINS)
+	rm -f $(ANIMATOR_BINS) $(LAYER_BINS)
 
 distclean: clean
 	rm -rf docs/src/book

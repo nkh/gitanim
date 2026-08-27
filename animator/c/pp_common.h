@@ -237,6 +237,7 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
     int in_hunk = 0;
     Hunk current_hunk = {0};
     int hunk_count = 0;
+    int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
 
     /* Get old file path from env (layers may need it) */
     const char *old_file = getenv("DV_OLD_FILE");
@@ -266,6 +267,10 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
         if (strncmp(line, "HUNK\t", 5) == 0) {
             /* If we were in a hunk, process it first */
             if (in_hunk && in_count > 0) {
+                /* Apply cross-hunk line_offset to all ops */
+                for (int j = 0; j < in_count; j++)
+                    in_ops[j].line += line_offset;
+
                 Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
                 if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
@@ -280,6 +285,15 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
                 for (int i = 0; i < out_count; i++)
                     pp_write_op(&out_ops[i]);
                 pp_write_hunk_end();
+
+                /* Update line_offset for next hunk */
+                { int ni=0, nd=0;
+                  for (int j=0; j<out_count; j++) {
+                      if (strcmp(out_ops[j].type,"insert")==0 && out_ops[j].code==10) ni++;
+                      if (strcmp(out_ops[j].type,"delete")==0 && out_ops[j].code==10) nd++;
+                  }
+                  line_offset += ni - nd;
+                }
 
                 free(out_ops);
                 in_count = 0;
@@ -296,6 +310,10 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
         /* HUNK_END */
         if (strncmp(line, "HUNK_END", 8) == 0) {
             if (in_hunk && in_count > 0) {
+                /* Apply cross-hunk line_offset to all ops */
+                for (int j = 0; j < in_count; j++)
+                    in_ops[j].line += line_offset;
+
                 Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
                 if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
@@ -310,6 +328,15 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
                 for (int i = 0; i < out_count; i++)
                     pp_write_op(&out_ops[i]);
                 pp_write_hunk_end();
+
+                /* Update line_offset for next hunk */
+                { int ni=0, nd=0;
+                  for (int j=0; j<out_count; j++) {
+                      if (strcmp(out_ops[j].type,"insert")==0 && out_ops[j].code==10) ni++;
+                      if (strcmp(out_ops[j].type,"delete")==0 && out_ops[j].code==10) nd++;
+                  }
+                  line_offset += ni - nd;
+                }
 
                 free(out_ops);
                 in_count = 0;
@@ -347,6 +374,10 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
 
     /* Handle last hunk if no HUNK_END */
     if (in_hunk && in_count > 0) {
+        /* Apply cross-hunk line_offset to all ops */
+        for (int j = 0; j < in_count; j++)
+            in_ops[j].line += line_offset;
+
         Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
         if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
