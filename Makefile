@@ -74,9 +74,11 @@ $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
 
 animator: $(ANIMATOR_BINS)
 
-$(POSTPROCESS_BIN): animator/c/postprocess.c
+POSTPROCESS_SRCS := animator/c/postprocess.c animator/c/pp_layer1_reorder.c 	animator/c/pp_layer_indent_last.c animator/c/pp_layer_overwrite.c
+
+$(POSTPROCESS_BIN): $(POSTPROCESS_SRCS) animator/c/pp_common.h
 	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -I animator/c -o $@ $(POSTPROCESS_SRCS)
 
 $(PACE_BIN): animator/c/pace.c
 	@mkdir -p animator/bin
