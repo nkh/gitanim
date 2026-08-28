@@ -1,14 +1,18 @@
-# Binaries (build with make)
-animator/bin/diffvim-postprocess
-animator/bin/diffvim-pace
-animator/bin/diffvim-animator-c
-animator/bin/diffvim-decorate
-animator/bin/pp_*
-compute/bin/diffvim-compute-cpp
-compute/bin/test_hirschberg
+# Compiled binaries (build with `make`)
+bin/
 
 # Build artifacts
 *.o
 *.so
 *.a
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
+
+# Temp
 /tmp/
+
+# Generated docs (mdbook)
+docs/book/
