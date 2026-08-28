@@ -179,14 +179,14 @@ print "Engine extracted to $engine_test\n\n";
 
 # Test all example pairs
 print "=== Vim correctness tests ===\n";
-for my $dir (sort glob("tests/tests/examples/*/")) {
+for my $dir (sort glob("tests/examples/*/")) {
     my @old_files = glob("$dir/old.*");
     for my $old (@old_files) {
         my $ext = $old =~ /\.(\w+)$/ ? $1 : 'txt';
         (my $new = $old) =~ s/old\.\w+$/new.$ext/;
         if (-f $new) {
             my $name = $dir;
-            $name =~ s|tests/tests/examples/||;
+            $name =~ s|tests/examples/||;
             $name =~ s|/$||;
             test_pair($old, $new, $name);
         }

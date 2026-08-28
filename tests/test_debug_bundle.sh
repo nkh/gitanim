@@ -63,8 +63,8 @@ fi
 
 # --- Test 5: Valid invocation produces bundle ---
 echo "Test 5: valid invocation produces tar.gz bundle with all expected files"
-OLD="$ROOT/tests/tests/examples/01_small_python/old.py"
-NEW="$ROOT/tests/tests/examples/01_small_python/new.py"
+OLD="$ROOT/tests/examples/01_small_python/old.py"
+NEW="$ROOT/tests/examples/01_small_python/new.py"
 DESC="test description for bundle test"
 out=$("$SCRIPT" "$OLD" "$NEW" "$DESC" 2>&1) && rc=0 || rc=$?
 if [[ $rc -ne 0 ]]; then
@@ -141,8 +141,8 @@ fi
 
 # --- Test 6: Bundle works on a non-trivial example ---
 echo "Test 6: bundle works on example 02 (large python)"
-OLD="$ROOT/tests/tests/examples/02_large_python/old.py"
-NEW="$ROOT/tests/tests/examples/02_large_python/new.py"
+OLD="$ROOT/tests/examples/02_large_python/old.py"
+NEW="$ROOT/tests/examples/02_large_python/new.py"
 out=$("$SCRIPT" "$OLD" "$NEW" "example 02 bundle" 2>&1) && rc=0 || rc=$?
 if [[ $rc -ne 0 ]]; then
     fail "example 02 bundle failed (rc=$rc)"

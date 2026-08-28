@@ -98,15 +98,15 @@ diff /tmp/pl_new.txt /tmp/pl_out.txt >/dev/null 2>&1 && ok "Animation output mat
 # ── Test 11: Full example 02 ──
 echo "Test 11: Full example 02 through all layers"
 AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" \
-    tests/tests/examples/02_large_python/old.py tests/tests/examples/02_large_python/new.py /tmp/pl_02_raw.txt 2>/dev/null
+    tests/examples/02_large_python/old.py tests/examples/02_large_python/new.py /tmp/pl_02_raw.txt 2>/dev/null
 "$ROOT/bin/ad_layer_noop" < /tmp/pl_02_raw.txt 2>/dev/null | \
 "$ROOT/bin/ad_layer_noop" 2>/dev/null | \
 "$ROOT/bin/ad_layer_noop" 2>/dev/null | \
 "$ROOT/bin/ad_layer_noop" > /tmp/pl_02_piped.txt 2>/dev/null
 "$ROOT/bin/ad_layer_pace" < /tmp/pl_02_piped.txt > /tmp/pl_02_timed.txt 2>/dev/null
 "$ROOT/bin/ad" --no-display --speed 1000 --snapshot /tmp/pl_02_out.txt \
-    tests/tests/examples/02_large_python/old.py < /tmp/pl_02_timed.txt 2>/dev/null
-diff tests/tests/examples/02_large_python/new.py /tmp/pl_02_out.txt >/dev/null 2>&1 && ok "Example 02: animation output matches" || ok "Example 02: Layer 3 not yet implemented (expected)"
+    tests/examples/02_large_python/old.py < /tmp/pl_02_timed.txt 2>/dev/null
+diff tests/examples/02_large_python/new.py /tmp/pl_02_out.txt >/dev/null 2>&1 && ok "Example 02: animation output matches" || ok "Example 02: Layer 3 not yet implemented (expected)"
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="

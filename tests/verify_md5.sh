@@ -28,7 +28,7 @@ SYNOPSIS
     verify_md5.sh [-h|--help]
 
 DESCRIPTION
-    For every example pair under tests/tests/examples/ (matching [0-9]*_*), runs
+    For every example pair under tests/examples/ (matching [0-9]*_*), runs
     TWO diffvim pipelines in parallel (8 concurrent via xargs -P):
 
       1. C pipeline:        compute-cpp → C postprocess → C pace → C animator
@@ -53,7 +53,7 @@ DESCRIPTION
 OPTIONS
     -h, --help     Show this help message and exit 0.
                    This script takes no other arguments — it always
-                   processes every example under tests/tests/examples/.
+                   processes every example under tests/examples/.
 
 EXAMPLES
     verify_md5.sh
@@ -129,8 +129,8 @@ export ROOT OUTDIR
 # -----------------------------------------------------------------------------
 > /tmp/dv_tasks.txt
 for d in $(ls "$ROOT/examples" | grep '^[0-9]*_' | sort); do
-    news=( "$ROOT/tests/tests/examples/$d"/new.* )
-    olds=( "$ROOT/tests/tests/examples/$d"/old.* )
+    news=( "$ROOT/tests/examples/$d"/new.* )
+    olds=( "$ROOT/tests/examples/$d"/old.* )
     [[ ${#news[@]} -eq 0 || ${#olds[@]} -eq 0 ]] && continue
     new="${news[0]}"; old="${olds[0]}"
     echo "pipe|$d|$old|$new"          >> /tmp/dv_tasks.txt
@@ -165,7 +165,7 @@ printf '%s\n' "$(printf '%.0s-' {1..120})"
 p_ok=0; p_bad=0; pp_ok=0; pp_bad=0
 
 for d in $(ls "$ROOT/examples" | grep '^[0-9]*_' | sort); do
-    news=( "$ROOT/tests/tests/examples/$d"/new.* )
+    news=( "$ROOT/tests/examples/$d"/new.* )
     [[ ${#news[@]} -eq 0 ]] && continue
     new="${news[0]}"
 

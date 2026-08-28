@@ -37,7 +37,7 @@ sub run_cmd {
 }
 
 opendir(my $dh, "$root/examples") or die "opendir: $!";
-my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 my @rows;
@@ -52,13 +52,13 @@ for my $d (@dirs) {
     # Skip examples 01 through 19 (already verified)
     next if $d =~ /^0?[1-9]_/ || $d =~ /^1[0-9]_/;
 
-    my @new_candidates = glob("$root/tests/tests/examples/$d/new.*");
+    my @new_candidates = glob("$root/tests/examples/$d/new.*");
     unless (@new_candidates) {
         push @rows, [$d, 'NO_NEW', '-', '-', '-', '-', ''];
         next;
     }
     my $new = $new_candidates[0];
-    my @old_candidates = glob("$root/tests/tests/examples/$d/old.*");
+    my @old_candidates = glob("$root/tests/examples/$d/old.*");
     my $old = $old_candidates[0] if @old_candidates;
 
     my $new_md5 = md5_file($new);

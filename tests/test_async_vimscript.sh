@@ -31,13 +31,13 @@ DESCRIPTION
 OPTIONS
     -h, --help        Show this help message and exit 0.
     <example_dir>     Path to an example directory containing old.*
-                      and new.* files (e.g. tests/tests/examples/01_small_python).
+                      and new.* files (e.g. tests/examples/01_small_python).
 
 EXAMPLES
-    test_async_vimscript.sh tests/tests/examples/01_small_python
+    test_async_vimscript.sh tests/examples/01_small_python
         Run the async test on the small Python example.
 
-    test_async_vimscript.sh /home/z/my-project/gitanim/tests/tests/examples/32_python_classes
+    test_async_vimscript.sh /home/z/my-project/gitanim/tests/examples/32_python_classes
         Use an absolute path to the example directory.
 
 EXIT STATUS

@@ -108,26 +108,26 @@ ensure_engine();
 print "=== Tests 1-10: Vim correctness for new languages ===\n";
 
 my @new_examples = (
-    ["tests/tests/examples/13_java/old.java",         "tests/tests/examples/13_java/new.java",         "Java"],
-    ["tests/tests/examples/14_kotlin/old.kt",         "tests/tests/examples/14_kotlin/new.kt",         "Kotlin"],
-    ["tests/tests/examples/15_swift/old.swift",       "tests/tests/examples/15_swift/new.swift",       "Swift"],
-    ["tests/tests/examples/16_ruby/old.rb",           "tests/tests/examples/16_ruby/new.rb",           "Ruby"],
-    ["tests/tests/examples/17_php/old.php",           "tests/tests/examples/17_php/new.php",           "PHP"],
-    ["tests/tests/examples/18_scala/old.scala",       "tests/tests/examples/18_scala/new.scala",       "Scala"],
-    ["tests/tests/examples/19_elixir/old.ex",         "tests/tests/examples/19_elixir/new.ex",         "Elixir"],
-    ["tests/tests/examples/20_clojure/old.clj",       "tests/tests/examples/20_clojure/new.clj",       "Clojure"],
-    ["tests/tests/examples/21_haskell/old.hs",        "tests/tests/examples/21_haskell/new.hs",        "Haskell"],
-    ["tests/tests/examples/22_lua/old.lua",           "tests/tests/examples/22_lua/new.lua",           "Lua"],
-    ["tests/tests/examples/23_perl/old.pl",           "tests/tests/examples/23_perl/new.pl",           "Perl"],
-    ["tests/tests/examples/24_r/old.R",               "tests/tests/examples/24_r/new.R",               "R"],
-    ["tests/tests/examples/25_sql/old.sql",           "tests/tests/examples/25_sql/new.sql",           "SQL"],
-    ["tests/tests/examples/26_markdown/old.md",       "tests/tests/examples/26_markdown/new.md",       "Markdown"],
-    ["tests/tests/examples/27_xml/old.xml",           "tests/tests/examples/27_xml/new.xml",           "XML"],
-    ["tests/tests/examples/28_toml/old.toml",         "tests/tests/examples/28_toml/new.toml",         "TOML"],
-    ["tests/tests/examples/29_dockerfile/old.Dockerfile", "tests/tests/examples/29_dockerfile/new.Dockerfile", "Dockerfile"],
-    ["tests/tests/examples/30_makefile/old.Makefile", "tests/tests/examples/30_makefile/new.Makefile", "Makefile"],
-    ["tests/tests/examples/31_javascript/old.js",     "tests/tests/examples/31_javascript/new.js",     "JavaScript"],
-    ["tests/tests/examples/32_python_classes/old.py", "tests/tests/examples/32_python_classes/new.py", "Python classes"],
+    ["tests/examples/13_java/old.java",         "tests/examples/13_java/new.java",         "Java"],
+    ["tests/examples/14_kotlin/old.kt",         "tests/examples/14_kotlin/new.kt",         "Kotlin"],
+    ["tests/examples/15_swift/old.swift",       "tests/examples/15_swift/new.swift",       "Swift"],
+    ["tests/examples/16_ruby/old.rb",           "tests/examples/16_ruby/new.rb",           "Ruby"],
+    ["tests/examples/17_php/old.php",           "tests/examples/17_php/new.php",           "PHP"],
+    ["tests/examples/18_scala/old.scala",       "tests/examples/18_scala/new.scala",       "Scala"],
+    ["tests/examples/19_elixir/old.ex",         "tests/examples/19_elixir/new.ex",         "Elixir"],
+    ["tests/examples/20_clojure/old.clj",       "tests/examples/20_clojure/new.clj",       "Clojure"],
+    ["tests/examples/21_haskell/old.hs",        "tests/examples/21_haskell/new.hs",        "Haskell"],
+    ["tests/examples/22_lua/old.lua",           "tests/examples/22_lua/new.lua",           "Lua"],
+    ["tests/examples/23_perl/old.pl",           "tests/examples/23_perl/new.pl",           "Perl"],
+    ["tests/examples/24_r/old.R",               "tests/examples/24_r/new.R",               "R"],
+    ["tests/examples/25_sql/old.sql",           "tests/examples/25_sql/new.sql",           "SQL"],
+    ["tests/examples/26_markdown/old.md",       "tests/examples/26_markdown/new.md",       "Markdown"],
+    ["tests/examples/27_xml/old.xml",           "tests/examples/27_xml/new.xml",           "XML"],
+    ["tests/examples/28_toml/old.toml",         "tests/examples/28_toml/new.toml",         "TOML"],
+    ["tests/examples/29_dockerfile/old.Dockerfile", "tests/examples/29_dockerfile/new.Dockerfile", "Dockerfile"],
+    ["tests/examples/30_makefile/old.Makefile", "tests/examples/30_makefile/new.Makefile", "Makefile"],
+    ["tests/examples/31_javascript/old.js",     "tests/examples/31_javascript/new.js",     "JavaScript"],
+    ["tests/examples/32_python_classes/old.py", "tests/examples/32_python_classes/new.py", "Python classes"],
 );
 
 my $test_num = 1;
@@ -142,19 +142,19 @@ print "\n=== Tests 11-15: Feature tests ===\n";
 
 # Test 11: --fold-unchanged flag accepted
 ok("Test 11: --fold-unchanged accepted",
-   `perl diffvim.pl --fold-unchanged --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl diffvim.pl --fold-unchanged --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 12: --theme flag accepted
 ok("Test 12: --theme accepted",
-   `perl diffvim.pl --theme dark --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl diffvim.pl --theme dark --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 13: --debug flag accepted
 ok("Test 13: --debug accepted",
-   `perl diffvim.pl --debug --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl diffvim.pl --debug --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 14: --highlight-hunk flag accepted
 ok("Test 14: --highlight-hunk accepted",
-   `perl diffvim.pl --highlight-hunk --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl diffvim.pl --highlight-hunk --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 15: Benchmark suite runs
 ok("Test 15: benchmark suite runs",
@@ -166,14 +166,14 @@ print "\n=== Tests 16-20: Edge cases ===\n";
 # Test 16: All 3 diff algorithms produce correct results
 my $all_algos_ok = 1;
 for my $algo ('lcs', 'myers', 'patience') {
-    my $out = `perl diffvim.pl --algorithm $algo --dry-run tests/tests/examples/13_java/old.java tests/tests/examples/13_java/new.java 2>&1`;
+    my $out = `perl diffvim.pl --algorithm $algo --dry-run tests/examples/13_java/old.java tests/examples/13_java/new.java 2>&1`;
     if ($out !~ /Dry run/) { $all_algos_ok = 0; last; }
 }
 ok("Test 16: all 3 algorithms work on Java", $all_algos_ok);
 
 # Test 17: --word-diff produces different op count
-my $char_ops = `perl diffvim.pl --dry-run tests/tests/examples/14_kotlin/old.kt tests/tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
-my $word_ops = `perl diffvim.pl --word-diff --dry-run tests/tests/examples/14_kotlin/old.kt tests/tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
+my $char_ops = `perl diffvim.pl --dry-run tests/examples/14_kotlin/old.kt tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
+my $word_ops = `perl diffvim.pl --word-diff --dry-run tests/examples/14_kotlin/old.kt tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
 ok("Test 17: word-diff produces valid output", $word_ops > 0);
 
 # Test 18: Binary file detection rejects binary files
@@ -184,12 +184,12 @@ ok("Test 18: binary file detection works", $bin_out =~ /binary/i);
 unlink '/tmp/dv_binary.dat', '/tmp/dv_text.txt';
 
 # Test 19: --semantic-cleanup doesn't increase op count
-my $plain_ops = `perl diffvim.pl --dry-run tests/tests/examples/15_swift/old.swift tests/tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
-my $clean_ops = `perl diffvim.pl --semantic-cleanup --dry-run tests/tests/examples/15_swift/old.swift tests/tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
+my $plain_ops = `perl diffvim.pl --dry-run tests/examples/15_swift/old.swift tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
+my $clean_ops = `perl diffvim.pl --semantic-cleanup --dry-run tests/examples/15_swift/old.swift tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
 ok("Test 19: semantic cleanup ops <= plain ops", $clean_ops <= $plain_ops);
 
 # Test 20: --parser perl is accepted (the only parser now)
-my $parser_out = `perl diffvim.pl --parser perl --dry-run tests/tests/examples/16_ruby/old.rb tests/tests/examples/16_ruby/new.rb 2>&1`;
+my $parser_out = `perl diffvim.pl --parser perl --dry-run tests/examples/16_ruby/old.rb tests/examples/16_ruby/new.rb 2>&1`;
 ok("Test 20: --parser perl works", $parser_out =~ /Parser: perl/i);
 
 # Cleanup

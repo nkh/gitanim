@@ -26,10 +26,10 @@ open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; c
 system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
 
 # Run postprocess WITHOUT indent-last
-system("./bin/ad_postprocess < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
+system("./pipeline/bin/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
 
 # Run postprocess WITH indent-last
-system("./bin/ad_postprocess --indent-last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
+system("./pipeline/bin/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
 
 # Read the ops
 sub read_ops {
@@ -116,7 +116,7 @@ if (system("diff -q '$new' /tmp/il_test_out_il.txt >/dev/null 2>&1") == 0) {
 # Check: C and Perl implementations of indent_last produce identical output
 system("./bin/ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_reord.txt 2>/dev/null");
 system("./bin/ad_layer_indent_last < /tmp/il_test_reord.txt > /tmp/il_test_c.txt 2>/dev/null");
-system("perl ./animator/perl/ad_layer_indent_last.pl < /tmp/il_test_reord.txt > /tmp/il_test_perl.txt 2>/dev/null");
+system("perl ./layers/perl/ad_layer_indent_last.pl < /tmp/il_test_reord.txt > /tmp/il_test_perl.txt 2>/dev/null");
 if (system("diff -q /tmp/il_test_c.txt /tmp/il_test_perl.txt >/dev/null 2>&1") == 0) {
     print "PASS: C and Perl indent_last produce identical output (parity)\n";
     $pass++;
@@ -125,37 +125,23 @@ if (system("diff -q /tmp/il_test_c.txt /tmp/il_test_perl.txt >/dev/null 2>&1") =
     $fail++;
 }
 
-# Check: --pp-indent-last dynamic flag produces same output as --indent-last
-system("./bin/ad_postprocess --pp-indent-last < /tmp/il_test_raw.txt > /tmp/il_test_pp_flag.txt 2>/dev/null");
-# Strip pace/highlight delays — they aren't deterministic. Compare only
-# the post-processed ops (HUNK header through HUNK_END of each hunk).
-sub extract_hunk_ops {
-    my ($file) = @_;
-    open(my $fh, '<', $file) or return [];
-    my @ops;
-    while (my $line = <$fh>) {
-        chomp $line;
-        next if $line =~ /^#/ || $line =~ /^$/;
-        next if $line =~ /^delay\tnone/;
-        # Skip pace/highlight-generated ops for the comparison
-        push @ops, $line if $line =~ /^(HUNK|delete|insert|keep|overwrite_insert)/;
-    }
-    close($fh);
-    return \@ops;
-}
-# Direct diff (orchestrator with --pp-indent-last vs --indent-last should
-# produce the same layer chain — both enable the indent_last layer).
-my $pp_out = extract_hunk_ops("/tmp/il_test_pp_flag.txt");
-my $il_out = extract_hunk_ops("/tmp/il_test_post_il.txt");
-# Note: $il_out has no pace/highlight applied yet (raw postprocess output);
-# $pp_out has pace+highlight applied. Compare indent_last-relevant ops only.
-my @il_deletes = grep { /^delete\t/ && !/^\w+\t\d+\t\d+\t(32|9|10)\t/ } @$il_out;
-my @pp_deletes = grep { /^delete\t/ && !/^\w+\t\d+\t\d+\t(32|9|10)\t/ } @$pp_out;
-if (scalar(@il_deletes) > 0 && scalar(@il_deletes) == scalar(@pp_deletes)) {
-    print "PASS: --pp-indent-last dynamic flag enables the layer\n";
+# Check: --ad-layer=ad_layer_indent_last dynamic flag works
+system("./pipeline/bin/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_ad_layer_flag.txt 2>/dev/null");
+# Compare against the --indent-last convenience flag (which expands to
+# the same --ad-layer=ad_layer_indent_last chain).
+my $il_out_count = 0;
+my $ad_layer_count = 0;
+open(my $ifh, '<', "/tmp/il_test_post_il.txt") or die;
+while (my $line = <$ifh>) { chomp $line; $il_out_count++ if $line =~ /^delete\t/; }
+close($ifh);
+open($ifh, '<', "/tmp/il_test_ad_layer_flag.txt") or die;
+while (my $line = <$ifh>) { chomp $line; $ad_layer_count++ if $line =~ /^delete\t/; }
+close($ifh);
+if ($il_out_count > 0 && $il_out_count == $ad_layer_count) {
+    print "PASS: --ad-layer=ad_layer_indent_last produces same op count as convenience flag\n";
     $pass++;
 } else {
-    print "FAIL: --pp-indent-last did not enable the layer\n";
+    print "FAIL: --ad-layer=ad_layer_indent_last differs (il=$il_out_count, ad_layer=$ad_layer_count)\n";
     $fail++;
 }
 

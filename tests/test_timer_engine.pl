@@ -167,38 +167,38 @@ print "Engine extracted to $engine_file\n\n";
 print "=== Timer-based engine tests ===\n";
 
 ok("Test 1: old.py -> new.py (no options)",
-   test_timer_engine("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+   test_timer_engine("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
                      {}, {}, "basic"));
 
 # --- Test 2: With max-word-chars ---
 ok("Test 2: --max-word-chars 5",
-   test_timer_engine("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+   test_timer_engine("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
                      {}, {max_word_chars => 5}, "max-word-chars"));
 
 # --- Test 3: With max-hunk-chars ---
 ok("Test 3: --max-hunk-chars 10",
-   test_timer_engine("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+   test_timer_engine("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
                      {}, {max_hunk_chars => 10}, "max-hunk-chars"));
 
 # --- Test 4: Large file with both options ---
 ok("Test 4: large file with --max-word-chars 5 --max-hunk-chars 200",
-   test_timer_engine("tests/tests/examples/02_large_python/old.py", "tests/tests/examples/02_large_python/new.py",
+   test_timer_engine("tests/examples/02_large_python/old.py", "tests/examples/02_large_python/new.py",
                      {}, {max_word_chars => 5, max_hunk_chars => 200}, "large+options"));
 
 # --- Test 5: Reversed direction (new -> old) ---
 ok("Test 5: new.py -> old.py (reversed)",
-   test_timer_engine("tests/tests/examples/01_small_python/new.py", "tests/tests/examples/01_small_python/old.py",
+   test_timer_engine("tests/examples/01_small_python/new.py", "tests/examples/01_small_python/old.py",
                      {}, {}, "reversed"));
 
 # --- Test 6: Step mode is OFF by default (Space should pause, not step) ---
 # Verify by checking that the animation completes without any Space presses
 ok("Test 6: animation completes without Space (step_mode off)",
-   test_timer_engine("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+   test_timer_engine("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
                      {AD_STEP_MODE => ''}, {}, "step_mode_off"));
 
 # --- Test 7: Verify env var booleans are empty when not set ---
 ok("Test 7: AD_STEP_MODE empty when not passed",
-   test_timer_engine("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+   test_timer_engine("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
                      {AD_STEP_MODE => '', AD_WORD_DIFF => '',
                       AD_ADAPTIVE_TIMING => '', AD_SIGN_COLUMN => '',
                       AD_GIT_BLAME => '', AD_HIGHLIGHT_HUNK => ''},
@@ -206,17 +206,17 @@ ok("Test 7: AD_STEP_MODE empty when not passed",
 
 # --- Test 8: Large file reversed with options ---
 ok("Test 8: large file reversed with --max-word-chars 5",
-   test_timer_engine("tests/tests/examples/02_large_python/new.py", "tests/tests/examples/02_large_python/old.py",
+   test_timer_engine("tests/examples/02_large_python/new.py", "tests/examples/02_large_python/old.py",
                      {}, {max_word_chars => 5, max_hunk_chars => 200}, "large+reversed+options"));
 
 # --- Test 9: Small Python with all options ---
 ok("Test 9: small python with max-word-chars=3, max-hunk-chars=5",
-   test_timer_engine("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+   test_timer_engine("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
                      {}, {max_word_chars => 3, max_hunk_chars => 5}, "aggressive_options"));
 
 # --- Test 10: Go code (different language) ---
 ok("Test 10: Go code",
-   test_timer_engine("tests/tests/examples/05_go_code/old.go", "tests/tests/examples/05_go_code/new.go",
+   test_timer_engine("tests/examples/05_go_code/old.go", "tests/examples/05_go_code/new.go",
                      {}, {max_word_chars => 5}, "go_code"));
 
 print "\n=== Results: $pass passed, $fail failed ===\n";

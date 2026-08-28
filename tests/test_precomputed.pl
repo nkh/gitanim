@@ -136,7 +136,7 @@ sub read_file {
 
 # Test with all example file pairs
 my @pairs;
-for my $dir (glob("tests/tests/examples/*/")) {
+for my $dir (glob("tests/examples/*/")) {
     my @old_files = glob("$dir/old.*");
     for my $old (@old_files) {
         my $ext = $old =~ /\.(\w+)$/ ? $1 : 'txt';
@@ -159,7 +159,7 @@ mkdir $tmp unless -d $tmp;
 for my $pair (@pairs) {
     my ($old, $new) = @$pair;
     my $name = $old;
-    $name =~ s|^tests/tests/examples/||;
+    $name =~ s|^tests/examples/||;
 
     my $expected = read_file($new);
     $expected =~ s/\n+$//;

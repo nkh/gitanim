@@ -23,20 +23,20 @@ ok('--help shows --debug', $help =~ /--debug/);
 
 # Test 2: --fold-unchanged with --dry-run works
 print "\n=== Test: --fold-unchanged ===\n";
-my $out = `perl diffvim.pl --fold-unchanged --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+my $out = `perl diffvim.pl --fold-unchanged --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
 ok('--fold-unchanged with --dry-run works', $out =~ /Dry run/);
 
 # Test 3: --theme accepts valid values
 print "\n=== Test: --theme ===\n";
 for my $theme ('dark', 'light', 'high-contrast') {
-    $out = `perl diffvim.pl --theme $theme --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+    $out = `perl diffvim.pl --theme $theme --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
     ok("--theme $theme accepted", $out =~ /Dry run/);
 }
 
 # Test 4: --debug creates a log file
 print "\n=== Test: --debug ===\n";
 unlink '/tmp/diffvim-debug.log';
-$out = `perl diffvim.pl --debug --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+$out = `perl diffvim.pl --debug --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
 # --dry-run exits before any send_ex calls, so the log may be empty
 # but the flag should be accepted
 ok('--debug flag accepted', $out =~ /Dry run/ || $out =~ /debug/i);

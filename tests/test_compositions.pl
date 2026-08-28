@@ -36,8 +36,8 @@ sub run_with_timeout {
 }
 
 my $DIFFVIM = './diffvim';
-my $OLD = 'tests/tests/examples/01_small_python/old.py';
-my $NEW = 'tests/tests/examples/01_small_python/new.py';
+my $OLD = 'tests/examples/01_small_python/old.py';
+my $NEW = 'tests/examples/01_small_python/new.py';
 
 sub runs_ok {
     my ($label, $args) = @_;
@@ -223,8 +223,8 @@ runs_ok("--delete-threshold 10 + --delete-pacing word",
 print "\n=== Correctness across examples ===\n";
 
 for my $ex (qw(01_small_python 02_large_python 06_typescript 08_rust_code 33_large_python)) {
-    my $old = `ls tests/tests/examples/$ex/old.* 2>/dev/null | head -1`; chomp $old;
-    my $new = `ls tests/tests/examples/$ex/new.* 2>/dev/null | head -1`; chomp $new;
+    my $old = `ls tests/examples/$ex/old.* 2>/dev/null | head -1`; chomp $old;
+    my $new = `ls tests/examples/$ex/new.* 2>/dev/null | head -1`; chomp $new;
     next unless $old && $new;
     my $out = run_with_timeout("$DIFFVIM --op-order end-first-smart --delete-pacing word --insert-pacing word --pacing review --highlight hunk --dry-run $old $new", 10);
     ok("full combo produces diff for $ex", $out =~ /---/);

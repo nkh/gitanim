@@ -21,7 +21,7 @@ chdir $ROOT or die "Cannot chdir to $ROOT: $!\n";
 
 my @examples;
 if (opendir(my $dh, "examples")) {
-    @examples = sort grep { -d "tests/tests/examples/$_" && !/^\./ } readdir($dh);
+    @examples = sort grep { -d "tests/examples/$_" && !/^\./ } readdir($dh);
     closedir($dh);
 }
 
@@ -36,10 +36,10 @@ print "The cursor never goes back to a line that was already operated on.\n\n";
 for my $ex (@examples) {
     my ($old, $new);
     for my $ext (qw(.py .txt .go .rs .ts .java .rb .js .c .md .json .yaml .yml .css .html .php .scala .ex .clj .kt .swift)) {
-        $old = "tests/tests/examples/$ex/old$ext", last if -f "tests/tests/examples/$ex/old$ext";
+        $old = "tests/examples/$ex/old$ext", last if -f "tests/examples/$ex/old$ext";
     }
     for my $ext (qw(.py .txt .go .rs .ts .java .rb .js .c .md .json .yaml .yml .css .html .php .scala .ex .clj .kt .swift)) {
-        $new = "tests/tests/examples/$ex/new$ext", last if -f "tests/tests/examples/$ex/new$ext";
+        $new = "tests/examples/$ex/new$ext", last if -f "tests/examples/$ex/new$ext";
     }
     next unless -f $old && -f $new;
 

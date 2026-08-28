@@ -22,13 +22,13 @@ print "=== Test: canceling ops are merged ===\n";
 # Create a test case where the LCS might produce canceling ops
 # "abc" -> "axc" should produce: keep a, delete b, insert x, keep c
 # With cleanup, this stays the same (b != x, so no merge)
-my $result = parse_diff("tests/tests/examples/01_small_python/old.py", "tests/tests/examples/01_small_python/new.py",
+my $result = parse_diff("tests/examples/01_small_python/old.py", "tests/examples/01_small_python/new.py",
     { semantic_cleanup => 1 });
 ok('semantic cleanup produces valid output', defined $result && @{$result->{hunks}} > 0);
 
 # Test 2: Correctness is preserved with semantic cleanup
 print "\n=== Test: correctness preserved ===\n";
-for my $dir (glob("tests/tests/examples/*/")) {
+for my $dir (glob("tests/examples/*/")) {
     my $old_file = "$dir/old." . ($dir =~ /python/ ? 'py' : $dir =~ /json/ ? 'json' : $dir =~ /shell/ ? 'sh' : $dir =~ /go/ ? 'go' : $dir =~ /typescript/ ? 'ts' : $dir =~ /prose/ ? 'txt' : $dir =~ /rust/ ? 'rs' : $dir =~ /c_code/ ? 'c' : $dir =~ /yaml/ ? 'yaml' : $dir =~ /html/ ? 'html' : $dir =~ /css/ ? 'css' : 'txt');
     my $new_file = "$dir/new." . ($old_file =~ /\.(\w+)$/ ? $1 : 'txt');
     next unless -f $old_file && -f $new_file;
@@ -39,7 +39,7 @@ for my $dir (glob("tests/tests/examples/*/")) {
 
     # Apply both and compare
     my $name = $dir;
-    $name =~ s|tests/tests/examples/||;
+    $name =~ s|tests/examples/||;
     $name =~ s|/$||;
 
     # Count ops

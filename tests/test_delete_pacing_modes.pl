@@ -10,8 +10,8 @@ my $fail = 0;
 my @modes = qw(char rapid-eol rapid-identical accel word instant);
 
 for my $mode (@modes) {
-    my $old = "$root/tests/tests/examples/01_small_python/old.py";
-    my $new = "$root/tests/tests/examples/01_small_python/new.py";
+    my $old = "$root/tests/examples/01_small_python/old.py";
+    my $new = "$root/tests/examples/01_small_python/new.py";
     
     system("$root/bin/ad_compute '$old' '$new' /tmp/raw.txt 2>/dev/null");
     system("$root/bin/ad_postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");

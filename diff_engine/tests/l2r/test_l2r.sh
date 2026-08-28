@@ -12,7 +12,7 @@
 
 set -uo pipefail
 ROOT=/home/z/my-project/gitanim
-L2R=/home/z/my-project/l2r_test
+L2R=$ROOT/diff_engine/tests/l2r
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
@@ -62,13 +62,13 @@ _run_pipeline() {
 
     # Pipeline WITHOUT l2r
     "$ROOT/bin/ad_compute" "$old" "$new" "$TMPDIR/raw.txt" 2>/dev/null
-    "$ROOT/bin/ad_postprocess" < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
+    "$ROOT/pipeline/bin/ad_postprocess" --ad-layer=ad_layer_reorder < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
     "$ROOT/bin/ad_layer_pace" < "$TMPDIR/post.txt" > "$TMPDIR/timed.txt" 2>/dev/null
     "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/out_no_l2r.txt" "$old" < "$TMPDIR/timed.txt" 2>/dev/null
 
     # Pipeline WITH l2r
     "$L2R/l2r_tool" < "$TMPDIR/raw.txt" > "$TMPDIR/raw_l2r.txt"
-    "$ROOT/bin/ad_postprocess" < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
+    "$ROOT/pipeline/bin/ad_postprocess" --ad-layer=ad_layer_reorder < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
     "$ROOT/bin/ad_layer_pace" < "$TMPDIR/post_l2r.txt" > "$TMPDIR/timed_l2r.txt" 2>/dev/null
     "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/out_l2r.txt" "$old" < "$TMPDIR/timed_l2r.txt" 2>/dev/null
 
@@ -415,8 +415,8 @@ impl Point3D {
 # === The test that broke 02_large_python ===
 
 run_test_files "02_large_python_EXACT" \
-    "$ROOT/tests/tests/examples/02_large_python/old.py" \
-    "$ROOT/tests/tests/examples/02_large_python/new.py"
+    "$ROOT/tests/examples/02_large_python/old.py" \
+    "$ROOT/tests/examples/02_large_python/new.py"
 
 # === Edge cases ===
 
@@ -465,8 +465,8 @@ run_test "long_line_many_changes" \
 # === Stress tests (small subset for speed) ===
 
 run_test_files "large_python_33" \
-    "$ROOT/tests/tests/examples/33_large_python/old.py" \
-    "$ROOT/tests/tests/examples/33_large_python/new.py"
+    "$ROOT/tests/examples/33_large_python/old.py" \
+    "$ROOT/tests/examples/33_large_python/new.py"
 
 echo ""
 echo "=== Results: $pass passed, $fail failed (of $total total) ==="

@@ -8,12 +8,12 @@ my $pass = 0;
 my $fail = 0;
 
 opendir(my $dh, "$root/examples") or die "Cannot open examples: $!";
-my @dirs = grep { /^\d+_/ && -d "$root/tests/tests/examples/$_" } readdir($dh);
+my @dirs = grep { /^\d+_/ && -d "$root/tests/examples/$_" } readdir($dh);
 closedir($dh);
 
 for my $dir (sort @dirs) {
-    my @olds = glob("$root/tests/tests/examples/$dir/old.*");
-    my @news = glob("$root/tests/tests/examples/$dir/new.*");
+    my @olds = glob("$root/tests/examples/$dir/old.*");
+    my @news = glob("$root/tests/examples/$dir/new.*");
     next unless @olds && @news;
     my $old = $olds[0];
     my $new = $news[0];

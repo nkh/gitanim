@@ -272,17 +272,17 @@ extract_engine_roundtrip();
 
 # --- discover example pairs -----------------------------------------------
 opendir(my $dh, "$root/examples") or die;
-my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 # Build task list: (example_dir, test_kind, old, new, out_file)
 my @tasks;
 my $taskid = 0;
 for my $d (@dirs) {
-    my @news = glob("$root/tests/tests/examples/$d/new.*");
+    my @news = glob("$root/tests/examples/$d/new.*");
     next unless @news;
     my $new = $news[0];
-    my @olds = glob("$root/tests/tests/examples/$d/old.*");
+    my @olds = glob("$root/tests/examples/$d/old.*");
     my $old = $olds[0];
 
     push @tasks, {

@@ -94,14 +94,14 @@ printf "%-40s  %6s  %6s  %5s  %6s  %6s  %8s  %10s  %10s\n",
 print "-" x 120, "\n";
 
 my @all_results;
-for my $dir (sort glob("tests/tests/examples/*/")) {
+for my $dir (sort glob("tests/examples/*/")) {
     my @old_files = glob("$dir/old.*");
     for my $old (@old_files) {
         my $ext = $old =~ /\.(\w+)$/ ? $1 : 'txt';
         (my $new = $old) =~ s/old\.\w+$/new.$ext/;
         next unless -f $new;
         my $name = $dir;
-        $name =~ s|tests/tests/examples/||;
+        $name =~ s|tests/examples/||;
         $name =~ s|/$||;
 
         # Default LCS

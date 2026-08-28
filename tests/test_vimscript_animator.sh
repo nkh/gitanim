@@ -35,18 +35,18 @@ OPTIONS
     -h, --help        Show this help message and exit 0.
     <example_dir>     Optional. Path to a single example directory
                       containing old.* and new.* files. If omitted,
-                      every example under tests/tests/examples/ matching [0-9]*_*
+                      every example under tests/examples/ matching [0-9]*_*
                       is tested.
 
 EXAMPLES
     test_vimscript_animator.sh
         Test the vimscript animator against ALL examples.
 
-    test_vimscript_animator.sh tests/tests/examples/01_small_python
+    test_vimscript_animator.sh tests/examples/01_small_python
         Test only the small Python example.
 
     test_vimscript_animator.sh 32_python_classes
-        The "tests/tests/examples/" prefix may be omitted.
+        The "tests/examples/" prefix may be omitted.
 
 EXIT STATUS
     0   All tested examples PASSED.
@@ -131,11 +131,11 @@ else
 fi
 
 for d in "${examples[@]}"; do
-    # Strip any "tests/tests/examples/" prefix the caller might have passed
-    d="${d#tests/tests/examples/}"
+    # Strip any "tests/examples/" prefix the caller might have passed
+    d="${d#tests/examples/}"
     # Find example directory
-    if [[ -d "$ROOT/tests/tests/examples/$d" ]]; then
-        dirpath="$ROOT/tests/tests/examples/$d"
+    if [[ -d "$ROOT/tests/examples/$d" ]]; then
+        dirpath="$ROOT/tests/examples/$d"
     elif [[ -d "$d" ]]; then
         dirpath="$d"
     else

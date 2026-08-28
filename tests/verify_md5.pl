@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # verify_md5.pl — Round-trip MD5 verification of diffvim AND ad_pipeline
-#                  on every example pair under tests/tests/examples/.
+#                  on every example pair under tests/examples/.
 #
 # For each (old, new) pair:
 #   1. compute md5 of the new file
@@ -222,7 +222,7 @@ sub run_cmd {
 
 # --- discover example pairs -----------------------------------------------
 opendir(my $dh, "$root/examples") or die "opendir: $!";
-my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 my @rows;   # each: [name, new_md5, dv_md5, dv_status, pipe_md5, pipe_status, pipe_err]
@@ -235,16 +235,16 @@ my $env = "AD_TICK_MS=16 AD_TYPE_DELAY_MS=50 AD_DELETE_DELAY_MS=40 " .
           "AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1";
 
 for my $d (@dirs) {
-    my $old = "$root/tests/tests/examples/$d/old.py";
+    my $old = "$root/tests/examples/$d/old.py";
     # find the new.* file
-    my @new_candidates = glob("$root/tests/tests/examples/$d/new.*");
+    my @new_candidates = glob("$root/tests/examples/$d/new.*");
     unless (@new_candidates) {
         push @rows, [$d, 'NO_NEW', '-', '-', '-', '-', ''];
         next;
     }
     my $new = $new_candidates[0];
     # also need old.* matching same extension
-    my @old_candidates = glob("$root/tests/tests/examples/$d/old.*");
+    my @old_candidates = glob("$root/tests/examples/$d/old.*");
     $old = $old_candidates[0] if @old_candidates;
 
     my $new_md5 = md5_file($new);

@@ -18,14 +18,14 @@ sub ok {
 
 # Test 1: --parser-compare runs and produces output
 print "=== Test: --parser-compare runs ===\n";
-my $out = `perl diffvim.pl --parser-compare tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+my $out = `perl diffvim.pl --parser-compare tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
 ok('--parser-compare produces output', $out =~ /Comparing parsers/);
 ok('--parser-compare shows result', $out =~ /Parser comparison/);
 ok('--parser-compare shows match count', $out =~ /0 mismatch/ || $out =~ /mismatch/);
 
 # Test 2: --parser-compare on identical files
 print "\n=== Test: identical files ===\n";
-$out = `perl diffvim.pl --parser-compare tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/old.py 2>&1`;
+$out = `perl diffvim.pl --parser-compare tests/examples/01_small_python/old.py tests/examples/01_small_python/old.py 2>&1`;
 ok('--parser-compare on identical files works', $out =~ /Comparing parsers/ || $out =~ /0 hunk/);
 
 # Test 3: --help shows --parser-compare
@@ -35,7 +35,7 @@ ok('--help shows --parser-compare', $out =~ /--parser-compare/);
 
 # Test 4: Exit code reflects mismatches
 print "\n=== Test: exit code ===\n";
-system("perl diffvim.pl --parser-compare tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py >/dev/null 2>&1");
+system("perl diffvim.pl --parser-compare tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py >/dev/null 2>&1");
 my $rc = $? >> 8;
 # Small Python should match (exit 0) or have known mismatches (exit 1)
 ok('--parser-compare returns 0 or 1', $rc == 0 || $rc == 1);

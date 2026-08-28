@@ -8,8 +8,8 @@ my $pass = 0;
 my $fail = 0;
 
 for my $ex (qw(01_small_python 07_text_prose 32_python_classes)) {
-    my $old = (glob("$root/tests/tests/examples/$ex/old.*"))[0];
-    my $new = (glob("$root/tests/tests/examples/$ex/new.*"))[0];
+    my $old = (glob("$root/tests/examples/$ex/old.*"))[0];
+    my $new = (glob("$root/tests/examples/$ex/new.*"))[0];
     
     system("$root/bin/ad_compute '$old' '$new' /tmp/raw.txt 2>/dev/null");
     

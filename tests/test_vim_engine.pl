@@ -147,21 +147,21 @@ close $out;
 # Test with various delete-pacing modes
 my @test_cases = (
     # [label, env_vars, example_dir]
-    ['default (word pacing)', '', 'tests/tests/examples/01_small_python'],
-    ['word pacing explicit', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/01_small_python'],
-    ['rapid-eol pacing', 'AD_ADAPTIVE_WORD_DELETE=0 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/01_small_python'],
-    ['char pacing', 'AD_ADAPTIVE_WORD_DELETE=0 AD_RAPID_EOL_DELETE=0', 'tests/tests/examples/01_small_python'],
-    ['word pacing + large python', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/02_large_python'],
-    ['word pacing + rust', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/08_rust_code'],
-    ['word pacing + typescript', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/06_typescript'],
-    ['word pacing + go', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/05_go_code'],
-    ['word pacing + c', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/09_c_code'],
-    ['word pacing + shell', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/04_shell_script'],
-    ['word pacing + json', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/03_json_config'],
-    ['word pacing + yaml', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/10_yaml_config'],
-    ['word pacing + java', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/13_java'],
-    ['word pacing + ruby', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/16_ruby'],
-    ['word pacing + markdown', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/tests/examples/26_markdown'],
+    ['default (word pacing)', '', 'tests/examples/01_small_python'],
+    ['word pacing explicit', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/01_small_python'],
+    ['rapid-eol pacing', 'AD_ADAPTIVE_WORD_DELETE=0 AD_RAPID_EOL_DELETE=1', 'tests/examples/01_small_python'],
+    ['char pacing', 'AD_ADAPTIVE_WORD_DELETE=0 AD_RAPID_EOL_DELETE=0', 'tests/examples/01_small_python'],
+    ['word pacing + large python', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/02_large_python'],
+    ['word pacing + rust', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/08_rust_code'],
+    ['word pacing + typescript', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/06_typescript'],
+    ['word pacing + go', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/05_go_code'],
+    ['word pacing + c', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/09_c_code'],
+    ['word pacing + shell', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/04_shell_script'],
+    ['word pacing + json', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/03_json_config'],
+    ['word pacing + yaml', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/10_yaml_config'],
+    ['word pacing + java', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/13_java'],
+    ['word pacing + ruby', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/16_ruby'],
+    ['word pacing + markdown', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1', 'tests/examples/26_markdown'],
 );
 
 for my $tc (@test_cases) {

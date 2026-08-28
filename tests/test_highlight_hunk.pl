@@ -34,7 +34,7 @@ ok('diffvim --help shows --highlight-min-chars',    $help =~ /--highlight-min-ch
 
 # Test 3: diffvim.pl accepts highlight options
 print "\n=== Test: diffvim.pl accepts highlight options ===\n";
-my $out = `perl diffvim.pl --highlight-hunk --highlight-color Search --highlight-duration-ms 500 --highlight-min-chars 5 --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+my $out = `perl diffvim.pl --highlight-hunk --highlight-color Search --highlight-duration-ms 500 --highlight-min-chars 5 --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
 ok('--highlight-hunk with --dry-run works', $out =~ /Dry run/);
 
 # Test 4: Engine has DvHighlightHunk function (diffvim.pl)
@@ -64,7 +64,7 @@ ok('default min-chars is 10', `perl diffvim.pl --help 2>&1` =~ /10/);
 
 # Test 8: Custom color via env var
 print "\n=== Test: env var override ===\n";
-$out = `AD_HIGHLIGHT_COLOR=Search perl diffvim.pl --highlight-hunk --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+$out = `AD_HIGHLIGHT_COLOR=Search perl diffvim.pl --highlight-hunk --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
 ok('AD_HIGHLIGHT_COLOR env var works', $out =~ /Dry run/);
 
 print "\n=== Results: $pass passed, $fail failed ===\n";

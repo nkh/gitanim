@@ -190,8 +190,8 @@ my @test_cases = (
 
 for my $tc (@test_cases) {
     my ($dir, $env) = @$tc;
-    my $old_file = `ls tests/tests/examples/$dir/old.* 2>/dev/null | head -1`; chomp $old_file;
-    my $new_file = `ls tests/tests/examples/$dir/new.* 2>/dev/null | head -1`; chomp $new_file;
+    my $old_file = `ls tests/examples/$dir/old.* 2>/dev/null | head -1`; chomp $old_file;
+    my $new_file = `ls tests/examples/$dir/new.* 2>/dev/null | head -1`; chomp $new_file;
     next unless $old_file && $new_file && -f $old_file && -f $new_file;
 
     my $output_file = "/tmp/dv_awd_out.txt";

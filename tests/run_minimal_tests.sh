@@ -31,7 +31,7 @@ for d in "${cases[@]}"; do
 
     # Run each stage
     "$ROOT/bin/ad_compute" "$old" "$new" "$raw" 2>/dev/null
-    "$ROOT/bin/ad_postprocess" < "$raw" > "$post" 2>/dev/null
+    "$ROOT/pipeline/bin/ad_postprocess" --ad-layer=ad_layer_reorder < "$raw" > "$post" 2>/dev/null
     "$ROOT/bin/ad_layer_pace" < "$post" > "$timed" 2>/dev/null
     "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$snap" "$old" < "$timed" 2>/dev/null
 
