@@ -19,7 +19,7 @@ my %postprocess = (
 
 my %pace = (
     perl => "perl $root/animator/perl/pace.pl",
-    c    => "$root/animator/bin/diffvim-pace",
+    c    => "$root/animator/bin/pp_pace",
 );
 
 my $pass = 0;

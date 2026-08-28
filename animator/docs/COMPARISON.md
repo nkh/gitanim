@@ -43,7 +43,7 @@ User runs:  diffvim old.py new.py  (or the pipeline directly)
     → adds per-op (line, col) positions
     → stdout: positioned ops (TSV)
 
-→ diffvim-pace --delete-pacing word         (Perl/C)
+→ pp_pace --delete-pacing word         (Perl/C)
     → analyzes entire op stream
     → adds delays and batching (positions passed through)
     → stdout: timed op stream (TSV v2)
@@ -258,7 +258,7 @@ diffvim old.py new.py
 # New (standalone)
 diffvim-compute-cpp old.py new.py |
   diffvim-postprocess --op-order optimize |
-  diffvim-pace --delete-pacing word |
+  pp_pace --delete-pacing word |
   diffvim-animator-c-c old.py
 ```
 

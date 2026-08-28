@@ -15,7 +15,7 @@ for my $mode (@modes) {
     
     system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/raw.txt 2>/dev/null");
     system("$root/animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
-    system("$root/animator/bin/diffvim-pace --delete-pacing $mode < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
+    system("$root/animator/bin/pp_pace --delete-pacing $mode < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
     system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/snap.txt '$old' < /tmp/timed.txt 2>/dev/null");
     
     my $snap_md5 = `md5sum /tmp/snap.txt`;

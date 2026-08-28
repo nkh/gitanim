@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# diffvim-decorate — Insert decoration ops into the timed op stream.
+# pp_highlight — Insert decoration ops into the timed op stream.
 #
 # Reads a timed op stream from stdin, inserts decoration ops
 # (highlight, dim, fold, sign, marker) based on the options, writes
@@ -8,7 +8,7 @@
 # Both the vimscript animator and the C animator interpret the
 # decoration ops the same way.
 #
-# Usage: diffvim-decorate [options]
+# Usage: pp_highlight [options]
 #   --highlight none|inline|word|hunk   (default: none)
 #   --highlight-duration-ms N           (default: 200)
 #   --dim-unchanged                     Dim unchanged anchor lines
@@ -51,7 +51,7 @@ GetOptions(
 ) or die "Usage: $0 [options]\n";
 
 if ($help) {
-    print STDERR "Usage: diffvim-decorate [options]\n";
+    print STDERR "Usage: pp_highlight [options]\n";
     print STDERR "  --highlight none|inline|word|hunk  Highlight mode (default: none)\n";
     print STDERR "  --highlight-duration-ms N        Highlight duration (default: 200)\n";
     print STDERR "  --dim-unchanged                   Dim unchanged lines\n";

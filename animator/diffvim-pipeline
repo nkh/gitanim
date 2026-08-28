@@ -5,7 +5,7 @@
 # Options are routed by prefix:
 #   --compute-*      → diffvim-compute-cpp
 #   --postprocess-*  → diffvim-postprocess (C, fallback to Perl)
-#   --pace-*         → diffvim-pace (C, fallback to Perl)
+#   --pace-*         → pp_pace (C, fallback to Perl)
 #   --animator-*     → diffvim-animator (C, fallback to Perl)
 #
 # Unprefixed options (--speed, --output, etc.) go to the animator.
@@ -49,12 +49,12 @@ POSTPROCESS="$ROOT_DIR/animator/bin/diffvim-postprocess"
 
 # Pace: C preferred, Perl fallback
 PACE_PERL="$ROOT_DIR/animator/perl/pace.pl"
-PACE="$ROOT_DIR/animator/bin/diffvim-pace"
+PACE="$ROOT_DIR/animator/bin/pp_pace"
 [ ! -f "$PACE" ] && PACE="perl $PACE_PERL"
 
 # Decorate: C preferred, Perl fallback
 DECORATE_PERL="$ROOT_DIR/animator/perl/decorate.pl"
-DECORATE="$ROOT_DIR/animator/bin/diffvim-decorate"
+DECORATE="$ROOT_DIR/animator/bin/pp_highlight"
 [ ! -f "$DECORATE" ] && DECORATE="perl $DECORATE_PERL"
 
 # Animator: C preferred, Perl fallback
@@ -75,7 +75,7 @@ Usage: diffvim-pipeline [options] <oldfile> <newfile>
 The pipeline runs 4 stages:
   1. compute     — diffvim-compute-cpp (C++; Perl builtin fallback)
   2. postprocess  — diffvim-postprocess (C; Perl fallback)
-  3. pace         — diffvim-pace (C; Perl fallback)
+  3. pace         — pp_pace (C; Perl fallback)
   4. animator     — diffvim-animator (C; Perl fallback)
 
 Option routing by prefix:
@@ -84,7 +84,7 @@ Option routing by prefix:
   --postprocess-*   Options for diffvim-postprocess
                     (e.g. --postprocess-op-order optimize,
                           --postprocess-semantic-cleanup)
-  --pace-*          Options for diffvim-pace
+  --pace-*          Options for pp_pace
                     (e.g. --pace-delete-pacing word,
                           --pace-delete-speed fast,
                           --pace-pacing gaussian)

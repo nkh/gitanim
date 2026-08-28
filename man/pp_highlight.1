@@ -1,11 +1,11 @@
 .TH DIFFVIM-DECORATE 1 "2026-08-20" "diffvim 2.0" "diffvim pipeline"
 .SH NAME
-diffvim-decorate \- insert decoration ops into the timed op stream
+pp_highlight \- insert decoration ops into the timed op stream
 .SH SYNOPSIS
-.B diffvim-decorate
+.B pp_highlight
 [\fIoptions\fR] < \fItimed_ops\fR > \fIdecorated_ops\fR
 .SH DESCRIPTION
-.B diffvim-decorate
+.B pp_highlight
 is stage 4 of the diffvim pipeline. It reads a timed op stream from
 stdin and inserts decoration ops (highlight, dim, fold, sign, marker)
 based on the options. Both the vimscript animator and the C animator
@@ -86,7 +86,7 @@ Signal the renderer to apply the hunk instantly without animation.
 .BR diffvim (1),
 .BR diffvim-compute (1),
 .BR diffvim-postprocess (1),
-.BR diffvim-pace (1)
+.BR pp_pace (1)
 .SH "FULL DOCS"
 .IR docs/POSTPROCESS_OPTIONS.md ,
 .IR docs/PIPELINE_DECORATE_ANALYSIS.md ,

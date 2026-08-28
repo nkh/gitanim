@@ -26,7 +26,7 @@ animator).
   pairs as `overwrite_insert`).
 - `pp_common.h` — Shared types (Op struct: `type`, `code`, `line`,
   `col` — no `pos_set` field), logging, TSV parsing, standalone runner.
-- `pace.c` — Reads post-processed ops, inserts `delay` lines between
+- `pp_pace.c` — Reads post-processed ops, inserts `delay` lines between
   them. Does NOT modify, reorder, or add ops (except delays).
 
 ## Build
@@ -46,7 +46,7 @@ cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
    animator/c/pp_layer1_reorder.c \
    animator/c/pp_layer_indent_last.c \
    animator/c/pp_layer_overwrite.c
-cc -O2 -o animator/bin/diffvim-pace animator/c/pace.c
+cc -O2 -o animator/bin/pp_pace animator/c/pp_pace.c
 ```
 
 Or all at once:
@@ -58,7 +58,7 @@ cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
    animator/c/postprocess.c animator/c/pp_layer0_v2.c \
    animator/c/pp_layer1_reorder.c animator/c/pp_layer_indent_last.c \
    animator/c/pp_layer_overwrite.c
-cc -O2 -o animator/bin/diffvim-pace animator/c/pace.c
+cc -O2 -o animator/bin/pp_pace animator/c/pp_pace.c
 ```
 
 ## Input validation

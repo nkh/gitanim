@@ -11,7 +11,7 @@ my $old = "$root/examples/01_small_python/old.py";
 my $new = "$root/examples/01_small_python/new.py";
 system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/raw.txt 2>/dev/null");
 system("$root/animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
-system("$root/animator/bin/diffvim-pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
+system("$root/animator/bin/pp_pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
 
 # Generate colormap
 system("perl $root/animator/perl/colorize.pl --backend vim '$old' /tmp/old.cm 2>/dev/null");
@@ -37,7 +37,7 @@ $old = "$root/examples/32_python_classes/old.py";
 $new = "$root/examples/32_python_classes/new.py";
 system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/raw.txt 2>/dev/null");
 system("$root/animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
-system("$root/animator/bin/diffvim-pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
+system("$root/animator/bin/pp_pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
 system("perl $root/animator/perl/colorize.pl --backend vim '$old' /tmp/old.cm 2>/dev/null");
 system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/snap_cm.txt --colormap-old /tmp/old.cm '$old' < /tmp/timed.txt 2>/dev/null");
 $snap_md5 = `md5sum /tmp/snap_cm.txt 2>/dev/null`;

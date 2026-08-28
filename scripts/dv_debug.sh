@@ -36,7 +36,7 @@ DESCRIPTION
     Stage files produced:
       /tmp/dv_debug/raw.txt    — Stage 1 (diffvim-compute-cpp output)
       /tmp/dv_debug/post.txt   — Stage 2 (diffvim-postprocess output)
-      /tmp/dv_debug/timed.txt  — Stage 3 (diffvim-pace output)
+      /tmp/dv_debug/timed.txt  — Stage 3 (pp_pace output)
       /tmp/dv_debug/snap.txt   — Stage 4 (diffvim-animator-c final buffer)
 
     The script then compares the animator's final buffer (snap.txt)
@@ -137,7 +137,7 @@ head -30 "$POST" | cat -n
 echo ""
 
 echo "─── STAGE 3: TIMED OPS (pace) ───────────────────────────────"
-"$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>&1 || true
+"$ROOT/animator/bin/pp_pace" < "$POST" > "$TIMED" 2>&1 || true
 echo "  → $(wc -l < "$TIMED") lines written to $TIMED"
 echo "  → Header:"
 head -3 "$TIMED"

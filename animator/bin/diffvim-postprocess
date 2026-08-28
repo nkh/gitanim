@@ -11,6 +11,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 T=$(mktemp); cat > "$T"
+# Postprocess layers (transform ops + set positions)
 "$BIN/pp_reorder" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
 [[ $DO_OW -eq 1 ]] && "$BIN/pp_overwrite" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
 [[ $DO_IL -eq 1 ]] && "$BIN/pp_indent_last" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"

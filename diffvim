@@ -1289,8 +1289,8 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
     done
     PACE_BIN=""
-    for d in "animator/bin/diffvim-pace" \
-             "/usr/local/bin/diffvim-pace"; do
+    for d in "animator/bin/pp_pace" \
+             "/usr/local/bin/pp_pace"; do
         if [[ -f "$d" ]]; then PACE_BIN="$d"; break; fi
     done
 
@@ -1354,8 +1354,8 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
 
         # Stage 4: Decorate (insert highlight/dim/fold/sign ops)
         DECORATE_BIN=""
-        for d in "animator/bin/diffvim-decorate" \
-                 "/usr/local/bin/diffvim-decorate"; do
+        for d in "animator/bin/pp_highlight" \
+                 "/usr/local/bin/pp_highlight"; do
             if [[ -f "$d" ]]; then DECORATE_BIN="$d"; break; fi
         done
         DECORATED_OPS="$WORKDIR/decorated_ops.txt"
@@ -1391,8 +1391,8 @@ else
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
     done
     PACE_BIN=""
-    for d in "animator/bin/diffvim-pace" \
-             "/usr/local/bin/diffvim-pace"; do
+    for d in "animator/bin/pp_pace" \
+             "/usr/local/bin/pp_pace"; do
         if [[ -f "$d" ]]; then PACE_BIN="$d"; break; fi
     done
     if [[ -n "$POSTPROCESS_BIN" && -n "$PACE_BIN" ]]; then
@@ -2050,7 +2050,7 @@ endif
 
 __DIFFVIM_VIMSCRIPT_EOF__
 
-# The external pipeline (diffvim-compute-cpp, diffvim-postprocess, diffvim-pace)
+# The external pipeline (diffvim-compute-cpp, diffvim-postprocess, pp_pace)
 # now handles all diff computation. This engine only animates the result.
 
 # Find vim runtime directory for syntax files (used in --no-vimrc mode)

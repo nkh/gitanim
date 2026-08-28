@@ -137,7 +137,7 @@ for my $case (@cases) {
     # Run the standard pipeline
     system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' $tmpdir/raw_$name.txt 2>/dev/null");
     system("$root/animator/bin/diffvim-postprocess < $tmpdir/raw_$name.txt > $tmpdir/post_$name.txt 2>/dev/null");
-    system("$root/animator/bin/diffvim-pace < $tmpdir/post_$name.txt > $tmpdir/timed_$name.txt 2>/dev/null");
+    system("$root/animator/bin/pp_pace < $tmpdir/post_$name.txt > $tmpdir/timed_$name.txt 2>/dev/null");
 
     # ── Mode 1: final output ──
     system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot $tmpdir/snap_$name.txt '$old' < $tmpdir/timed_$name.txt 2>/dev/null");

@@ -152,7 +152,7 @@ run_pipeline() {
     pace_args+=" --pacing ${SETTINGS[pacing]}"
     [[ "${SETTINGS[accel-delete]}" == "1" ]] && pace_args+=" --accel-delete"
     pace_args+=" --block-delete-size ${SETTINGS[block-delete-size]}"
-    DIFFVIM_LEFT_TO_RIGHT="${SETTINGS[left-to-right]}" $ROOT/animator/bin/diffvim-pace $pace_args < "$post" > "$timed" 2>/dev/null
+    DIFFVIM_LEFT_TO_RIGHT="${SETTINGS[left-to-right]}" $ROOT/animator/bin/pp_pace $pace_args < "$post" > "$timed" 2>/dev/null
 
     # Stage 4: Decorate
     local dec_args=""
@@ -161,7 +161,7 @@ run_pipeline() {
     [[ "${SETTINGS[fold-unchanged]}" == "1" ]] && dec_args+=" --fold-unchanged"
     [[ "${SETTINGS[sign-column]}" == "1" ]] && dec_args+=" --sign-column"
     if [[ -n "$dec_args" ]]; then
-        $ROOT/animator/bin/diffvim-decorate $dec_args < "$timed" > "$dec" 2>/dev/null
+        $ROOT/animator/bin/pp_highlight $dec_args < "$timed" > "$dec" 2>/dev/null
         echo "$dec"
     else
         echo "$timed"

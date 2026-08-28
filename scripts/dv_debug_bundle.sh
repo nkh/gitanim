@@ -137,11 +137,11 @@ cp "$NEW" "$BUNDLE_DIR/new.txt"
 export DIFFVIM_LEFT_TO_RIGHT=1
 "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$BUNDLE_DIR/raw_ops.txt" 2>"$BUNDLE_DIR/compute_stderr.txt"
 "$ROOT/animator/bin/diffvim-postprocess" < "$BUNDLE_DIR/raw_ops.txt" > "$BUNDLE_DIR/post_ops.txt" 2>"$BUNDLE_DIR/postprocess_stderr.txt"
-"$ROOT/animator/bin/diffvim-pace" --delete-pacing word --insert-pacing char < "$BUNDLE_DIR/post_ops.txt" > "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/pace_stderr.txt"
+"$ROOT/animator/bin/pp_pace" --delete-pacing word --insert-pacing char < "$BUNDLE_DIR/post_ops.txt" > "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/pace_stderr.txt"
 
 # 3. Run decorate if available
-if [[ -f "$ROOT/animator/bin/diffvim-decorate" ]]; then
-    "$ROOT/animator/bin/diffvim-decorate" < "$BUNDLE_DIR/timed_ops.txt" > "$BUNDLE_DIR/decorated_ops.txt" 2>"$BUNDLE_DIR/decorate_stderr.txt"
+if [[ -f "$ROOT/animator/bin/pp_highlight" ]]; then
+    "$ROOT/animator/bin/pp_highlight" < "$BUNDLE_DIR/timed_ops.txt" > "$BUNDLE_DIR/decorated_ops.txt" 2>"$BUNDLE_DIR/decorate_stderr.txt"
 fi
 
 # 4. Run animator
@@ -152,9 +152,9 @@ fi
     echo "# Binary MD5s"
     echo "compute-cpp: $(md5sum "$ROOT/compute/bin/diffvim-compute-cpp" | awk '{print $1}')"
     echo "postprocess: $(md5sum "$ROOT/animator/bin/diffvim-postprocess" | awk '{print $1}')"
-    echo "pace: $(md5sum "$ROOT/animator/bin/diffvim-pace" | awk '{print $1}')"
+    echo "pace: $(md5sum "$ROOT/animator/bin/pp_pace" | awk '{print $1}')"
     echo "animator-c: $(md5sum "$ROOT/animator/bin/diffvim-animator-c" | awk '{print $1}')"
-    echo "decorate: $(md5sum "$ROOT/animator/bin/diffvim-decorate" | awk '{print $1}')"
+    echo "decorate: $(md5sum "$ROOT/animator/bin/pp_highlight" | awk '{print $1}')"
 } > "$BUNDLE_DIR/binary_md5s.txt"
 
 # 6. Settings

@@ -34,7 +34,7 @@ sub run_test {
 
     system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
     system("$root/animator/bin/diffvim-postprocess < '$rf' > '$pf' 2>/dev/null");
-    system("$root/animator/bin/diffvim-pace < '$pf' > '$tf' 2>/dev/null");
+    system("$root/animator/bin/pp_pace < '$pf' > '$tf' 2>/dev/null");
     system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot '$sf' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $sf; my $snap = do { local $/; <$fh> }; close $fh;

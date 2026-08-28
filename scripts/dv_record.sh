@@ -52,6 +52,6 @@ OLD="$1"; NEW="$2"; RECORDING="$3"
 
 "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" /tmp/dv_raw.txt 2>/dev/null
 "$ROOT/animator/bin/diffvim-postprocess" < /tmp/dv_raw.txt > /tmp/dv_post.txt 2>/dev/null
-"$ROOT/animator/bin/diffvim-pace" < /tmp/dv_post.txt > "$RECORDING"
+"$ROOT/animator/bin/pp_pace" < /tmp/dv_post.txt > "$RECORDING"
 echo "Recording saved to $RECORDING ($(wc -l < "$RECORDING") ops)"
 echo "Replay with: dv_replay.sh $OLD recording.dv"

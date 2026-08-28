@@ -18,7 +18,7 @@ the op.
 
 | Subdir | Contents |
 |--------|----------|
-| `c/` | C implementation (animator.c, postprocess.c, pp_layer0_v2.c, pp_layer1_reorder.c, pp_layer_indent_last.c, pp_layer_overwrite.c, pace.c) |
+| `c/` | C implementation (animator.c, postprocess.c, pp_layer0_v2.c, pp_layer1_reorder.c, pp_layer_indent_last.c, pp_layer_overwrite.c, pp_pace.c) |
 | `perl/` | Perl implementation (animator.pl, postprocess.pl, pace.pl, colorize.pl) |
 | `bin/` | Compiled C binaries (tracked in git) |
 | `docs/` | Animator-specific documentation |
@@ -44,7 +44,7 @@ the op.
   it is NOT a separate layer (there is no `pp_layer3`). See
   `docs/POSTPROCESS_LAYERS.md` for the layer breakdown and
   `docs/POSTPROCESS_TRANSFORMS.md` for what the transforms do.
-- `pace.c` — Reads post-processed ops, inserts `delay` lines between
+- `pp_pace.c` — Reads post-processed ops, inserts `delay` lines between
   them. Does NOT modify, reorder, or add ops (except delays).
 
 Build:
@@ -54,7 +54,7 @@ cc -O2 -Wall -Wextra -Wunused -Werror -I c \
    -o bin/diffvim-postprocess \
    c/postprocess.c c/pp_layer0_v2.c c/pp_layer1_reorder.c \
    c/pp_layer_indent_last.c c/pp_layer_overwrite.c
-cc -O2 -o bin/diffvim-pace c/pace.c
+cc -O2 -o bin/pp_pace c/pp_pace.c
 ```
 
 ## Perl implementation (`perl/`)

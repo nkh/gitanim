@@ -63,13 +63,13 @@ _run_pipeline() {
     # Pipeline WITHOUT l2r
     "$ROOT/compute/bin/diffvim-compute-cpp" "$old" "$new" "$TMPDIR/raw.txt" 2>/dev/null
     "$ROOT/animator/bin/diffvim-postprocess" < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-pace" < "$TMPDIR/post.txt" > "$TMPDIR/timed.txt" 2>/dev/null
+    "$ROOT/animator/bin/pp_pace" < "$TMPDIR/post.txt" > "$TMPDIR/timed.txt" 2>/dev/null
     "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$TMPDIR/out_no_l2r.txt" "$old" < "$TMPDIR/timed.txt" 2>/dev/null
 
     # Pipeline WITH l2r
     "$L2R/l2r_tool" < "$TMPDIR/raw.txt" > "$TMPDIR/raw_l2r.txt"
     "$ROOT/animator/bin/diffvim-postprocess" < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-pace" < "$TMPDIR/post_l2r.txt" > "$TMPDIR/timed_l2r.txt" 2>/dev/null
+    "$ROOT/animator/bin/pp_pace" < "$TMPDIR/post_l2r.txt" > "$TMPDIR/timed_l2r.txt" 2>/dev/null
     "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$TMPDIR/out_l2r.txt" "$old" < "$TMPDIR/timed_l2r.txt" 2>/dev/null
 
     # Check 1: l2r output must match new file

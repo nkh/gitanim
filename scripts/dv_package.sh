@@ -53,7 +53,7 @@ make -C "$ROOT/compute" clean all
 cd "$ROOT/animator/c"
 cc -O2 -o ../bin/diffvim-animator-c animator.c
 cc -O2 -o ../bin/diffvim-postprocess postprocess.c
-cc -O2 -o ../bin/diffvim-pace pace.c
+cc -O2 -o ../bin/pp_pace pp_pace.c
 cd "$ROOT"
 
 echo "Packaging..."
@@ -61,7 +61,7 @@ tar czf "$TARBALL" \
     compute/bin/diffvim-compute-cpp \
     animator/bin/diffvim-animator-c \
     animator/bin/diffvim-postprocess \
-    animator/bin/diffvim-pace \
+    animator/bin/pp_pace \
     animator/perl/ \
     animator/diffvim-pipeline \
     diffvim diffvim.pl diffvim-tmux diffvim-compare \

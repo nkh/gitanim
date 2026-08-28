@@ -47,16 +47,16 @@ ROOT    := $(CURDIR)
 # --- Binaries --------------------------------------------------------------
 
 COMPUTE_BIN   := compute/bin/diffvim-compute-cpp
-PACE_BIN      := animator/bin/diffvim-pace
+PACE_BIN      := animator/bin/pp_pace
 ANIMATOR_BIN  := animator/bin/diffvim-animator-c
-DECORATE_BIN  := animator/bin/diffvim-decorate
+DECORATE_BIN  := animator/bin/pp_highlight
 ANIMATOR_BINS := $(PACE_BIN) $(ANIMATOR_BIN) $(DECORATE_BIN)
 
 $(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
 	@mkdir -p compute/bin
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
-$(PACE_BIN): animator/c/pace.c
+$(PACE_BIN): animator/c/pp_pace.c
 	@mkdir -p animator/bin
 	$(CC) $(CFLAGS) -o $@ $<
 
@@ -64,11 +64,11 @@ $(ANIMATOR_BIN): animator/c/animator.c
 	@mkdir -p animator/bin
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(DECORATE_BIN): animator/c/decorate.c
+$(DECORATE_BIN): animator/c/pp_highlight.c
 	@mkdir -p animator/bin
 	$(CC) $(CFLAGS) -o $@ $<
 
-LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite
+LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_pace animator/bin/pp_highlight
 
 compute: $(COMPUTE_BIN)
 
@@ -103,17 +103,17 @@ install-bin: all
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/diffvim-compute-cpp
 	install -m 755 $(POSTPROCESS_BIN) $(DESTDIR)$(BINDIR)/diffvim-postprocess
-	install -m 755 $(PACE_BIN) $(DESTDIR)$(BINDIR)/diffvim-pace
+	install -m 755 $(PACE_BIN) $(DESTDIR)$(BINDIR)/pp_pace
 	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/diffvim-animator-c
-	install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/diffvim-decorate
+	install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/pp_highlight
 	install -m 755 diffvim $(DESTDIR)$(BINDIR)/diffvim
 	install -m 755 animator/diffvim-pipeline $(DESTDIR)$(BINDIR)/diffvim-pipeline
 	# Perl tools
 	install -m 755 compute/perl/compute_builtin.pl $(DESTDIR)$(BINDIR)/diffvim-compute-perl
 	install -m 755 animator/perl/postprocess.pl $(DESTDIR)$(BINDIR)/diffvim-postprocess-perl
-	install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/diffvim-pace-perl
+	install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/pp_pace-perl
 	install -m 755 animator/perl/animator.pl $(DESTDIR)$(BINDIR)/diffvim-animator-perl
-	install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/diffvim-decorate-perl
+	install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/pp_highlight-perl
 
 install-man:
 	install -d $(DESTDIR)$(MANDIR)
@@ -233,7 +233,7 @@ check:
 	for src_bin in \
 	        "compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
 	        "animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
-	        "animator/c/pace.c:$(PACE_BIN)" \
+	        "animator/c/pp_pace.c:$(PACE_BIN)" \
 	        "animator/c/animator.c:$(ANIMATOR_BIN)"; do \
 	        src=$${src_bin%%:*}; \
 	        bin=$${src_bin##*:}; \

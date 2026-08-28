@@ -248,7 +248,7 @@ post_ops=$(grep -cv "^#\|^$" "$POST" 2>/dev/null || echo 0)
 echo "  [2/5] postprocess: $post_ops ops" >&2
 
 # Stage 3: Pace
-if ! "$ROOT/animator/bin/diffvim-pace" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
+if ! "$ROOT/animator/bin/pp_pace" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
     echo "ERROR: pace stage failed:" >&2
     cat "$OUTDIR/pace_stderr.txt" >&2
     exit 1
@@ -257,8 +257,8 @@ timed_ops=$(grep -cv "^#\|^$" "$TIMED" 2>/dev/null || echo 0)
 echo "  [3/5] pace: $timed_ops ops" >&2
 
 # Stage 4: Decorate
-if [[ -f "$ROOT/animator/bin/diffvim-decorate" ]]; then
-    if ! "$ROOT/animator/bin/diffvim-decorate" "${DECORATE_ARGS[@]}" < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
+if [[ -f "$ROOT/animator/bin/pp_highlight" ]]; then
+    if ! "$ROOT/animator/bin/pp_highlight" "${DECORATE_ARGS[@]}" < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
         echo "WARNING: decorate stage failed, using undecorated ops:" >&2
         cat "$OUTDIR/decorate_stderr.txt" >&2
         cp "$TIMED" "$DECORATED"
