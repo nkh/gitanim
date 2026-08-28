@@ -8,15 +8,15 @@
 #   --pace-*         → ad_layer_pace (C, fallback to Perl)
 #   --animator-*     → ad (C, fallback to Perl)
 #
-# Load config file if it exists (~/.config/ad/config or ~/.config/ad/config)
+# Load config file from XDG location ($XDG_CONFIG_HOME/ad/config,
+# defaults to ~/.config/ad/config). No legacy fallbacks.
 if [[ -z "${AD_CONFIG_LOADED:-}" ]]; then
-    for cfg in "$HOME/.config/diffvim/config" "$HOME/.diffvimrc"; do
-        if [[ -f "$cfg" ]]; then
-            source "$cfg"
-            export AD_CONFIG_LOADED=1
-            break
-        fi
-    done
+    cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+    cfg="$cfg_dir/ad/config"
+    if [[ -f "$cfg" ]]; then
+        source "$cfg"
+        export AD_CONFIG_LOADED=1
+    fi
 fi
 
 # Unprefixed options (--speed, --output, etc.) go to the animator.

@@ -1,101 +1,166 @@
 # Configuration
 
-## Environment Variables
+`ad_vim` reads configuration from a single file at startup. The file is sourced as a bash script, so it can set any environment variable that the launcher recognizes.
 
-All timing values can be set via environment variables. Command-line
-options override environment variables, which override built-in defaults.
+## Config file location
+
+Following the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/):
+
+```
+$XDG_CONFIG_HOME/ad/config
+```
+
+If `XDG_CONFIG_HOME` is unset, it defaults to `~/.config/`. So the default config path is:
+
+```
+~/.config/ad/config
+```
+
+There are no legacy fallback paths. The `~/.diffvimrc` file is no longer read.
+
+## Creating the config file
+
+```bash
+mkdir -p ~/.config/ad
+cat > ~/.config/ad/config <<'EOF'
+# ad configuration
+
+# Pacing
+AD_DELETE_PACING=word
+AD_INSERT_PACING=char
+AD_PACING=uniform
+
+# Highlight
+AD_HIGHLIGHT_MODE=inline
+AD_HIGHLIGHT_DURATION_MS=200
+
+# Cursor
+AD_CURSOR_GLIDE_MS=100
+
+# Layer chain (convenience flags)
+AD_INDENT_LAST=1
+AD_OVERWRITE_MODE=1
+EOF
+```
+
+## Available environment variables
+
+All environment variables use the `AD_` prefix. There are no `DV_*` or `DIFFVIM_*` variants — those were removed in a hard cut.
+
+### Pacing
+
+| Variable | Default | Values |
+|----------|---------|--------|
+| `AD_DELETE_PACING` | `word` | `char`, `word`, `instant`, `rapid-eol`, `rapid-identical`, `accel`, `flash` |
+| `AD_INSERT_PACING` | `char` | `char`, `word`, `accel` |
+| `AD_PACING` | `uniform` | `uniform`, `adaptive`, `gaussian`, `review` |
+| `AD_DELETE_SPEED` | `normal` | `slow`, `normal`, `fast`, `instant` |
+| `AD_INSERT_SPEED` | `normal` | `slow`, `normal`, `fast` |
+| `AD_DELETE_THRESHOLD` | `3` | Integer |
+| `AD_GAUSSIAN_JITTER_PCT` | `20` | Integer (0-100) |
+
+### Layer chain
+
+These convenience flags enable specific postprocess layers:
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `AD_INDENT_LAST` | `0` | `1` enables the `ad_layer_indent_last` layer |
+| `AD_OVERWRITE_MODE` | `0` | `1` enables the `ad_layer_overwrite` layer |
+| `AD_LINE_DELETE_IN_PLACE` | `0` | `1` enables the `ad_layer_line_delete_in_place` layer |
+
+For full control over the layer chain, use the `--ad-layer=<name>` flag on the command line. See [Plugin Layers](plugin-layers.md) for the plugin contract.
+
+### Highlight / decoration
+
+| Variable | Default | Values |
+|----------|---------|--------|
+| `AD_HIGHLIGHT_MODE` | `none` | `none`, `inline`, `word`, `hunk` |
+| `AD_HIGHLIGHT_DURATION_MS` | `200` | Integer (ms) |
+| `AD_DIM_UNCHANGED` | `0` | `1` dims unchanged anchor lines |
+| `AD_DIM_UNCHANGED_PCT` | `60` | Integer (0-100) |
+| `AD_FOLD_UNCHANGED` | `0` | `1` folds unchanged regions |
+| `AD_CONTEXT_LINES` | `0` | Integer (lines of context to keep) |
+| `AD_SIGN_COLUMN` | `0` | `1` places +/- signs in sign column |
+| `AD_GIT_BLAME` | `0` | `1` inserts blame markers |
+
+### Cursor movement
+
+| Variable | Default | Values |
+|----------|---------|--------|
+| `AD_CURSOR_GLIDE_MS` | `0` | Integer (ms); `0` disables glide |
+| `AD_CURSOR_GLIDE_SHOW_INTERMEDIATE` | `1` | `1` shows intermediate positions |
+| `AD_DISTANCE_SPEED` | `off` | `adaptive`, `off` |
+| `AD_DISTANCE_THRESHOLD` | `5` | Integer (lines) |
+| `AD_DISTANCE_FAST_MULT` | `2.0` | Float |
+| `AD_DISTANCE_SLOW_MULT` | `0.5` | Float |
+
+### Timing
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AD_TICK_MS` | `16` | Animation frame interval (~60fps) |
-| `AD_TYPE_DELAY_MS` | `50` | Delay between typed characters (ms) |
-| `AD_DELETE_DELAY_MS` | `40` | Delay between deleted characters (ms) |
-| `AD_MOVE_MIN_MS` | `250` | Minimum cursor glide duration (ms) |
-| `AD_MOVE_MAX_MS` | `1600` | Maximum cursor glide duration (ms) |
-| `AD_MOVE_MS_PER_UNIT` | `6` | Milliseconds per unit of glide distance |
-| `AD_HUNK_PAUSE_MS` | `250` | Pause between hunks (ms) |
-| `AD_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
-| `DIFFVIM_RAPID_EOL_DELAY_MS` | `80` | Delay for rapid end-of-line deletion (ms) |
-| `DIFFVIM_RAPID_EOL_MIN_CHARS` | `3` | Min trailing chars to trigger rapid EOL |
-| `DIFFVIM_HIGHLIGHT_WORD_COLOR` | `Search` | Highlight group for `--highlight-word` |
-| `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS` | `300` | Word highlight duration in ms |
-| `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS` | `2` | Min word length to highlight |
-| `DIFFVIM_SPEED` | `1.0` | Speed multiplier (same as --speed) |
-| `DIFFVIM_MAX_LINE_LEN` | `10000` | Warn threshold for long lines |
-| `DIFFVIM_KEEP_DIRTY` | unset | Set to `1` to leave buffer modified (`:q!` required) |
+| `AD_TICK_MS` | `16` | Timer tick interval (~60fps) |
+| `AD_TYPE_DELAY_MS` | `50` | Delay per character insert |
+| `AD_DELETE_DELAY_MS` | `40` | Delay per character delete |
+| `AD_HUNK_PAUSE_MS` | `250` | Pause between hunks |
+| `AD_WORD_PAUSE_MS` | `150` | Pause between words |
 
-## Presets
+### Animation behavior
 
-### Presentation Mode (slow, dramatic)
+| Variable | Default | Values |
+|----------|---------|--------|
+| `AD_LEFT_TO_RIGHT`` | `0` | `1` enables left-to-right diff mode |
+| `AD_SPEED` | `1.0` | Float (speed multiplier) |
+| `AD_SCROLL` | `zz` | `zz`, `zt`, `zb`, `none` |
+| `AD_MAX_LINE_LEN` | `10000` | Integer |
+| `AD_MAX_HUNK_CHARS` | `0` | Integer; `0` = no limit |
 
-```bash
-export AD_TYPE_DELAY_MS=80
-export AD_DELETE_DELAY_MS=60
-export AD_MOVE_MIN_MS=400
-export AD_MOVE_MAX_MS=3000
-export AD_MOVE_MS_PER_UNIT=10
-export AD_HUNK_PAUSE_MS=500
-```
+### Debug
 
-### Quick Review Mode (fast)
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `AD_DEBUG_LAYERS` | `0` | `1` enables per-layer debug dumps in `/tmp/ad_debug/` |
+| `AD_DUMP_INPUT` | unset | Path to dump layer input |
+| `AD_DUMP_OUTPUT` | unset | Path to dump layer output |
+| `AD_OLD_FILE` | unset | Path to old file (for layers that need it) |
+
+## Command-line overrides
+
+All environment variables can be overridden on the command line. Common patterns:
 
 ```bash
-export AD_TYPE_DELAY_MS=10
-export AD_DELETE_DELAY_MS=10
-export AD_MOVE_MIN_MS=50
-export AD_MOVE_MAX_MS=300
-export AD_MOVE_MS_PER_UNIT=3
-export AD_HUNK_PAUSE_MS=50
+# Override pacing
+ad_vim --delete-pacing char --insert-pacing word old.py new.py
+
+# Override speed
+ad_vim --speed 2.0 old.py new.py
+
+# Enable a layer
+ad_vim --indent-last old.py new.py
+
+# Add an arbitrary layer (plugin system)
+ad_vim --ad-layer=my_custom_layer old.py new.py
 ```
 
-### Debug Mode (very slow, visible char ops)
+Run `ad_vim --help` for the full list of command-line options.
+
+## Project-level config
+
+A project can ship a config file at `.config/ad/config` in the repo. The launcher does NOT automatically source this — users who want it should symlink:
 
 ```bash
-export AD_TYPE_DELAY_MS=200
-export AD_DELETE_DELAY_MS=150
-export AD_MOVE_MIN_MS=500
-export AD_MOVE_MAX_MS=5000
-export AD_MOVE_MS_PER_UNIT=15
-export AD_HUNK_PAUSE_MS=1000
+ln -s /path/to/repo/.config/ad/config ~/.config/ad/config
 ```
 
-## Vimscript Configuration (diffvim only)
-
-The `diffvim` implementation also supports a `g:diffvim` dictionary in
-your vimrc for persistent configuration:
-
-```vim
-let g:diffvim = {
-    \ 'type_delay_ms': 50,
-    \ 'delete_delay_ms': 30,
-    \ 'move_min_ms': 300,
-    \ 'move_max_ms': 2000,
-    \ 'scroll': 'zz',
-    \ 'max_word_chars': 5,
-    \ }
-```
-
-Priority: vimrc `g:diffvim` > env vars > built-in defaults.
-
-## Using the `set_config` Helper
-
-The repo includes a `set_config` script with common presets:
+Or source it from their personal config:
 
 ```bash
-source set_config
-diffvim old.py new.py
+# ~/.config/ad/config
+[ -f /path/to/repo/.config/ad/config ] && source /path/to/repo/.config/ad/config
 ```
 
-## Tmux Configuration
+## See also
 
-When running inside tmux, these options can affect animation smoothness:
-
-```bash
-# Increase tmux's escape-time (default 10ms can cause issues)
-tmux set-option -g escape-time 50
-
-# Ensure focus events are enabled
-tmux set-option -g focus-events on
-```
-
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+- [Plugin Layers](plugin-layers.md) — the `--ad-layer=<name>` plugin system
+- [Contributing](contributing.md) — how to add a new layer
+- [Command-Line Options](options.md) — full option reference

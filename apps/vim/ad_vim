@@ -40,15 +40,15 @@ set -euo pipefail
 # Defaults (can be overridden by env vars or --speed)
 # ---------------------------------------------------------------------------
 
-# Load config file if it exists (~/.config/ad/config or ~/.config/ad/config)
+# Load config file from XDG location ($XDG_CONFIG_HOME/ad/config,
+# defaults to ~/.config/ad/config). No legacy fallbacks.
 if [[ -z "${AD_CONFIG_LOADED:-}" ]]; then
-    for cfg in "$HOME/.config/diffvim/config" "$HOME/.diffvimrc"; do
-        if [[ -f "$cfg" ]]; then
-            source "$cfg"
-            export AD_CONFIG_LOADED=1
-            break
-        fi
-    done
+    cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+    cfg="$cfg_dir/ad/config"
+    if [[ -f "$cfg" ]]; then
+        source "$cfg"
+        export AD_CONFIG_LOADED=1
+    fi
 fi
 
 export AD_TICK_MS=${AD_TICK_MS:-16}
