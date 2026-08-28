@@ -49,14 +49,14 @@ echo "Test 3: Animation WITH overwrite produces correct output"
 "$ROOT/animator/bin/pp_layer0" < /tmp/ow_raw.txt 2>/dev/null | \
 "$ROOT/animator/bin/pp_overwrite" 2>/dev/null | \
 "$ROOT/animator/bin/pp_layer3" 2>/dev/null | \
-"$ROOT/animator/bin/diffvim-pace" > /tmp/ow_timed_ow.txt 2>/dev/null
+"$ROOT/animator/bin/pp_pace" > /tmp/ow_timed_ow.txt 2>/dev/null
 "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot /tmp/ow_out_ow.txt /tmp/ow_old.txt < /tmp/ow_timed_ow.txt 2>/dev/null
 diff /tmp/ow_new.txt /tmp/ow_out_ow.txt >/dev/null 2>&1 && ok "Animation WITH overwrite matches" || fail "Animation WITH overwrite doesn't match"
 
 echo "Test 4: Animation WITHOUT overwrite produces correct output"
 "$ROOT/animator/bin/pp_layer0" < /tmp/ow_raw.txt 2>/dev/null | \
 "$ROOT/animator/bin/pp_layer3" 2>/dev/null | \
-"$ROOT/animator/bin/diffvim-pace" > /tmp/ow_timed_no.txt 2>/dev/null
+"$ROOT/animator/bin/pp_pace" > /tmp/ow_timed_no.txt 2>/dev/null
 "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot /tmp/ow_out_no.txt /tmp/ow_old.txt < /tmp/ow_timed_no.txt 2>/dev/null
 diff /tmp/ow_new.txt /tmp/ow_out_no.txt >/dev/null 2>&1 && ok "Animation WITHOUT overwrite matches" || fail "Animation WITHOUT overwrite doesn't match"
 
@@ -117,7 +117,7 @@ echo "Test 10: Multiple pairs animation correct"
 "$ROOT/animator/bin/pp_layer0" < /tmp/ow4_raw.txt 2>/dev/null | \
 "$ROOT/animator/bin/pp_overwrite" 2>/dev/null | \
 "$ROOT/animator/bin/pp_layer3" 2>/dev/null | \
-"$ROOT/animator/bin/diffvim-pace" > /tmp/ow4_timed.txt 2>/dev/null
+"$ROOT/animator/bin/pp_pace" > /tmp/ow4_timed.txt 2>/dev/null
 "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot /tmp/ow4_out.txt /tmp/ow4_old.txt < /tmp/ow4_timed.txt 2>/dev/null
 diff /tmp/ow4_new.txt /tmp/ow4_out.txt >/dev/null 2>&1 && ok "Multiple pairs animation matches" || fail "Multiple pairs animation doesn't match"
 

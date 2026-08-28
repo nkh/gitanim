@@ -91,7 +91,7 @@ fi
 
 # ── Test 10: Layer output produces correct animation ──
 echo "Test 10: Final output produces correct animation"
-"$ROOT/animator/bin/diffvim-pace" < /tmp/pl_piped.txt > /tmp/pl_timed.txt 2>/dev/null
+"$ROOT/animator/bin/pp_pace" < /tmp/pl_piped.txt > /tmp/pl_timed.txt 2>/dev/null
 "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot /tmp/pl_out.txt /tmp/pl_old.txt < /tmp/pl_timed.txt 2>/dev/null
 diff /tmp/pl_new.txt /tmp/pl_out.txt >/dev/null 2>&1 && ok "Animation output matches expected" || ok "Animation: Layer 3 not yet implemented (expected)"
 
@@ -103,7 +103,7 @@ DIFFVIM_LEFT_TO_RIGHT=1 "$ROOT/compute/bin/diffvim-compute-cpp" \
 "$ROOT/animator/bin/pp_layer1" 2>/dev/null | \
 "$ROOT/animator/bin/pp_layer2" 2>/dev/null | \
 "$ROOT/animator/bin/pp_layer3" > /tmp/pl_02_piped.txt 2>/dev/null
-"$ROOT/animator/bin/diffvim-pace" < /tmp/pl_02_piped.txt > /tmp/pl_02_timed.txt 2>/dev/null
+"$ROOT/animator/bin/pp_pace" < /tmp/pl_02_piped.txt > /tmp/pl_02_timed.txt 2>/dev/null
 "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot /tmp/pl_02_out.txt \
     examples/02_large_python/old.py < /tmp/pl_02_timed.txt 2>/dev/null
 diff examples/02_large_python/new.py /tmp/pl_02_out.txt >/dev/null 2>&1 && ok "Example 02: animation output matches" || ok "Example 02: Layer 3 not yet implemented (expected)"
