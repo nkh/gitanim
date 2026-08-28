@@ -1,0 +1,52 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ perl vim
+
+      - name: Build
+        run: make
+
+      - name: Run per-layer tests (TDD)
+        run: make test-layers
+
+      - name: Run minimal end-to-end tests
+        run: make test-minimal
+
+      - name: Run l2r diff-engine tests
+        run: make test-l2r
+
+      - name: Run layer discovery tests
+        run: make test-layers-discovery
+
+      - name: Run property-based tests
+        run: make test-property
+
+      - name: Run all examples through pipeline
+        run: make test-examples
+
+      - name: Run indent-last tests
+        run: make test-indent-last
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "=== CI Summary ==="
+          echo "Built binaries:"
+          ls -la bin/
+          echo ""
+          echo "If any step failed, see the logs above for details."

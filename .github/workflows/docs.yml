@@ -1,0 +1,43 @@
+name: Build Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdbook
+        run: |
+          mkdir -p $HOME/bin
+          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz -C $HOME/bin
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Build mdbook
+        run: |
+          if [ -f docs/book.toml ]; then
+            cd docs && mdbook build
+          else
+            echo "No book.toml found — skipping mdbook build"
+            exit 0
+          fi
+
+      - name: Upload documentation artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/book/
+          retention-days: 14

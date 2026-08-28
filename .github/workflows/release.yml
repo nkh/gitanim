@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc g++ perl
+
+      - name: Build
+        run: make
+
+      - name: Create release tarball
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          tarball="/tmp/ad-${VERSION}.tar.gz"
+          tar czf "$tarball" \
+            bin/ \
+            man/ \
+            completion/ \
+            apps/ \
+            pipeline/ \
+            tools/ \
+            diff_engine/ \
+            layers/ \
+            animator/ \
+            perl/ \
+            Makefile \
+            README.md \
+            LICENSE \
+            CHANGELOG.md
+          echo "Created $tarball"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: /tmp/ad-*.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
