@@ -1,15 +1,12 @@
 # packaging/
 
-Packaging recipes for diffvim.
+Packaging recipes for the `ad` toolkit.
 
-## Files
+## Contents
 
-- `diffvim.rb` — Homebrew formula. Install with:
-  ```bash
-  brew install --HEAD ./packaging/diffvim.rb
-  ```
+- `ad_vim.rb` — Homebrew formula. Installs all binaries, manpages,
+  completions, and Perl fallbacks.
 
-## Related
+## Usage
 
-- `../README.md` — Project README
-- `../compute/Makefile` — Build system
+    brew install ./packaging/ad_vim.rb

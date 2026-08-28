@@ -62,13 +62,13 @@ _run_pipeline() {
 
     # Pipeline WITHOUT l2r
     "$ROOT/bin/ad_compute" "$old" "$new" "$TMPDIR/raw.txt" 2>/dev/null
-    "$ROOT/pipeline/bin/ad_postprocess" --ad-layer=ad_layer_reorder < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
+    "$ROOT/pipeline/ad_postprocess" --ad-layer=ad_layer_reorder < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
     "$ROOT/bin/ad_layer_pace" < "$TMPDIR/post.txt" > "$TMPDIR/timed.txt" 2>/dev/null
     "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/out_no_l2r.txt" "$old" < "$TMPDIR/timed.txt" 2>/dev/null
 
     # Pipeline WITH l2r
     "$L2R/l2r_tool" < "$TMPDIR/raw.txt" > "$TMPDIR/raw_l2r.txt"
-    "$ROOT/pipeline/bin/ad_postprocess" --ad-layer=ad_layer_reorder < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
+    "$ROOT/pipeline/ad_postprocess" --ad-layer=ad_layer_reorder < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
     "$ROOT/bin/ad_layer_pace" < "$TMPDIR/post_l2r.txt" > "$TMPDIR/timed_l2r.txt" 2>/dev/null
     "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/out_l2r.txt" "$old" < "$TMPDIR/timed_l2r.txt" 2>/dev/null
 

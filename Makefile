@@ -115,8 +115,8 @@ install-bin: all
 	for layer in $(LAYER_BINS); do \
 		install -m 755 $$layer $(DESTDIR)$(BINDIR)/$$(basename $$layer); \
 	done
-	install -m 755 pipeline/bin/ad_pipeline $(DESTDIR)$(BINDIR)/ad_pipeline
-	install -m 755 pipeline/bin/ad_postprocess $(DESTDIR)$(BINDIR)/ad_postprocess
+	install -m 755 pipeline/ad_pipeline $(DESTDIR)$(BINDIR)/ad_pipeline
+	install -m 755 pipeline/ad_postprocess $(DESTDIR)$(BINDIR)/ad_postprocess
 	install -m 755 apps/vim/ad_vim $(DESTDIR)$(BINDIR)/ad_vim
 	# Perl fallbacks
 	install -m 755 diff_engine/perl/compute.pl $(DESTDIR)$(BINDIR)/ad_compute-perl
@@ -128,7 +128,7 @@ install-bin: all
 	install -m 755 layers/perl/ad_layer_overwrite.pl $(DESTDIR)$(BINDIR)/ad_layer_overwrite-perl
 	install -m 755 layers/perl/ad_layer_line_delete_in_place.pl $(DESTDIR)$(BINDIR)/ad_layer_line_delete_in_place-perl
 	# Helper scripts
-	for tool in tools/bin/*.sh; do \
+	for tool in scripts/*.sh; do \
 		install -m 755 $$tool $(DESTDIR)$(BINDIR)/$$(basename $$tool .sh); \
 	done
 
@@ -253,11 +253,11 @@ test-layers-discovery:
 
 debug:
 	@echo "=== Pipeline debugger on example 01 ==="
-	@bash tools/bin/ad_debug.sh tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1 | tail -20
+	@bash scripts/ad_debug.sh tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1 | tail -20
 
 snapshot:
 	@echo "=== Per-op snapshots for example 01 ==="
-	@bash tools/bin/ad_snapshot.sh tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1
+	@bash scripts/ad_snapshot.sh tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1
 	@echo "Open: file:///tmp/ad_snapshots/snapshots.html"
 
 # --- Clean -----------------------------------------------------------------

@@ -493,7 +493,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --list-layers)
             # Delegate to the orchestrator — print available layers and exit.
-            for d in "pipeline/bin/ad_postprocess" \
+            for d in "pipeline/ad_postprocess" \
                      "bin/ad_postprocess" \
                      "/usr/local/bin/ad_postprocess"; do
                 if [[ -f "$d" ]]; then
@@ -504,7 +504,7 @@ while [[ $# -gt 0 ]]; do
                     exec "$d" "${args[@]}"
                 fi
             done
-            echo "ad_vim: no orchestrator found (expected pipeline/bin/ad_postprocess)" >&2
+            echo "ad_vim: no orchestrator found (expected pipeline/ad_postprocess)" >&2
             exit 1
             ;;
         --diff-stat)        DIFF_STAT=1; shift ;;
@@ -1349,7 +1349,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
     done
     POSTPROCESS_BIN=""
-    for d in "pipeline/bin/ad_postprocess" \
+    for d in "pipeline/ad_postprocess" \
              "bin/ad_postprocess" \
              "/usr/local/bin/ad_postprocess"; do
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
@@ -1462,7 +1462,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
 else
     # User provided a precomputed diff — still need to run postprocess + pace
     POSTPROCESS_BIN=""
-    for d in "pipeline/bin/ad_postprocess" \
+    for d in "pipeline/ad_postprocess" \
              "bin/ad_postprocess" \
              "/usr/local/bin/ad_postprocess"; do
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi

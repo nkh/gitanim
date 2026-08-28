@@ -9,7 +9,7 @@ use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
 my $compute = "$root/bin/ad_compute";
-my $postprocess_perl = "perl $root/layers/perl/postprocess.pl";
+my $postprocess_perl = "$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder";
 my $pace_perl = "perl $root/layers/perl/ad_layer_pace.pl";
 my $animator_perl = "perl $root/animator/perl/ad.pl";
 my $animator_c = "$root/bin/ad";

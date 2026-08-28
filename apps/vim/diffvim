@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# diffvim — backward-compat wrapper for ad_vim.
+#
+# The project was renamed from "diffvim" to "ad" (animate-diff). The
+# vim application is now `ad_vim`. This wrapper preserves the old name
+# so existing scripts, aliases, and muscle memory keep working.
+#
+# See: apps/vim/ad_vim for the actual launcher.
+
+exec "$(cd "$(dirname "$0")" && pwd)/ad_vim" "$@"

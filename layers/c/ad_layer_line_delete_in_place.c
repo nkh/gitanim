@@ -10,7 +10,7 @@
 #include "ad_layer_common.h"
 
 int main(void) {
-    char line[PP_MAX_LINE];
+    char line[AD_LAYER_MAX_LINE];
     Op *ops=NULL;int n_ops=0,ops_cap=0,in_hunk=0;Hunk hunk={0};
     ops_cap=4096;ops=(Op *)malloc(ops_cap*sizeof(Op));
     while(fgets(line,sizeof(line),stdin)){
@@ -39,9 +39,9 @@ int main(void) {
                     }
                     out[n_out++]=ops[i];i++;
                 }
-                pp_write_hunk(&hunk);
-                for(int j=0;j<n_out;j++)pp_write_op(&out[j]);
-                pp_write_hunk_end();free(out);
+                ad_layer_write_hunk(&hunk);
+                for(int j=0;j<n_out;j++)ad_layer_write_op(&out[j]);
+                ad_layer_write_hunk_end();free(out);
             }
             sscanf(line,"HUNK\t%d\t%d\t%d\t%d\t%d",&hunk.target,&hunk.del,&hunk.ins,&hunk.end_ins,&hunk.end_del);
             in_hunk=1;n_ops=0;continue;
@@ -64,13 +64,13 @@ int main(void) {
                     }
                     out[n_out++]=ops[i];i++;
                 }
-                pp_write_hunk(&hunk);
-                for(int j=0;j<n_out;j++)pp_write_op(&out[j]);
-                pp_write_hunk_end();free(out);
+                ad_layer_write_hunk(&hunk);
+                for(int j=0;j<n_out;j++)ad_layer_write_op(&out[j]);
+                ad_layer_write_hunk_end();free(out);
             }
             in_hunk=0;n_ops=0;continue;
         }
-        if(in_hunk){if(n_ops>=ops_cap){ops_cap*=2;ops=(Op *)realloc(ops,ops_cap*sizeof(Op));}pp_parse_op(line,&ops[n_ops]);n_ops++;}
+        if(in_hunk){if(n_ops>=ops_cap){ops_cap*=2;ops=(Op *)realloc(ops,ops_cap*sizeof(Op));}ad_layer_parse_op(line,&ops[n_ops]);n_ops++;}
     }
     if(in_hunk&&n_ops>0){
         Op *out=(Op *)malloc((n_ops+1024)*sizeof(Op));int n_out=0;
@@ -89,9 +89,9 @@ int main(void) {
             }
             out[n_out++]=ops[i];i++;
         }
-        pp_write_hunk(&hunk);
-        for(int j=0;j<n_out;j++)pp_write_op(&out[j]);
-        pp_write_hunk_end();free(out);
+        ad_layer_write_hunk(&hunk);
+        for(int j=0;j<n_out;j++)ad_layer_write_op(&out[j]);
+        ad_layer_write_hunk_end();free(out);
     }
     printf("\n");free(ops);return 0;
 }

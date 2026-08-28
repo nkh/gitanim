@@ -22,7 +22,7 @@ for my $dir (sort @dirs) {
     unlink $tmp;
     
     system("$root/bin/ad_compute '$old' '$new' /tmp/raw.txt 2>/dev/null");
-    system("perl $root/layers/perl/postprocess.pl < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
+    system("$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
     system("perl $root/layers/perl/ad_layer_pace.pl < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
     system("perl $root/animator/perl/ad.pl --no-display --speed 1000 --snapshot $tmp '$old' < /tmp/timed.txt 2>/dev/null");
     

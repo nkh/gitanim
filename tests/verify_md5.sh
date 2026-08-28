@@ -3,7 +3,7 @@
 #
 # For each example pair, runs TWO pipelines in parallel:
 #   - ad_pipeline (C animator): compute-cpp → postprocess (C) → pace (C) → animator-c
-#   - ad_pipeline (Perl):       compute_builtin.pl → postprocess.pl → pace.pl → animator.pl
+#   - ad_pipeline (Perl):       compute.pl → ad_postprocess → ad_layer_pace.pl → ad.pl
 #
 # Both must produce a buffer whose MD5 matches the new file's MD5.
 # This verifies that:
@@ -33,7 +33,7 @@ DESCRIPTION
 
       1. C pipeline:        compute-cpp → C postprocess → C pace → C animator
                             (via animator/ad_pipeline --no-display ...)
-      2. Pure-Perl pipeline: compute_builtin.pl → postprocess.pl →
+      2. Pure-Perl pipeline: compute_builtin.pl → ad_postprocess (orchestrator) →
                             pace.pl → animator.pl
 
     Both pipelines write their final buffer to a snapshot file, the
@@ -98,7 +98,7 @@ run_pipe() {
 
 # -----------------------------------------------------------------------------
 # Worker function: runs the pure-Perl pipeline
-# (compute_builtin.pl → postprocess.pl → pace.pl → animator.pl)
+# (compute.pl → ad_postprocess → ad_layer_pace.pl → ad.pl)
 # Verifies the Perl toolchain produces byte-identical output to the C pipeline.
 # -----------------------------------------------------------------------------
 run_perl_pipe() {
@@ -108,7 +108,7 @@ run_perl_pipe() {
     rm -f "$buf"
     ( cd "$ROOT" && timeout -k 5 180 bash -c \
         "perl compute/perl/compute_builtin.pl '$old' '$new' /tmp/_perl_raw_$$.txt 2>/dev/null && \
-         perl layers/perl/postprocess.pl < /tmp/_perl_raw_$$.txt 2>/dev/null | \
+         pipeline/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/_perl_raw_$$.txt 2>/dev/null | \
          perl layers/perl/ad_layer_pace.pl 2>/dev/null | \
          perl animator/perl/ad.pl --no-display --speed 1000 --snapshot '$buf' '$old' 2>/dev/null" \
         >/dev/null 2>&1 )

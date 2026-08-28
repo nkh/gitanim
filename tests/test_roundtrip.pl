@@ -14,7 +14,7 @@ use lib "$Bin/../perl";
 
 my $root = "$Bin/../..";
 my $compute = "$root/bin/ad_compute";
-my $postprocess = "$root/layers/perl/postprocess.pl";
+my $postprocess = "$root/pipeline/ad_postprocess";
 my $pace = "$root/layers/perl/ad_layer_pace.pl";
 my $animator = "$root/bin/ad";
 

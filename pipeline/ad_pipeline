@@ -32,7 +32,7 @@ fi
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"   # pipeline/bin/ → project root
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"   # pipeline/ → project root
 
 # --- Tool selection -------------------------------------------------------
 # Compute: C++ only. If the binary is missing, fall back to the Perl
@@ -53,15 +53,14 @@ else
     exit 1
 fi
 
-# Postprocess: bash orchestrator (always), with Perl fallback for layers
-POSTPROCESS_PERL="$ROOT_DIR/layers/perl/postprocess.pl"
-POSTPROCESS="$ROOT_DIR/pipeline/bin/ad_postprocess"
+# Postprocess: bash orchestrator (always). No Perl fallback — the
+# orchestrator itself is bash, and it dispatches to layer binaries
+# (C preferred, Perl fallback per-layer).
+POSTPROCESS="$ROOT_DIR/pipeline/ad_postprocess"
 if [ ! -f "$POSTPROCESS" ]; then
     # Fallback: look in bin/ (installed location)
     if [ -f "$ROOT_DIR/bin/ad_postprocess" ]; then
         POSTPROCESS="$ROOT_DIR/bin/ad_postprocess"
-    else
-        POSTPROCESS="perl $POSTPROCESS_PERL"
     fi
 fi
 
@@ -185,7 +184,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --list-layers)
-            exec "$ROOT_DIR/pipeline/bin/ad_postprocess" --list-layers
+            exec "$ROOT_DIR/pipeline/ad_postprocess" --list-layers
             ;;
         --postprocess-*)
             opt="${1#--postprocess-}"

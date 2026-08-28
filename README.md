@@ -13,7 +13,7 @@
 | Stage | Binary | Language | Purpose |
 |-------|--------|----------|---------|
 | compute | `bin/ad_compute` | C++ | Patience diff → raw char ops |
-| postprocess | `pipeline/bin/ad_postprocess` | Bash | Layer orchestrator (runs `--ad-layer=<name>` chain) |
+| postprocess | `pipeline/ad_postprocess` | Bash | Layer orchestrator (runs `--ad-layer=<name>` chain) |
 | layers | `bin/ad_layer_<name>` | C + Perl | Reorder, overwrite, indent_last, pace, highlight, … |
 | animator | `bin/ad` | C | Apply ops to buffer, render to terminal |
 
@@ -29,16 +29,16 @@ make
 ./apps/vim/ad_vim old.py new.py
 
 # Run the full pipeline without vim (terminal output):
-./pipeline/bin/ad_pipeline old.py new.py
+./pipeline/ad_pipeline old.py new.py
 
 # List available layers:
-./pipeline/bin/ad_postprocess --list-layers
+./pipeline/ad_postprocess --list-layers
 
 # Add a custom layer to the chain:
-./pipeline/bin/ad_pipeline --ad-layer=my_custom_layer old.py new.py
+./pipeline/ad_pipeline --ad-layer=my_custom_layer old.py new.py
 
 # Debug the pipeline:
-./tools/bin/ad_debug.sh old.py new.py
+./scripts/ad_debug.sh old.py new.py
 
 # Run all tests:
 make test
@@ -52,9 +52,9 @@ make test
 | `diff_engine/` | Diff engine (C++ + Perl) — LCS/Hirschberg |
 | `layers/` | Postprocess layer plugins (C + Perl twins) + per-layer tests |
 | `animator/` | Animator backend (C + Perl) |
-| `pipeline/bin/` | Orchestrator (`ad_postprocess`) + pipeline driver (`ad_pipeline`) |
+| `pipeline/` | Orchestrator (`ad_postprocess`) + pipeline driver (`ad_pipeline`) |
 | `apps/vim/` | `ad_vim` — the vim application launcher |
-| `tools/bin/` | Helper scripts (`ad_debug`, `ad_snapshot`, `ad_record`, etc.) |
+| `scripts/` | Helper scripts (`ad_debug`, `ad_snapshot`, `ad_record`, etc.) |
 | `perl/` | Shared Perl library code |
 | `tests/` | Cross-cutting tests + `examples/` (canonical test corpus) |
 | `docs/` | mdBook documentation source + `design/` (historical design docs) |

@@ -22,9 +22,9 @@ ad/
 │   ├── perl/
 │   └── tests/            # one test file per layer (TDD)
 ├── animator/             # the animator backend
-├── pipeline/bin/         # the orchestrator + pipeline driver
+├── pipeline/         # the orchestrator + pipeline driver
 ├── apps/vim/             # ad_vim — the vim application
-├── tools/bin/            # helper scripts (ad_debug, ad_snapshot, etc.)
+├── scripts/            # helper scripts (ad_debug, ad_snapshot, etc.)
 ├── tests/                # cross-cutting tests + examples
 ├── docs/                 # mdBook documentation
 ├── man/                  # manpages

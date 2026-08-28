@@ -1,61 +1,24 @@
-# compute/
+# diff_engine/
 
-Stage 1 of the diffvim pipeline. Computes the diff between old and new
-files, produces raw character-level ops.
+The diff engine: computes the LCS-based character-level diff between
+an old and new file, producing raw char ops (HUNK/keep/delete/insert).
 
-## Pipeline context
+## Contents
 
-```
-COMPUTE → postprocess → pace → animator
-```
-
-## Files
-
-- `cpp/ad_compute.cpp` — C++ implementation (the only compute tool)
-- `perl/compute_builtin.pl` — Perl fallback (produces identical output)
-- `Makefile` — Builds `bin/ad_compute`
-- `README.md` — Detailed compute documentation
-- `PARALLELISM.md` — Parallelism notes
+- `cpp/compute.cpp` — C++ implementation (preferred; built to `bin/ad_compute`)
+- `perl/compute.pl` — Perl fallback (produces identical output)
+- `tests/l2r/` — left-to-right algorithm tests (35 cases)
+- `Makefile` — local build rules (the top-level Makefile also builds this)
 
 ## Binary
 
-`bin/ad_compute` — the compiled C++ binary.
+`bin/ad_compute` — built from `cpp/compute.cpp` by `make`.
 
-**NOTE:** `bin/` is gitignored! After `git pull`, you must rebuild:
-```bash
-make -C compute clean && make -C compute
-```
+Usage:
 
-If you see `# diffvim precomputed diff v1` in the output, your binary
-is stale (the v2 format has been the default since the refactor).
+    ./bin/ad_compute old.py new.py raw_ops.txt
 
-## Usage
+## Output format
 
-```bash
-./bin/ad_compute old.py new.py raw_ops.txt
-```
-
-Output format (v2 TSV):
-```
-# diffvim raw diff v2
-# algorithm patience
-HUNK	<target>	<del>	<ins>	<end_ins>	<end_del>
-keep	<line>	<col>	<code>	<char_repr>
-delete	<line>	<col>	<code>	<char_repr>
-insert	<line>	<col>	<code>	<char_repr>
-HUNK_END
-```
-
-## Algorithm
-
-Patience diff (anchored on unique common lines, with LCS fallback for
-ranges with no anchors). Produces char-level ops within each hunk.
-
-Myers was removed in the refactor. LCS is available as `--algorithm lcs`
-but Patience is the default.
-
-## Related
-
-- `../animator/` — Stages 2-4 (postprocess, pace, animator)
-- `../docs/DEBUGGING.md` — How to debug the pipeline
-- `../scripts/dv_debug.sh` — Run all stages and inspect output
+V2 TSV: HUNK header, op lines (keep/delete/insert), HUNK_END. See
+`docs/src/plugin-layers.md` for the full spec.

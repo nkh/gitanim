@@ -45,7 +45,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $out = "$tmpdir/nl1_out.txt";
 
     system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
     system("$root/bin/ad --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $out; my $actual = do { local $/; <$fh> }; close $fh;
@@ -66,7 +66,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $out = "$tmpdir/nl2_out.txt";
 
     system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
     system("$root/bin/ad --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $out; my $actual = do { local $/; <$fh> }; close $fh;
@@ -86,7 +86,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl3_timed.txt";
 
     system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
 
     open $fh, '<', $tf; my $timed = do { local $/; <$fh> }; close $fh;
 
@@ -109,7 +109,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl4_timed.txt";
 
     system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
 
     open $fh, '<:raw', $nf; my $expected = do { local $/; <$fh> }; close $fh;
 
@@ -139,7 +139,7 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $out = "$tmpdir/nl5_out.txt";
 
     system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
     system("$root/bin/ad --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $out; my $actual = do { local $/; <$fh> }; close $fh;

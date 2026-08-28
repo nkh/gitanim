@@ -1,59 +1,22 @@
-# examples/
+# tests/examples/
 
-42 old/new file pairs for testing the diffvim pipeline. Each pair is
-in a subdirectory named `NN_description/`.
+The canonical end-to-end test corpus. 36 old/new file pairs covering
+26 languages: Python, Go, Rust, C, TypeScript, Java, JavaScript, Ruby,
+PHP, Swift, Scala, Clojure, Haskell, R, SQL, YAML, TOML, JSON, XML,
+HTML, CSS, Shell, Dockerfile, Makefile, Markdown, Lua, Perl, Elixir,
+Kotlin, C#, plus "large" variants for stress-testing.
 
 ## Usage
 
-```bash
-# Animate a specific example:
-./diffvim examples/01_small_python/old.py examples/01_small_python/new.py
+    bash tests/run_all_examples.sh
 
-# Run the C pipeline:
-./animator/ad_pipeline examples/01_small_python/old.py examples/01_small_python/new.py
+Each pair is run through the full pipeline:
 
-# Debug a specific example:
-bash scripts/dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py
+    ad_compute → ad_postprocess → ad_layer_pace → ad
 
-# Run all 42 examples through the pipeline:
-bash tests/verify_md5.sh
+The final buffer is compared against `new.<ext>`. 36/36 should pass.
 
-# Test the vimscript animator on all examples:
-bash tests/test_vimscript_animator.sh
-```
+## Adding a new example
 
-## Categories
-
-### Small examples (1-31)
-Single-language, small file size. Good for quick testing.
-
-- `01_small_python` — 3 lines → 0 lines (pure deletion)
-- `02_large_python` — Python class refactor
-- `03_json_config` — JSON config change
-- ...
-- `31_javascript` — JavaScript change
-
-### Large examples (32-42)
-Larger files (100+ lines). Good for stress testing.
-
-- `32_python_classes` — Python classes
-- `33_large_python` — Large Python file
-- ...
-- `42_large_huge_python` — Very large Python file
-
-## File naming
-
-Each example directory contains:
-- `old.<ext>` — the old version of the file
-- `new.<ext>` — the new version
-
-The extension matches the language (`.py`, `.js`, `.rs`, etc.).
-
-## Related
-
-- `../tests/minimal/` — Minimal test cases (25 cases, each testing one
-  specific transformation)
-- `../tests/verify_md5.sh` — Runs all 42 examples through both C and
-  Perl pipelines, compares output MD5
-- `../tests/test_vimscript_animator.sh` — Tests vimscript animator on
-  all examples
+Create a directory `tests/examples/NN_name/` with `old.<ext>` and
+`new.<ext>` files. The test runner auto-discovers them.

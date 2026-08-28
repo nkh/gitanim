@@ -40,7 +40,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"   # pipeline/ → project root
 # Default search path: compiled binaries (bin/) and Perl scripts
 # (layers/perl/). Source files in layers/c/ are NOT directly executable
 # as layers — they must be compiled first via `make`.

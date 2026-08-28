@@ -13,7 +13,7 @@ my $compute = "$root/bin/ad_compute";
 
 # Tool implementations — only C and Perl remain.
 my %postprocess = (
-    perl => "perl $root/layers/perl/postprocess.pl",
+    perl => "$root/pipeline/ad_postprocess --ad-layer=ad_layer_reorder",
     c    => "$root/bin/ad_postprocess",
 );
 

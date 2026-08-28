@@ -1,30 +1,19 @@
 # completion/
 
-Shell completions for the `diffvim` command.
+Shell completions for `ad_vim`.
 
-## Files
+## Contents
 
-- `diffvim.bash` — Bash completion. Source it in your `.bashrc`:
-  ```bash
-  source /path/to/gitanim/completion/diffvim.bash
-  ```
-- `diffvim.fish` — Fish completion. Copy to
-  `~/.config/fish/completions/diffvim.fish`
-- `_diffvim` — Zsh completion. Source it or copy to a directory in
-  your `fpath`.
+- `ad_vim.bash` — bash completion
+- `ad_vim.fish` — fish completion
+- `_ad_vim` — zsh completion
 
-## What completes
+## Installation
 
-- All `diffvim` flags (`--speed`, `--no-vimrc`, `--output`, etc.)
-- `--algorithm` values: `lcs`, `patience`
-- `--pacing` values: `uniform`, `adaptive`, `gaussian`, `review`
-- `--delete-pacing` values: `char`, `rapid-eol`, `word`, `instant`
-- `--highlight` values: `none`, `inline`, `word`, `hunk`
+    make install-comp    # installs to $(PREFIX)/share/bash-completion/completions/
 
-Note: `--tool` and `myers` were removed in the refactor and are no
-longer completed.
+Or manually:
 
-## Related
-
-- `../diffvim` — The launcher (defines all options)
-- `../docs/src/completion.md` — Completion docs
+    cp completion/ad_vim.bash /etc/bash_completion.d/ad_vim
+    cp completion/_ad_vim /usr/local/share/zsh/site-functions/
+    cp completion/ad_vim.fish ~/.config/fish/completions/

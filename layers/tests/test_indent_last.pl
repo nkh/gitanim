@@ -26,10 +26,10 @@ open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; c
 system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
 
 # Run postprocess WITHOUT indent-last
-system("./pipeline/bin/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
+system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
 
 # Run postprocess WITH indent-last
-system("./pipeline/bin/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
+system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
 
 # Read the ops
 sub read_ops {
@@ -126,7 +126,7 @@ if (system("diff -q /tmp/il_test_c.txt /tmp/il_test_perl.txt >/dev/null 2>&1") =
 }
 
 # Check: --ad-layer=ad_layer_indent_last dynamic flag works
-system("./pipeline/bin/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_ad_layer_flag.txt 2>/dev/null");
+system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_ad_layer_flag.txt 2>/dev/null");
 # Compare against the --indent-last convenience flag (which expands to
 # the same --ad-layer=ad_layer_indent_last chain).
 my $il_out_count = 0;
