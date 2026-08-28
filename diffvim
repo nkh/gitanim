@@ -126,6 +126,7 @@ ACCEL_DELETE_ACCEL="${DIFFVIM_ACCEL_DELETE_ACCEL:-0.85}"
 OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
 INDENT_LAST="${DIFFVIM_INDENT_LAST:-0}"
+LINE_DELETE_IN_PLACE="${DIFFVIM_LINE_DELETE_IN_PLACE:-0}"
 # Display options (forwarded to C animator)
 DIFF_STAT="${DIFFVIM_DIFF_STAT:-0}"
 DIFF_HIGHLIGHT="${DIFFVIM_DIFF_HIGHLIGHT:-0}"
@@ -291,6 +292,7 @@ HIGHLIGHTING:
 
 POSTPROCESSING:
   --indent-last           Delete leading whitespace LAST (prevents left shift)
+  --line-delete-in-place  Delete whole lines on their own line (not joined to previous)
   --overwrite             In-place replacement instead of delete+insert
 
 CURSOR MOVEMENT:
@@ -1310,6 +1312,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         POSTPROCESS_ARGS=()
         [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--overwrite")
         [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-last")
+        [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--line-delete-in-place")
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         export DV_OLD_FILE="$OLD"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null

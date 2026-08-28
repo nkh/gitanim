@@ -2,17 +2,18 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BIN="$ROOT/animator/bin"
-DO_OW=0; DO_IL=0
+DO_OW=0; DO_IL=0; DO_LDP=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --overwrite)    DO_OW=1; shift ;;
-        --indent-last)  DO_IL=1; shift ;;
-        *)              shift ;;
+        --overwrite)           DO_OW=1; shift ;;
+        --indent-last)         DO_IL=1; shift ;;
+        --line-delete-in-place) DO_LDP=1; shift ;;
+        *)                     shift ;;
     esac
 done
 T=$(mktemp); cat > "$T"
-# Postprocess layers (transform ops + set positions)
 "$BIN/pp_reorder" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
 [[ $DO_OW -eq 1 ]] && "$BIN/pp_overwrite" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
 [[ $DO_IL -eq 1 ]] && "$BIN/pp_indent_last" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
+[[ $DO_LDP -eq 1 ]] && "$BIN/pp_line_delete_in_place" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
 cat "$T"; rm -f "$T"

@@ -68,7 +68,7 @@ $(DECORATE_BIN): animator/c/pp_highlight.c
 	@mkdir -p animator/bin
 	$(CC) $(CFLAGS) -o $@ $<
 
-LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_pace animator/bin/pp_highlight
+LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_line_delete_in_place animator/bin/pp_pace animator/bin/pp_highlight
 
 compute: $(COMPUTE_BIN)
 
@@ -272,3 +272,7 @@ help:
 	@echo "  make clean          Remove all binaries"
 	@echo "  make check          Check if binaries are up to date"
 	@echo "  make help           Show this help"
+
+animator/bin/pp_line_delete_in_place: animator/c/pp_line_delete_in_place.c
+	@mkdir -p animator/bin
+	$(CC) $(CFLAGS) -I animator/c -o $@ animator/c/pp_line_delete_in_place.c
