@@ -1,196 +1,207 @@
 #!/usr/bin/env bash
-# ad_postprocess — Dynamic postprocess orchestrator.
+# ad_postprocess — Dynamic postprocess orchestrator (layer plugin host).
 #
-# Reads the layer manifest (animator/layers.conf) and chains the layers
-# in the declared order, enabling each optional layer when its flag is
-# present on the command line. Each layer is a standalone executable
-# that reads V2 TSV from stdin and writes V2 TSV to stdout (see
-# FLEXIBILITY.md for the plugin contract).
+# Reads V2 TSV from stdin, runs a chain of layer plugins, writes V2 TSV
+# to stdout. The chain is supplied entirely on the command line.
 #
-# Adding a new layer does NOT require editing this file. Drop the
-# binary in animator/bin/pp_<name> (or animator/perl/pp_<name>.pl, or
-# any language) and add a line to animator/layers.conf.
+# Plugin contract (see docs/src/plugin-layers.md):
+#   * A layer is any executable that reads V2 TSV from stdin and writes
+#     V2 TSV to stdout.
+#   * Extensions are honored: .pl → perl, .py → python3, .rb → ruby,
+#     .sh → bash, .js → node. Anything else must be executable on its own.
+#
+# Layer chain:
+#   --ad-layer=<name>     Add a layer to the chain. Layers run in argv
+#                          order (NOT sorted, NOT deduplicated). The same
+#                          layer can be passed twice — it runs twice.
+#   --ad-layer-path=<dir>  Add a directory to the layer search path.
+#                          Repeatable. Default: <project>/layers/c and
+#                          <project>/layers/perl.
+#
+# If no --ad-layer is given, the caller (ad_vim, ad_pipeline) is
+# responsible for supplying its own default chain. This orchestrator
+# has no opinion about what runs by default.
+#
+# <name> lookup:
+#   * If <name> contains '/', it's treated as a path (relative to CWD or
+#     absolute). Run it directly.
+#   * Else, search each --ad-layer-path dir in declared order. The first
+#     dir containing a file named <name> (verbatim) wins.
+#   * If no match, error and exit 1.
 #
 # Usage:
-#   ad_postprocess [layer flags] [-- passthrough args]
-#   ad_postprocess --list-layers
-#   ad_postprocess --layers=reorder,indent_last,pace   # explicit order
-#   ad_postprocess --enable=indent_last                # add to defaults
-#
-# Layer routing:
-#   --overwrite, --indent-last, --line-delete-in-place, ... (per layers.conf)
-#   Unknown --flags are passed through to every layer that accepts them.
-#   Positional '--' separates orchestrator flags from layer passthrough args.
+#   ad_postprocess [--ad-layer=<name>]... [--ad-layer-path=<dir>]... < in > out
+#   ad_postprocess --list-layers [--ad-layer-path=<dir>]...
+#   ad_postprocess --help
 #
 # Environment:
-#   AD_DEBUG_LAYERS=1    Enable layer debug dumps in /tmp/ad_debug/
+#   AD_DEBUG_LAYERS=1     Enable per-layer debug dumps in /tmp/ad_debug/
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"   # project root (gitanim/)
-ANIMATOR_DIR="$ROOT/animator"
-MANIFEST="$ANIMATOR_DIR/layers.conf"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# Default search path: compiled binaries (bin/) and Perl scripts
+# (layers/perl/). Source files in layers/c/ are NOT directly executable
+# as layers — they must be compiled first via `make`.
+DEFAULT_LAYER_PATHS=("$ROOT/bin" "$ROOT/layers/perl")
 
 die() { echo "ad_postprocess: $*" >&2; exit 1; }
 
 # ── Layer resolution ────────────────────────────────────────────────────
-# Given a layer name, find an executable that implements it.
-# Search order:
-#   1. animator/bin/pp_<name>           (compiled C; preferred)
-#   2. animator/perl/pp_<name>.pl       (Perl fallback)
-#   3. animator/<lang>/pp_<name>.<ext>   (any other language, alphabetical)
-#   4. absolute path (if name contains '/')
-resolve_layer_bin() {
+# Given a layer name (or path), find an executable that implements it.
+# Echoes the command to run (interpreter + path). Returns 1 on failure.
+resolve_layer() {
     local name="$1"
-    # 4. Absolute path
-    if [[ "$name" == */* && -x "$name" ]]; then
-        echo "$name"; return
-    fi
-    # 1. C binary in animator/bin/
-    local c_bin="$ROOT/animator/bin/pp_$name"
-    if [[ -x "$c_bin" ]]; then
-        echo "$c_bin"; return
-    fi
-    # 2. Perl fallback
-    local pl_bin="$ROOT/animator/perl/pp_$name.pl"
-    if [[ -f "$pl_bin" ]]; then
-        echo "perl $pl_bin"; return
-    fi
-    # 3. Any other language: scan animator/*/pp_<name>.*
-    local found=""
-    while IFS= read -r -d '' d; do
-        local base
-        base="$(basename "$d")"
-        # match pp_<name>.<ext> where ext is non-empty
-        if [[ "$base" =~ ^pp_${name}\.([A-Za-z0-9]+)$ ]]; then
-            local ext="${BASH_REMATCH[1]}"
-            case "$ext" in
-                pl) found="perl $d" ;;
-                py) found="python3 $d" ;;
-                rb) found="ruby $d" ;;
-                sh) found="bash $d" ;;
-                js) found="node $d" ;;
-                *)  if [[ -x "$d" ]]; then found="$d"; fi ;;
-            esac
-            [[ -n "$found" ]] && break
+    # 1. If name contains '/', treat as path.
+    if [[ "$name" == */* ]]; then
+        if [[ ! -e "$name" ]]; then
+            echo "ad_postprocess: layer path does not exist: $name" >&2
+            return 1
         fi
-    done < <(find "$ROOT/animator" -mindepth 2 -maxdepth 3 -type f -print0 2>/dev/null)
-    if [[ -n "$found" ]]; then
-        echo "$found"; return
+        # Pick interpreter by extension.
+        local ext="${name##*.}"
+        case "$ext" in
+            pl) echo "perl $name" ;;
+            py) echo "python3 $name" ;;
+            rb) echo "ruby $name" ;;
+            sh) echo "bash $name" ;;
+            js) echo "node $name" ;;
+            *)
+                if [[ -x "$name" ]]; then
+                    echo "$name"
+                else
+                    echo "ad_postprocess: layer '$name' is not executable" >&2
+                    return 1
+                fi
+                ;;
+        esac
+        return 0
     fi
+    # 2. Search each layer path.
+    local searched=""
+    for dir in "${LAYER_PATHS[@]}"; do
+        [[ -d "$dir" ]] || continue
+        searched+="  $dir"$'\n'
+        if [[ -f "$dir/$name" ]]; then
+            local ext="${name##*.}"
+            # Only treat as extension if name has a dot AND the part after
+            # the last dot is short (≤4 chars) and alphanumeric.
+            if [[ "$name" == *.* ]] && [[ "${name##*.}" =~ ^[A-Za-z0-9]{1,4}$ ]]; then
+                case "$ext" in
+                    pl) echo "perl $dir/$name"; return 0 ;;
+                    py) echo "python3 $dir/$name"; return 0 ;;
+                    rb) echo "ruby $dir/$name"; return 0 ;;
+                    sh) echo "bash $dir/$name"; return 0 ;;
+                    js) echo "node $dir/$name"; return 0 ;;
+                    *)
+                        if [[ -x "$dir/$name" ]]; then
+                            echo "$dir/$name"; return 0
+                        fi
+                        echo "ad_postprocess: layer '$name' found in $dir but is not executable" >&2
+                        return 1
+                        ;;
+                esac
+            else
+                # No extension — must be executable.
+                if [[ -x "$dir/$name" ]]; then
+                    echo "$dir/$name"; return 0
+                fi
+                echo "ad_postprocess: layer '$name' found in $dir but is not executable" >&2
+                return 1
+            fi
+        fi
+    done
+    echo "ad_postprocess: layer '$name' not found in:" >&2
+    printf '  %s\n' "${LAYER_PATHS[@]}" >&2
     return 1
 }
 
-# ── Manifest parsing ────────────────────────────────────────────────────
-# Reads layers.conf and emits one tab-separated record per layer:
-#   <name>\t<order>\t<flag>\t<description>
-# Comments and blank lines are skipped.
-parse_manifest() {
-    [[ -f "$MANIFEST" ]] || die "manifest not found: $MANIFEST"
-    awk '
-        {
-            # Strip comments
-            sub(/#.*/, "", $0)
-            # Skip blank lines
-            if ($0 ~ /^[[:space:]]*$/) next
-            # Strip leading whitespace
-            sub(/^[[:space:]]+/, "")
-            # Split: name order flag "description"
-            # Description is the rest after the 3rd field, with quotes stripped
-            name = $1
-            order = $2
-            flag = $3
-            # Reconstruct description: everything after the 3rd whitespace-separated token
-            desc = $0
-            sub(/^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*/, "", desc)
-            gsub(/^"|"$/, "", desc)
-            printf "%s\t%d\t%s\t%s\n", name, order, flag, desc
-        }
-    ' "$MANIFEST"
-}
-
-# ── List layers (for --list-layers) ─────────────────────────────────────
+# ── List layers in search path ──────────────────────────────────────────
 list_layers() {
-    printf "%-22s  %-6s  %-25s  %s\n" "LAYER" "ORDER" "FLAG" "DESCRIPTION"
-    printf -- "------------------------------------------------------------------------------------------\n"
-    while IFS=$'\t' read -r name order flag desc; do
-        local bin
-        bin="$(resolve_layer_bin "$name" 2>/dev/null || echo '(missing)')"
-        local status
-        if [[ "$bin" == "(missing)" ]]; then
-            status="MISSING"
-            bin="-"
-        elif [[ "$bin" == perl\ * ]]; then
-            status="perl"
-        else
-            status="c"
-        fi
-        printf "%-22s  %-6s  %-25s  [%s] %s\n" "$name" "$order" "$flag" "$status" "$desc"
-    done < <(parse_manifest | sort -t$'\t' -k2,2n)
+    echo "Layer search path:"
+    for dir in "${LAYER_PATHS[@]}"; do
+        echo "  $dir"
+    done
     echo ""
-    echo "Discovery paths (per layer):"
-    echo "  1. \$ROOT/animator/bin/pp_<name>           (compiled C; preferred)"
-    echo "  2. \$ROOT/animator/perl/pp_<name>.pl       (Perl fallback)"
-    echo "  3. \$ROOT/animator/<lang>/pp_<name>.<ext>  (any language)"
-    echo "  4. <absolute path>                        (if name contains '/')"
+    echo "Available layers:"
+    for dir in "${LAYER_PATHS[@]}"; do
+        [[ -d "$dir" ]] || continue
+        for f in "$dir"/*; do
+            [[ -f "$f" ]] || continue
+            local name
+            name="$(basename "$f")"
+            local status="?"
+            if [[ -x "$f" ]]; then
+                status="exec"
+            elif [[ "$name" == *.pl ]]; then
+                status="perl"
+            elif [[ "$name" == *.py ]]; then
+                status="python3"
+            elif [[ "$name" == *.rb ]]; then
+                status="ruby"
+            elif [[ "$name" == *.sh ]]; then
+                status="bash"
+            elif [[ "$name" == *.js ]]; then
+                status="node"
+            fi
+            printf "  %-30s  [%s]  %s\n" "$name" "$status" "$f"
+        done
+    done
 }
 
 # ── CLI parsing ─────────────────────────────────────────────────────────
-# We need to figure out which optional layers to enable, plus collect
-# any passthrough args for the layers themselves.
-EXPLICIT_LAYERS=""     # --layers=a,b,c → run only these
-ENABLE_EXTRA=""        # --enable=name → add to defaults
+LAYER_NAMES=()
+LAYER_PATHS=("${DEFAULT_LAYER_PATHS[@]}")
 PASSTHROUGH_ARGS=()
-ACTIVE_FLAGS=()        # collected flags that match manifest entries
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --ad-layer=*)
+            LAYER_NAMES+=("${1#--ad-layer=}")
+            shift
+            ;;
+        --ad-layer)
+            LAYER_NAMES+=("$2")
+            shift 2
+            ;;
+        --ad-layer-path=*)
+            LAYER_PATHS+=("${1#--ad-layer-path=}")
+            shift
+            ;;
+        --ad-layer-path)
+            LAYER_PATHS+=("$2")
+            shift 2
+            ;;
         --list-layers)
             list_layers
             exit 0
-            ;;
-        --layers=*)
-            EXPLICIT_LAYERS="${1#--layers=}"
-            shift
-            ;;
-        --enable=*)
-            ENABLE_EXTRA="${ENABLE_EXTRA:+$ENABLE_EXTRA,}${1#--enable=}"
-            shift
-            ;;
-        # Convenience alias: --pp-foo → --foo. Lets users invoke the
-        # orchestrator directly with the same prefix convention used
-        # by the diffvim launcher and ad_pipeline.
-        --pp-*)
-            ACTIVE_FLAGS+=("--${1#--pp-}")
-            shift
-            if [[ $# -gt 0 && "${1:-}" != -* ]]; then
-                ACTIVE_FLAGS+=("$1"); shift
-            fi
             ;;
         --help|-h)
             cat <<HELP
 ad_postprocess — Dynamic postprocess orchestrator
 
 Usage:
-  ad_postprocess [layer flags] [-- passthrough args]
-  ad_postprocess --list-layers
-  ad_postprocess --layers=reorder,indent_last,pace [passthrough args]
-  ad_postprocess --enable=indent_last [other flags]
+  ad_postprocess [--ad-layer=<name>]... [--ad-layer-path=<dir>]... < in > out
+  ad_postprocess --list-layers [--ad-layer-path=<dir>]...
+  ad_postprocess --help
 
-Layer flags (from animator/layers.conf):
-  --overwrite, --indent-last, --line-delete-in-place, ...
+Layer chain:
+  --ad-layer=<name>     Add a layer. Layers run in argv order. The same
+                        layer can be passed twice (it runs twice).
+  --ad-layer-path=<dir> Add a directory to the layer search path.
+                        Repeatable. Default: layers/c and layers/perl.
 
-Override:
-  --layers=<csv>     Run ONLY these layers (in given order)
-  --enable=<csv>     Add these layers to the default chain
-  --list-layers      Print discovered layers and exit
-  -- <args>          Pass remaining args verbatim to every layer
+<name> lookup:
+  * Contains '/' → treated as a path (relative or absolute).
+  * Else → searched in each --ad-layer-path dir, in declared order.
+  * Extensions honored: .pl, .py, .rb, .sh, .js. Otherwise the file
+    must be executable.
 
 Environment:
-  AD_DEBUG_LAYERS=1    Enable per-layer debug dumps
+  AD_DEBUG_LAYERS=1     Enable per-layer debug dumps in /tmp/ad_debug/
 
-See FLEXIBILITY.md for the full plugin contract.
+See docs/src/plugin-layers.md for the full plugin contract.
 HELP
             exit 0
             ;;
@@ -199,128 +210,26 @@ HELP
             PASSTHROUGH_ARGS+=("$@")
             break
             ;;
-        --*)
-            # Could be a layer-enable flag or a passthrough flag.
-            # Collect it; we'll match against the manifest below.
-            ACTIVE_FLAGS+=("$1")
-            # If next arg doesn't start with -, treat as value for the flag.
-            if [[ $# -gt 1 && "${2:-}" != -* ]]; then
-                ACTIVE_FLAGS+=("$2")
-                shift
-            fi
-            shift
-            ;;
         *)
-            # Positional arg — pass through to layers (rare).
+            # Unknown option — pass through to every layer.
             PASSTHROUGH_ARGS+=("$1")
             shift
             ;;
     esac
 done
 
-# ── Determine which layers to run ───────────────────────────────────────
-# Build an array of (name order bin) tuples.
-declare -a LAYERS_TO_RUN=()
-
-# Function: add a layer by name (looks up manifest, resolves binary).
-# Falls back to direct binary resolution if the layer isn't in the
-# manifest (ad-hoc discovery: drop a binary in animator/bin/pp_<name>
-# and it's immediately usable via --layers=<name>).
-add_layer_by_name() {
-    local want="$1"
-    # First, look in the manifest for declared order/description.
-    while IFS=$'\t' read -r name order flag desc; do
-        if [[ "$name" == "$want" ]]; then
-            local bin
-            bin="$(resolve_layer_bin "$name")" || {
-                echo "ad_postprocess: layer '$name' declared in manifest but no binary found" >&2
-                echo "  Looked for:" >&2
-                echo "    $ROOT/animator/bin/pp_$name" >&2
-                echo "    $ROOT/animator/perl/pp_$name.pl" >&2
-                return 1
-            }
-            LAYERS_TO_RUN+=("$name|$order|$bin")
-            return 0
-        fi
-    done < <(parse_manifest)
-    # Ad-hoc: not in manifest, but the binary exists on disk.
-    local adhoc_bin
-    if adhoc_bin="$(resolve_layer_bin "$want" 2>/dev/null)"; then
-        LAYERS_TO_RUN+=("$want|50|$adhoc_bin")  # order 50 = middle of pipeline
-        return 0
-    fi
-    echo "ad_postprocess: unknown layer '$want' (not in manifest, no binary found)" >&2
-    echo "  Looked for:" >&2
-    echo "    $ROOT/animator/bin/pp_$want" >&2
-    echo "    $ROOT/animator/perl/pp_$want.pl" >&2
-    echo "  Run '--list-layers' to see declared layers." >&2
-    return 1
-}
-
-# Function: build the default chain (always-on + flag-enabled layers).
-build_default_chain() {
-    while IFS=$'\t' read -r name order flag desc; do
-        # Always-on layers are always included.
-        if [[ "$flag" == "always" ]]; then
-            local bin
-            if ! bin="$(resolve_layer_bin "$name" 2>/dev/null)"; then
-                echo "ad_postprocess: warning: always-on layer '$name' has no binary; skipping" >&2
-                continue
-            fi
-            LAYERS_TO_RUN+=("$name|$order|$bin")
-            continue
-        fi
-        # Optional layers: run only if flag is in ACTIVE_FLAGS or --enable=.
-        local want=0
-        for f in "${ACTIVE_FLAGS[@]:-}"; do
-            [[ "$f" == "$flag" ]] && { want=1; break; }
-        done
-        if [[ $want -eq 0 && -n "$ENABLE_EXTRA" ]]; then
-            local extra
-            IFS=',' read -ra extra <<< "$ENABLE_EXTRA"
-            for e in "${extra[@]}"; do
-                if [[ "$e" == "$name" ]]; then want=1; break; fi
-            done
-        fi
-        if [[ $want -eq 1 ]]; then
-            local bin
-            if ! bin="$(resolve_layer_bin "$name" 2>/dev/null)"; then
-                echo "ad_postprocess: layer '$name' (flag $flag) has no binary; skipping" >&2
-                continue
-            fi
-            LAYERS_TO_RUN+=("$name|$order|$bin")
-        fi
-    done < <(parse_manifest)
-}
-
-if [[ -n "$EXPLICIT_LAYERS" ]]; then
-    # User specified an explicit chain (--layers=a,b,c)
-    IFS=',' read -ra explicit_arr <<< "$EXPLICIT_LAYERS"
-    for name in "${explicit_arr[@]}"; do
-        add_layer_by_name "$name"
-    done
-else
-    build_default_chain
+if [[ ${#LAYER_NAMES[@]} -eq 0 ]]; then
+    die "no layers specified (use --ad-layer=<name>); ad_postprocess has no default chain"
 fi
 
-if [[ ${#LAYERS_TO_RUN[@]} -eq 0 ]]; then
-    die "no layers to run (check animator/layers.conf)"
-fi
-
-# Sort layers by order (ascending).
-IFS=$'\n' LAYERS_TO_RUN=($(printf '%s\n' "${LAYERS_TO_RUN[@]}" | sort -t'|' -k2,2n))
-unset IFS
-
-# ── Run the chain ───────────────────────────────────────────────────────
+# ── Resolve each layer and run them in order ────────────────────────────
 T=$(mktemp); cat > "$T"
 trap 'rm -f "$T" "$T.2"' EXIT
 
-echo "ad_postprocess: running ${#LAYERS_TO_RUN[@]} layer(s):" >&2
-for entry in "${LAYERS_TO_RUN[@]}"; do
-    IFS='|' read -r name order bin <<< "$entry"
-    echo "  → [$order] $name  ($bin)" >&2
-    # Run the layer. Passthrough args go to every layer.
-    # shellcheck disable=SC2086
+echo "ad_postprocess: running ${#LAYER_NAMES[@]} layer(s):" >&2
+for name in "${LAYER_NAMES[@]}"; do
+    bin="$(resolve_layer "$name")" || exit 1
+    echo "  → $name  ($bin)" >&2
     if ! $bin ${PASSTHROUGH_ARGS[@]:-} < "$T" > "$T.2" 2>/dev/null; then
         echo "ad_postprocess: layer '$name' failed (exit $?)" >&2
         echo "  bin:  $bin" >&2

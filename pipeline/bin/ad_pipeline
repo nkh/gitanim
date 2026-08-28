@@ -32,14 +32,14 @@ fi
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"   # pipeline/bin/ → project root
 
 # --- Tool selection -------------------------------------------------------
 # Compute: C++ only. If the binary is missing, fall back to the Perl
 # inline LCS (compute_builtin.pl, added in this refactor). Both produce
 # the same op-stream format.
 COMPUTE_CPP="$ROOT_DIR/bin/ad_compute"
-COMPUTE_PERL="$ROOT_DIR/compute/perl/compute_builtin.pl"
+COMPUTE_PERL="$ROOT_DIR/diff_engine/perl/compute.pl"
 
 if [[ -f "$COMPUTE_CPP" && -x "$COMPUTE_CPP" ]]; then
     COMPUTE="$COMPUTE_CPP"
@@ -49,14 +49,21 @@ else
     echo "ad_pipeline: no compute tool available." >&2
     echo "  Expected: $COMPUTE_CPP" >&2
     echo "  Or fallback: $COMPUTE_PERL" >&2
-    echo "  Run 'make -C compute' to build the C++ tool." >&2
+    echo "  Run 'make' to build the C++ tool." >&2
     exit 1
 fi
 
-# Postprocess: C preferred, Perl fallback
+# Postprocess: bash orchestrator (always), with Perl fallback for layers
 POSTPROCESS_PERL="$ROOT_DIR/layers/perl/postprocess.pl"
-POSTPROCESS="$ROOT_DIR/bin/ad_postprocess"
-[ ! -f "$POSTPROCESS" ] && POSTPROCESS="perl $POSTPROCESS_PERL"
+POSTPROCESS="$ROOT_DIR/pipeline/bin/ad_postprocess"
+if [ ! -f "$POSTPROCESS" ]; then
+    # Fallback: look in bin/ (installed location)
+    if [ -f "$ROOT_DIR/bin/ad_postprocess" ]; then
+        POSTPROCESS="$ROOT_DIR/bin/ad_postprocess"
+    else
+        POSTPROCESS="perl $POSTPROCESS_PERL"
+    fi
+fi
 
 # Pace: C preferred, Perl fallback
 PACE_PERL="$ROOT_DIR/layers/perl/ad_layer_pace.pl"
@@ -148,30 +155,37 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         --line-delete-in-place)
-            POSTPROCESS_ARGS+=("--line-delete-in-place")
+            POSTPROCESS_ARGS+=("--ad-layer=ad_layer_line_delete_in_place")
             shift
             ;;
         --indent-last)
-            POSTPROCESS_ARGS+=("--indent-last")
+            POSTPROCESS_ARGS+=("--ad-layer=ad_layer_indent_last")
             shift
             ;;
         --overwrite)
-            POSTPROCESS_ARGS+=("--overwrite")
+            POSTPROCESS_ARGS+=("--ad-layer=ad_layer_overwrite")
             shift
             ;;
-        # Generic dynamic layer forwarding: --pp-<name> [-- value] forwards
-        # `--<name>` (and optional value) to the postprocess orchestrator.
-        # This makes adding a new layer zero-edit — see FLEXIBILITY.md.
-        --pp-*)
-            opt="${1#--pp-}"
-            POSTPROCESS_ARGS+=("--$opt")
+        # Generic layer addition: --ad-layer=<name> adds a layer to the
+        # chain. See docs/src/plugin-layers.md for the plugin contract.
+        --ad-layer=*)
+            POSTPROCESS_ARGS+=("$1")
             shift
-            if [[ $# -gt 0 && "$1" != -* ]]; then
-                POSTPROCESS_ARGS+=("$1"); shift
-            fi
+            ;;
+        --ad-layer)
+            POSTPROCESS_ARGS+=("--ad-layer=$2")
+            shift 2
+            ;;
+        --ad-layer-path=*)
+            POSTPROCESS_ARGS+=("$1")
+            shift
+            ;;
+        --ad-layer-path)
+            POSTPROCESS_ARGS+=("--ad-layer-path=$2")
+            shift 2
             ;;
         --list-layers)
-            exec "$ROOT_DIR/bin/ad_postprocess" --list-layers
+            exec "$ROOT_DIR/pipeline/bin/ad_postprocess" --list-layers
             ;;
         --postprocess-*)
             opt="${1#--postprocess-}"
@@ -321,7 +335,14 @@ run_stage() {
 # Stage 1: Compute
 run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS"
 
-# Stage 2: Postprocess (pass old file path for buffer simulation)
+# Stage 2: Postprocess — runs the layer chain.
+# Default: ad_layer_reorder first, then any user-requested layers
+# (via --indent-last, --overwrite, --line-delete-in-place, --ad-layer).
+# The user flags above already pushed --ad-layer=ad_layer_<name> entries
+# into POSTPROCESS_ARGS; we prepend the default reorder layer here.
+if [[ ${#POSTPROCESS_ARGS[@]} -eq 0 || "${POSTPROCESS_ARGS[0]}" != "--ad-layer=ad_layer_reorder" ]]; then
+    POSTPROCESS_ARGS=("--ad-layer=ad_layer_reorder" "${POSTPROCESS_ARGS[@]}")
+fi
 export AD_OLD_FILE="$OLD"
 run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 

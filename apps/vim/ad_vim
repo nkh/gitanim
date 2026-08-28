@@ -139,11 +139,11 @@ OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
 INDENT_LAST="${AD_INDENT_LAST:-0}"
 LINE_DELETE_IN_PLACE="${AD_LINE_DELETE_IN_PLACE:-0}"
-# Extra postprocess flags forwarded dynamically to the orchestrator.
-# Lets users enable any layer from animator/layers.conf without editing
-# this launcher — e.g. `diffvim --pp-foo old new` runs `--foo` in the
-# orchestrator. See FLEXIBILITY.md.
-EXTRA_PP_FLAGS=()
+# Extra layers added via --ad-layer=<name>. Each becomes an --ad-layer
+# flag to the orchestrator. Search path can be extended with
+# --ad-layer-path=<dir>.
+EXTRA_PP_LAYERS=()
+EXTRA_PP_PATHS=()
 # Display options (forwarded to C animator)
 DIFF_STAT="${DIFFVIM_DIFF_STAT:-0}"
 DIFF_HIGHLIGHT="${DIFFVIM_DIFF_HIGHLIGHT:-0}"
@@ -471,26 +471,40 @@ while [[ $# -gt 0 ]]; do
         --indent-last)      INDENT_LAST=1; shift ;;
         --overwrite)        OVERWRITE_MODE=1; shift ;;
         --line-delete-in-place) LINE_DELETE_IN_PLACE=1; shift ;;
-        # Generic dynamic layer forwarding: --pp-<name> [-- value] forwards
-        # `--<name>` (and optional value) to the postprocess orchestrator.
-        # This makes adding a new layer zero-edit — see FLEXIBILITY.md.
-        --pp-*)
-            _pp_flag="${1#--pp-}"
-            EXTRA_PP_FLAGS+=("--$_pp_flag")
+        # Generic layer addition: --ad-layer=<name> adds a layer to the
+        # chain (after the default chain). The layer is looked up in
+        # the search path (bin/ and layers/perl/ by default; override
+        # with --ad-layer-path). See docs/src/plugin-layers.md.
+        --ad-layer=*)
+            EXTRA_PP_LAYERS+=("${1#--ad-layer=}")
             shift
-            if [[ $# -gt 0 && "${1:-}" != -* ]]; then
-                EXTRA_PP_FLAGS+=("$1"); shift
-            fi
+            ;;
+        --ad-layer)
+            EXTRA_PP_LAYERS+=("$2")
+            shift 2
+            ;;
+        --ad-layer-path=*)
+            EXTRA_PP_PATHS+=("${1#--ad-layer-path=}")
+            shift
+            ;;
+        --ad-layer-path)
+            EXTRA_PP_PATHS+=("$2")
+            shift 2
             ;;
         --list-layers)
             # Delegate to the orchestrator — print available layers and exit.
-            for d in "bin/ad_postprocess" \
+            for d in "pipeline/bin/ad_postprocess" \
+                     "bin/ad_postprocess" \
                      "/usr/local/bin/ad_postprocess"; do
                 if [[ -f "$d" ]]; then
-                    exec "$d" --list-layers
+                    args=("--list-layers")
+                    for p in "${EXTRA_PP_PATHS[@]:-}"; do
+                        args+=("--ad-layer-path=$p")
+                    done
+                    exec "$d" "${args[@]}"
                 fi
             done
-            echo "diffvim: no orchestrator found (expected bin/ad_postprocess)" >&2
+            echo "ad_vim: no orchestrator found (expected pipeline/bin/ad_postprocess)" >&2
             exit 1
             ;;
         --diff-stat)        DIFF_STAT=1; shift ;;
@@ -1335,7 +1349,8 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
     done
     POSTPROCESS_BIN=""
-    for d in "bin/ad_postprocess" \
+    for d in "pipeline/bin/ad_postprocess" \
+             "bin/ad_postprocess" \
              "/usr/local/bin/ad_postprocess"; do
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
     done
@@ -1357,13 +1372,20 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         "$COMPUTE_BIN" "$OLD" "$NEW" "$RAW_OPS" 2>&1 | grep "^compute:" >&2 || true
         debug_log "Stage 1 done: $(wc -l < "$RAW_OPS") lines in raw_ops"
 
-        # Stage 2: Postprocess (line/col adjustment + per-op positioning)
+        # Stage 2: Postprocess — runs the layer chain.
+        # Default chain: ad_layer_reorder. The convenience flags
+        # --indent-last, --overwrite, --line-delete-in-place insert
+        # their respective layers between reorder and the end. The
+        # generic --ad-layer=<name> appends a layer at the end.
         POSTPROCESS_ARGS=()
-        [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--overwrite")
-        [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-last")
-        [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--line-delete-in-place")
-        # Forward dynamically-discovered layer flags (--pp-foo → --foo).
-        [[ ${#EXTRA_PP_FLAGS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_FLAGS[@]}")
+        POSTPROCESS_ARGS+=("--ad-layer=ad_layer_reorder")
+        [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_overwrite")
+        [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_indent_last")
+        [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_line_delete_in_place")
+        # Extra layers from --ad-layer=<name> on the command line.
+        [[ ${#EXTRA_PP_LAYERS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_LAYERS[@]/#/--ad-layer=}")
+        # Extra search paths from --ad-layer-path=<dir>.
+        [[ ${#EXTRA_PP_PATHS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_PATHS[@]/#/--ad-layer-path=}")
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         export AD_OLD_FILE="$OLD"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
@@ -1440,7 +1462,8 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
 else
     # User provided a precomputed diff — still need to run postprocess + pace
     POSTPROCESS_BIN=""
-    for d in "bin/ad_postprocess" \
+    for d in "pipeline/bin/ad_postprocess" \
+             "bin/ad_postprocess" \
              "/usr/local/bin/ad_postprocess"; do
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
     done
