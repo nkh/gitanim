@@ -2,28 +2,51 @@
 
 The `ad` toolkit currently uses **107 distinct `AD_*` environment variables**. This document categorizes them, identifies which are removable, and proposes a plan to reduce the count dramatically.
 
+## TL;DR — Revised recommendation
+
+**Every user-facing env var has an equivalent CLI flag.** The config file (`~/.config/ad/config`) covers the "default for every invocation" case. Therefore **all 107 env vars can be removed**. The final design is:
+
+- **Config file** (`~/.config/ad/config`) — sets defaults, sourced as bash
+- **CLI flags** — override per-invocation
+- **No env vars** — not needed
+
+## Why env vars are not needed
+
+The user asked the right question: "why do they need to be kept, don't the applications support command line arguments that are equivalent?" The answer is: **yes, they all do.** Every option that has an env var also has a CLI flag.
+
+The three traditional use cases for env vars are:
+
+1. **"Set a default for every invocation without typing the flag"** — solved by the config file. The user edits `~/.config/ad/config` once, and every `ad_vim` invocation picks it up.
+2. **"Set a one-off default for a single shell session"** — solved by shell aliases:
+   ```bash
+   alias ad_vim='ad_vim --indent-last --pacing gaussian'
+   ```
+3. **"Share config across multiple tools (ad_vim, ad_pipeline)"** — solved by the config file. Both tools source it.
+
+There is no use case that env vars cover but config file + CLI flags don't.
+
 ## Summary
 
 | Category | Count | Recommendation |
 |----------|-------|----------------|
-| **Active and needed** | 28 | KEEP |
 | **Obsolete (options removed)** | 8 | DELETE (already non-functional) |
-| **Vimscript-only (never set by user)** | 35 | Convert to internal variables |
+| **Vimscript-only (never set by user)** | 35 | Convert to internal variables / temp file |
 | **Perl launcher only (duplicate of bash)** | 12 | Delete Perl launcher or align |
 | **Redundant duplicates** | 9 | Consolidate |
-| **Debug/internal** | 8 | Keep but namespace as `AD_DEBUG_*` |
+| **Debug/internal** | 8 | Convert to CLI flags (`--debug-*`) |
 | **Test-only** | 7 | Move to test fixtures |
-| **Total** | 107 | → ~30 after cleanup |
+| **"Active and needed"** (revised) | 28 | DELETE — all have CLI equivalents |
+| **Total** | 107 | → **0** after cleanup |
 
 ## Goal
 
-Reduce from 107 to ~30 user-facing env vars. The remaining 30 should be:
-- Documented in `docs/src/configuration.md`
-- Have clear, non-overlapping purposes
-- Use the `AD_` prefix consistently
-- Be settable via config file (`~/.config/ad/config`) OR env var OR CLI flag
+**Remove all 107 env vars.** The configuration model becomes:
 
-The principle: **environment variables are for things the user might want to set. Internal state should be plain variables, not env vars.**
+1. Config file (`~/.config/ad/config`) — sets defaults, sourced as bash.
+2. CLI flags — override per-invocation.
+3. No env vars.
+
+This eliminates a whole class of state-passing complexity. The launcher reads the config file once, applies CLI overrides, and passes the final values to the layers/animator via CLI flags (not env vars).
 
 ---
 
@@ -176,74 +199,87 @@ AD_TICK_MS                       ← test variant
 
 ---
 
-## Category 7: Active and needed — KEEP (28 vars)
+## Category 7: "Active and needed" — REVISED: DELETE ALL (28 vars)
 
-These are the vars that genuinely belong in the user-facing namespace. They control user-visible behavior and are documented in `docs/src/configuration.md`:
+**Original recommendation:** KEEP — these control user-visible behavior.
+
+**Revised recommendation:** DELETE — every one of these has an equivalent CLI flag. The config file covers the "default for every invocation" case. Env vars are redundant.
 
 ### Pacing (5)
 ```
-AD_DELETE_PACING        ← char|word|instant|rapid-eol|rapid-identical|accel|flash
-AD_INSERT_PACING         ← char|word|accel
-AD_PACING                ← uniform|adaptive|gaussian|review
-AD_DELETE_SPEED          ← slow|normal|fast|instant
-AD_INSERT_SPEED         ← slow|normal|fast
+AD_DELETE_PACING        ← --delete-pacing char|word|instant|rapid-eol|rapid-identical|accel|flash
+AD_INSERT_PACING         ← --insert-pacing char|word|accel
+AD_PACING                ← --pacing uniform|adaptive|gaussian|review
+AD_DELETE_SPEED          ← --delete-speed slow|normal|fast|instant
+AD_INSERT_SPEED         ← --insert-speed slow|normal|fast
 ```
 
 ### Layer chain (3)
 ```
-AD_INDENT_LAST              ← 0|1 (enables ad_layer_indent_last)
-AD_OVERWRITE_MODE           ← 0|1 (enables ad_layer_overwrite)
-AD_LINE_DELETE_IN_PLACE     ← 0|1 (enables ad_layer_line_delete_in_place)
+AD_INDENT_LAST              ← --indent-last (enables ad_layer_indent_last)
+AD_OVERWRITE_MODE           ← --overwrite (enables ad_layer_overwrite)
+AD_LINE_DELETE_IN_PLACE     ← --line-delete-in-place (enables ad_layer_line_delete_in_place)
 ```
 
 ### Animation behavior (5)
 ```
-AD_LEFT_TO_RIGHT        ← 0|1 (diff mode)
-AD_SPEED                ← float (speed multiplier)
-AD_SCROLL               ← zz|zt|zb|none
-AD_MAX_LINE_LEN         ← integer
-AD_MAX_HUNK_CHARS       ← integer (0 = no limit)
+AD_LEFT_TO_RIGHT        ← --left-to-right (diff mode)
+AD_SPEED                ← --speed N (float multiplier)
+AD_SCROLL               ← --scroll zz|zt|zb|none
+AD_MAX_LINE_LEN         ← --max-line-len N
+AD_MAX_HUNK_CHARS       ← --max-hunk-chars N (0 = no limit)
 ```
 
 ### Cursor movement (5)
 ```
-AD_CURSOR_GLIDE_MS              ← integer (ms; 0 disables)
-AD_CURSOR_GLIDE_SHOW_INTERMEDIATE ← 0|1
-AD_DISTANCE_SPEED                ← adaptive|off
-AD_DISTANCE_THRESHOLD            ← integer (lines)
-AD_DISTANCE_FAST_MULT            ← float
-AD_DISTANCE_SLOW_MULT            ← float
+AD_CURSOR_GLIDE_MS              ← --cursor-glide-ms N
+AD_CURSOR_GLIDE_SHOW_INTERMEDIATE ← --cursor-glide-show-intermediate 0|1
+AD_DISTANCE_SPEED                ← --distance-speed adaptive|off
+AD_DISTANCE_THRESHOLD            ← --distance-threshold N
+AD_DISTANCE_FAST_MULT            ← --distance-fast-mult N
+AD_DISTANCE_SLOW_MULT            ← --distance-slow-mult N
 ```
 
 ### Decoration (4)
 ```
-AD_HIGHLIGHT_MODE           ← none|inline|word|hunk (rename from AD_HIGHLIGHT)
-AD_HIGHLIGHT_DURATION_MS    ← integer (ms)
-AD_DIM_UNCHANGED            ← 0|1
-AD_DIM_UNCHANGED_PCT        ← integer (0-100)
-AD_CONTEXT_LINES            ← integer (lines of context)
-AD_FOLD_UNCHANGED           ← 0|1
-AD_SIGN_COLUMN              ← 0|1
-AD_GIT_BLAME                ← 0|1
+AD_HIGHLIGHT_MODE           ← --highlight none|inline|word|hunk (rename from AD_HIGHLIGHT)
+AD_HIGHLIGHT_DURATION_MS    ← --highlight-duration-ms N
+AD_DIM_UNCHANGED            ← --dim-unchanged
+AD_DIM_UNCHANGED_PCT        ← --dim-unchanged-pct N
+AD_CONTEXT_LINES            ← --context N
+AD_FOLD_UNCHANGED           ← --fold-unchanged
+AD_SIGN_COLUMN              ← --sign-column
+AD_GIT_BLAME                ← --git-blame
 ```
 
 ### Output (3)
 ```
-AD_OUTPUT                ← file path
-AD_SNAPSHOT              ← file path (rename from AD_SNAPSHOT if exists)
-AD_KEEP_DIRTY            ← 0|1
+AD_OUTPUT                ← --output FILE
+AD_SNAPSHOT              ← --snapshot FILE
+AD_KEEP_DIRTY            ← --keep-dirty
 ```
 
 ### Misc (3)
 ```
-AD_THEME                 ← dark|light|high-contrast
-AD_LOG_MODE             ← mode
-AD_LOG_FILE             ← file path
+AD_THEME                 ← --theme dark|light|high-contrast
+AD_LOG_MODE             ← --log-mode MODE
+AD_LOG_FILE             ← --log-file FILE
 ```
+
+### Why these were originally "kept"
+
+The original analysis kept these because they control user-visible behavior and are documented in `docs/src/configuration.md`. But the documentation already lists the CLI equivalents. The env vars are a second, redundant way to set the same value — and a confusing one, because the user has to wonder "which takes precedence, the env var or the CLI flag?"
+
+Removing the env vars eliminates that ambiguity. The precedence becomes simple:
+
+1. Config file (`~/.config/ad/config`) — lowest priority
+2. CLI flag — highest priority
+
+That's it. No env var layer in between.
 
 ---
 
-## Proposed reduction plan
+## Proposed reduction plan (revised)
 
 | Phase | Action | Vars removed |
 |-------|--------|-------------|
@@ -251,22 +287,24 @@ AD_LOG_FILE             ← file path
 | 2 | Convert vimscript-internal to temp file (Category 2) | 35 |
 | 3 | Delete Perl launcher duplicates (Category 3) | 12 |
 | 4 | Consolidate redundant duplicates (Category 4) | 9 |
-| 5 | Namespace debug vars (Category 5) | 0 (renames) |
+| 5 | Convert debug/internal to CLI flags (Category 5) | 8 |
 | 6 | Move test-only to fixtures (Category 6) | 7 |
-| **Total** | | **71 vars removed** |
+| 7 | Delete "active and needed" — all have CLI equivalents (Category 7) | 28 |
+| **Total** | | **107 vars removed** |
 
-Final count: **107 → 36 env vars** (28 user-facing + 8 debug-namespaced).
+Final count: **107 → 0 env vars**.
 
 ---
 
-## Implementation order
+## Implementation order (revised)
 
 1. **Phase A (low risk):** Delete Category 1 (obsolete). They're already non-functional.
 2. **Phase B (medium risk):** Consolidate Category 4 (redundant). Update tests.
-3. **Phase C (high risk):** Convert Category 2 (vimscript-internal). Requires rewriting how bash passes state to vimscript — significant change to `apps/vim/ad_vim` and `apps/vim/autoload_diffvim/engine.vim`.
-4. **Phase D (low risk):** Namespace Category 5 (debug). Pure renames.
+3. **Phase C (high risk):** Convert Category 2 (vimscript-internal). Requires rewriting how bash passes state to vimscript — significant change to `apps/vim/ad_vim` and `apps/vim/autoload_diffvim/engine.vim`. Use a temp file or have vimscript read the config file directly.
+4. **Phase D (low risk):** Convert Category 5 (debug) to `--debug-*` CLI flags.
 5. **Phase E (low risk):** Move Category 6 (test-only) to fixtures.
 6. **Phase F (decision):** Delete or align Category 3 (Perl launcher).
+7. **Phase G (medium risk):** Delete Category 7 (user-facing env vars). Update `docs/src/configuration.md` to remove the env var table; document only CLI flags + config file. Update tests that set env vars to use CLI flags instead.
 
 ---
 
