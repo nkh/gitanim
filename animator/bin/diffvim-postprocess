@@ -1,27 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-BIN_DIR="$ROOT/animator/bin"
-DO_OVERWRITE=0; DO_INDENT_LAST=0; DEBUG=0; DUMP_DIR=""
+BIN="$ROOT/animator/bin"
+DO_OW=0; DO_IL=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --overwrite)    DO_OVERWRITE=1; shift ;;
-        --indent-last)  DO_INDENT_LAST=1; shift ;;
-        --debug)        DEBUG=1; shift ;;
-        --dump-dir)     DUMP_DIR="$2"; shift 2 ;;
-        --op-debug)     export DV_OP_DEBUG=1; shift ;;
-        --help|-h)      head -15 "$0"; exit 0 ;;
+        --overwrite)    DO_OW=1; shift ;;
+        --indent-last)  DO_IL=1; shift ;;
         *)              shift ;;
     esac
 done
-OPS=$(mktemp /tmp/pp_XXXXXX.txt); trap 'rm -f "$OPS"' EXIT
-cat > "$OPS"
-# 1. Overwrite (optional) — merge delete+insert pairs
-if [[ $DO_OVERWRITE -eq 1 ]]; then "$BIN_DIR/pp_overwrite" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"; fi
-# 2. Delete-indent-last (optional) — move indent deletes to end of line
-if [[ $DO_INDENT_LAST -eq 1 ]]; then "$BIN_DIR/pp_indent_last" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"; fi
-# 3. Reorder (always) — 4-sweep reorder within line groups
-"$BIN_DIR/pp_reorder" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"
-# 4. Adjust positions (always) — fix line/col for all ops
-"$BIN_DIR/pp_adjust" < "$OPS" > "${OPS}.tmp" 2>/dev/null; mv "${OPS}.tmp" "$OPS"
-cat "$OPS"
+T=$(mktemp); cat > "$T"
+"$BIN/pp_reorder" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
+[[ $DO_OW -eq 1 ]] && "$BIN/pp_overwrite" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
+[[ $DO_IL -eq 1 ]] && "$BIN/pp_indent_last" < "$T" > "$T.2" 2>/dev/null && mv "$T.2" "$T"
+cat "$T"; rm -f "$T"
