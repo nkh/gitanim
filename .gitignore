@@ -6,6 +6,16 @@ bin/
 *.so
 *.a
 
+# Stale directories from before the restructure.
+# These are left over on local clones from when the project used
+# compute/, animator/bin/, etc. git pull doesn't delete untracked
+# files, so these directories persist until the user runs:
+#   git clean -fd    (removes untracked files/dirs)
+# or manually: rm -rf compute/ animator/bin/ tools/ scripts/dv_*
+compute/
+animator/bin/
+tools/
+
 # Editor / OS
 .DS_Store
 *.swp
