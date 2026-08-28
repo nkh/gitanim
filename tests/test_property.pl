@@ -72,7 +72,7 @@ for my $i (1..50) {
     random_file($old, 5 + int(rand(20)), 30);
     mutate_file($old, $new);
     
-    system("$root/animator/ad_pipeline --no-display --speed 1000 --snapshot $snap $old $new 2>/dev/null");
+    system("$root/pipeline/bin/ad_pipeline --no-display --speed 1000 --snapshot $snap $old $new 2>/dev/null");
     
     my $md5_snap = `md5sum $snap 2>/dev/null` // '';
     my $md5_new = `md5sum $new` // '';
