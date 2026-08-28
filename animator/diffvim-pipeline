@@ -8,6 +8,17 @@
 #   --pace-*         → pp_pace (C, fallback to Perl)
 #   --animator-*     → diffvim-animator (C, fallback to Perl)
 #
+# Load config file if it exists (~/.config/diffvim/config or ~/.diffvimrc)
+if [[ -z "${DIFFVIM_CONFIG_LOADED:-}" ]]; then
+    for cfg in "$HOME/.config/diffvim/config" "$HOME/.diffvimrc"; do
+        if [[ -f "$cfg" ]]; then
+            source "$cfg"
+            export DIFFVIM_CONFIG_LOADED=1
+            break
+        fi
+    done
+fi
+
 # Unprefixed options (--speed, --output, etc.) go to the animator.
 #
 # Usage:
@@ -135,6 +146,18 @@ while [[ $# -gt 0 ]]; do
             if [[ $# -gt 0 && "$1" != -* ]]; then
                 COMPUTE_ARGS+=("$1"); shift
             fi
+            ;;
+        --line-delete-in-place)
+            POSTPROCESS_ARGS+=("--line-delete-in-place")
+            shift
+            ;;
+        --indent-last)
+            POSTPROCESS_ARGS+=("--indent-last")
+            shift
+            ;;
+        --overwrite)
+            POSTPROCESS_ARGS+=("--overwrite")
+            shift
             ;;
         --postprocess-*)
             opt="${1#--postprocess-}"

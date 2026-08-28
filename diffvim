@@ -39,6 +39,18 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Defaults (can be overridden by env vars or --speed)
 # ---------------------------------------------------------------------------
+
+# Load config file if it exists (~/.config/diffvim/config or ~/.diffvimrc)
+if [[ -z "${DIFFVIM_CONFIG_LOADED:-}" ]]; then
+    for cfg in "$HOME/.config/diffvim/config" "$HOME/.diffvimrc"; do
+        if [[ -f "$cfg" ]]; then
+            source "$cfg"
+            export DIFFVIM_CONFIG_LOADED=1
+            break
+        fi
+    done
+fi
+
 export DIFFVIM_TICK_MS=${DIFFVIM_TICK_MS:-16}
 export DIFFVIM_TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-50}
 export DIFFVIM_DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-40}
@@ -338,6 +350,15 @@ PRESETS:
   review                   --pacing review --highlight hunk --dim-unchanged
   demo                     --pacing gaussian --speed 0.7 --highlight inline
   ai-code                  --highlight inline --pacing adaptive
+
+CONFIG FILE:
+  ~/.config/diffvim/config  or  ~/.diffvimrc
+    Sourced as bash. Set DIFFVIM_* env vars to customize defaults.
+    Example:
+      DIFFVIM_INDENT_LAST=1
+      DIFFVIM_LINE_DELETE_IN_PLACE=1
+      DIFFVIM_DELETE_PACING=word
+
 
 SEE ALSO:
   man diffvim, man diffvim-compute
