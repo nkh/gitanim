@@ -1,13 +1,13 @@
-#compdef diffvim diffvim-tmux diffvim.pl
+#compdef ad_vim ad_tmux ad_vim.pl
 
-# Zsh completion for diffvim / diffvim-tmux / diffvim.pl
+# Zsh completion for ad_vim / ad_tmux / ad_vim.pl
 #
 # Install:
-#   cp completion/_diffvim /usr/local/share/zsh/site-functions/
+#   cp completion/_ad_vim /usr/local/share/zsh/site-functions/
 # or:
-#   cp completion/_diffvim ~/.zsh/functions/
+#   cp completion/_ad_vim ~/.zsh/functions/
 
-_diffvim() {
+_ad_vim() {
     local -a opts
     opts=(
         '--speed[Speed multiplier]:speed:(0.5 1 2 3 5)'
@@ -58,4 +58,4 @@ _diffvim() {
     _arguments -s $opts
 }
 
-_diffvim "$@"
+_ad_vim "$@"

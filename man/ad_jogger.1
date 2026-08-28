@@ -1,4 +1,4 @@
-.TH DIFFVIM-JOGGER 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.TH AD-JOGGER 1 "2026-08-16" "ad 1.0" "User Commands"
 .SH NAME
 diffvim-jogger \- exercise diffvim across many option combinations on synthetic test cases
 .SH SYNOPSIS
@@ -12,7 +12,7 @@ diffvim-jogger \- exercise diffvim across many option combinations on synthetic 
 generates 18 small synthetic test file pairs covering common
 insertion/deletion patterns (mid-line replacement, insert at start,
 delete at end, block delete, unicode, indent change, etc.), then runs
-.B diffvim
+.B ad_vim
 in log mode 2 with each of ~25 option combinations on every test pair,
 writing one log file per (combination, case) into the results directory.
 A Markdown report is also written summarising the test cases and the
@@ -103,7 +103,7 @@ Several combined combos
 .TP
 .B DIFFVIM_BIN
 Override the
-.B diffvim
+.B ad_vim
 binary to invoke (default:
 .IR <script_dir>/diffvim ).
 

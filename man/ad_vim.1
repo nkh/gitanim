@@ -1,14 +1,14 @@
-.TH DIFFVIM 1 "2026-08-18" "diffvim 1.4" "User Commands"
+.TH AD 1 "2026-08-18" "ad 1.0" "User Commands"
 .SH NAME
-diffvim \- animate a code diff in vim as if a human were typing it
+ad_vim \- animate a code diff in vim as if a human were typing it
 .SH SYNOPSIS
-.B diffvim
+.B ad_vim
 .RI [ options ]
 .RI <oldfile>
 .RI <newfile>
 
 .br
-.B diffvim
+.B ad_vim
 .RI [ options ]
 .B \-\-multi
 .RI <old1:new1>
@@ -16,7 +16,7 @@ diffvim \- animate a code diff in vim as if a human were typing it
 \&...
 
 .br
-.B diffvim
+.B ad_vim
 .RI [ options ]
 .B \-\-replay
 .RI <file>
@@ -26,7 +26,7 @@ diffvim \- animate a code diff in vim as if a human were typing it
 .IR REV ]
 
 .br
-.B diffvim
+.B ad_vim
 .RI [ options ]
 .B \-\-git-rev
 .IR REV..REV
@@ -34,21 +34,21 @@ diffvim \- animate a code diff in vim as if a human were typing it
 [<file> ...]
 
 .br
-.B diffvim
+.B ad_vim
 .RI [ options ]
 .B \-\-diff
 .IR FILE
 .RB [ \-\-dry-run ]
 
 .br
-.B diffvim
+.B ad_vim
 .B \-\-version
 .br
-.B diffvim
+.B ad_vim
 .B \-\-help
 
 .SH DESCRIPTION
-.B diffvim
+.B ad_vim
 opens the old version of a file in vim and animates the transformation into
 the new version character by character. The cursor glides between change
 locations with smooth ease-in-out acceleration, and only the actually-changed
@@ -66,7 +66,7 @@ is required).
 
 Three implementations are available:
 .TP
-.B diffvim
+.B ad_vim
 Bash launcher + embedded Vimscript engine. Uses vim's native
 .BR timer_start ()
 for async animation. No external dependencies beyond vim 8+. Best for
@@ -495,62 +495,62 @@ diffvim old.py new.py
 .PP
 .nf
 # Half speed for a presentation
-diffvim \-\-speed 0.5 old.py new.py
+ad_vim \-\-speed 0.5 old.py new.py
 
 # 3x speed for quick review
-diffvim \-\-speed 3 old.py new.py
+ad_vim \-\-speed 3 old.py new.py
 .fi
 
 .SS Output
 .PP
 .nf
 # Write result to file and quit
-diffvim \-\-output result.py old.py new.py
+ad_vim \-\-output result.py old.py new.py
 .fi
 
 .SS Display Options
 .PP
 .nf
 # Center cursor, highlight hunks, fold unchanged regions
-diffvim \-\-scroll zz \-\-highlight hunk \-\-context 0 old.py new.py
+ad_vim \-\-scroll zz \-\-highlight hunk \-\-context 0 old.py new.py
 
 # High-contrast theme
-diffvim \-\-theme high-contrast old.py new.py
+ad_vim \-\-theme high-contrast old.py new.py
 .fi
 
 .SS Diff Algorithms
 .PP
 .nf
 # Use patience diff for more human-readable hunks
-diffvim \-\-algorithm patience old.py new.py
+ad_vim \-\-algorithm patience old.py new.py
 
 # Word-level diff
-diffvim \-\-word-diff old.py new.py
+ad_vim \-\-word-diff old.py new.py
 .fi
 
 .SS Unified Options
 .PP
 .nf
 # Deletion strategy: word-by-word with acceleration
-diffvim \-\-delete-pacing word old.py new.py
+ad_vim \-\-delete-pacing word old.py new.py
 
 # Fast deletion for large refactors
-diffvim \-\-delete-pacing instant \-\-delete-speed fast old.py new.py
+ad_vim \-\-delete-pacing instant \-\-delete-speed fast old.py new.py
 
 # Insertion strategy: batch short words
-diffvim \-\-insert-pacing word old.py new.py
+ad_vim \-\-insert-pacing word old.py new.py
 
 # Timing: human-like jitter
-diffvim \-\-pacing gaussian old.py new.py
+ad_vim \-\-pacing gaussian old.py new.py
 
 # Timing: pause every 5 lines for review
-diffvim \-\-pacing review old.py new.py
+ad_vim \-\-pacing review old.py new.py
 
 # Highlight freshly typed/deleted chars
-diffvim \-\-highlight inline old.py new.py
+ad_vim \-\-highlight inline old.py new.py
 
 # Highlight the entire hunk before animating
-diffvim \-\-highlight hunk old.py new.py
+ad_vim \-\-highlight hunk old.py new.py
 .fi
 
 .SS Buffer State After Animation
@@ -560,53 +560,53 @@ diffvim \-\-highlight hunk old.py new.py
 diffvim old.py new.py
 
 # Keep buffer modified; ':q!' required to quit
-diffvim \-\-keep-dirty old.py new.py
+ad_vim \-\-keep-dirty old.py new.py
 .fi
 
 .SS Multi-file Animation
 .PP
 .nf
-diffvim \-\-multi old1.py:new1.py old2.py:new2.py
+ad_vim \-\-multi old1.py:new1.py old2.py:new2.py
 .fi
 
 .SS Git Integration
 .PP
 .nf
 # Replay last 5 commits of a file
-diffvim \-\-replay src/main.py
+ad_vim \-\-replay src/main.py
 
 # Specific commit range
-diffvim \-\-replay src/main.py \-\-from v1.0 \-\-to HEAD
+ad_vim \-\-replay src/main.py \-\-from v1.0 \-\-to HEAD
 
 # Using \-\-git-rev syntax
-diffvim \-\-git-rev HEAD~3..HEAD src/main.py
+ad_vim \-\-git-rev HEAD~3..HEAD src/main.py
 
 # Show git blame during animation
-diffvim \-\-git-blame old.py new.py
+ad_vim \-\-git-blame old.py new.py
 .fi
 
 .SS Unified Diff Input
 .PP
 .nf
 # Animate from a patch file
-diffvim \-\-diff my.patch
+ad_vim \-\-diff my.patch
 
 # From stdin
-git diff | diffvim \-\-diff \-
+git diff | ad_vim \-\-diff \-
 .fi
 
 .SS Debugging
 .PP
 .nf
 # Dry run (print ops without launching vim)
-diffvim \-\-dry-run old.py new.py
+ad_vim \-\-dry-run old.py new.py
 
 # Verbose logging
-diffvim \-\-debug old.py new.py
+ad_vim \-\-debug old.py new.py
 cat /tmp/diffvim-debug.log
 
 # Compare parsers
-diffvim \-\-parser-compare old.py new.py
+ad_vim \-\-parser-compare old.py new.py
 .fi
 
 .SS Vim Plugin
@@ -777,7 +777,7 @@ and
 .B diffvim.pl
 can experience race conditions where Ex command text leaks into normal
 mode when commands are sent faster than vim processes them. The
-.B diffvim
+.B ad_vim
 implementation does not have this issue. Use
 .B \-\-remote
 (diffvim.pl) for an alternative that avoids tmux.

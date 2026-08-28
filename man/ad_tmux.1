@@ -1,4 +1,4 @@
-.TH DIFFVIM-TMUX 1 "2026-08-16" "diffvim 1.4" "User Commands"
+.TH AD-TMUX 1 "2026-08-16" "ad 1.0" "User Commands"
 .SH NAME
 diffvim-tmux \- animate a code diff in vim inside a tmux pane (bash + tmux variant)
 .SH SYNOPSIS
@@ -45,7 +45,7 @@ Because the orchestrator and vim run in separate processes,
 .B diffvim-tmux
 can exhibit race conditions if bash queues keys faster than vim can
 process them. For race-free animation, use
-.B diffvim
+.B ad_vim
 instead.
 
 .SH OPTIONS

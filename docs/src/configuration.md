@@ -16,7 +16,7 @@ If `XDG_CONFIG_HOME` is unset, it defaults to `~/.config/`. So the default confi
 ~/.config/ad/config
 ```
 
-There are no legacy fallback paths. The `~/.diffvimrc` file is no longer read.
+There are no legacy fallback paths. The `~/.config/ad/config` file is no longer read.
 
 ## Creating the config file
 

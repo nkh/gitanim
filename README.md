@@ -1,76 +1,94 @@
-# gitanim — animate code diffs as if a human were typing them
+# ad — animate a diff
 
-## What is this?
+`ad` is a toolkit for animating code diffs. It opens an old file and progressively transforms it into the new file, character by character, as if a human were typing the changes.
 
-gitanim animates a code diff — it opens the old file and progressively
-transforms it into the new file, character by character, as if a human
-were typing the changes.
+`ad_vim` is the vim application — one consumer of the toolkit — that renders the animation in vim.
 
 ## Pipeline
 
 ```
-<old> <new> → compute → postprocess → pace → animator → terminal animation
+<old> <new> → ad_compute → ad_postprocess → ad_layer_pace → ad → animation
 ```
 
 | Stage | Binary | Language | Purpose |
 |-------|--------|----------|---------|
 | compute | `bin/ad_compute` | C++ | Patience diff → raw char ops |
-| postprocess | `bin/ad_postprocess` | C | Reorder ops, compute (line,col) positions |
-| pace | `bin/ad_layer_pace` | C | Insert delays between ops |
+| postprocess | `pipeline/bin/ad_postprocess` | Bash | Layer orchestrator (runs `--ad-layer=<name>` chain) |
+| layers | `bin/ad_layer_<name>` | C + Perl | Reorder, overwrite, indent_last, pace, highlight, … |
 | animator | `bin/ad` | C | Apply ops to buffer, render to terminal |
 
-Each stage also has a Perl implementation (in `animator/perl/` and
-`compute/perl/`) that produces identical output.
+Each layer has both a C implementation (`layers/c/`) and a Perl twin (`layers/perl/`) that produce byte-identical output.
 
 ## Quick start
 
 ```bash
-# Animate a diff in vim:
-./diffvim old.py new.py
+# Build all binaries into bin/
+make
 
-# Animate using the C animator (terminal):
-./animator/ad_pipeline old.py new.py
+# Animate a diff in vim:
+./apps/vim/ad_vim old.py new.py
+
+# Run the full pipeline without vim (terminal output):
+./pipeline/bin/ad_pipeline old.py new.py
+
+# List available layers:
+./pipeline/bin/ad_postprocess --list-layers
+
+# Add a custom layer to the chain:
+./pipeline/bin/ad_pipeline --ad-layer=my_custom_layer old.py new.py
 
 # Debug the pipeline:
-bash scripts/dv_debug.sh old.py new.py
+./tools/bin/ad_debug.sh old.py new.py
 
 # Run all tests:
-bash tests/run_minimal_tests.sh        # 25 minimal cases
-perl animator/tests/test_all_animators.pl   # animator unit tests
+make test
 ```
 
 ## Directory structure
 
 | Directory | Contents |
 |-----------|----------|
-| `animator/` | Animator implementations (C + Perl) + tests + docs |
-| `compute/` | Compute (diff) implementation (C++ + Perl fallback) |
-| `DiffVim/` | Perl module for diff parsing |
-| `autoload/` | Vimscript engine (sourced by the `diffvim` launcher) |
-| `plugin/` | Vim plugin entry point |
-| `scripts/` | Debugging, testing, and verification scripts |
-| `tests/` | Test suites + minimal test cases |
-| `tests/tests/examples/` | 42 old/new file pairs for testing |
-| `docs/` | Documentation (DEBUGGING, FORMATS, PIPELINE, etc.) |
-| `man/` | Man pages |
+| `bin/` | Build output (gitignored; created by `make`) |
+| `diff_engine/` | Diff engine (C++ + Perl) — LCS/Hirschberg |
+| `layers/` | Postprocess layer plugins (C + Perl twins) + per-layer tests |
+| `animator/` | Animator backend (C + Perl) |
+| `pipeline/bin/` | Orchestrator (`ad_postprocess`) + pipeline driver (`ad_pipeline`) |
+| `apps/vim/` | `ad_vim` — the vim application launcher |
+| `tools/bin/` | Helper scripts (`ad_debug`, `ad_snapshot`, `ad_record`, etc.) |
+| `perl/` | Shared Perl library code |
+| `tests/` | Cross-cutting tests + `examples/` (canonical test corpus) |
+| `docs/` | mdBook documentation source + `design/` (historical design docs) |
+| `man/` | Manpages |
 | `completion/` | Shell completions (bash, fish, zsh) |
 | `packaging/` | Homebrew formula |
+| `.github/workflows/` | CI: build-and-test, docs, lint, release |
+
+## Configuration
+
+`ad_vim` reads config from `$XDG_CONFIG_HOME/ad/config` (defaults to `~/.config/ad/config`). See [docs/src/configuration.md](docs/src/configuration.md) for the full reference.
 
 ## Documentation
 
-- [docs/DEBUGGING.md](docs/DEBUGGING.md) — How to debug the pipeline
-- [docs/POSTPROCESS_TRANSFORMS.md](docs/POSTPROCESS_TRANSFORMS.md) — What the postprocess does
-- [docs/FORMATS.md](docs/FORMATS.md) — Intermediary file formats
-- [docs/PIPELINE.md](docs/PIPELINE.md) — Pipeline architecture
-- [docs/VOCABULARY.md](docs/VOCABULARY.md) — Glossary
+- [docs/src/](docs/src/) — User guide (mdBook source)
+- [docs/src/plugin-layers.md](docs/src/plugin-layers.md) — Plugin layer contract
+- [docs/src/contributing.md](docs/src/contributing.md) — How to add a layer (TDD)
+- [docs/DOCS_AUDIT.md](docs/DOCS_AUDIT.md) — Inventory of design docs with relevance scores
+- [docs/RESTRUCTURE_ANALYSIS.md](docs/RESTRUCTURE_ANALYSIS.md) — Restructure analysis
+
+Build the mdBook:
+
+```bash
+cd docs && mdbook serve   # http://localhost:3000
+```
 
 ## Rebuilding after git pull
 
-The compute binary is gitignored. After `git pull`:
+Binaries are gitignored. After `git pull`:
 
 ```bash
-make -C compute clean && make -C compute
+make clean && make
 ```
 
-If you see `# diffvim precomputed diff v1` in compute output, your binary
-is stale.
+## License
+
+See [LICENSE](LICENSE).

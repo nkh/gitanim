@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Bash completion for diffvim / diffvim-tmux / diffvim.pl
+# Bash completion for ad_vim / ad_tmux / ad_vim.pl
 #
 # Install:
-#   cp completion/diffvim.bash /etc/bash_completion.d/diffvim
+#   cp completion/ad_vim.bash /etc/bash_completion.d/ad_vim
 # or:
-#   cp completion/diffvim.bash ~/.bash_completion.d/diffvim
+#   cp completion/ad_vim.bash ~/.bash_completion.d/ad_vim
 
-_diffvim() {
+_ad_vim() {
     local cur prev opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -85,6 +85,6 @@ _diffvim() {
     COMPREPLY=( $(compgen -f -- "$cur") )
 }
 
-complete -F _diffvim diffvim
-complete -F _diffvim diffvim-tmux
-complete -F _diffvim diffvim.pl
+complete -F _ad_vim ad_vim
+complete -F _ad_vim ad_tmux
+complete -F _ad_vim ad_vim.pl

@@ -1,10 +1,10 @@
-# Fish completion for diffvim / diffvim-tmux / diffvim.pl
+# Fish completion for ad_vim / ad_tmux / ad_vim.pl
 #
 # Install:
-#   cp completion/diffvim.fish ~/.config/fish/completions/
+#   cp completion/ad_vim.fish ~/.config/fish/completions/
 
 # Options that don't take arguments
-set -l diffvim_flags \
+set -l ad_vim_flags \
     --multi \
     --replay \
     --dry-run \
@@ -25,7 +25,7 @@ set -l diffvim_flags \
     -V
 
 # Options that take arguments
-set -l diffvim_opts \
+set -l ad_vim_opts \
     --speed \
     --output \
     --context \
@@ -53,8 +53,8 @@ set -l diffvim_opts \
     --diff
 
 # Complete flags
-for cmd in diffvim diffvim-tmux diffvim.pl
-    complete -c $cmd -f -a "$diffvim_flags"
+for cmd in ad_vim ad_tmux ad_vim.pl
+    complete -c $cmd -f -a "$ad_vim_flags"
 
     # Options with values
     complete -c $cmd -f -r -a "perl" -d "Diff parser" -n '__fish_seen_argument --parser -c $cmd'
