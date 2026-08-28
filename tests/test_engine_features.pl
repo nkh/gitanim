@@ -110,9 +110,9 @@ VIM
     open $fh, '>', $engine_file; print $fh $engine; close $fh;
 
     # Set env vars BEFORE launching vim
-    local $ENV{DIFFVIM_WORD_DIFF} = $env->{word_diff} ? '1' : '';
-    local $ENV{DIFFVIM_SEMANTIC_CLEANUP} = $env->{semantic_cleanup} ? '1' : '';
-    local $ENV{DIFFVIM_INDENT_AWARE} = $env->{indent_aware} ? '1' : '';
+    local $ENV{AD_WORD_DIFF} = $env->{word_diff} ? '1' : '';
+    local $ENV{AD_SEMANTIC_CLEANUP} = $env->{semantic_cleanup} ? '1' : '';
+    local $ENV{AD_INDENT_AWARE} = $env->{indent_aware} ? '1' : '';
 
     system("vim -e -s -n -Nu NONE -U NONE " .
            "-c \"let g:diffvim_new_file = '$newf'\" " .

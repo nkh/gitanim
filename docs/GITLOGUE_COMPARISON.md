@@ -21,7 +21,7 @@
 | Multi-file | Yes (`--multi old1:new1 old2:new2`) | Yes (plays entire commit history) |
 | Git history | Yes (`--replay`, `--git-rev`) | Yes (primary use case) |
 | Pre-computed | Yes (`--precomputed FILE`) | No |
-| Standalone tool | Yes (diffvim-compute-cpp) | No (embedded in animation engine) |
+| Standalone tool | Yes (ad_compute) | No (embedded in animation engine) |
 
 ### Op pipeline
 
@@ -85,8 +85,8 @@
    `less`, `grep`, `awk`, `diff`. gitlogue's steps are in-memory Rust
    structs.
 
-5. **Standalone tools** — `diffvim-compute-cpp`, `diffvim-postprocess`,
-   `diffvim-pace`, `diffvim-animator-c` are all standalone CLI tools
+5. **Standalone tools** — `ad_compute`, `ad_postprocess`,
+   `ad_layer_pace`, `ad` are all standalone CLI tools
    that can be piped. gitlogue has no standalone tools.
 
 6. **Per-op positioning** — every op carries (line, col), making the

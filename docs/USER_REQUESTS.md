@@ -273,7 +273,7 @@ extensive documentation.
 107. **Timing parameters always added to log** — except if `--no-log-timing`.
 108. **Rule: always update USER_REQUESTS.md.**
 109. **Add a `--preset` option** — sets all options to maximize non-char
-     delete and optimize acceleration. Also handle `DIFFVIM_PRESET` env
+     delete and optimize acceleration. Also handle `AD_PRESET` env
      var for user-defined preferred options.
 110. **Word-level acceleration for char-by-char insert/delete** — start
      slowly, accelerate, then pause slightly. Total time same as char-by-
@@ -304,7 +304,7 @@ extensive documentation.
      every binary in the project (`diffvim`, `diffvim-tmux`,
      `diffvim.pl`, `diffvim-compare`, `diffvim-jogger`,
      `diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
-     `set_config`, and the four `diffvim-compute-cpp`
+     `set_config`, and the four `ad_compute`
      variants) must respond to `-h` / `--help`, must have a manpage in
      `man/`, and must be documented in the mdBook.
 120. **USER_REQUESTS.md must be updated** — every session adds entries

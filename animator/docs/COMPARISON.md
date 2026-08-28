@@ -1,4 +1,4 @@
-# Comparison: diffvim (vim-based) vs. diffvim-animator-c (standalone)
+# Comparison: diffvim (vim-based) vs. ad (standalone)
 
 **Date:** 2026-08-17 (updated 2026-08-18 after Phase A–C refactor)
 
@@ -33,22 +33,22 @@ Everything in one process, one language, one 4,500-line script.
 ```
 User runs:  diffvim old.py new.py  (or the pipeline directly)
 
-→ diffvim-compute-cpp old.py new.py      (existing, C++)
+→ ad_compute old.py new.py      (existing, C++)
     → computes raw char ops
     → stdout: raw ops
     (falls back to compute/perl/compute_builtin.pl if missing)
 
-→ diffvim-postprocess --op-order optimize  (Perl/C)
+→ ad_postprocess --op-order optimize  (Perl/C)
     → reorders ops within lines
     → adds per-op (line, col) positions
     → stdout: positioned ops (TSV)
 
-→ pp_pace --delete-pacing word         (Perl/C)
+→ ad_layer_pace --delete-pacing word         (Perl/C)
     → analyzes entire op stream
     → adds delays and batching (positions passed through)
     → stdout: timed op stream (TSV v2)
 
-→ diffvim-animator-c-c old.py                  (Perl/C)
+→ ad-c old.py                  (Perl/C)
     → reads timed op stream
     → sets cursor per op, then applies
     → plays back ops in terminal (or --no-display)
@@ -256,10 +256,10 @@ are available alongside it:
 diffvim old.py new.py
 
 # New (standalone)
-diffvim-compute-cpp old.py new.py |
-  diffvim-postprocess --op-order optimize |
-  pp_pace --delete-pacing word |
-  diffvim-animator-c-c old.py
+ad_compute old.py new.py |
+  ad_postprocess --op-order optimize |
+  ad_layer_pace --delete-pacing word |
+  ad-c old.py
 ```
 
 ### Phase 2: Wrapper integration

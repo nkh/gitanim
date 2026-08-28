@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# diffvim-postprocess — Post-processes raw char ops from diffvim-compute.
+# ad_postprocess — Post-processes raw char ops from ad_compute.
 #
 # Reads raw char ops (HUNK/keep/delete/insert) from stdin, applies
 # post-processing transformations, computes per-op (line, col) positions,
@@ -16,7 +16,7 @@
 #   newline_insert\t<line>\t<col>
 #
 # Usage:
-#   diffvim-postprocess [options] < raw_ops > ordered_ops
+#   ad_postprocess [options] < raw_ops > ordered_ops
 #
 # Options:
 #   --op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite
@@ -84,9 +84,9 @@ for my $spec (@transforms) {
 
 if ($help) {
     print STDERR <<USAGE;
-diffvim-postprocess — Post-process raw char ops
+ad_postprocess — Post-process raw char ops
 
-Usage: diffvim-postprocess [options] < raw_ops > ordered_ops
+Usage: ad_postprocess [options] < raw_ops > ordered_ops
 
 Options:
   --op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite
@@ -97,8 +97,8 @@ Options:
   -h, --help               Show this help
 
 Examples:
-  diffvim-compute-c old.py new.py | diffvim-postprocess --op-order optimize
-  diffvim-compute-c old.py new.py | diffvim-postprocess --semantic-cleanup | diffvim-postprocess --op-order left-to-right
+  ad_compute-c old.py new.py | ad_postprocess --op-order optimize
+  ad_compute-c old.py new.py | ad_postprocess --semantic-cleanup | ad_postprocess --op-order left-to-right
 USAGE
     exit 0;
 }

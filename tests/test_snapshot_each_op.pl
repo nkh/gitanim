@@ -135,12 +135,12 @@ for my $case (@cases) {
     open $fh,  '>:raw', $new; print $fh $new_bytes; close $fh;
 
     # Run the standard pipeline
-    system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' $tmpdir/raw_$name.txt 2>/dev/null");
-    system("$root/animator/bin/diffvim-postprocess < $tmpdir/raw_$name.txt > $tmpdir/post_$name.txt 2>/dev/null");
-    system("$root/animator/bin/pp_pace < $tmpdir/post_$name.txt > $tmpdir/timed_$name.txt 2>/dev/null");
+    system("$root/bin/ad_compute '$old' '$new' $tmpdir/raw_$name.txt 2>/dev/null");
+    system("$root/bin/ad_postprocess < $tmpdir/raw_$name.txt > $tmpdir/post_$name.txt 2>/dev/null");
+    system("$root/bin/ad_layer_pace < $tmpdir/post_$name.txt > $tmpdir/timed_$name.txt 2>/dev/null");
 
     # ── Mode 1: final output ──
-    system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot $tmpdir/snap_$name.txt '$old' < $tmpdir/timed_$name.txt 2>/dev/null");
+    system("$root/bin/ad --no-display --speed 1000 --snapshot $tmpdir/snap_$name.txt '$old' < $tmpdir/timed_$name.txt 2>/dev/null");
     open $fh, '<:raw', "$tmpdir/snap_$name.txt"; my $snap = do { local $/; <$fh> }; close $fh;
 
     my $ok1 = ($snap eq $new_bytes);
@@ -179,7 +179,7 @@ for my $case (@cases) {
 
     # Run the animator with the modified timed stream — it will write a
     # snapshot file after every op.
-    system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 '$old' < $tmpdir/timed_snaps_$name.txt 2>/dev/null");
+    system("$root/bin/ad --no-display --speed 1000 '$old' < $tmpdir/timed_snaps_$name.txt 2>/dev/null");
 
     # Now walk the timed stream with the reference animator and verify
     # each snapshot matches. Reference works on codepoints (decoded).

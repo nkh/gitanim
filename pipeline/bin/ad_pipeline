@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# diffvim-pipeline — Runs the full animator pipeline: compute → postprocess →
+# ad_pipeline — Runs the full animator pipeline: compute → postprocess →
 # pace → animator. Routes options to each stage using prefixed option names.
 #
 # Options are routed by prefix:
-#   --compute-*      → diffvim-compute-cpp
-#   --postprocess-*  → diffvim-postprocess (C, fallback to Perl)
-#   --pace-*         → pp_pace (C, fallback to Perl)
-#   --animator-*     → diffvim-animator (C, fallback to Perl)
+#   --compute-*      → ad_compute
+#   --postprocess-*  → ad_postprocess (C, fallback to Perl)
+#   --pace-*         → ad_layer_pace (C, fallback to Perl)
+#   --animator-*     → ad (C, fallback to Perl)
 #
-# Load config file if it exists (~/.config/diffvim/config or ~/.diffvimrc)
-if [[ -z "${DIFFVIM_CONFIG_LOADED:-}" ]]; then
+# Load config file if it exists (~/.config/ad/config or ~/.config/ad/config)
+if [[ -z "${AD_CONFIG_LOADED:-}" ]]; then
     for cfg in "$HOME/.config/diffvim/config" "$HOME/.diffvimrc"; do
         if [[ -f "$cfg" ]]; then
             source "$cfg"
-            export DIFFVIM_CONFIG_LOADED=1
+            export AD_CONFIG_LOADED=1
             break
         fi
     done
@@ -22,12 +22,12 @@ fi
 # Unprefixed options (--speed, --output, etc.) go to the animator.
 #
 # Usage:
-#   diffvim-pipeline [options] <oldfile> <newfile>
+#   ad_pipeline [options] <oldfile> <newfile>
 #
 # Examples:
-#   diffvim-pipeline old.py new.py
-#   diffvim-pipeline --compute-algorithm patience --pace-delete-pacing word old.py new.py
-#   diffvim-pipeline --animator-no-display --animator-snapshot out.txt old.py new.py
+#   ad_pipeline old.py new.py
+#   ad_pipeline --compute-algorithm patience --pace-delete-pacing word old.py new.py
+#   ad_pipeline --animator-no-display --animator-snapshot out.txt old.py new.py
 
 set -euo pipefail
 
@@ -38,7 +38,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Compute: C++ only. If the binary is missing, fall back to the Perl
 # inline LCS (compute_builtin.pl, added in this refactor). Both produce
 # the same op-stream format.
-COMPUTE_CPP="$ROOT_DIR/compute/bin/diffvim-compute-cpp"
+COMPUTE_CPP="$ROOT_DIR/bin/ad_compute"
 COMPUTE_PERL="$ROOT_DIR/compute/perl/compute_builtin.pl"
 
 if [[ -f "$COMPUTE_CPP" && -x "$COMPUTE_CPP" ]]; then
@@ -46,7 +46,7 @@ if [[ -f "$COMPUTE_CPP" && -x "$COMPUTE_CPP" ]]; then
 elif [[ -f "$COMPUTE_PERL" ]]; then
     COMPUTE="perl $COMPUTE_PERL"
 else
-    echo "diffvim-pipeline: no compute tool available." >&2
+    echo "ad_pipeline: no compute tool available." >&2
     echo "  Expected: $COMPUTE_CPP" >&2
     echo "  Or fallback: $COMPUTE_PERL" >&2
     echo "  Run 'make -C compute' to build the C++ tool." >&2
@@ -54,23 +54,23 @@ else
 fi
 
 # Postprocess: C preferred, Perl fallback
-POSTPROCESS_PERL="$ROOT_DIR/animator/perl/postprocess.pl"
-POSTPROCESS="$ROOT_DIR/animator/bin/diffvim-postprocess"
+POSTPROCESS_PERL="$ROOT_DIR/layers/perl/postprocess.pl"
+POSTPROCESS="$ROOT_DIR/bin/ad_postprocess"
 [ ! -f "$POSTPROCESS" ] && POSTPROCESS="perl $POSTPROCESS_PERL"
 
 # Pace: C preferred, Perl fallback
-PACE_PERL="$ROOT_DIR/animator/perl/pace.pl"
-PACE="$ROOT_DIR/animator/bin/pp_pace"
+PACE_PERL="$ROOT_DIR/layers/perl/ad_layer_pace.pl"
+PACE="$ROOT_DIR/bin/ad_layer_pace"
 [ ! -f "$PACE" ] && PACE="perl $PACE_PERL"
 
 # Decorate: C preferred, Perl fallback
-DECORATE_PERL="$ROOT_DIR/animator/perl/decorate.pl"
-DECORATE="$ROOT_DIR/animator/bin/pp_highlight"
+DECORATE_PERL="$ROOT_DIR/layers/perl/ad_layer_highlight.pl"
+DECORATE="$ROOT_DIR/bin/ad_layer_highlight"
 [ ! -f "$DECORATE" ] && DECORATE="perl $DECORATE_PERL"
 
 # Animator: C preferred, Perl fallback
-ANIMATOR_C="$ROOT_DIR/animator/bin/diffvim-animator-c"
-ANIMATOR_PERL="$ROOT_DIR/animator/perl/animator.pl"
+ANIMATOR_C="$ROOT_DIR/bin/ad"
+ANIMATOR_PERL="$ROOT_DIR/animator/perl/ad.pl"
 if [[ -f "$ANIMATOR_C" ]]; then
     ANIMATOR="$ANIMATOR_C"
 else
@@ -79,27 +79,27 @@ fi
 
 show_help() {
     cat <<HELP
-diffvim-pipeline — Run the full animator pipeline
+ad_pipeline — Run the full animator pipeline
 
-Usage: diffvim-pipeline [options] <oldfile> <newfile>
+Usage: ad_pipeline [options] <oldfile> <newfile>
 
 The pipeline runs 4 stages:
-  1. compute     — diffvim-compute-cpp (C++; Perl builtin fallback)
-  2. postprocess  — diffvim-postprocess (C; Perl fallback)
-  3. pace         — pp_pace (C; Perl fallback)
-  4. animator     — diffvim-animator (C; Perl fallback)
+  1. compute     — ad_compute (C++; Perl builtin fallback)
+  2. postprocess  — ad_postprocess (C; Perl fallback)
+  3. pace         — ad_layer_pace (C; Perl fallback)
+  4. animator     — ad (C; Perl fallback)
 
 Option routing by prefix:
-  --compute-*       Options for diffvim-compute-cpp
+  --compute-*       Options for ad_compute
                     (e.g. --compute-algorithm patience)
-  --postprocess-*   Options for diffvim-postprocess
+  --postprocess-*   Options for ad_postprocess
                     (e.g. --postprocess-op-order optimize,
                           --postprocess-semantic-cleanup)
-  --pace-*          Options for pp_pace
+  --pace-*          Options for ad_layer_pace
                     (e.g. --pace-delete-pacing word,
                           --pace-delete-speed fast,
                           --pace-pacing gaussian)
-  --animator-*      Options for diffvim-animator
+  --animator-*      Options for ad
                     (e.g. --animator-no-display,
                           --animator-snapshot out.txt,
                           --animator-speed 2.0)
@@ -111,16 +111,16 @@ Unprefixed options go to the animator:
   --snapshot FILE   Write buffer to FILE at end
   --help, -h        Show this help
 
-The C++ compute tool (compute/bin/diffvim-compute-cpp) is the default.
+The C++ compute tool (bin/ad_compute) is the default.
 If it is missing, the pipeline falls back to the Perl builtin LCS.
 
 Examples:
-  diffvim-pipeline old.py new.py
-  diffvim-pipeline --pace-delete-pacing word --no-display --snapshot out.txt old.py new.py
-  diffvim-pipeline --compute-algorithm patience --postprocess-semantic-cleanup --pace-pacing gaussian old.py new.py
+  ad_pipeline old.py new.py
+  ad_pipeline --pace-delete-pacing word --no-display --snapshot out.txt old.py new.py
+  ad_pipeline --compute-algorithm patience --postprocess-semantic-cleanup --pace-pacing gaussian old.py new.py
 
 Environment:
-  DIFFVIM_COMPUTE_BIN    Override compute binary path (advanced)
+  AD_COMPUTE_BIN    Override compute binary path (advanced)
 HELP
 }
 
@@ -171,7 +171,7 @@ while [[ $# -gt 0 ]]; do
             fi
             ;;
         --list-layers)
-            exec "$ROOT_DIR/animator/bin/diffvim-postprocess" --list-layers
+            exec "$ROOT_DIR/bin/ad_postprocess" --list-layers
             ;;
         --postprocess-*)
             opt="${1#--postprocess-}"
@@ -244,10 +244,10 @@ while [[ $# -gt 0 ]]; do
                     [[ -n "$val" ]] && ANIMATOR_ARGS+=("$dp_val")
                     ;;
                 --left-to-right)
-                    export DIFFVIM_LEFT_TO_RIGHT=1
+                    export AD_LEFT_TO_RIGHT=1
                     ;;
                 --no-left-to-right)
-                    export DIFFVIM_LEFT_TO_RIGHT=0
+                    export AD_LEFT_TO_RIGHT=0
                     ;;
                 *)
                     ANIMATOR_ARGS+=("$opt")
@@ -271,8 +271,8 @@ OLD="${POSITIONAL[0]}"
 NEW="${POSITIONAL[1]}"
 
 # Optional override via environment (advanced; rarely needed)
-if [[ -n "${DIFFVIM_COMPUTE_BIN:-}" && -f "$DIFFVIM_COMPUTE_BIN" ]]; then
-    COMPUTE="$DIFFVIM_COMPUTE_BIN"
+if [[ -n "${AD_COMPUTE_BIN:-}" && -f "$AD_COMPUTE_BIN" ]]; then
+    COMPUTE="$AD_COMPUTE_BIN"
 fi
 
 # Create temp files
@@ -289,7 +289,7 @@ COLORIZE_PID=""
 # with the compute → postprocess → pace stages.
 COLORIZE_TOOL="$ROOT_DIR/animator/perl/colorize.pl"
 if [[ -f "$COLORIZE_TOOL" ]]; then
-    COLORIZE_BACKEND="${DIFFVIM_COLORIZE_BACKEND:-auto}"
+    COLORIZE_BACKEND="${AD_COLORIZE_BACKEND:-auto}"
     # Run both colorizations in the background, output to temp files
     ( perl "$COLORIZE_TOOL" --backend "$COLORIZE_BACKEND" "$OLD" "$COLORIZE_OLD" 2>/dev/null
       perl "$COLORIZE_TOOL" --backend "$COLORIZE_BACKEND" "$NEW" "$COLORIZE_NEW" 2>/dev/null ) &
@@ -300,7 +300,7 @@ fi
 for f in "$OLD" "$NEW"; do
     if [[ -f "$f" ]]; then
         if head -c 8192 "$f" | grep -qP '\x00'; then
-            echo "diffvim-pipeline: error: binary file detected: $f" >&2
+            echo "ad_pipeline: error: binary file detected: $f" >&2
             echo "  Binary files cannot be animated. Aborting." >&2
             exit 1
         fi
@@ -312,7 +312,7 @@ run_stage() {
     local name="$1"; shift
     local output_file="$1"; shift
     if ! "$@" 2>/dev/null > "$output_file"; then
-        echo "diffvim-pipeline: error: stage '$name' failed" >&2
+        echo "ad_pipeline: error: stage '$name' failed" >&2
         echo "  Command: $*" >&2
         exit 1
     fi
@@ -322,7 +322,7 @@ run_stage() {
 run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS"
 
 # Stage 2: Postprocess (pass old file path for buffer simulation)
-export DV_OLD_FILE="$OLD"
+export AD_OLD_FILE="$OLD"
 run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 
 # Stage 3: Pace

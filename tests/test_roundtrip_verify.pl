@@ -17,9 +17,9 @@ use warnings;
 use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
-my $compute = "$root/compute/bin/diffvim-compute-cpp";
-my $postprocess = "perl $root/animator/perl/postprocess.pl";
-my $pace = "perl $root/animator/perl/pace.pl";
+my $compute = "$root/bin/ad_compute";
+my $postprocess = "perl $root/layers/perl/postprocess.pl";
+my $pace = "perl $root/layers/perl/ad_layer_pace.pl";
 
 my $pass = 0;
 my $fail = 0;
@@ -116,8 +116,8 @@ for my $case (@cases) {
 
     # Test all 2 animators (Go was removed in the refactor — C and Perl remain)
     for my $animator (
-        ['Perl', "perl $root/animator/perl/animator.pl"],
-        ['C',    "$root/animator/bin/diffvim-animator-c"],
+        ['Perl', "perl $root/animator/perl/ad.pl"],
+        ['C',    "$root/bin/ad"],
     ) {
         my ($lang, $cmd) = @$animator;
         my $out = "$tmpdir/out_$lang.txt";

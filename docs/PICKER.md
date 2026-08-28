@@ -79,7 +79,7 @@ the range that touched the file, then animates each transition
 - `--to REV` — ending commit (default: working copy / HEAD)
 - `--git-rev REV..REV` — shorthand for `--from REV1 --to REV2`
 
-## Standalone Animator (diffvim-pipeline)
+## Standalone Animator (ad_pipeline)
 
 The standalone pipeline does not currently have a built-in picker.
 To animate a git commit diff:
@@ -89,7 +89,7 @@ To animate a git commit diff:
 git show HEAD~1:file.py > /tmp/old.py
 
 # Animate
-diffvim-pipeline /tmp/old.py file.py
+ad_pipeline /tmp/old.py file.py
 ```
 
 Or as a shell function:
@@ -98,7 +98,7 @@ Or as a shell function:
 dv-git() {
     local file=$1 commit=${2:-HEAD~1}
     git show "$commit:$file" > /tmp/dv_old.tmp 2>/dev/null
-    diffvim-pipeline /tmp/dv_old.tmp "$file"
+    ad_pipeline /tmp/dv_old.tmp "$file"
 }
 
 # Usage: dv-git file.py HEAD~3

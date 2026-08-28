@@ -381,13 +381,13 @@ diffvim --bell old.py new.py
 ### --line-numbers
 Show line numbers in the margin (C animator only).
 ```bash
-diffvim-animator-c --line-numbers old.py < timed_ops.txt
+ad --line-numbers old.py < timed_ops.txt
 ```
 
 ### --progress
 Show progress bar at bottom (C animator only).
 ```bash
-diffvim-animator-c --progress old.py < timed_ops.txt
+ad --progress old.py < timed_ops.txt
 ```
 
 ---
@@ -404,7 +404,7 @@ perl animator/perl/colorize.pl old.py > old.colormap
 perl animator/perl/colorize.pl new.py > new.colormap
 
 # Run with colormaps
-diffvim-animator-c --colormap-old old.colormap --colormap-new new.colormap old.py < timed_ops.txt
+ad --colormap-old old.colormap --colormap-new new.colormap old.py < timed_ops.txt
 ```
 
 ### --colormap-new FILE
@@ -412,7 +412,7 @@ Load ANSI-colored lines for the new file. Modified lines (lines
 that have been touched by a delete or insert) are rendered using
 these colors. Unmodified lines use `--colormap-old` colors.
 ```bash
-diffvim-animator-c --colormap-old old.colormap --colormap-new new.colormap old.py < timed_ops.txt
+ad --colormap-old old.colormap --colormap-new new.colormap old.py < timed_ops.txt
 ```
 
 ### How to generate colormap files
@@ -435,9 +435,9 @@ bat --color=always --plain --paging=never old.py > old.colormap
 bat --color=always --plain --paging=never new.py > new.colormap
 ```
 
-4. **Using `diffvim-pipeline` (auto-generates):**
+4. **Using `ad_pipeline` (auto-generates):**
 ```bash
-diffvim-pipeline --animator-colormap-old old.colormap \
+ad_pipeline --animator-colormap-old old.colormap \
                  --animator-colormap-new new.colormap \
                  old.py new.py
 ```
@@ -552,7 +552,7 @@ diffvim --delete-pacing flash --flash-pause-ms 500 --flash-highlight-ms 400 old.
 ```bash
 perl animator/perl/colorize.pl --backend vim old.py > old.colormap
 perl animator/perl/colorize.pl --backend vim new.py > new.colormap
-diffvim-pipeline --animator-colormap-old old.colormap \
+ad_pipeline --animator-colormap-old old.colormap \
                  --animator-colormap-new new.colormap \
                  --highlight inline old.py new.py
 ```

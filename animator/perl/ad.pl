@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# diffvim-animator (Perl) — Standalone terminal animation application.
+# ad (Perl) — Standalone terminal animation application.
 #
 # Reads a TSV timed op stream and animates the transformation.
 # Every op carries its own (line, col); the animator moves the cursor
@@ -10,7 +10,7 @@
 # Supports --no-display for testing (process ops without rendering).
 #
 # Usage:
-#   diffvim-animator [options] <oldfile>
+#   ad [options] <oldfile>
 #
 # Options:
 #   --no-display       Process ops without rendering (for testing)
@@ -53,7 +53,7 @@ for (my $i = 0; $i < @ARGV; $i++) {
 }
 
 if ($help) {
-    print STDERR "Usage: diffvim-animator [options] <oldfile>\n";
+    print STDERR "Usage: ad [options] <oldfile>\n";
     print STDERR "  --no-display       Process without rendering\n";
     print STDERR "  --speed N          Speed multiplier\n";
     print STDERR "  --output FILE      Write final buffer to FILE\n";

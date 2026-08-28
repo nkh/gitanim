@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
-# pp_indent_last.pl — Perl implementation of the indent-last layer.
+# ad_layer_indent_last.pl — Perl implementation of the indent-last layer.
 #
 # Moves leading whitespace DELETE ops to the END of a line segment, so the
 # viewer first sees the content disappear and then the indentation collapse.
 # Adjusts content ops' col by +n_indent (the indent is still in the buffer
 # when content runs first). Indent deletes are placed at col 1.
 #
-# This is the Perl twin of animator/c/pp_indent_last.c. Both produce
+# This is the Perl twin of animator/c/ad_layer_indent_last.c. Both produce
 # byte-identical output for the same input — see test_indent_last.pl and
 # animator/tests/test_layers_discovery.pl for the parity assertion.
 #
@@ -17,8 +17,8 @@
 #   * Exit 0 on success.
 #
 # Usage:
-#   perl pp_indent_last.pl < post_ops > adjusted_ops
-#   DV_DEBUG_POSTPROCESS=1 perl pp_indent_last.pl < in > out   # debug dump
+#   perl ad_layer_indent_last.pl < post_ops > adjusted_ops
+#   AD_DEBUG_LAYERS=1 perl ad_layer_indent_last.pl < in > out   # debug dump
 
 use strict;
 use warnings;
@@ -30,15 +30,15 @@ binmode(STDERR, ':utf8');
 
 # --- Configuration --------------------------------------------------------
 
-my $LAYER_NAME = 'pp_indent_last (Perl)';
-my $DEBUG = ($ENV{DV_DEBUG_POSTPROCESS} // '0') eq '1';
+my $LAYER_NAME = 'ad_layer_indent_last (Perl)';
+my $DEBUG = ($ENV{AD_DEBUG_LAYERS} // '0') eq '1';
 
 # --- Debug helpers -------------------------------------------------------
 
 sub debug_log {
     my ($msg) = @_;
     return unless $DEBUG;
-    open(my $fh, '>>', '/tmp/dv_debug/postprocess.log') or return;
+    open(my $fh, '>>', '/tmp/ad_debug/postprocess.log') or return;
     print $fh "[$LAYER_NAME] $msg\n";
     close($fh);
 }
@@ -46,7 +46,7 @@ sub debug_log {
 sub debug_dump {
     my ($filename, @lines) = @_;
     return unless $DEBUG;
-    open(my $fh, '>', "/tmp/dv_debug/$filename") or return;
+    open(my $fh, '>', "/tmp/ad_debug/$filename") or return;
     print $fh join("\n", @lines), "\n";
     close($fh);
 }
@@ -95,7 +95,7 @@ sub is_debug_op {
 # Takes an arrayref of Op hashrefs for a single hunk and returns a new
 # arrayref with indent deletes moved to the end of each line segment.
 #
-# Algorithm (mirror of pp_indent_last.c):
+# Algorithm (mirror of ad_layer_indent_last.c):
 #   1. Walk ops, breaking into "segments" — a segment ends at a \n op or
 #      when the line number changes.
 #   2. For each segment, find the leading run of indent deletes (space/tab)
@@ -191,7 +191,7 @@ sub transform_hunk {
 
 debug_log("Starting");
 if ($DEBUG) {
-    mkdir '/tmp/dv_debug' unless -d '/tmp/dv_debug';
+    mkdir '/tmp/ad_debug' unless -d '/tmp/ad_debug';
 }
 
 my $in_hunk = 0;

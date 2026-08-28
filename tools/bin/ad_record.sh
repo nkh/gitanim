@@ -28,13 +28,13 @@ OPTIONS
     <recording.dv>    Path where the timed op stream will be saved.
 
 EXAMPLES
-    dv_record.sh examples/01_small_python/old.py \
-                examples/01_small_python/new.py \
+    dv_record.sh tests/examples/01_small_python/old.py \
+                tests/examples/01_small_python/new.py \
                 /tmp/my_recording.dv
         Record the animation that transforms old.py into new.py,
         saving the timed op stream to /tmp/my_recording.dv.
 
-    dv_replay.sh examples/01_small_python/old.py /tmp/my_recording.dv
+    dv_replay.sh tests/examples/01_small_python/old.py /tmp/my_recording.dv
         (After recording) replay the animation. See dv_replay.sh --help.
 HELP
 }
@@ -50,8 +50,8 @@ fi
 
 OLD="$1"; NEW="$2"; RECORDING="$3"
 
-"$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" /tmp/dv_raw.txt 2>/dev/null
-"$ROOT/animator/bin/diffvim-postprocess" < /tmp/dv_raw.txt > /tmp/dv_post.txt 2>/dev/null
-"$ROOT/animator/bin/pp_pace" < /tmp/dv_post.txt > "$RECORDING"
+"$ROOT/bin/ad_compute" "$OLD" "$NEW" /tmp/dv_raw.txt 2>/dev/null
+"$ROOT/bin/ad_postprocess" < /tmp/dv_raw.txt > /tmp/dv_post.txt 2>/dev/null
+"$ROOT/bin/ad_layer_pace" < /tmp/dv_post.txt > "$RECORDING"
 echo "Recording saved to $RECORDING ($(wc -l < "$RECORDING") ops)"
 echo "Replay with: dv_replay.sh $OLD recording.dv"

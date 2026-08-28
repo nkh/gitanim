@@ -44,9 +44,9 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl1_timed.txt";
     my $out = "$tmpdir/nl1_out.txt";
 
-    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
-    system("$root/animator/bin/diffvim-animator-c --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
+    system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
+    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/bin/ad --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $out; my $actual = do { local $/; <$fh> }; close $fh;
     ok("single line delete: final buffer correct", $actual eq $new);
@@ -65,9 +65,9 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl2_timed.txt";
     my $out = "$tmpdir/nl2_out.txt";
 
-    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
-    system("$root/animator/bin/diffvim-animator-c --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
+    system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
+    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/bin/ad --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $out; my $actual = do { local $/; <$fh> }; close $fh;
     ok("multi-line delete: final buffer correct", $actual eq $new);
@@ -85,8 +85,8 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $rf = "$tmpdir/nl3_raw.txt";
     my $tf = "$tmpdir/nl3_timed.txt";
 
-    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
+    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
 
     open $fh, '<', $tf; my $timed = do { local $/; <$fh> }; close $fh;
 
@@ -108,14 +108,14 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $rf = "$tmpdir/nl4_raw.txt";
     my $tf = "$tmpdir/nl4_timed.txt";
 
-    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
+    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
 
     open $fh, '<:raw', $nf; my $expected = do { local $/; <$fh> }; close $fh;
 
     for my $animator (
-        ['Perl', "perl $root/animator/perl/animator.pl"],
-        ['C', "$root/animator/bin/diffvim-animator-c"],
+        ['Perl', "perl $root/animator/perl/ad.pl"],
+        ['C', "$root/bin/ad"],
     ) {
         my ($lang, $cmd) = @$animator;
         my $out = "$tmpdir/nl4_out_$lang.txt";
@@ -138,9 +138,9 @@ my $tmpdir = tempdir(CLEANUP => 1);
     my $tf = "$tmpdir/nl5_timed.txt";
     my $out = "$tmpdir/nl5_out.txt";
 
-    system("$root/compute/bin/diffvim-compute-cpp '$of' '$nf' '$rf' 2>/dev/null");
-    system("perl $root/animator/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/animator/perl/pace.pl --delete-pacing word 2>/dev/null > '$tf'");
-    system("$root/animator/bin/diffvim-animator-c --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
+    system("$root/bin/ad_compute '$of' '$nf' '$rf' 2>/dev/null");
+    system("perl $root/layers/perl/postprocess.pl --op-order optimize < '$rf' 2>/dev/null | perl $root/layers/perl/ad_layer_pace.pl --delete-pacing word 2>/dev/null > '$tf'");
+    system("$root/bin/ad --no-display --snapshot '$out' '$of' < '$tf' 2>/dev/null");
 
     open $fh, '<:raw', $out; my $actual = do { local $/; <$fh> }; close $fh;
     ok("mid-line replace (no \\n issue): correct", $actual eq $new);

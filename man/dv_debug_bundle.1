@@ -91,9 +91,9 @@ Generate a bundle with a specific problem description:
 .TP
 Reproduce the scattered-LCS bug for the maintainer:
 .br
-.B diffvim-debug-bundle examples/02_large_python/old.py \[rs]
+.B diffvim-debug-bundle tests/tests/examples/02_large_python/old.py \[rs]
 .br
-.B                         examples/02_large_python/new.py \[rs]
+.B                         tests/tests/examples/02_large_python/new.py \[rs]
 .br
 .B                         "Line 7 shows 'O operation.' instead of 'O'"
 .SH OUTPUT
@@ -107,6 +107,6 @@ Bundle created successfully.
 Invalid arguments or pipeline failure.
 .SH "SEE ALSO"
 .BR diffvim (1),
-.BR diffvim-compute-cpp (1),
-.BR diffvim-animator-c (1),
+.BR ad_compute (1),
+.BR ad (1),
 .BR snapshot_per_op (1)

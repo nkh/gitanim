@@ -2,7 +2,7 @@
 
 This document is a complete, code-faithful reference for **every** operation
 and transformation the postprocessor applies to the raw char-op stream. It
-covers the v2 TSV pipeline (`cc -O2 -o diffvim-postprocess postprocess.c`).
+covers the v2 TSV pipeline (`cc -O2 -o ad_postprocess postprocess.c`).
 Reading this document alone should be sufficient to reimplement the
 postprocessor from scratch.
 

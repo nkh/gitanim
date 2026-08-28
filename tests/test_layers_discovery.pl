@@ -101,7 +101,7 @@ my $old = "/tmp/ld_old.txt";
 my $new = "/tmp/ld_new.txt";
 open(my $fh, '>', $old) or die; print $fh "def foo():\n    print('hello')\n    return None\n\ndef bar():\n    pass\n"; close($fh);
 open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; close($fh);
-system("DIFFVIM_LEFT_TO_RIGHT=1 ./compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/ld_raw.txt 2>/dev/null");
+system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' /tmp/ld_raw.txt 2>/dev/null");
 ok "compute produced raw ops";
 
 # Verify each layer accepts stdin and produces stdout.
@@ -117,7 +117,7 @@ for my $l (@layers) {
 }
 
 # --- Verify --list-layers output matches the manifest ---------------------
-my $list_out = `./animator/bin/diffvim-postprocess --list-layers 2>/dev/null`;
+my $list_out = `./bin/ad_postprocess --list-layers 2>/dev/null`;
 for my $l (@layers) {
     if ($list_out =~ /^\Q$l->{name}\E\s+/m) {
         ok "--list-layers lists '$l->{name}'";
@@ -128,8 +128,8 @@ for my $l (@layers) {
 
 # --- Verify --layers=<csv> overrides the default chain -------------------
 # Run with only reorder+indent_last; output should match direct invocation.
-my $explicit_out = `./animator/bin/diffvim-postprocess --layers=reorder,indent_last < /tmp/ld_raw.txt 2>/dev/null`;
-my $direct_out   = `./animator/bin/pp_reorder < /tmp/ld_raw.txt 2>/dev/null | ./animator/bin/pp_indent_last 2>/dev/null`;
+my $explicit_out = `./bin/ad_postprocess --layers=reorder,indent_last < /tmp/ld_raw.txt 2>/dev/null`;
+my $direct_out   = `./bin/ad_layer_reorder < /tmp/ld_raw.txt 2>/dev/null | ./bin/ad_layer_indent_last 2>/dev/null`;
 if ($explicit_out eq $direct_out) {
     ok "--layers=reorder,indent_last matches direct pipeline";
 } else {
@@ -140,9 +140,9 @@ if ($explicit_out eq $direct_out) {
 # Default chain = reorder + pace + highlight (3 layers).
 # --enable=indent_last = reorder + indent_last + pace + highlight (4 layers).
 # Check the orchestrator's stderr message, which lists the layers being run.
-my $default_layers = `./animator/bin/diffvim-postprocess < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep "→" | wc -l`;
-my $enabled_layers = `./animator/bin/diffvim-postprocess --enable=indent_last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep "→" | wc -l`;
-my $enabled_mentions = `./animator/bin/diffvim-postprocess --enable=indent_last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep -c "indent_last"`;
+my $default_layers = `./bin/ad_postprocess < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep "→" | wc -l`;
+my $enabled_layers = `./bin/ad_postprocess --enable=indent_last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep "→" | wc -l`;
+my $enabled_mentions = `./bin/ad_postprocess --enable=indent_last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep -c "indent_last"`;
 chomp $default_layers; chomp $enabled_layers; chomp $enabled_mentions;
 if ($enabled_layers == $default_layers + 1 && $enabled_mentions >= 1) {
     ok "--enable=indent_last adds 1 layer (3 → $enabled_layers) and runs indent_last";
@@ -153,8 +153,8 @@ if ($enabled_layers == $default_layers + 1 && $enabled_mentions >= 1) {
 # --- Verify --pp-<name> dynamic flag works --------------------------------
 # The orchestrator should treat --pp-foo as --foo (forwarding convention).
 # Both should run the indent_last layer.
-my $pp_runs = `./animator/bin/diffvim-postprocess --pp-indent-last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep -c "indent_last"`;
-my $il_runs = `./animator/bin/diffvim-postprocess --indent-last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep -c "indent_last"`;
+my $pp_runs = `./bin/ad_postprocess --pp-indent-last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep -c "indent_last"`;
+my $il_runs = `./bin/ad_postprocess --indent-last < /tmp/ld_raw.txt 2>&1 1>/dev/null | grep -c "indent_last"`;
 chomp $pp_runs; chomp $il_runs;
 if ($pp_runs >= 1 && $il_runs >= 1) {
     ok "--pp-indent-last and --indent-last both run the indent_last layer";
@@ -190,7 +190,7 @@ unless (-f $dummy_bin) {
     $created_dummy = 1;
 }
 # Add a line to a temporary manifest and use --layers=test_dummy
-my $rc = system("./animator/bin/diffvim-postprocess --layers=test_dummy < /tmp/ld_raw.txt > /tmp/ld_dummy.out 2>/dev/null");
+my $rc = system("./bin/ad_postprocess --layers=test_dummy < /tmp/ld_raw.txt > /tmp/ld_dummy.out 2>/dev/null");
 if ($rc == 0) {
     my $diff = system("diff -q /tmp/ld_raw.txt /tmp/ld_dummy.out >/dev/null 2>&1");
     if ($diff == 0) {

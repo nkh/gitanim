@@ -117,9 +117,9 @@ VIM
 
     open $fh, '>', $engine_file; print $fh $engine; close $fh;
 
-    # Set env var BEFORE launching vim — the config dict reads $DIFFVIM_RAPID_EOL_DELETE
+    # Set env var BEFORE launching vim — the config dict reads $AD_RAPID_EOL_DELETE
     # at source time.
-    local $ENV{DIFFVIM_RAPID_EOL_DELETE} = $rapid_on ? '1' : '';
+    local $ENV{AD_RAPID_EOL_DELETE} = $rapid_on ? '1' : '';
 
     system("vim -e -s -n -Nu NONE -U NONE " .
            "-c \"let g:diffvim_new_file = '$newf'\" " .

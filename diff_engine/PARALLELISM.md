@@ -101,7 +101,7 @@ CXXFLAGS += -fopenmp
 ```
 
 ```cpp
-// diffvim-compute.cpp — add parallel hunk processing
+// ad_compute.cpp — add parallel hunk processing
 #include <omp.h>
 
 // In main(), after building all hunk texts:
@@ -140,12 +140,12 @@ cd compute
 make clean
 # Sequential
 make CXXFLAGS="-O2 -Wall -std=c++17"
-time bin/diffvim-compute-cpp examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py /tmp/out.txt
+time bin/ad_compute tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py /tmp/out.txt
 
 # Parallel
 make clean
 make CXXFLAGS="-O2 -Wall -std=c++17 -fopenmp"
-time bin/diffvim-compute-cpp examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py /tmp/out.txt
+time bin/ad_compute tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py /tmp/out.txt
 ```
 
 For the 1000-line Python example, expect ~3x speedup with 4 threads.

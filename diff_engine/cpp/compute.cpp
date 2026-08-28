@@ -1,14 +1,14 @@
-// diffvim-compute.cpp — External diff computer for diffvim (C++ version).
+// ad_compute.cpp — External diff computer for diffvim (C++ version).
 //
 // Reads two files, computes line-level + char-level diff, and writes
 // the result in a format that `diffvim --precomputed FILE` can consume.
 //
 // Uses the Patience diff algorithm (anchored on unique common lines,
 // with LCS fallback for ranges with no anchors). Optional semantic cleanup
-// of char-level diffs via --semantic-cleanup or DIFFVIM_SEMANTIC_CLEANUP.
+// of char-level diffs via --semantic-cleanup or AD_SEMANTIC_CLEANUP.
 //
 // Build: make cpp
-// Usage: diffvim-compute-cpp <oldfile> <newfile> <outputfile>
+// Usage: ad_compute <oldfile> <newfile> <outputfile>
 //                           [--semantic-cleanup]
 //
 // Timing is printed to stderr.
@@ -684,15 +684,15 @@ string normalize_indent(const string& line) {
 int main(int argc, char** argv) {
     auto t_start = Clock::now();
 
-    const char* sem_env = getenv("DIFFVIM_SEMANTIC_CLEANUP");
+    const char* sem_env = getenv("AD_SEMANTIC_CLEANUP");
     bool do_semantic = sem_env && sem_env[0] == '1';
-    const char* wd_env = getenv("DIFFVIM_WORD_DIFF");
+    const char* wd_env = getenv("AD_WORD_DIFF");
     bool do_word_diff = wd_env && wd_env[0] == '1';
-    const char* ia_env = getenv("DIFFVIM_INDENT_AWARE");
+    const char* ia_env = getenv("AD_INDENT_AWARE");
     bool do_indent_aware = ia_env && ia_env[0] == '1';
-    const char* opt_env = getenv("DIFFVIM_OPTIMIZE_SEQUENCE");
+    const char* opt_env = getenv("AD_OPTIMIZE_SEQUENCE");
     bool do_optimize = !opt_env || opt_env[0] != '0';  /* default on */
-    const char* l2r_env = getenv("DIFFVIM_LEFT_TO_RIGHT");
+    const char* l2r_env = getenv("AD_LEFT_TO_RIGHT");
     bool do_l2r = l2r_env && l2r_env[0] == '1';
 
     /* Parse args:
@@ -705,13 +705,13 @@ int main(int argc, char** argv) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             printf(
-"diffvim-compute-cpp — External diff computer for diffvim.\n"
+"ad_compute — External diff computer for diffvim.\n"
 "\n"
 "USAGE\n"
-"    diffvim-compute-cpp <oldfile> <newfile> <outputfile> [options]\n"
-"    diffvim-compute-cpp --diff <patchfile> <outputfile> [options]\n"
-"    diffvim-compute-cpp --diff - <outputfile> [options]   (read diff from stdin)\n"
-"    diffvim-compute-cpp -h | --help\n"
+"    ad_compute <oldfile> <newfile> <outputfile> [options]\n"
+"    ad_compute --diff <patchfile> <outputfile> [options]\n"
+"    ad_compute --diff - <outputfile> [options]   (read diff from stdin)\n"
+"    ad_compute -h | --help\n"
 "\n"
 "ALGORITHM\n"
 "    Patience diff (anchored on unique common lines, with LCS fallback\n"
@@ -726,11 +726,11 @@ int main(int argc, char** argv) {
 "    --left-to-right        Sort ops left-to-right by column\n"
 "\n"
 "ENVIRONMENT\n"
-"    DIFFVIM_SEMANTIC_CLEANUP=1   Enable semantic cleanup\n"
-"    DIFFVIM_WORD_DIFF=1          Enable word-level diff\n"
-"    DIFFVIM_INDENT_AWARE=1       Enable indent normalization\n"
-"    DIFFVIM_OPTIMIZE_SEQUENCE=0  Disable op-sequence optimization\n"
-"    DIFFVIM_LEFT_TO_RIGHT=1      Enable left-to-right sorting\n"
+"    AD_SEMANTIC_CLEANUP=1   Enable semantic cleanup\n"
+"    AD_WORD_DIFF=1          Enable word-level diff\n"
+"    AD_INDENT_AWARE=1       Enable indent normalization\n"
+"    AD_OPTIMIZE_SEQUENCE=0  Disable op-sequence optimization\n"
+"    AD_LEFT_TO_RIGHT=1      Enable left-to-right sorting\n"
 "\n"
 "OUTPUT FORMAT\n"
 "    # diffvim precomputed diff v1\n"
@@ -741,7 +741,7 @@ int main(int argc, char** argv) {
 "    ...\n"
 "\n"
 "SEE ALSO\n"
-"    diffvim(1), diffvim-pipeline(1)\n"
+"    diffvim(1), ad_pipeline(1)\n"
 "    Full docs: docs/PIPELINE.md, docs/src/architecture.md\n");
             return 0;
         } else if (strcmp(argv[i], "--semantic-cleanup") == 0) {

@@ -21,12 +21,12 @@ for my $parser ('perl') {
     print "=" x 50, "\nTesting parser: $parser\n", "=" x 50, "\n";
 
     # Set fast config
-    $ENV{DIFFVIM_TICK_MS} = 2;
-    $ENV{DIFFVIM_TYPE_DELAY_MS} = 2;
-    $ENV{DIFFVIM_DELETE_DELAY_MS} = 2;
-    $ENV{DIFFVIM_MOVE_MIN_MS} = 10;
-    $ENV{DIFFVIM_MOVE_MAX_MS} = 50;
-    $ENV{DIFFVIM_HUNK_PAUSE_MS} = 5;
+    $ENV{AD_TICK_MS} = 2;
+    $ENV{AD_TYPE_DELAY_MS} = 2;
+    $ENV{AD_DELETE_DELAY_MS} = 2;
+    $ENV{AD_MOVE_MIN_MS} = 10;
+    $ENV{AD_MOVE_MAX_MS} = 50;
+    $ENV{AD_HUNK_PAUSE_MS} = 5;
 
     # Start diffvim.pl in background
     my $pid = fork();

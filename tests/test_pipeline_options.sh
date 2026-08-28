@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_pipeline_options.sh — Test ALL pipeline options end-to-end.
 #
-# Runs diffvim-pipeline with each option and verifies:
+# Runs ad_pipeline with each option and verifies:
 # 1. The option is accepted (exit 0)
 # 2. The output matches the expected new file
 #
@@ -31,7 +31,7 @@ test_option() {
     local newfile="${4:-/tmp/po_new.txt}"
     local out="/tmp/po_${name}_out.txt"
     
-    if bash "$ROOT/animator/diffvim-pipeline" --no-display --speed 1000 \
+    if bash "$ROOT/animator/ad_pipeline" --no-display --speed 1000 \
         $option --snapshot "$out" "$oldfile" "$newfile" 2>/dev/null; true; then
         if diff -q "$newfile" "$out" >/dev/null 2>&1; then
             ok "$name"

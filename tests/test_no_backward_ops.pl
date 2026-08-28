@@ -21,7 +21,7 @@ chdir $ROOT or die "Cannot chdir to $ROOT: $!\n";
 
 my @examples;
 if (opendir(my $dh, "examples")) {
-    @examples = sort grep { -d "examples/$_" && !/^\./ } readdir($dh);
+    @examples = sort grep { -d "tests/tests/examples/$_" && !/^\./ } readdir($dh);
     closedir($dh);
 }
 
@@ -36,10 +36,10 @@ print "The cursor never goes back to a line that was already operated on.\n\n";
 for my $ex (@examples) {
     my ($old, $new);
     for my $ext (qw(.py .txt .go .rs .ts .java .rb .js .c .md .json .yaml .yml .css .html .php .scala .ex .clj .kt .swift)) {
-        $old = "examples/$ex/old$ext", last if -f "examples/$ex/old$ext";
+        $old = "tests/tests/examples/$ex/old$ext", last if -f "tests/tests/examples/$ex/old$ext";
     }
     for my $ext (qw(.py .txt .go .rs .ts .java .rb .js .c .md .json .yaml .yml .css .html .php .scala .ex .clj .kt .swift)) {
-        $new = "examples/$ex/new$ext", last if -f "examples/$ex/new$ext";
+        $new = "tests/tests/examples/$ex/new$ext", last if -f "tests/tests/examples/$ex/new$ext";
     }
     next unless -f $old && -f $new;
 
@@ -47,9 +47,9 @@ for my $ex (@examples) {
     my $post = "/tmp/nb_post.txt";
     my $timed = "/tmp/nb_timed.txt";
     
-    system("DIFFVIM_LEFT_TO_RIGHT=1 ./compute/bin/diffvim-compute-cpp '$old' '$new' '$raw' 2>/dev/null");
-    system("./animator/bin/diffvim-postprocess < '$raw' > '$post' 2>/dev/null");
-    system("./animator/bin/diffvim-pace < '$post' > '$timed' 2>/dev/null");
+    system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' '$raw' 2>/dev/null");
+    system("./bin/ad_postprocess < '$raw' > '$post' 2>/dev/null");
+    system("./bin/ad_layer_pace < '$post' > '$timed' 2>/dev/null");
     
     open(my $fh, '<', $timed) or do {
         print "  ✗ $ex: cannot read timed ops\n";

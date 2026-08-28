@@ -1,7 +1,7 @@
 # Overwrite Transform Layer
 
-**File:** `animator/c/pp_layer_overwrite.c`
-**Binary:** `animator/bin/pp_overwrite`
+**File:** `layers/c/ad_layer_layer_overwrite.c`
+**Binary:** `bin/ad_layer_overwrite`
 **Trigger:** `--overwrite` (env: `DIFFVIM_OVERWRITE=1`)
 
 ## Purpose
@@ -51,23 +51,23 @@ Debug ops are ignored by all other layers and the animator.
 ```bash
 # Standalone
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror \
-   -I animator/c -o animator/bin/pp_overwrite animator/c/pp_layer_overwrite.c
+   -I animator/c -o bin/ad_layer_overwrite layers/c/ad_layer_layer_overwrite.c
 
-# In pipeline (via diffvim-postprocess, which also runs adjust_positions)
-compute | diffvim-postprocess --overwrite | pace | animator
+# In pipeline (via ad_postprocess, which also runs adjust_positions)
+compute | ad_postprocess --overwrite | pace | animator
 ```
 
-> Standalone `pp_overwrite` does NOT run `adjust_positions`. The
+> Standalone `ad_layer_overwrite` does NOT run `adjust_positions`. The
 > position-fixing pass lives only inside `postprocess.c`. Use
-> `diffvim-postprocess --overwrite` to get the full pipeline.
+> `ad_postprocess --overwrite` to get the full pipeline.
 > If you pipe layers manually, you must apply your own equivalent
-> of `adjust_positions` afterwards (or just use `diffvim-postprocess`).
+> of `adjust_positions` afterwards (or just use `ad_postprocess`).
 
 ## Debug Logging
 
 ```bash
-DV_DEBUG_POSTPROCESS=/tmp/dv_debug pp_overwrite < input > output
-cat /tmp/dv_debug/postprocess.log
+AD_DEBUG_LAYERS=/tmp/ad_debug ad_layer_overwrite < input > output
+cat /tmp/ad_debug/postprocess.log
 ```
 
 Log shows: op count, merge count, per-hunk statistics.
@@ -99,6 +99,6 @@ bash tests/test_overwrite_layer.sh
 - **adjust_positions (inline in postprocess.c):** Runs AFTER overwrite.
   The `overwrite_insert` ops have the original line/col from compute;
   `adjust_positions` then fixes them in-place based on `\n` deletes.
-  There is no separate `pp_layer3` step.
+  There is no separate `ad_layer_noop` step.
 - **Pace:** The pace tool uses minimal delay for `overwrite_insert`
   ops (1ms, type "overwrite").

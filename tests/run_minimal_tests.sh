@@ -30,10 +30,10 @@ for d in "${cases[@]}"; do
     rm -f "$raw" "$post" "$timed" "$snap"
 
     # Run each stage
-    "$ROOT/compute/bin/diffvim-compute-cpp" "$old" "$new" "$raw" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-postprocess" < "$raw" > "$post" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-pace" < "$post" > "$timed" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$snap" "$old" < "$timed" 2>/dev/null
+    "$ROOT/bin/ad_compute" "$old" "$new" "$raw" 2>/dev/null
+    "$ROOT/bin/ad_postprocess" < "$raw" > "$post" 2>/dev/null
+    "$ROOT/bin/ad_layer_pace" < "$post" > "$timed" 2>/dev/null
+    "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$snap" "$old" < "$timed" 2>/dev/null
 
     # Compare final result
     if [[ -f "$snap" ]] && diff -q "$snap" "$new" >/dev/null 2>&1; then

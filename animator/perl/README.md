@@ -12,23 +12,23 @@ implementation in `../c/`. Produces byte-identical output.
   See `../../docs/POSTPROCESS_TRANSFORMS.md` for details.
 - `pace.pl` — Same delay insertion as the C version.
 - `colorize.pl` — Syntax highlighting. Supports `vim` and `pygmentize`
-  backends. Used by `diffvim-pipeline` to colorize old/new files
+  backends. Used by `ad_pipeline` to colorize old/new files
   in parallel with the compute stage.
 
 ## Usage
 
 ```bash
 # Post-process raw ops:
-perl animator/perl/postprocess.pl < raw.txt > post.txt
+perl layers/perl/postprocess.pl < raw.txt > post.txt
 
 # Add delays:
-perl animator/perl/pace.pl < post.txt > timed.txt
+perl layers/perl/ad_layer_pace.pl < post.txt > timed.txt
 
 # Animate (terminal):
-perl animator/perl/animator.pl old.txt < timed.txt
+perl animator/perl/ad.pl old.txt < timed.txt
 
 # Animate (headless, for testing):
-perl animator/perl/animator.pl --no-display --speed 1000 --snapshot out.txt old.txt < timed.txt
+perl animator/perl/ad.pl --no-display --speed 1000 --snapshot out.txt old.txt < timed.txt
 ```
 
 ## Why Perl?

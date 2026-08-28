@@ -1,45 +1,45 @@
 .TH DIFFVIM-COMPUTE 1 "2026-08-18" "diffvim 1.4" "User Commands"
 .SH NAME
-diffvim-compute \- external diff computer for diffvim (C++ implementation)
+ad_compute \- external diff computer for diffvim (C++ implementation)
 .SH SYNOPSIS
-.B diffvim-compute-cpp
+.B ad_compute
 .RI <oldfile>
 .RI <newfile>
 .RI <outputfile>
 .RI [ options ]
 .br
-.B diffvim-compute-cpp
+.B ad_compute
 .B \-\-diff
 .RI <patchfile>
 .RI <outputfile>
 .RI [ options ]
 .br
-.B diffvim-compute-cpp
+.B ad_compute
 .B \-\-diff
 .B \-
 .RI <outputfile>
 .RI [ options ]
 .br
-.B diffvim-compute-cpp
+.B ad_compute
 .B \-h | \-\-help
 .SH DESCRIPTION
-.B diffvim-compute
+.B ad_compute
 is the external diff computer used by
 .BR diffvim (1)
 (via the --precomputed flag).
 A single implementation exists in C++:
 
 .TP
-.B diffvim-compute-cpp
+.B ad_compute
 C++17 implementation. Source:
-.IR compute/cpp/diffvim-compute.cpp .
+.IR compute/cpp/ad_compute.cpp .
 Binary:
-.IR compute/bin/diffvim-compute-cpp .
+.IR bin/ad_compute .
 
 The historical C, Rust, and Go variants were removed during the
 Phase A refactor \(em the C++ tool is the only compute implementation
 that remains. When the C++ binary is not on disk,
-.BR diffvim-pipeline (1)
+.BR ad_pipeline (1)
 falls back to the pure-Perl
 .I compute/perl/compute_builtin.pl
 (a thin wrapper around
@@ -115,7 +115,7 @@ set to
 .I 0
 to disable.
 .TP
-.B DIFFVIM_LEFT_TO_RIGHT
+.B AD_LEFT_TO_RIGHT
 Set to
 .I 1
 to enable by default.
@@ -167,17 +167,17 @@ make -C compute benchmark OLD=... NEW=...
 
 .SH EXAMPLES
 .TP
-.B diffvim-compute-cpp old.py new.py /tmp/diff.txt
+.B ad_compute old.py new.py /tmp/diff.txt
 Compute the diff and write to
 .IR /tmp/diff.txt .
 .TP
-.B diffvim-compute-cpp --diff patch.diff out.txt
+.B ad_compute --diff patch.diff out.txt
 Read a unified diff and convert to diffvim format.
 .TP
-.B diffvim-compute-cpp --diff - out.txt < patch.diff
+.B ad_compute --diff - out.txt < patch.diff
 Read the diff from stdin.
 .TP
-.B compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
+.B bin/ad_compute old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
 Compute the diff with the C++ tool, then run diffvim with the precomputed file.
 
 .SH SEE ALSO

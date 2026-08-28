@@ -25,7 +25,7 @@ NOT compute, postprocess, or pace — those are done externally.
 | `--delete-pacing` | Passed to pace | ✅ |
 | `--insert-pacing` | Passed to pace | ✅ |
 | `--algorithm` | Passed to compute (patience/lcs) | ✅ |
-| `--left-to-right` | Exported as DIFFVIM_LEFT_TO_RIGHT | ✅ |
+| `--left-to-right` | Exported as AD_LEFT_TO_RIGHT | ✅ |
 | `--op-order` | Exported as DIFFVIM_OP_ORDER | ✅ (but pace/postprocess don't read it) |
 
 ## Options that are IGNORED (parsed but not used)

@@ -92,7 +92,7 @@ The `diffvim-compare` tool generates all combinations and prints a
 comparison table:
 
 ```bash
-./diffvim-compare examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py
+./diffvim-compare tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py
 ```
 
 Output:

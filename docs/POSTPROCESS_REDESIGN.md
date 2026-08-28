@@ -1,7 +1,7 @@
 # Postprocess Rewrite — Design Document
 
 **Status:** Implemented. The layered architecture below is reflected in
-the current code (`postprocess.c`, `pp_layer0_v2.c`, `pp_layer1_reorder.c`,
+the current code (`postprocess.c`, `ad_layer_noop_v2.c`, `ad_layer_noop_reorder.c`,
 `pp_layer_indent_last.c`, `pp_layer_overwrite.c`). Cursor recomputation
 is performed by the inline `adjust_positions()` function in
 `postprocess.c`, not by a separate layer.
@@ -57,7 +57,7 @@ wrong, you have to add `fprintf(stderr, ...)` calls and recompile.
 
 ---
 
-## 2. Do We Need to Look at diffvim-compute?
+## 2. Do We Need to Look at ad_compute?
 
 **Yes, but only for one thing: `\n` generation.**
 
@@ -127,7 +127,7 @@ compute output (raw ops)
 postprocess output (V2 TSV)
 ```
 
-> Cursor recomputation is NOT a layer. There is no `pp_layer3_cursor.c`.
+> Cursor recomputation is NOT a layer. There is no `ad_layer_noop_cursor.c`.
 > The position fix happens in `adjust_positions()` inside `postprocess.c`.
 
 ### 3.2 Key Design Principles
@@ -140,8 +140,8 @@ postprocess output (V2 TSV)
    gate the optional transforms. `adjust_positions` always runs.
 
 3. **Each layer can dump its input and output** for debugging.
-   `DV_DEBUG_POSTPROCESS=1` causes each layer to write its input
-   and output to `/tmp/dv_debug/layer_N_input.txt` and
+   `AD_DEBUG_LAYERS=1` causes each layer to write its input
+   and output to `/tmp/ad_debug/layer_N_input.txt` and
    `layer_N_output.txt`.
 
 4. **No ghost-line fix.** The 4-sweep ordering in Layer 1 prevents
@@ -269,11 +269,11 @@ is applied to the next hunk's ops before `adjust_positions` runs.
 
 ### 4.1 Layer Dumps
 
-When `DV_DEBUG_POSTPROCESS=1` is set, each layer writes its input
+When `AD_DEBUG_LAYERS=1` is set, each layer writes its input
 and output to files:
 
 ```
-/tmp/dv_debug/
+/tmp/ad_debug/
   layer0_input.txt     # raw compute output
   layer0_output.txt    # V2 converted
   layer1_input.txt     # V2 ops (before reorder)
@@ -379,7 +379,7 @@ adjacent same-position pairs.
 
 ### Phase 5: Debugging Support
 
-Add layer dumps (`DV_DEBUG_POSTPROCESS=1`).
+Add layer dumps (`AD_DEBUG_LAYERS=1`).
 Add layer info to dv_snapshot HTML.
 
 ### Phase 6: Ghost-Line Fix Removed
@@ -399,19 +399,19 @@ ordering, don't re-add a patch.
 ```
 animator/c/
   postprocess.c           # Orchestrator; contains inline adjust_positions()
-  pp_layer0_v2.c          # Layer 0: V2 conversion
-  pp_layer1_reorder.c     # Layer 1: 4-sweep reorder
+  ad_layer_noop_v2.c          # Layer 0: V2 conversion
+  ad_layer_noop_reorder.c     # Layer 1: 4-sweep reorder
   pp_layer_indent_last.c  # delete-indent-last transform (--indent-last)
   pp_layer_overwrite.c     # overwrite transform (--overwrite)
-  pp_common.h             # Shared types (Op struct, helpers, debug dumps)
+  ad_layer_common.h             # Shared types (Op struct, helpers, debug dumps)
 ```
 
 Or keep it in one file but with clear section markers:
 
 ```
 postprocess.c:
-  // ===== Layer 0: V2 Conversion (in pp_layer0_v2.c) =====
-  // ===== Layer 1: Reorder (in pp_layer1_reorder.c) =====
+  // ===== Layer 0: V2 Conversion (in ad_layer_noop_v2.c) =====
+  // ===== Layer 1: Reorder (in ad_layer_noop_reorder.c) =====
   // ===== delete-indent-last (in pp_layer_indent_last.c) =====
   // ===== overwrite (in pp_layer_overwrite.c) =====
   // ===== adjust_positions (inline) =====
@@ -425,7 +425,7 @@ postprocess.c:
 
 Each layer can be a separate process:
 ```bash
-compute | pp_layer0 | pp_layer1 | pp_indent_last | pp_overwrite > output
+compute | ad_layer_noop | ad_layer_noop | ad_layer_indent_last | ad_layer_overwrite > output
 ```
 
 Or all in one process (default, for performance — and the only mode

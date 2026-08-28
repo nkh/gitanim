@@ -1,6 +1,6 @@
 # Postprocess options that change ops
 
-The postprocess stage (`diffvim-postprocess`) applies several optional
+The postprocess stage (`ad_postprocess`) applies several optional
 transforms. Some are always-on, some are option-dependent.
 
 ## Transform pipeline
@@ -53,7 +53,7 @@ line) as keeps instead of delete+insert.
 **Effect on ops**: Converts delete/insert pairs to keeps when only
 indentation changed.
 
-### `DIFFVIM_LEFT_TO_RIGHT=1` (env var, default: 1 in launcher)
+### `AD_LEFT_TO_RIGHT=1` (env var, default: 1 in launcher)
 
 This is a **compute-stage** option (not postprocess), but it affects
 the ops the postprocess receives. When enabled, the compute applies the
@@ -85,7 +85,7 @@ in order. Available transforms:
 | `--op-order optimize` | on | postprocess | No | Yes (within line groups) |
 | `--semantic-cleanup` | off | postprocess | Yes (reduces) | No |
 | `--indent-aware` | off | postprocess | Yes (reduces) | No |
-| `DIFFVIM_LEFT_TO_RIGHT=1` | on (launcher) | compute | No | Yes (within change regions) |
+| `AD_LEFT_TO_RIGHT=1` | on (launcher) | compute | No | Yes (within change regions) |
 | `--stream` | off | postprocess | No | No (I/O only) |
 | `--overwrite` | off | postprocess | No | No (alias for optimize) |
 

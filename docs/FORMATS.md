@@ -4,7 +4,7 @@ All intermediary files in the diffvim pipeline use **TSV (tab-separated values)*
 
 ## 1. Raw Diff Format (compute output)
 
-Produced by `diffvim-compute-cpp`. Contains char-level diff ops with positions.
+Produced by `ad_compute`. Contains char-level diff ops with positions.
 
 ```
 # diffvim raw diff v2
@@ -58,7 +58,7 @@ HUNK_END
 
 ## 2. Post-Processed Format (postprocess output)
 
-Produced by `diffvim-postprocess`. Same format as raw diff, with ops reordered/transformed and positions recomputed.
+Produced by `ad_postprocess`. Same format as raw diff, with ops reordered/transformed and positions recomputed.
 
 ```
 # diffvim post-processed v2
@@ -82,7 +82,7 @@ HUNK_END
 
 ## 3. Timed Ops Format (pace output)
 
-Produced by `diffvim-pace`. Same ops as post-processed, with **delay lines inserted between them**. Pace does NOT modify, reorder, or add any ops — it only inserts delays.
+Produced by `ad_layer_pace`. Same ops as post-processed, with **delay lines inserted between them**. Pace does NOT modify, reorder, or add any ops — it only inserts delays.
 
 ```
 # diffvim timed ops v2

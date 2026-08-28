@@ -14,14 +14,14 @@ variables. These control the animation speed and feel.
 
 | Variable                    | Default | Description                              |
 | --------------------------- | ------- | ---------------------------------------- |
-| `DIFFVIM_TICK_MS`           | `16`    | Animation frame interval (~60fps)        |
-| `DIFFVIM_TYPE_DELAY_MS`     | `50`    | Delay between typed characters (ms)      |
-| `DIFFVIM_DELETE_DELAY_MS`   | `40`    | Delay between deleted characters (ms)    |
-| `DIFFVIM_MOVE_MIN_MS`       | `250`   | Minimum cursor-glide duration (ms)       |
-| `DIFFVIM_MOVE_MAX_MS`       | `1600`  | Maximum cursor-glide duration (ms)       |
-| `DIFFVIM_MOVE_MS_PER_UNIT`  | `6`     | Milliseconds per unit of glide distance  |
-| `DIFFVIM_HUNK_PAUSE_MS`     | `250`   | Pause between hunks (ms)                 |
-| `DIFFVIM_WORD_PAUSE_MS`     | `150`   | Pause after instant word (ms)            |
+| `AD_TICK_MS`           | `16`    | Animation frame interval (~60fps)        |
+| `AD_TYPE_DELAY_MS`     | `50`    | Delay between typed characters (ms)      |
+| `AD_DELETE_DELAY_MS`   | `40`    | Delay between deleted characters (ms)    |
+| `AD_MOVE_MIN_MS`       | `250`   | Minimum cursor-glide duration (ms)       |
+| `AD_MOVE_MAX_MS`       | `1600`  | Maximum cursor-glide duration (ms)       |
+| `AD_MOVE_MS_PER_UNIT`  | `6`     | Milliseconds per unit of glide distance  |
+| `AD_HUNK_PAUSE_MS`     | `250`   | Pause between hunks (ms)                 |
+| `AD_WORD_PAUSE_MS`     | `150`   | Pause after instant word (ms)            |
 | `DIFFVIM_RAPID_EOL_DELAY_MS`| `80`    | Delay for rapid end-of-line deletion (ms)|
 | `DIFFVIM_RAPID_EOL_MIN_CHARS`| `3`    | Min trailing chars to trigger rapid EOL  |
 | `DIFFVIM_HIGHLIGHT_WORD_COLOR`| `Search`| Highlight group for `--highlight-word` |
@@ -31,7 +31,7 @@ variables. These control the animation speed and feel.
 
 ### Detailed Descriptions
 
-#### `DIFFVIM_TICK_MS` (default: 16)
+#### `AD_TICK_MS` (default: 16)
 
 The interval at which the animation loop checks for user input and
 advances the animation. At 16ms, this is approximately 60fps.
@@ -43,7 +43,7 @@ Only used by `diffvim-tmux` and `diffvim.pl`. The `diffvim`
 (Vimscript) implementation uses vim's `timer_start()` which has its
 own tick interval (also configurable via this variable).
 
-#### `DIFFVIM_TYPE_DELAY_MS` (default: 50)
+#### `AD_TYPE_DELAY_MS` (default: 50)
 
 The delay after each inserted character. This controls how fast
 characters appear when typing.
@@ -51,24 +51,24 @@ characters appear when typing.
 - **Lower** = faster typing (try 10 for very fast)
 - **Higher** = slower typing (try 80 for presentations)
 
-#### `DIFFVIM_DELETE_DELAY_MS` (default: 40)
+#### `AD_DELETE_DELAY_MS` (default: 40)
 
 The delay after each deleted character. Usually set slightly lower
 than `TYPE_DELAY_MS` because deletion feels faster than typing.
 
-#### `DIFFVIM_MOVE_MIN_MS` (default: 250)
+#### `AD_MOVE_MIN_MS` (default: 250)
 
 The minimum duration of a cursor glide between change locations.
 Even if the distance is very short, the glide will take at least
 this long.
 
-#### `DIFFVIM_MOVE_MAX_MS` (default: 1600)
+#### `AD_MOVE_MAX_MS` (default: 1600)
 
 The maximum duration of a cursor glide. Even if the distance is very
 large (e.g., moving from line 1 to line 500), the glide will take at
 most this long.
 
-#### `DIFFVIM_MOVE_MS_PER_UNIT` (default: 6)
+#### `AD_MOVE_MS_PER_UNIT` (default: 6)
 
 Controls how glide duration scales with distance. The glide duration
 is calculated as:
@@ -85,7 +85,7 @@ feels like a larger visual jump.
 - **Lower** = faster glides (try 3 for snappy movement)
 - **Higher** = slower glides (try 12 for dramatic movement)
 
-#### `DIFFVIM_HUNK_PAUSE_MS` (default: 250)
+#### `AD_HUNK_PAUSE_MS` (default: 250)
 
 The pause between finishing one hunk and starting the next. This
 gives the viewer a moment to register the completed change before the
@@ -96,7 +96,7 @@ cursor starts moving to the next location.
 When `--rapid-eol-delete` is on (the default), a trailing run of deletes
 (cursor at end of line, all remaining text being deleted) is applied in
 one shot followed by this single delay. Lower values make tail-of-line
-deletions feel faster. Set to the same as `DIFFVIM_DELETE_DELAY_MS` to
+deletions feel faster. Set to the same as `AD_DELETE_DELAY_MS` to
 make rapid EOL feel like a single char delete.
 
 #### `DIFFVIM_RAPID_EOL_MIN_CHARS` (default: 3)
@@ -162,42 +162,42 @@ override these values if set.
 ### Presentation Mode (slow, dramatic)
 
 ```bash
-export DIFFVIM_TYPE_DELAY_MS=80
-export DIFFVIM_DELETE_DELAY_MS=60
-export DIFFVIM_MOVE_MIN_MS=400
-export DIFFVIM_MOVE_MAX_MS=3000
-export DIFFVIM_MOVE_MS_PER_UNIT=10
-export DIFFVIM_HUNK_PAUSE_MS=500
+export AD_TYPE_DELAY_MS=80
+export AD_DELETE_DELAY_MS=60
+export AD_MOVE_MIN_MS=400
+export AD_MOVE_MAX_MS=3000
+export AD_MOVE_MS_PER_UNIT=10
+export AD_HUNK_PAUSE_MS=500
 ```
 
 ### Quick Review Mode (fast)
 
 ```bash
-export DIFFVIM_TYPE_DELAY_MS=10
-export DIFFVIM_DELETE_DELAY_MS=10
-export DIFFVIM_MOVE_MIN_MS=50
-export DIFFVIM_MOVE_MAX_MS=300
-export DIFFVIM_MOVE_MS_PER_UNIT=3
-export DIFFVIM_HUNK_PAUSE_MS=50
+export AD_TYPE_DELAY_MS=10
+export AD_DELETE_DELAY_MS=10
+export AD_MOVE_MIN_MS=50
+export AD_MOVE_MAX_MS=300
+export AD_MOVE_MS_PER_UNIT=3
+export AD_HUNK_PAUSE_MS=50
 ```
 
 ### Debug Mode (very slow, visible char ops)
 
 ```bash
-export DIFFVIM_TYPE_DELAY_MS=200
-export DIFFVIM_DELETE_DELAY_MS=150
-export DIFFVIM_MOVE_MIN_MS=500
-export DIFFVIM_MOVE_MAX_MS=5000
-export DIFFVIM_MOVE_MS_PER_UNIT=15
-export DIFFVIM_HUNK_PAUSE_MS=1000
+export AD_TYPE_DELAY_MS=200
+export AD_DELETE_DELAY_MS=150
+export AD_MOVE_MIN_MS=500
+export AD_MOVE_MAX_MS=5000
+export AD_MOVE_MS_PER_UNIT=15
+export AD_HUNK_PAUSE_MS=1000
 ```
 
 ### Default (balanced)
 
 ```bash
-unset DIFFVIM_TICK_MS DIFFVIM_TYPE_DELAY_MS DIFFVIM_DELETE_DELAY_MS \
-      DIFFVIM_MOVE_MIN_MS DIFFVIM_MOVE_MAX_MS DIFFVIM_MOVE_MS_PER_UNIT \
-      DIFFVIM_HUNK_PAUSE_MS
+unset AD_TICK_MS AD_TYPE_DELAY_MS AD_DELETE_DELAY_MS \
+      AD_MOVE_MIN_MS AD_MOVE_MAX_MS AD_MOVE_MS_PER_UNIT \
+      AD_HUNK_PAUSE_MS
 ```
 
 ---
@@ -367,12 +367,12 @@ This is the known race condition in `diffvim-tmux` and `diffvim.pl`.
 See [Architecture > Known Limitations](../README.md#known-limitations)
 and [Improvement #1](../IMPROVEMENTS.md).
 
-Workaround: increase `DIFFVIM_TICK_MS` and the type/delete delays:
+Workaround: increase `AD_TICK_MS` and the type/delete delays:
 
 ```bash
-DIFFVIM_TICK_MS=50 \
-DIFFVIM_TYPE_DELAY_MS=100 \
-DIFFVIM_DELETE_DELAY_MS=100 \
+AD_TICK_MS=50 \
+AD_TYPE_DELAY_MS=100 \
+AD_DELETE_DELAY_MS=100 \
 ./diffvim-tmux old.py new.py
 ```
 
@@ -388,4 +388,4 @@ rm /path/to/.filename.swp
 The `diffvim.pl` implementation already uses `-n`. For `diffvim-tmux`,
 add `-n` to the vim command in the script.
 
-> **Note:** The project now uses an external pipeline (diffvim-compute-cpp → diffvim-postprocess → diffvim-pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

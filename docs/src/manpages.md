@@ -3,7 +3,7 @@
 Every diffvim executable has a manpage in the
 [`man/`](https://github.com/diffvim/diffvim/tree/main/man) directory.
 Install them to your system manpath to get offline documentation
-from `man diffvim`, `man diffvim-compute`, etc.
+from `man diffvim`, `man ad_compute`, etc.
 
 ## Available Manpages
 
@@ -13,7 +13,7 @@ from `man diffvim`, `man diffvim-compute`, etc.
 | [`diffvim-tmux.1`](../../man/diffvim-tmux.1)        | The `diffvim-tmux` variant (bash + tmux)        |
 | [`diffvim-compare.1`](../../man/diffvim-compare.1)  | The `diffvim-compare` benchmark tool            |
 | [`diffvim-jogger.1`](../../man/diffvim-jogger.1)    | The `diffvim-jogger` test-case exerciser        |
-| [`diffvim-compute.1`](../../man/diffvim-compute.1)  | The `diffvim-compute-cpp` tool (the only compute implementation)     |
+| [`ad_compute.1`](../../man/ad_compute.1)  | The `ad_compute` tool (the only compute implementation)     |
 
 ## Installing
 
@@ -29,7 +29,7 @@ mandb --user-path
 
 # Verify
 man diffvim
-man diffvim-compute
+man ad_compute
 ```
 
 If you installed via Homebrew (`brew install diffvim`), the manpages
@@ -41,7 +41,7 @@ You can read the manpages directly from the source tree:
 
 ```bash
 man -l man/diffvim.1
-man -l man/diffvim-compute.1
+man -l man/ad_compute.1
 ```
 
 Or use `groff` to render to text:

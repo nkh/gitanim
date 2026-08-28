@@ -52,7 +52,7 @@ re-typed — surrounding text is never touched.
 ./diffvim --preset review --git-blame old.py new.py
 
 # Use the C++ external compute tool for large files
-compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
+bin/ad_compute old.py new.py /tmp/diff.txt
 ./diffvim --precomputed /tmp/diff.txt old.py new.py
 
 # Dry run (print diff without launching vim)

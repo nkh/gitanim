@@ -28,7 +28,7 @@ sub ok {
 # ---------------------------------------------------------------------------
 print "\n=== Test: Dry-run on all examples ===\n";
 
-my @examples = glob("examples/*/old.*");
+my @examples = glob("tests/tests/examples/*/old.*");
 for my $old_file (@examples) {
     my $dir = $old_file;
     $dir =~ s|/old\.[^.]+$||;
@@ -41,7 +41,7 @@ for my $old_file (@examples) {
 
     my $output = `perl diffvim.pl --dry-run "$old_file" "$new_file" 2>&1`;
     my $name = $dir;
-    $name =~ s|examples/||;
+    $name =~ s|tests/tests/examples/||;
     ok("dry-run produces output for $name", $output =~ /Dry run/ && $output =~ /Hunks:/);
     ok("dry-run shows char_ops for $name", $output =~ /char_ops/);
 }
@@ -112,8 +112,8 @@ ok('identical files produce 0 hunks', $ident_out =~ /Hunks: 0/ || $ident_out =~ 
 # Test 7: Word diff produces different output
 # ---------------------------------------------------------------------------
 print "\n=== Test: Word diff ===\n";
-my $char_out = `perl diffvim.pl --dry-run examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
-my $word_out = `perl diffvim.pl --dry-run --word-diff examples/01_small_python/old.py examples/01_small_python/new.py 2>&1`;
+my $char_out = `perl diffvim.pl --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
+my $word_out = `perl diffvim.pl --dry-run --word-diff tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>&1`;
 ok('word-diff produces output', $word_out =~ /char_ops/);
 # Word diff and char diff should both produce valid ops
 ok('char-diff produces output', $char_out =~ /char_ops/);

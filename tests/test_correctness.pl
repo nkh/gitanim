@@ -101,7 +101,7 @@ sub apply_diff_to_file {
 
 # Find all example file pairs
 my @pairs;
-for my $dir (glob("examples/*/")) {
+for my $dir (glob("tests/tests/examples/*/")) {
     my @old_files = glob("$dir/old.*");
     for my $old (@old_files) {
         my $ext = $old =~ /\.(\w+)$/ ? $1 : 'txt';
@@ -126,7 +126,7 @@ for my $pair (@pairs) {
     my $got = apply_diff_to_file($old, $new, {});
     
     my $name = $old;
-    $name =~ s|^examples/||;
+    $name =~ s|^tests/tests/examples/||;
     
     if (scalar(@$got) == scalar(@$expected)) {
         my $match = 1;

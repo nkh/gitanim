@@ -172,26 +172,26 @@ close $out;
 
 # Test with AWD enabled (the default --delete-pacing word setting)
 my @test_cases = (
-    ['01_small_python', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['02_large_python', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['03_json_config', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['04_shell_script', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['05_go_code', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['06_typescript', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['08_rust_code', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['09_c_code', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['13_java', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['16_ruby', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
-    ['26_markdown', 'DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1'],
+    ['01_small_python', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['02_large_python', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['03_json_config', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['04_shell_script', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['05_go_code', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['06_typescript', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['08_rust_code', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['09_c_code', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['13_java', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['16_ruby', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
+    ['26_markdown', 'AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1'],
     # Also test without AWD (char-by-char) to verify baseline
-    ['01_small_python', 'DIFFVIM_ADAPTIVE_WORD_DELETE=0 DIFFVIM_RAPID_EOL_DELETE=0'],
-    ['02_large_python', 'DIFFVIM_ADAPTIVE_WORD_DELETE=0 DIFFVIM_RAPID_EOL_DELETE=0'],
+    ['01_small_python', 'AD_ADAPTIVE_WORD_DELETE=0 AD_RAPID_EOL_DELETE=0'],
+    ['02_large_python', 'AD_ADAPTIVE_WORD_DELETE=0 AD_RAPID_EOL_DELETE=0'],
 );
 
 for my $tc (@test_cases) {
     my ($dir, $env) = @$tc;
-    my $old_file = `ls examples/$dir/old.* 2>/dev/null | head -1`; chomp $old_file;
-    my $new_file = `ls examples/$dir/new.* 2>/dev/null | head -1`; chomp $new_file;
+    my $old_file = `ls tests/tests/examples/$dir/old.* 2>/dev/null | head -1`; chomp $old_file;
+    my $new_file = `ls tests/tests/examples/$dir/new.* 2>/dev/null | head -1`; chomp $new_file;
     next unless $old_file && $new_file && -f $old_file && -f $new_file;
 
     my $output_file = "/tmp/dv_awd_out.txt";

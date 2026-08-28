@@ -254,12 +254,12 @@ my @cases = (
      "line1\nnew line\nline3\nline5\n"],
 );
 
-my $env = "DIFFVIM_TICK_MS=16 DIFFVIM_TYPE_DELAY_MS=50 DIFFVIM_DELETE_DELAY_MS=40 " .
-          "DIFFVIM_MOVE_MIN_MS=250 DIFFVIM_MOVE_MAX_MS=1600 DIFFVIM_MOVE_MS_PER_UNIT=6 " .
-          "DIFFVIM_HUNK_PAUSE_MS=250 DIFFVIM_SPEED=1 " .
-          "DIFFVIM_OP_ORDER=optimize DIFFVIM_DELETE_PACING=word " .
-          "DIFFVIM_INSERT_PACING=char DIFFVIM_PACING=uniform DIFFVIM_HIGHLIGHT=none " .
-          "DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1";
+my $env = "AD_TICK_MS=16 AD_TYPE_DELAY_MS=50 AD_DELETE_DELAY_MS=40 " .
+          "AD_MOVE_MIN_MS=250 AD_MOVE_MAX_MS=1600 AD_MOVE_MS_PER_UNIT=6 " .
+          "AD_HUNK_PAUSE_MS=250 AD_SPEED=1 " .
+          "AD_OP_ORDER=optimize AD_DELETE_PACING=word " .
+          "AD_INSERT_PACING=char AD_PACING=uniform AD_HIGHLIGHT=none " .
+          "AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1";
 
 for my $case (@cases) {
     my ($name, $old, $new) = @$case;
@@ -269,7 +269,7 @@ for my $case (@cases) {
     open my $fh, '>:raw', $of; print $fh $old; close $fh;
     open $fh, '>:raw', $nf; print $fh $new; close $fh;
 
-    my $cmd = "env $env DIFFVIM_OUTPUT='$out' timeout 30 vim -u NONE -N -n -es " .
+    my $cmd = "env $env AD_OUTPUT='$out' timeout 30 vim -u NONE -N -n -es " .
               "-c 'let g:diffvim_new_file = \"$nf\"' " .
               "-c 'source $engine_file' " .
               "'$of' 2>/dev/null";

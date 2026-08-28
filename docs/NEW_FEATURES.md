@@ -23,7 +23,7 @@ updated (no full re-render — faster for large distances).
 **Example:**
 ```bash
 diffvim --cursor-glide-ms 300 old.py new.py
-diffvim-pipeline --cursor-glide-ms 300 --cursor-glide-show-intermediate 0 old.py new.py
+ad_pipeline --cursor-glide-ms 300 --cursor-glide-show-intermediate 0 old.py new.py
 ```
 
 **Env vars:** `DIFFVIM_CURSOR_GLIDE_MS`, `DIFFVIM_CURSOR_GLIDE_SHOW_INTERMEDIATE`
@@ -71,10 +71,10 @@ on the line, the transform is a no-op.
 **Example:**
 ```bash
 diffvim --indent-last old.py new.py
-diffvim-pipeline --postprocess-indent-last old.py new.py
+ad_pipeline --postprocess-indent-last old.py new.py
 ```
 
-**Env var:** `DIFFVIM_INDENT_LAST=1`
+**Env var:** `AD_INDENT_LAST=1`
 
 ---
 
@@ -147,14 +147,14 @@ colors as the animation progresses.
 
 **Example:**
 ```bash
-diffvim-pipeline --animator-colormap-old old.colormap --animator-colormap-new new.colormap old.py new.py
+ad_pipeline --animator-colormap-old old.colormap --animator-colormap-new new.colormap old.py new.py
 ```
 
 ---
 
 ## Launcher Wiring
 
-The `diffvim` launcher and `diffvim-pipeline` now forward ALL options
+The `diffvim` launcher and `ad_pipeline` now forward ALL options
 to the C pipeline stages:
 
 - **Postprocess:** `--semantic-cleanup`, `--indent-aware`, `--overwrite`,

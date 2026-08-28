@@ -232,7 +232,7 @@ boring the viewer with uniform deletion.
 - `review`: all highlighting + pause features
 - `present`: slow speed + dramatic highlighting
 - `ai-code`: optimized for AI-generated diffs
-- `custom`: reads from `DIFFVIM_PRESET_CUSTOM` env var
+- `custom`: reads from `AD_PRESET_CUSTOM` env var
 
 **Effect:** One flag sets 5-10 options at once. No need to remember
 long command lines.

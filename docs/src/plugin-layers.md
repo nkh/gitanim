@@ -2,7 +2,7 @@
 
 Diffvim's postprocess pipeline is **plugin-based**. Layers are discovered
 dynamically at runtime — adding a new layer does not require editing the
-diffvim launcher, the diffvim-pipeline script, the Makefile's layer list,
+diffvim launcher, the ad_pipeline script, the Makefile's layer list,
 or any other code. You drop a binary in place and add one line to a
 manifest.
 
@@ -12,20 +12,20 @@ how to add a layer in any language.
 ## At a glance
 
 ```
-compute → diffvim-postprocess → animator
+compute → ad_postprocess → animator
               │
               │ reads animator/layers.conf (the manifest)
               │
-              ├─ pp_reorder         (always)        ← order 10
-              ├─ pp_overwrite       (--overwrite)    ← order 20
-              ├─ pp_indent_last     (--indent-last)  ← order 30
-              ├─ pp_line_delete_in_place (--line-delete-in-place) ← order 40
-              ├─ pp_pace            (always)         ← order 100
-              └─ pp_highlight       (always)         ← order 200
+              ├─ ad_layer_reorder         (always)        ← order 10
+              ├─ ad_layer_overwrite       (--overwrite)    ← order 20
+              ├─ ad_layer_indent_last     (--indent-last)  ← order 30
+              ├─ ad_layer_line_delete_in_place (--line-delete-in-place) ← order 40
+              ├─ ad_layer_pace            (always)         ← order 100
+              └─ ad_layer_highlight       (always)         ← order 200
 ```
 
 Each box is a standalone executable. The orchestrator (`animator/bin/
-diffvim-postprocess`) chains them by piping stdout of one into stdin of
+ad_postprocess`) chains them by piping stdout of one into stdin of
 the next, in the order declared in the manifest.
 
 ## The plugin contract
@@ -117,8 +117,8 @@ Fields (whitespace-separated):
 You do NOT need to edit:
 
 - `diffvim` (the launcher)
-- `animator/diffvim-pipeline` (the pipeline driver)
-- `animator/bin/diffvim-postprocess` (the orchestrator)
+- `animator/ad_pipeline` (the pipeline driver)
+- `bin/ad_postprocess` (the orchestrator)
 - `Makefile`'s `LAYER_BINS` list (unless you want a build target)
 - Any test file (`test_layers_discovery.pl` is data-driven — it
   iterates the manifest, so it auto-asserts new layers)
@@ -139,7 +139,7 @@ Change the `flag` column. (Users now invoke it with the new flag name.)
 
 ## Invoking the orchestrator
 
-The orchestrator is `animator/bin/diffvim-postprocess`. It accepts:
+The orchestrator is `bin/ad_postprocess`. It accepts:
 
 | Flag                       | Behavior                                                |
 |----------------------------|---------------------------------------------------------|
@@ -156,25 +156,25 @@ Examples:
 
 ```bash
 # Default chain (always-on layers): reorder → pace → highlight
-diffvim-postprocess < raw_ops > post_ops
+ad_postprocess < raw_ops > post_ops
 
 # Enable indent_last
-diffvim-postprocess --indent-last < raw_ops > post_ops
+ad_postprocess --indent-last < raw_ops > post_ops
 
 # Same thing, using the --pp-<name> convention
-diffvim-postprocess --pp-indent-last < raw_ops > post_ops
+ad_postprocess --pp-indent-last < raw_ops > post_ops
 
 # Run only reorder + indent_last (skip pace and highlight)
-diffvim-postprocess --layers=reorder,indent_last < raw_ops > post_ops
+ad_postprocess --layers=reorder,indent_last < raw_ops > post_ops
 
 # Add indent_last and overwrite to the default chain
-diffvim-postprocess --enable=indent_last,overwrite < raw_ops > post_ops
+ad_postprocess --enable=indent_last,overwrite < raw_ops > post_ops
 
 # Pass --foo bar to every layer (passthrough args)
-diffvim-postprocess --indent-last -- --foo bar < raw_ops > post_ops
+ad_postprocess --indent-last -- --foo bar < raw_ops > post_ops
 
 # List all discovered layers
-diffvim-postprocess --list-layers
+ad_postprocess --list-layers
 ```
 
 ## Invoking from the diffvim launcher
@@ -197,7 +197,7 @@ diffvim --pp-foo old.py new.py
 
 No launcher edit required.
 
-The `diffvim-pipeline` script honors the same `--pp-<name>` form, plus
+The `ad_pipeline` script honors the same `--pp-<name>` form, plus
 its existing `--postprocess-<name>` prefix.
 
 ## Language parity
@@ -206,12 +206,12 @@ Some layers have both a C implementation (preferred) and a Perl fallback:
 
 | Layer            | C source                       | Perl source                       |
 |------------------|--------------------------------|-----------------------------------|
-| `reorder`        | `animator/c/pp_reorder.c`      | (C only)                          |
-| `overwrite`      | `animator/c/pp_overwrite.c`    | (C only)                          |
-| `indent_last`    | `animator/c/pp_indent_last.c`  | `animator/perl/pp_indent_last.pl` |
-| `line_delete_in_place` | `animator/c/pp_line_delete_in_place.c` | (C only) |
-| `pace`           | `animator/c/pp_pace.c`         | `animator/perl/pace.pl`           |
-| `highlight`      | `animator/c/pp_highlight.c`    | `animator/perl/decorate.pl`       |
+| `reorder`        | `animator/c/ad_layer_reorder.c`      | (C only)                          |
+| `overwrite`      | `animator/c/ad_layer_overwrite.c`    | (C only)                          |
+| `indent_last`    | `animator/c/ad_layer_indent_last.c`  | `animator/perl/ad_layer_indent_last.pl` |
+| `line_delete_in_place` | `animator/c/ad_layer_line_delete_in_place.c` | (C only) |
+| `pace`           | `animator/c/ad_layer_pace.c`         | `layers/perl/ad_layer_pace.pl`           |
+| `highlight`      | `animator/c/ad_layer_highlight.c`    | `layers/perl/ad_layer_highlight.pl`       |
 
 The orchestrator prefers C if both exist; if the C binary is missing
 (e.g. `make` hasn't been run, or you're on a platform without a C
@@ -220,7 +220,7 @@ implementations of the same layer must produce byte-identical output
 for the same input — this is asserted by `test_layers_discovery.pl`'s
 parity check.
 
-The `pp_layer_noop.pl` file in `animator/perl/` is a template you can
+The `ad_layer_noop.pl` file in `animator/perl/` is a template you can
 copy to start a new Perl layer. It implements the full plugin contract
 (hunk parsing, debug dumps, exit codes) with a no-op transform —
 replace `layer_transform` with your own logic and you're done.
@@ -231,7 +231,7 @@ If a layer isn't declared in the manifest but the binary exists on disk
 (e.g. `animator/bin/pp_word_split`), you can still run it via:
 
 ```bash
-diffvim-postprocess --layers=reorder,word_split,pace < raw > post
+ad_postprocess --layers=reorder,word_split,pace < raw > post
 ```
 
 The orchestrator resolves the binary, assigns it order 50 (middle of
@@ -264,14 +264,14 @@ will show up in the test results.
            │ POSTPROCESS_ARGS = ["--indent-last", "--pp-foo", …]
            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  diffvim-pipeline (bash)                                          │
+│  ad_pipeline (bash)                                          │
 │    Routes flags by prefix: --compute-*, --postprocess-*,          │
 │    --pace-*, --animator-*. Plus --pp-<name> generic form.         │
 └──────────┬───────────────────────────────────────────────────────┘
            │
            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  animator/bin/diffvim-postprocess (orchestrator, dynamic)         │
+│  bin/ad_postprocess (orchestrator, dynamic)         │
 │    1. Reads animator/layers.conf                                  │
 │    2. For each entry (sorted by order):                          │
 │         if flag == "always" OR flag is in argv:                 │
@@ -287,12 +287,12 @@ will show up in the test results.
 ## Why this design
 
 Earlier versions of the codebase had a hardcoded pipeline: a bash script
-with explicit `[[ -n "$OVERWRITE_MODE" ]] && "$BIN/pp_overwrite" …`
+with explicit `[[ -n "$OVERWRITE_MODE" ]] && "$BIN/ad_layer_overwrite" …`
 lines for every layer. Adding a layer meant editing:
 
 1. The orchestrator bash script (add a `[[ ]] && "$BIN/pp_foo"` line)
 2. The diffvim launcher (add a `--foo` case in the option parser)
-3. The diffvim-pipeline script (add a routing case)
+3. The ad_pipeline script (add a routing case)
 4. The Makefile's `LAYER_BINS` variable
 5. The manpages
 6. The completions

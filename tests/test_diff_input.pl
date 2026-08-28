@@ -16,7 +16,7 @@ sub ok {
 }
 
 # Create a test diff file
-my $diff_content = `diff -u examples/01_small_python/old.py examples/01_small_python/new.py 2>/dev/null`;
+my $diff_content = `diff -u tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>/dev/null`;
 open my $fh, '>', '/tmp/dv_test_diff.patch';
 print $fh $diff_content;
 close $fh;
@@ -33,7 +33,7 @@ ok('--diff - (stdin) produces output', $out =~ /Dry run/);
 ok('--diff - (stdin) finds the hunk', $out =~ /Hunks: 1/);
 
 # Test 3: --diff with git-style diff (a/ b/ prefixes)
-my $git_diff = `diff -u --label a/examples/01_small_python/old.py --label b/examples/01_small_python/new.py examples/01_small_python/old.py examples/01_small_python/new.py 2>/dev/null`;
+my $git_diff = `diff -u --label a/tests/tests/examples/01_small_python/old.py --label b/tests/tests/examples/01_small_python/new.py tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py 2>/dev/null`;
 open $fh, '>', '/tmp/dv_test_git.patch';
 print $fh $git_diff;
 close $fh;

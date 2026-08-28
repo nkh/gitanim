@@ -22,17 +22,17 @@
 
 ```
 old.py ──┐
-         ├──> diffvim-compute-cpp ──> raw_ops.txt
+         ├──> ad_compute ──> raw_ops.txt
 new.py ──┘                              │
                                          ▼
-                              diffvim-postprocess
+                              ad_postprocess
                               (--transform, --stream)
                                          │
                                          ▼
                               post_ops.txt (TSV)
                                          │
                                          ▼
-                              diffvim-pace
+                              ad_layer_pace
                               (--delete-pacing word)
                                          │
                                          ▼
@@ -40,7 +40,7 @@ new.py ──┘                              │
                                          │
                     ┌────────────────────┤
                     ▼                    ▼
-           diffvim-animator-c      diffvim (vim)
+           ad      diffvim (vim)
            (terminal render)       (vim render)
                     │                    │
                     ▼                    ▼
@@ -60,13 +60,13 @@ old.py ──────────────────────┼─�
 new.py ──────────────────────┼──────> new.colormap
                              │
                     ┌────────┴────────┐
-                    │ diffvim-pipeline │
+                    │ ad_pipeline │
                     │ (runs in parallel│
                     │  with coloring)  │
                     └────────┬────────┘
                              │
                              ▼
-                    diffvim-animator-c
+                    ad
                     --colormap-old old.colormap
                     --colormap-new new.colormap
 ```

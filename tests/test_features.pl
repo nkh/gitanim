@@ -57,7 +57,7 @@ open my $fh, '>', '/tmp/dv_test_old.txt'; print $fh "hello\n"; close $fh;
 open $fh, '>', '/tmp/dv_test_new.txt'; print $fh "hello there\n"; close $fh;
 
 # Test that --speed 2 halves the delays
-my $output = `DIFFVIM_TYPE_DELAY_MS=100 perl diffvim.pl --speed 2 --help 2>&1`;
+my $output = `AD_TYPE_DELAY_MS=100 perl diffvim.pl --speed 2 --help 2>&1`;
 # --speed 2 should make type_delay = 100/2 = 50
 # We can't easily test runtime values without running vim, but we can
 # verify the script accepts the flag without error

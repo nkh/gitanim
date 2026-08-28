@@ -35,18 +35,18 @@ OPTIONS
     -h, --help        Show this help message and exit 0.
     <example_dir>     Optional. Path to a single example directory
                       containing old.* and new.* files. If omitted,
-                      every example under examples/ matching [0-9]*_*
+                      every example under tests/tests/examples/ matching [0-9]*_*
                       is tested.
 
 EXAMPLES
     test_vimscript_animator.sh
         Test the vimscript animator against ALL examples.
 
-    test_vimscript_animator.sh examples/01_small_python
+    test_vimscript_animator.sh tests/tests/examples/01_small_python
         Test only the small Python example.
 
     test_vimscript_animator.sh 32_python_classes
-        The "examples/" prefix may be omitted.
+        The "tests/tests/examples/" prefix may be omitted.
 
 EXIT STATUS
     0   All tested examples PASSED.
@@ -131,11 +131,11 @@ else
 fi
 
 for d in "${examples[@]}"; do
-    # Strip any "examples/" prefix the caller might have passed
-    d="${d#examples/}"
+    # Strip any "tests/tests/examples/" prefix the caller might have passed
+    d="${d#tests/tests/examples/}"
     # Find example directory
-    if [[ -d "$ROOT/examples/$d" ]]; then
-        dirpath="$ROOT/examples/$d"
+    if [[ -d "$ROOT/tests/tests/examples/$d" ]]; then
+        dirpath="$ROOT/tests/tests/examples/$d"
     elif [[ -d "$d" ]]; then
         dirpath="$d"
     else
@@ -153,14 +153,14 @@ for d in "${examples[@]}"; do
     out="$TMPDIR/out.txt"
     rm -f "$out"
 
-    "$ROOT/compute/bin/diffvim-compute-cpp" "$old" "$new" "$raw" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-postprocess" < "$raw" > "$post" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-pace" < "$post" > "$timed" 2>/dev/null
+    "$ROOT/bin/ad_compute" "$old" "$new" "$raw" 2>/dev/null
+    "$ROOT/bin/ad_postprocess" < "$raw" > "$post" 2>/dev/null
+    "$ROOT/bin/ad_layer_pace" < "$post" > "$timed" 2>/dev/null
 
     # Run vim headless with the patched engine
-    DIFFVIM_TIMED_OPS="$timed" \
-    DIFFVIM_OUTPUT="$out" \
-    DIFFVIM_SPEED=1000000 \
+    AD_TIMED_OPS="$timed" \
+    AD_OUTPUT="$out" \
+    AD_SPEED=1000000 \
     timeout -k 5 60 vim -e -s -n -Nu NONE -U NONE \
         -c "let g:diffvim_new_file = '$new'" \
         -c "source $ENG" \

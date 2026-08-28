@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
-# verify_md5.pl — Round-trip MD5 verification of diffvim AND diffvim-pipeline
-#                  on every example pair under examples/.
+# verify_md5.pl — Round-trip MD5 verification of diffvim AND ad_pipeline
+#                  on every example pair under tests/tests/examples/.
 #
 # For each (old, new) pair:
 #   1. compute md5 of the new file
 #   2. run diffvim synchronously (extracted engine, like test_vim_roundtrip.pl),
 #      capture md5 of saved buffer (--output FILE)
-#   3. run diffvim-pipeline --no-display --snapshot FILE,
+#   3. run ad_pipeline --no-display --snapshot FILE,
 #      capture md5 of snapshot
 #   4. print a table
 #
@@ -222,29 +222,29 @@ sub run_cmd {
 
 # --- discover example pairs -----------------------------------------------
 opendir(my $dh, "$root/examples") or die "opendir: $!";
-my @dirs = sort grep { -d "$root/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 my @rows;   # each: [name, new_md5, dv_md5, dv_status, pipe_md5, pipe_status, pipe_err]
 
-my $env = "DIFFVIM_TICK_MS=16 DIFFVIM_TYPE_DELAY_MS=50 DIFFVIM_DELETE_DELAY_MS=40 " .
-          "DIFFVIM_MOVE_MIN_MS=250 DIFFVIM_MOVE_MAX_MS=1600 DIFFVIM_MOVE_MS_PER_UNIT=6 " .
-          "DIFFVIM_HUNK_PAUSE_MS=250 DIFFVIM_SPEED=1 " .
-          "DIFFVIM_OP_ORDER=optimize DIFFVIM_DELETE_PACING=word " .
-          "DIFFVIM_INSERT_PACING=char DIFFVIM_PACING=uniform DIFFVIM_HIGHLIGHT=none " .
-          "DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1";
+my $env = "AD_TICK_MS=16 AD_TYPE_DELAY_MS=50 AD_DELETE_DELAY_MS=40 " .
+          "AD_MOVE_MIN_MS=250 AD_MOVE_MAX_MS=1600 AD_MOVE_MS_PER_UNIT=6 " .
+          "AD_HUNK_PAUSE_MS=250 AD_SPEED=1 " .
+          "AD_OP_ORDER=optimize AD_DELETE_PACING=word " .
+          "AD_INSERT_PACING=char AD_PACING=uniform AD_HIGHLIGHT=none " .
+          "AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1";
 
 for my $d (@dirs) {
-    my $old = "$root/examples/$d/old.py";
+    my $old = "$root/tests/tests/examples/$d/old.py";
     # find the new.* file
-    my @new_candidates = glob("$root/examples/$d/new.*");
+    my @new_candidates = glob("$root/tests/tests/examples/$d/new.*");
     unless (@new_candidates) {
         push @rows, [$d, 'NO_NEW', '-', '-', '-', '-', ''];
         next;
     }
     my $new = $new_candidates[0];
     # also need old.* matching same extension
-    my @old_candidates = glob("$root/examples/$d/old.*");
+    my @old_candidates = glob("$root/tests/tests/examples/$d/old.*");
     $old = $old_candidates[0] if @old_candidates;
 
     my $new_md5 = md5_file($new);
@@ -252,7 +252,7 @@ for my $d (@dirs) {
     # --- diffvim run ------------------------------------------------------
     my $dv_out = "$tmpdir/dv_$d.out";
     unlink $dv_out if -f $dv_out;
-    my $cmd = "env $env DIFFVIM_OUTPUT='$dv_out' timeout 8 vim -u NONE -N -n -es " .
+    my $cmd = "env $env AD_OUTPUT='$dv_out' timeout 8 vim -u NONE -N -n -es " .
               "-c 'let g:diffvim_new_file = \"$new\"' " .
               "-c 'source $engine' " .
               "'$old' >/dev/null 2>&1";
@@ -260,10 +260,10 @@ for my $d (@dirs) {
     my $dv_md5     = md5_file($dv_out);
     my $dv_status  = ($dv_md5 eq $new_md5) ? 'OK' : 'MISMATCH';
 
-    # --- diffvim-pipeline run --------------------------------------------
+    # --- ad_pipeline run --------------------------------------------
     my $pipe_out = "$tmpdir/pipe_$d.out";
     unlink $pipe_out if -f $pipe_out;
-    my $pcmd = "cd $root && animator/diffvim-pipeline --no-display --snapshot '$pipe_out' '$old' '$new' >/dev/null 2>&1";
+    my $pcmd = "cd $root && animator/ad_pipeline --no-display --snapshot '$pipe_out' '$old' '$new' >/dev/null 2>&1";
     my $prc = run_cmd($pcmd);
     my $pipe_md5    = md5_file($pipe_out);
     my $pipe_status = ($pipe_md5 eq $new_md5) ? 'OK' : 'MISMATCH';
@@ -296,7 +296,7 @@ my $total = scalar @rows;
 my $dv_ok    = grep { $_->[3] eq 'OK' } @rows;
 my $pipe_ok  = grep { $_->[5] eq 'OK' } @rows;
 printf "\ndiffvim:        %d/%d match\n",        $dv_ok,   $total;
-printf "diffvim-pipeline: %d/%d match\n", $pipe_ok, $total;
+printf "ad_pipeline: %d/%d match\n", $pipe_ok, $total;
 
 # list mismatches
 my @dv_bad = grep { $_->[3] ne 'OK' } @rows;
@@ -308,7 +308,7 @@ if (@dv_bad) {
     }
 }
 if (@pp_bad) {
-    print "\ndiffvim-pipeline mismatches:\n";
+    print "\nad_pipeline mismatches:\n";
     for my $r (@pp_bad) {
         printf "  %-28s new=%s snap=%s (%s)\n", $r->[0], $r->[1], $r->[4], $r->[6] || $r->[5];
     }

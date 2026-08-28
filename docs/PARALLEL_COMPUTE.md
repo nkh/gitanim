@@ -27,7 +27,7 @@ compute tool to finish before loading the precomputed file?**
 
 ```bash
 # Start compute in background
-compute/bin/diffvim-compute-cpp "$OLD" "$NEW" /tmp/diff.txt &
+bin/ad_compute "$OLD" "$NEW" /tmp/diff.txt &
 COMPUTE_PID=$!
 
 # Start vim immediately (it will read the old file, load vimrc, etc.)
@@ -59,7 +59,7 @@ hangs until timeout.
 mkfifo /tmp/diff.fifo
 
 # Start compute writing to FIFO (blocks until reader connects)
-compute/bin/diffvim-compute-cpp "$OLD" "$NEW" /tmp/diff.fifo &
+bin/ad_compute "$OLD" "$NEW" /tmp/diff.fifo &
 
 # Start vim reading from FIFO
 # vim's readfile() will block until the writer closes the FIFO
@@ -82,7 +82,7 @@ in vimscript.
 # Start compute in background, write to temp file, then rename to final
 COMPUTE_OUT=/tmp/diff.txt.ready
 COMPUTE_TMP=/tmp/diff.txt.tmp
-(compute/bin/diffvim-compute-cpp "$OLD" "$NEW" "$COMPUTE_TMP" && mv "$COMPUTE_TMP" "$COMPUTE_OUT") &
+(bin/ad_compute "$OLD" "$NEW" "$COMPUTE_TMP" && mv "$COMPUTE_TMP" "$COMPUTE_OUT") &
 
 # Vim polls for .ready file
 vim ... -c "let g:diffvim_precomputed = '$COMPUTE_OUT'" ...
@@ -115,7 +115,7 @@ WORKDIR=$(mktemp -d); trap 'rm -rf "$WORKDIR"' EXIT
 PC="$WORKDIR/diff.txt"
 
 # Start compute in background
-compute/bin/diffvim-compute-cpp "$OLD" "$NEW" "$PC" 2>/dev/null &
+bin/ad_compute "$OLD" "$NEW" "$PC" 2>/dev/null &
 PID=$!
 
 # Start vim with --precomputed; the engine will poll for the file

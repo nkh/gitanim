@@ -4,7 +4,7 @@
 **Status:** Analysis and design only — no code changes proposed for
 implementation yet.
 **Scope:** All 95+ CLI options across `diffvim`, `diffvim-tmux`,
-`diffvim.pl`, and the `diffvim-compute-cpp` tool.
+`diffvim.pl`, and the `ad_compute` tool.
 
 > **Update (Phase A–C refactor):** Several of the proposals below were
 > overtaken by events. The `--tool`/`--compute-tool` flags and the

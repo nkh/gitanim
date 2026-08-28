@@ -18,7 +18,7 @@ the op.
 
 | Subdir | Contents |
 |--------|----------|
-| `c/` | C implementation (animator.c, postprocess.c, pp_layer0_v2.c, pp_layer1_reorder.c, pp_layer_indent_last.c, pp_layer_overwrite.c, pp_pace.c) |
+| `c/` | C implementation (animator.c, postprocess.c, ad_layer_noop_v2.c, ad_layer_noop_reorder.c, pp_layer_indent_last.c, pp_layer_overwrite.c, ad_layer_pace.c) |
 | `perl/` | Perl implementation (animator.pl, postprocess.pl, pace.pl, colorize.pl) |
 | `bin/` | Compiled C binaries (tracked in git) |
 | `docs/` | Animator-specific documentation |
@@ -26,7 +26,7 @@ the op.
 
 ## Files in this directory
 
-- `diffvim-pipeline` — Bash script that runs the full pipeline:
+- `ad_pipeline` — Bash script that runs the full pipeline:
   `compute → postprocess → pace → animator`. Routes options by prefix.
   Use `--compute-*`, `--postprocess-*`, `--pace-*`, `--animator-*`
   to pass options to each stage.
@@ -41,20 +41,20 @@ the op.
   delete-indent-last → optional overwrite → inline
   `adjust_positions()`). The `adjust_positions()` step is a recursive
   in-place walk that fixes per-op `(line, col)` based on `\n` deletes —
-  it is NOT a separate layer (there is no `pp_layer3`). See
+  it is NOT a separate layer (there is no `ad_layer_noop`). See
   `docs/POSTPROCESS_LAYERS.md` for the layer breakdown and
   `docs/POSTPROCESS_TRANSFORMS.md` for what the transforms do.
-- `pp_pace.c` — Reads post-processed ops, inserts `delay` lines between
+- `ad_layer_pace.c` — Reads post-processed ops, inserts `delay` lines between
   them. Does NOT modify, reorder, or add ops (except delays).
 
 Build:
 ```bash
-cc -O2 -o bin/diffvim-animator-c c/animator.c
+cc -O2 -o bin/ad c/animator.c
 cc -O2 -Wall -Wextra -Wunused -Werror -I c \
-   -o bin/diffvim-postprocess \
-   c/postprocess.c c/pp_layer0_v2.c c/pp_layer1_reorder.c \
+   -o bin/ad_postprocess \
+   c/postprocess.c c/ad_layer_noop_v2.c c/ad_layer_noop_reorder.c \
    c/pp_layer_indent_last.c c/pp_layer_overwrite.c
-cc -O2 -o bin/pp_pace c/pp_pace.c
+cc -O2 -o bin/ad_layer_pace c/ad_layer_pace.c
 ```
 
 ## Perl implementation (`perl/`)

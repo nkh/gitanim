@@ -10,13 +10,13 @@ my $fail = 0;
 my @modes = qw(char rapid-eol rapid-identical accel word instant);
 
 for my $mode (@modes) {
-    my $old = "$root/examples/01_small_python/old.py";
-    my $new = "$root/examples/01_small_python/new.py";
+    my $old = "$root/tests/tests/examples/01_small_python/old.py";
+    my $new = "$root/tests/tests/examples/01_small_python/new.py";
     
-    system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/raw.txt 2>/dev/null");
-    system("$root/animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
-    system("$root/animator/bin/pp_pace --delete-pacing $mode < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
-    system("$root/animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/snap.txt '$old' < /tmp/timed.txt 2>/dev/null");
+    system("$root/bin/ad_compute '$old' '$new' /tmp/raw.txt 2>/dev/null");
+    system("$root/bin/ad_postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null");
+    system("$root/bin/ad_layer_pace --delete-pacing $mode < /tmp/post.txt > /tmp/timed.txt 2>/dev/null");
+    system("$root/bin/ad --no-display --speed 1000 --snapshot /tmp/snap.txt '$old' < /tmp/timed.txt 2>/dev/null");
     
     my $snap_md5 = `md5sum /tmp/snap.txt`;
     my $new_md5 = `md5sum '$new'`;

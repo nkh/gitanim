@@ -82,7 +82,7 @@ for pair in "${PAIRS[@]}"; do
     old="${pair%%:*}"
     new="${pair##*:}"
     pc="$WORKDIR/$(basename $old).diff"
-    compute/bin/diffvim-compute-cpp "$old" "$new" "$pc"
+    bin/ad_compute "$old" "$new" "$pc"
     PC_FILES+=("$old:$new:$pc")
 done
 
@@ -114,7 +114,7 @@ for pair in "${PAIRS[@]}"; do
     old="${pair%%:*}"
     new="${pair##*:}"
     pc="$WORKDIR/$(basename $old).diff"
-    compute/bin/diffvim-compute-cpp "$old" "$new" "$pc" &
+    bin/ad_compute "$old" "$new" "$pc" &
     PIDS+=($!)
 done
 

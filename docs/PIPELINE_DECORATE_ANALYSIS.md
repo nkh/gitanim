@@ -143,10 +143,10 @@ Both renderers share the same op stream, same semantics.
 
 ## Implementation plan
 
-### New tool: `diffvim-decorate`
+### New tool: `ad_layer_highlight`
 
 ```
-diffvim-decorate [--highlight MODE] [--dim-unchanged] [--context N]
+ad_layer_highlight [--highlight MODE] [--dim-unchanged] [--context N]
                  [--sign-column] [--git-blame] [--theme NAME]
                  < timed_ops > decorated_ops
 ```
@@ -188,7 +188,7 @@ The bash launcher runs decorate between pace and the renderer.
 
 ## Migration path
 
-1. Implement `diffvim-decorate` with `--highlight` first
+1. Implement `ad_layer_highlight` with `--highlight` first
 2. Add `highlight` op handling to vim and C animator
 3. Move `--dim-unchanged`, `--fold-unchanged`, `--sign-column`, `--git-blame`
    one by one

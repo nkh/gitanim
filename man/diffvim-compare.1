@@ -17,7 +17,7 @@ table so you can pick the most efficient and most readable combination
 for your file pair.
 
 It uses the C++ compute tool
-.RI ( compute/bin/diffvim-compute-cpp )
+.RI ( bin/ad_compute )
 under the hood. For each combination it records hunk count, total ops,
 delete/insert counts, and compute time, then writes the diff file to the
 output directory for offline inspection.
@@ -78,9 +78,9 @@ Fewer
 
 .SH ENVIRONMENT
 .TP
-.B DIFFVIM_COMPUTE_BIN
+.B AD_COMPUTE_BIN
 Override the path to the compute binary (default:
-.IR compute/bin/diffvim-compute-cpp ).
+.IR bin/ad_compute ).
 Historically this also pointed at the
 .IR c ,
 .IR rust ,
@@ -90,7 +90,7 @@ variants, but those were removed in the refactor.
 
 .SH EXAMPLES
 .TP
-.B diffvim-compare examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py
+.B diffvim-compare tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py
 Compare all algorithm/option combinations on a large Python file pair.
 .TP
 .B diffvim-compare a.py b.py /tmp/mycompare
@@ -98,12 +98,12 @@ Write diff files to
 .I /tmp/mycompare
 instead of the default.
 .TP
-.B DIFFVIM_COMPUTE_BIN=compute/bin/diffvim-compute-cpp diffvim-compare a.py b.py
+.B AD_COMPUTE_BIN=bin/ad_compute diffvim-compare a.py b.py
 Explicitly select the C++ compute tool (the default).
 
 .SH SEE ALSO
 .BR diffvim (1),
-.BR diffvim-compute (1),
+.BR ad_compute (1),
 .BR diffvim-jogger (1)
 .br
 .I docs/OPTION_COMBINATIONS.md

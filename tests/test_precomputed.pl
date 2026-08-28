@@ -108,9 +108,9 @@ VIM
     open my $fh, '>', $engine_file; print $fh $engine; close $fh;
 
     if (defined $precomputed) {
-        $ENV{DIFFVIM_PRECOMPUTED} = $precomputed;
+        $ENV{AD_PRECOMPUTED} = $precomputed;
     } else {
-        delete $ENV{DIFFVIM_PRECOMPUTED};
+        delete $ENV{AD_PRECOMPUTED};
     }
 
     system("vim -e -s -n -Nu NONE -U NONE " .
@@ -136,7 +136,7 @@ sub read_file {
 
 # Test with all example file pairs
 my @pairs;
-for my $dir (glob("examples/*/")) {
+for my $dir (glob("tests/tests/examples/*/")) {
     my @old_files = glob("$dir/old.*");
     for my $old (@old_files) {
         my $ext = $old =~ /\.(\w+)$/ ? $1 : 'txt';
@@ -150,7 +150,7 @@ for my $dir (glob("examples/*/")) {
 print "=== Precomputed Diff Correctness Test ===\n";
 print "Verifies that --precomputed produces the same buffer as inline.\n\n";
 
-my $compute_c = $ENV{DIFFVIM_COMPUTE_TOOL} || "compute/bin/diffvim-compute-cpp";
+my $compute_c = $ENV{AD_COMPUTE_TOOL} || "bin/ad_compute";
 die "$compute_c not found. Run 'make -C compute' first.\n" unless -f $compute_c;
 
 my $tmp = "/tmp/dv_pc_test";
@@ -159,7 +159,7 @@ mkdir $tmp unless -d $tmp;
 for my $pair (@pairs) {
     my ($old, $new) = @$pair;
     my $name = $old;
-    $name =~ s|^examples/||;
+    $name =~ s|^tests/tests/examples/||;
 
     my $expected = read_file($new);
     $expected =~ s/\n+$//;

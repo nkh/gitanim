@@ -70,8 +70,8 @@ the only one that supports all unified option selectors.
 ### 1.4 External Compute Tool
 
 A single native compute tool (C++) pre-computes diffs 10-100x faster
-than the in-vim patience. When `compute/bin/diffvim-compute-cpp` is missing,
-`diffvim` falls back to the embedded vimscript patience and `diffvim-pipeline`
+than the in-vim patience. When `bin/ad_compute` is missing,
+`diffvim` falls back to the embedded vimscript patience and `ad_pipeline`
 falls back to `compute/perl/compute_builtin.pl`. Used via `--precomputed FILE`
 or automatically (no `--tool` flag needed).
 
@@ -167,7 +167,7 @@ diffvim [options] <oldfile> <newfile>
 
 The old file is opened in vim; the new file is the animation target.
 The diff is computed either inline (vimscript patience) or externally
-(`compute/bin/diffvim-compute-cpp`, searched for automatically).
+(`bin/ad_compute`, searched for automatically).
 
 **Acceptance criteria:**
 - Both files must exist and be readable.
@@ -181,8 +181,8 @@ diffvim --precomputed FILE <oldfile> <newfile>
 ```
 
 The application SHALL accept a precomputed diff file (produced by
-`diffvim-compute-cpp`) and skip the in-vim patience computation. When the
-C++ binary is on `$PATH` (or in `compute/bin/`, `/usr/local/bin/`, or
+`ad_compute`) and skip the in-vim patience computation. When the
+C++ binary is on `$PATH` (or in `bin/ad_compute `, `/usr/local/bin/`, or
 `~/.local/bin/`), diffvim pre-computes automatically; otherwise it
 falls back to the in-vim patience with a warning on stderr. (The `--tool`
 flag was removed in the refactor — only the C++ compute tool remains.)
@@ -500,7 +500,7 @@ The application SHALL support four named presets:
 | `demo` | `--pacing gaussian --speed 0.7 --highlight inline` |
 | `ai-code` | `--op-order end-first-smart --highlight inline --pacing adaptive --semantic-cleanup` |
 
-Plus `custom` which reads options from the `DIFFVIM_PRESET_CUSTOM`
+Plus `custom` which reads options from the `AD_PRESET_CUSTOM`
 environment variable.
 
 ### FR-7: Output
@@ -641,9 +641,9 @@ before exporting them to vim.
 - `DIFFVIM_OP_ORDER`, `DIFFVIM_DELETE_PACING`, `DIFFVIM_DELETE_SPEED`,
   `DIFFVIM_DELETE_THRESHOLD`, `DIFFVIM_INSERT_PACING`,
   `DIFFVIM_INSERT_SPEED`, `DIFFVIM_PACING`, `DIFFVIM_HIGHLIGHT`
-- `DIFFVIM_TICK_MS`, `DIFFVIM_TYPE_DELAY_MS`, `DIFFVIM_DELETE_DELAY_MS`,
-  `DIFFVIM_MOVE_MIN_MS`, `DIFFVIM_MOVE_MAX_MS`, `DIFFVIM_HUNK_PAUSE_MS`
-- `DIFFVIM_PRESET` (default preset to apply)
+- `AD_TICK_MS`, `AD_TYPE_DELAY_MS`, `AD_DELETE_DELAY_MS`,
+  `AD_MOVE_MIN_MS`, `AD_MOVE_MAX_MS`, `AD_HUNK_PAUSE_MS`
+- `AD_PRESET` (default preset to apply)
 
 ### 5.3 Precomputed Diff Format
 
@@ -867,13 +867,13 @@ HUNK 2 (del=1 ins=1)
 
 ```vim
 let g:diffvim = {
-    \ 'tick_ms':            str2nr($DIFFVIM_TICK_MS),
-    \ 'type_delay_ms':      str2nr($DIFFVIM_TYPE_DELAY_MS),
-    \ 'delete_delay_ms':    str2nr($DIFFVIM_DELETE_DELAY_MS),
-    \ 'move_min_ms':        str2nr($DIFFVIM_MOVE_MIN_MS),
-    \ 'move_max_ms':        str2nr($DIFFVIM_MOVE_MAX_MS),
-    \ 'move_ms_per_unit':   str2nr($DIFFVIM_MOVE_MS_PER_UNIT),
-    \ 'hunk_pause_ms':      str2nr($DIFFVIM_HUNK_PAUSE_MS),
+    \ 'tick_ms':            str2nr($AD_TICK_MS),
+    \ 'type_delay_ms':      str2nr($AD_TYPE_DELAY_MS),
+    \ 'delete_delay_ms':    str2nr($AD_DELETE_DELAY_MS),
+    \ 'move_min_ms':        str2nr($AD_MOVE_MIN_MS),
+    \ 'move_max_ms':        str2nr($AD_MOVE_MAX_MS),
+    \ 'move_ms_per_unit':   str2nr($AD_MOVE_MS_PER_UNIT),
+    \ 'hunk_pause_ms':      str2nr($AD_HUNK_PAUSE_MS),
     \ 'speed':              str2nr($DIFFVIM_SPEED),
     \ 'scroll':             $DIFFVIM_SCROLL,
     \ 'op_order':           $DIFFVIM_OP_ORDER,
@@ -1040,7 +1040,7 @@ gitanim/
 │   └── diffvim.fish                # Fish completion
 │
 ├── compute/
-│   ├── cpp/diffvim-compute.cpp     # C++ (only compute implementation)
+│   ├── cpp/ad_compute.cpp     # C++ (only compute implementation)
 │   ├── perl/compute_builtin.pl     # Pure-Perl fallback wrapper
 │   ├── Makefile                    # Build the C++ binary
 │   ├── README.md                   # Compute tool docs
@@ -1051,7 +1051,7 @@ gitanim/
 │   ├── diffvim-tmux.1              # tmux variant manpage
 │   ├── diffvim-compare.1           # Compare tool manpage
 │   ├── diffvim-jogger.1            # Jogger tool manpage
-│   └── diffvim-compute.1           # Compute tools manpage
+│   └── ad_compute.1           # Compute tools manpage
 │
 ├── packaging/
 │   └── diffvim.rb                  # Homebrew formula
@@ -1090,7 +1090,7 @@ gitanim/
 │   ├── test_parser_compare.pl
 │   └── test_e2e_perl.pl
 │
-├── examples/                       # 42 example file pairs (15+ languages)
+├── tests/tests/examples/                       # 42 example file pairs (15+ languages)
 │   ├── 01_small_python/
 │   ├── 02_large_python/
 │   ├── ...

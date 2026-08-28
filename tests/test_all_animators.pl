@@ -8,11 +8,11 @@ use warnings;
 use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
-my $compute = "$root/compute/bin/diffvim-compute-cpp";
-my $postprocess_perl = "perl $root/animator/perl/postprocess.pl";
-my $pace_perl = "perl $root/animator/perl/pace.pl";
-my $animator_perl = "perl $root/animator/perl/animator.pl";
-my $animator_c = "$root/animator/bin/diffvim-animator-c";
+my $compute = "$root/bin/ad_compute";
+my $postprocess_perl = "perl $root/layers/perl/postprocess.pl";
+my $pace_perl = "perl $root/layers/perl/ad_layer_pace.pl";
+my $animator_perl = "perl $root/animator/perl/ad.pl";
+my $animator_c = "$root/bin/ad";
 
 my $pass = 0;
 my $fail = 0;

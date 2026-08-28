@@ -71,14 +71,14 @@ sub _env_or {
 }
 
 my %config = (
-    tick_ms          => _env_or('DIFFVIM_TICK_MS',          16),
-    type_delay_ms    => _env_or('DIFFVIM_TYPE_DELAY_MS',    50),
-    delete_delay_ms  => _env_or('DIFFVIM_DELETE_DELAY_MS',  40),
-    move_min_ms      => _env_or('DIFFVIM_MOVE_MIN_MS',      250),
-    move_max_ms      => _env_or('DIFFVIM_MOVE_MAX_MS',      1600),
-    move_ms_per_unit => _env_or('DIFFVIM_MOVE_MS_PER_UNIT', 6),
-    hunk_pause_ms    => _env_or('DIFFVIM_HUNK_PAUSE_MS',    250),
-    word_pause_ms    => _env_or('DIFFVIM_WORD_PAUSE_MS',    150),
+    tick_ms          => _env_or('AD_TICK_MS',          16),
+    type_delay_ms    => _env_or('AD_TYPE_DELAY_MS',    50),
+    delete_delay_ms  => _env_or('AD_DELETE_DELAY_MS',  40),
+    move_min_ms      => _env_or('AD_MOVE_MIN_MS',      250),
+    move_max_ms      => _env_or('AD_MOVE_MAX_MS',      1600),
+    move_ms_per_unit => _env_or('AD_MOVE_MS_PER_UNIT', 6),
+    hunk_pause_ms    => _env_or('AD_HUNK_PAUSE_MS',    250),
+    word_pause_ms    => _env_or('AD_WORD_PAUSE_MS',    150),
 );
 
 # ---------------------------------------------------------------------------
@@ -87,12 +87,12 @@ my %config = (
 my $parser_name    = 'perl';
 my $help           = 0;
 my $version_flag   = 0;
-my $speed_mult     = _env_or('DIFFVIM_SPEED', 1.0);
+my $speed_mult     = _env_or('AD_SPEED', 1.0);
 my $output_file    = '';
 my $context_lines  = 0;
 my $max_hunk_chars = 0;
 my $max_word_chars = 0;
-my $scroll_mode    = _env_or('DIFFVIM_SCROLL', 'zz');
+my $scroll_mode    = _env_or('AD_SCROLL', 'zz');
 my $multi_mode     = 0;
 my $replay_mode    = 0;
 my $replay_from    = 'HEAD~5';
@@ -103,16 +103,16 @@ my $sign_column    = 0;
 my $git_blame      = 0;
 my $step_mode      = 0;
 my $git_rev        = '';
-my $max_line_len   = _env_or('DIFFVIM_MAX_LINE_LEN', 10000);
+my $max_line_len   = _env_or('AD_MAX_LINE_LEN', 10000);
 my $adaptive_timing= 0;
 my $word_diff_mode = 0;
 my $diff_input     = '';
 my $diff_algorithm   = 'lcs';
 my $use_remote       = 0;
 my $highlight_hunk   = 0;
-my $highlight_color  = _env_or('DIFFVIM_HIGHLIGHT_COLOR', 'DiffChange');
-my $highlight_duration_ms = _env_or('DIFFVIM_HIGHLIGHT_DURATION_MS', 1000);
-my $highlight_min_chars = _env_or('DIFFVIM_HIGHLIGHT_MIN_CHARS', 10);
+my $highlight_color  = _env_or('AD_HIGHLIGHT_COLOR', 'DiffChange');
+my $highlight_duration_ms = _env_or('AD_HIGHLIGHT_DURATION_MS', 1000);
+my $highlight_min_chars = _env_or('AD_HIGHLIGHT_MIN_CHARS', 10);
 my $fold_unchanged  = 0;
 my $theme           = '';
 my $debug_mode      = 0;
@@ -149,31 +149,31 @@ GetOptions(
     'fold-unchanged'   => \$fold_unchanged,
     'theme=s'          => \$theme,
     'debug'            => \$debug_mode,
-    'accel-delete'     => sub { $ENV{DIFFVIM_ACCEL_DELETE} = '1'; },
-    'accel-delete-start-ms=i' => sub { $ENV{DIFFVIM_ACCEL_DELETE_START_MS} = $_[1]; },
-    'accel-delete-min-ms=i' => sub { $ENV{DIFFVIM_ACCEL_DELETE_MIN_MS} = $_[1]; },
-    'accel-delete-accel=i' => sub { $ENV{DIFFVIM_ACCEL_DELETE_ACCEL} = $_[1]; },
-    'overwrite'        => sub { $ENV{DIFFVIM_OVERWRITE_MODE} = '1'; },
-    'delete-end-first' => sub { $ENV{DIFFVIM_DELETE_END_FIRST} = '1'; },
-    'delete-end-first-delay-ms=i' => sub { $ENV{DIFFVIM_DELETE_END_FIRST_DELAY_MS} = $_[1]; },
-    'startup-feedback' => sub { $ENV{DIFFVIM_STARTUP_FEEDBACK} = '1'; },
-    'inline-highlight' => sub { $ENV{DIFFVIM_INLINE_HIGHLIGHT} = '1'; },
-    'inline-highlight-duration-ms=i' => sub { $ENV{DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS} = $_[1]; },
-    'gaussian-jitter'  => sub { $ENV{DIFFVIM_GAUSSIAN_JITTER} = '1'; },
-    'gaussian-jitter-pct=i' => sub { $ENV{DIFFVIM_GAUSSIAN_JITTER_PCT} = $_[1]; },
-    'dim-unchanged'    => sub { $ENV{DIFFVIM_DIM_UNCHANGED} = '1'; },
-    'dim-unchanged-pct=i' => sub { $ENV{DIFFVIM_DIM_UNCHANGED_PCT} = $_[1]; },
-    'pause-after-lines=i' => sub { $ENV{DIFFVIM_PAUSE_AFTER_LINES} = $_[1]; },
-    'pause-after-threshold=i' => sub { $ENV{DIFFVIM_PAUSE_AFTER_THRESHOLD} = $_[1]; },
-    'pause-after-ms=i' => sub { $ENV{DIFFVIM_PAUSE_AFTER_MS} = $_[1]; },
-    'keep-dirty'       => sub { $ENV{DIFFVIM_KEEP_DIRTY} = '1'; },
-    'no-vimrc'         => sub { $ENV{DIFFVIM_NO_VIMRC} = '1'; },
-    'precomputed=s'    => sub { $ENV{DIFFVIM_PRECOMPUTED} = $_[1]; },
-    'startup-pause'    => sub { $ENV{DIFFVIM_STARTUP_PAUSE} = '1'; },
-    'highlight-word'   => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD} = '1'; },
-    'highlight-word-color=s' => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD_COLOR} = $_[1]; },
-    'highlight-word-duration-ms=i' => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD_DURATION_MS} = $_[1]; },
-    'highlight-word-min-chars=i' => sub { $ENV{DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS} = $_[1]; },
+    'accel-delete'     => sub { $ENV{AD_ACCEL_DELETE} = '1'; },
+    'accel-delete-start-ms=i' => sub { $ENV{AD_ACCEL_DELETE_START_MS} = $_[1]; },
+    'accel-delete-min-ms=i' => sub { $ENV{AD_ACCEL_DELETE_MIN_MS} = $_[1]; },
+    'accel-delete-accel=i' => sub { $ENV{AD_ACCEL_DELETE_ACCEL} = $_[1]; },
+    'overwrite'        => sub { $ENV{AD_OVERWRITE_MODE} = '1'; },
+    'delete-end-first' => sub { $ENV{AD_DELETE_END_FIRST} = '1'; },
+    'delete-end-first-delay-ms=i' => sub { $ENV{AD_DELETE_END_FIRST_DELAY_MS} = $_[1]; },
+    'startup-feedback' => sub { $ENV{AD_STARTUP_FEEDBACK} = '1'; },
+    'inline-highlight' => sub { $ENV{AD_INLINE_HIGHLIGHT} = '1'; },
+    'inline-highlight-duration-ms=i' => sub { $ENV{AD_INLINE_HIGHLIGHT_DURATION_MS} = $_[1]; },
+    'gaussian-jitter'  => sub { $ENV{AD_GAUSSIAN_JITTER} = '1'; },
+    'gaussian-jitter-pct=i' => sub { $ENV{AD_GAUSSIAN_JITTER_PCT} = $_[1]; },
+    'dim-unchanged'    => sub { $ENV{AD_DIM_UNCHANGED} = '1'; },
+    'dim-unchanged-pct=i' => sub { $ENV{AD_DIM_UNCHANGED_PCT} = $_[1]; },
+    'pause-after-lines=i' => sub { $ENV{AD_PAUSE_AFTER_LINES} = $_[1]; },
+    'pause-after-threshold=i' => sub { $ENV{AD_PAUSE_AFTER_THRESHOLD} = $_[1]; },
+    'pause-after-ms=i' => sub { $ENV{AD_PAUSE_AFTER_MS} = $_[1]; },
+    'keep-dirty'       => sub { $ENV{AD_KEEP_DIRTY} = '1'; },
+    'no-vimrc'         => sub { $ENV{AD_NO_VIMRC} = '1'; },
+    'precomputed=s'    => sub { $ENV{AD_PRECOMPUTED} = $_[1]; },
+    'startup-pause'    => sub { $ENV{AD_STARTUP_PAUSE} = '1'; },
+    'highlight-word'   => sub { $ENV{AD_HIGHLIGHT_WORD} = '1'; },
+    'highlight-word-color=s' => sub { $ENV{AD_HIGHLIGHT_WORD_COLOR} = $_[1]; },
+    'highlight-word-duration-ms=i' => sub { $ENV{AD_HIGHLIGHT_WORD_DURATION_MS} = $_[1]; },
+    'highlight-word-min-chars=i' => sub { $ENV{AD_HIGHLIGHT_WORD_MIN_CHARS} = $_[1]; },
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
@@ -272,10 +272,10 @@ Controls (during animation, in vim normal mode):
   ?        show full-screen help overlay
 
 Environment variables:
-  DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
-  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
-  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED,
-  DIFFVIM_MAX_LINE_LEN
+  AD_TICK_MS, AD_TYPE_DELAY_MS, AD_DELETE_DELAY_MS,
+  AD_MOVE_MIN_MS, AD_MOVE_MAX_MS, AD_MOVE_MS_PER_UNIT,
+  AD_HUNK_PAUSE_MS, AD_WORD_PAUSE_MS, AD_SPEED,
+  AD_MAX_LINE_LEN
 USAGE
     exit 0;
 }
@@ -1108,8 +1108,8 @@ sub compute_diff {
 
     # If --precomputed FILE is set, load the diff from that file instead
     # of computing it with the Perl parser.
-    if (defined $ENV{DIFFVIM_PRECOMPUTED} && $ENV{DIFFVIM_PRECOMPUTED} ne '') {
-        my $pc_file = $ENV{DIFFVIM_PRECOMPUTED};
+    if (defined $ENV{AD_PRECOMPUTED} && $ENV{AD_PRECOMPUTED} ne '') {
+        my $pc_file = $ENV{AD_PRECOMPUTED};
         my $r = load_precomputed($pc_file);
         @hunks = @$r;
         $parser_used = 'precomputed';

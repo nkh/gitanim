@@ -40,25 +40,25 @@ set -euo pipefail
 # Defaults (can be overridden by env vars or --speed)
 # ---------------------------------------------------------------------------
 
-# Load config file if it exists (~/.config/diffvim/config or ~/.diffvimrc)
-if [[ -z "${DIFFVIM_CONFIG_LOADED:-}" ]]; then
+# Load config file if it exists (~/.config/ad/config or ~/.config/ad/config)
+if [[ -z "${AD_CONFIG_LOADED:-}" ]]; then
     for cfg in "$HOME/.config/diffvim/config" "$HOME/.diffvimrc"; do
         if [[ -f "$cfg" ]]; then
             source "$cfg"
-            export DIFFVIM_CONFIG_LOADED=1
+            export AD_CONFIG_LOADED=1
             break
         fi
     done
 fi
 
-export DIFFVIM_TICK_MS=${DIFFVIM_TICK_MS:-16}
-export DIFFVIM_TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-50}
-export DIFFVIM_DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-40}
-export DIFFVIM_MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-200}
-export DIFFVIM_MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-2000}
-export DIFFVIM_MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-1}
-export DIFFVIM_HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-250}
-export DIFFVIM_WORD_PAUSE_MS=${DIFFVIM_WORD_PAUSE_MS:-150}
+export AD_TICK_MS=${AD_TICK_MS:-16}
+export AD_TYPE_DELAY_MS=${AD_TYPE_DELAY_MS:-50}
+export AD_DELETE_DELAY_MS=${AD_DELETE_DELAY_MS:-40}
+export AD_MOVE_MIN_MS=${AD_MOVE_MIN_MS:-200}
+export AD_MOVE_MAX_MS=${AD_MOVE_MAX_MS:-2000}
+export AD_MOVE_MS_PER_UNIT=${AD_MOVE_MS_PER_UNIT:-1}
+export AD_HUNK_PAUSE_MS=${AD_HUNK_PAUSE_MS:-250}
+export AD_WORD_PAUSE_MS=${AD_WORD_PAUSE_MS:-150}
 export DIFFVIM_RAPID_EOL_DELAY_MS=${DIFFVIM_RAPID_EOL_DELAY_MS:-80}
 export DIFFVIM_RAPID_EOL_MIN_CHARS=${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}
 
@@ -137,8 +137,8 @@ ACCEL_DELETE_ACCEL="${DIFFVIM_ACCEL_DELETE_ACCEL:-0.85}"
 # same=overwrite-only; longer=overwrite+insert-remainder.
 OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
-INDENT_LAST="${DIFFVIM_INDENT_LAST:-0}"
-LINE_DELETE_IN_PLACE="${DIFFVIM_LINE_DELETE_IN_PLACE:-0}"
+INDENT_LAST="${AD_INDENT_LAST:-0}"
+LINE_DELETE_IN_PLACE="${AD_LINE_DELETE_IN_PLACE:-0}"
 # Extra postprocess flags forwarded dynamically to the orchestrator.
 # Lets users enable any layer from animator/layers.conf without editing
 # this launcher — e.g. `diffvim --pp-foo old new` runs `--foo` in the
@@ -192,7 +192,7 @@ THEME="${DIFFVIM_THEME:-}"
 OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
 LOG_MODE="${DIFFVIM_LOG_MODE:-}"
 LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
-LEFT_TO_RIGHT="${DIFFVIM_LEFT_TO_RIGHT:-1}"
+LEFT_TO_RIGHT="${AD_LEFT_TO_RIGHT:-1}"
 ADAPTIVE_WORD_DELETE="${DIFFVIM_ADAPTIVE_WORD_DELETE:-0}"
 ADAPTIVE_WORD_DELETE_THRESHOLD="${DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD:-3}"
 ADAPTIVE_WORD_DELETE_START_CHARS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS:-3}"
@@ -212,7 +212,7 @@ WORD_ACCEL="${DIFFVIM_WORD_ACCEL:-0}"
 WORD_ACCEL_DELETE_PCT="${DIFFVIM_WORD_ACCEL_DELETE_PCT:-20}"
 WORD_END_PAUSE_MS="${DIFFVIM_WORD_END_PAUSE_MS:-150}"
 LINE_CHANGE_PAUSE_MS="${DIFFVIM_LINE_CHANGE_PAUSE_MS:-200}"
-PRESET="${DIFFVIM_PRESET:-}"
+PRESET="${AD_PRESET:-}"
 LOG_TIMING="${DIFFVIM_LOG_TIMING:-1}"
 DEBUG_MODE=0
 DEBUG_LOG="/tmp/diffvim-debug.log"
@@ -252,7 +252,7 @@ CORE OPTIONS:
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
-                           By default diffvim uses compute/bin/diffvim-compute-cpp
+                           By default diffvim uses bin/ad_compute
                            and falls back to the built-in vimscript LCS if not found.
   --startup-pause          Show config + help before starting (default: off)
   --startup-feedback (-F)  Show progress in status line during diff computation
@@ -347,8 +347,8 @@ GIT REPLAY CONTROLS (only with --replay or --git-rev):
 ENVIRONMENT VARIABLES:
   All options can be set via DIFFVIM_<OPTION_NAME> env vars
   (e.g. DIFFVIM_DELETE_PACING, DIFFVIM_PACING, etc.)
-  Timing: DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
-  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_HUNK_PAUSE_MS
+  Timing: AD_TICK_MS, AD_TYPE_DELAY_MS, AD_DELETE_DELAY_MS,
+  AD_MOVE_MIN_MS, AD_MOVE_MAX_MS, AD_HUNK_PAUSE_MS
 
 PRESETS:
   fast-delete              --delete-pacing word --delete-speed fast
@@ -357,16 +357,16 @@ PRESETS:
   ai-code                  --highlight inline --pacing adaptive
 
 CONFIG FILE:
-  ~/.config/diffvim/config  or  ~/.diffvimrc
+  ~/.config/ad/config  or  ~/.config/ad/config
     Sourced as bash. Set DIFFVIM_* env vars to customize defaults.
     Example:
-      DIFFVIM_INDENT_LAST=1
-      DIFFVIM_LINE_DELETE_IN_PLACE=1
+      AD_INDENT_LAST=1
+      AD_LINE_DELETE_IN_PLACE=1
       DIFFVIM_DELETE_PACING=word
 
 
 SEE ALSO:
-  man diffvim, man diffvim-compute
+  man diffvim, man ad_compute
   docs/VISUAL_GUIDE.md, docs/ADOPTION_GUIDE.md
 USAGE
 }
@@ -484,13 +484,13 @@ while [[ $# -gt 0 ]]; do
             ;;
         --list-layers)
             # Delegate to the orchestrator — print available layers and exit.
-            for d in "animator/bin/diffvim-postprocess" \
-                     "/usr/local/bin/diffvim-postprocess"; do
+            for d in "bin/ad_postprocess" \
+                     "/usr/local/bin/ad_postprocess"; do
                 if [[ -f "$d" ]]; then
                     exec "$d" --list-layers
                 fi
             done
-            echo "diffvim: no orchestrator found (expected animator/bin/diffvim-postprocess)" >&2
+            echo "diffvim: no orchestrator found (expected bin/ad_postprocess)" >&2
             exit 1
             ;;
         --diff-stat)        DIFF_STAT=1; shift ;;
@@ -578,13 +578,13 @@ fi
 
 # ---------------------------------------------------------------------------
 # --preset: apply a named preset that sets multiple options at once.
-# Presets can also be set via DIFFVIM_PRESET env var. Multiple presets
+# Presets can also be set via AD_PRESET env var. Multiple presets
 # can be comma-separated. Available presets:
 #   fast-delete: maximize non-char deletion and acceleration
 #   review: thorough review with highlighting and pauses
 #   present: slow, dramatic for presentations
 #   ai-code: optimized for AI-generated code diffs
-#   custom: reads options from DIFFVIM_PRESET_CUSTOM env var
+#   custom: reads options from AD_PRESET_CUSTOM env var
 # ---------------------------------------------------------------------------
 if [[ -n "$PRESET" ]]; then
     IFS=',' read -ra PRESETS <<< "$PRESET"
@@ -609,10 +609,10 @@ if [[ -n "$PRESET" ]]; then
                 PACING=adaptive
                 ;;
             custom)
-                # Read custom options from DIFFVIM_PRESET_CUSTOM env var
+                # Read custom options from AD_PRESET_CUSTOM env var
                 # Format: space-separated --option value pairs
-                if [[ -n "${DIFFVIM_PRESET_CUSTOM:-}" ]]; then
-                    eval "set -- $DIFFVIM_PRESET_CUSTOM"
+                if [[ -n "${AD_PRESET_CUSTOM:-}" ]]; then
+                    eval "set -- $AD_PRESET_CUSTOM"
                     while [[ $# -gt 0 ]]; do
                         case "$1" in
                             --*) eval "$(echo "$1" | tr '-' '_' | tr '[:lower:]' '[:upper:]' | sed 's/^_//')=\"${2:-1}\"" 2>/dev/null; shift 2 ;;
@@ -631,20 +631,20 @@ fi
 # Apply speed multiplier
 if [[ "$SPEED_MULT" != "1.0" && "$SPEED_MULT" != "1" ]]; then
     DIV=$(awk "BEGIN { printf \"%.6f\", 1.0 / $SPEED_MULT }")
-    DIFFVIM_TICK_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_TICK_MS * $DIV }")
-    DIFFVIM_TYPE_DELAY_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_TYPE_DELAY_MS * $DIV }")
-    DIFFVIM_DELETE_DELAY_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_DELETE_DELAY_MS * $DIV }")
-    DIFFVIM_MOVE_MIN_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_MOVE_MIN_MS * $DIV }")
-    DIFFVIM_MOVE_MAX_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_MOVE_MAX_MS * $DIV }")
-    DIFFVIM_HUNK_PAUSE_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_HUNK_PAUSE_MS * $DIV }")
-    DIFFVIM_WORD_PAUSE_MS=$(awk "BEGIN { printf \"%d\", $DIFFVIM_WORD_PAUSE_MS * $DIV }")
-    export DIFFVIM_TICK_MS DIFFVIM_TYPE_DELAY_MS DIFFVIM_DELETE_DELAY_MS \
-           DIFFVIM_MOVE_MIN_MS DIFFVIM_MOVE_MAX_MS DIFFVIM_HUNK_PAUSE_MS DIFFVIM_WORD_PAUSE_MS
+    AD_TICK_MS=$(awk "BEGIN { printf \"%d\", $AD_TICK_MS * $DIV }")
+    AD_TYPE_DELAY_MS=$(awk "BEGIN { printf \"%d\", $AD_TYPE_DELAY_MS * $DIV }")
+    AD_DELETE_DELAY_MS=$(awk "BEGIN { printf \"%d\", $AD_DELETE_DELAY_MS * $DIV }")
+    AD_MOVE_MIN_MS=$(awk "BEGIN { printf \"%d\", $AD_MOVE_MIN_MS * $DIV }")
+    AD_MOVE_MAX_MS=$(awk "BEGIN { printf \"%d\", $AD_MOVE_MAX_MS * $DIV }")
+    AD_HUNK_PAUSE_MS=$(awk "BEGIN { printf \"%d\", $AD_HUNK_PAUSE_MS * $DIV }")
+    AD_WORD_PAUSE_MS=$(awk "BEGIN { printf \"%d\", $AD_WORD_PAUSE_MS * $DIV }")
+    export AD_TICK_MS AD_TYPE_DELAY_MS AD_DELETE_DELAY_MS \
+           AD_MOVE_MIN_MS AD_MOVE_MAX_MS AD_HUNK_PAUSE_MS AD_WORD_PAUSE_MS
 fi
 # Ensure minimums
-[[ $DIFFVIM_TICK_MS -lt 1 ]] && DIFFVIM_TICK_MS=1 && export DIFFVIM_TICK_MS
-[[ $DIFFVIM_TYPE_DELAY_MS -lt 1 ]] && DIFFVIM_TYPE_DELAY_MS=1 && export DIFFVIM_TYPE_DELAY_MS
-[[ $DIFFVIM_DELETE_DELAY_MS -lt 1 ]] && DIFFVIM_DELETE_DELAY_MS=1 && export DIFFVIM_DELETE_DELAY_MS
+[[ $AD_TICK_MS -lt 1 ]] && AD_TICK_MS=1 && export AD_TICK_MS
+[[ $AD_TYPE_DELAY_MS -lt 1 ]] && AD_TYPE_DELAY_MS=1 && export AD_TYPE_DELAY_MS
+[[ $AD_DELETE_DELAY_MS -lt 1 ]] && AD_DELETE_DELAY_MS=1 && export AD_DELETE_DELAY_MS
 
 # Resolve --delete-pacing into the individual deletion-strategy variables.
 # --delete-pacing is the unified selector; the individual flags
@@ -701,19 +701,19 @@ case "$DELETE_SPEED" in
     normal)
         : ;; # keep defaults
     fast)
-        DIFFVIM_DELETE_DELAY_MS=$((DIFFVIM_DELETE_DELAY_MS / 2))
+        AD_DELETE_DELAY_MS=$((AD_DELETE_DELAY_MS / 2))
         ACCEL_DELETE_START_MS=$((ACCEL_DELETE_START_MS / 2))
         ADAPTIVE_WORD_DELETE_START_MS=$((ADAPTIVE_WORD_DELETE_START_MS / 2))
         ;;
     instant)
-        DIFFVIM_DELETE_DELAY_MS=1
+        AD_DELETE_DELAY_MS=1
         ACCEL_DELETE_START_MS=1
         ACCEL_DELETE_MIN_MS=1
         ADAPTIVE_WORD_DELETE_START_MS=1
         ADAPTIVE_WORD_DELETE_MIN_MS=1
         ;;
 esac
-export DIFFVIM_DELETE_DELAY_MS
+export AD_DELETE_DELAY_MS
 
 export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_DELETE_PACING="$DELETE_PACING"
@@ -749,10 +749,10 @@ case "$INSERT_SPEED" in
     normal)
         : ;; # keep defaults
     fast)
-        DIFFVIM_TYPE_DELAY_MS=$((DIFFVIM_TYPE_DELAY_MS / 2))
-        export DIFFVIM_TYPE_DELAY_MS
-        DIFFVIM_WORD_PAUSE_MS=$((DIFFVIM_WORD_PAUSE_MS / 2))
-        export DIFFVIM_WORD_PAUSE_MS
+        AD_TYPE_DELAY_MS=$((AD_TYPE_DELAY_MS / 2))
+        export AD_TYPE_DELAY_MS
+        AD_WORD_PAUSE_MS=$((AD_WORD_PAUSE_MS / 2))
+        export AD_WORD_PAUSE_MS
         ;;
 esac
 
@@ -858,8 +858,8 @@ export DIFFVIM_ACCEL_DELETE="$([[ $ACCEL_DELETE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_ACCEL_DELETE_START_MS="$ACCEL_DELETE_START_MS"
 export DIFFVIM_ACCEL_DELETE_MIN_MS="$ACCEL_DELETE_MIN_MS"
 export DIFFVIM_ACCEL_DELETE_ACCEL="$ACCEL_DELETE_ACCEL"
-export DIFFVIM_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INDENT_LAST="$([[ $INDENT_LAST -eq 1 ]] && echo 1 || echo '')"
+export AD_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
+export AD_INDENT_LAST="$([[ $INDENT_LAST -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_DIFF_STAT="$([[ $DIFF_STAT -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_DIFF_HIGHLIGHT="$([[ $DIFF_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_BELL_ON_ERROR="$([[ $BELL_ON_ERROR -eq 1 ]] && echo 1 || echo '')"
@@ -885,7 +885,7 @@ export DIFFVIM_THEME="$THEME"
 
 export DIFFVIM_LOG_MODE="$LOG_MODE"
 export DIFFVIM_LOG_FILE="$LOG_FILE"
-export DIFFVIM_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
+export AD_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_ADAPTIVE_WORD_DELETE="$([[ $ADAPTIVE_WORD_DELETE -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD="$ADAPTIVE_WORD_DELETE_THRESHOLD"
 export DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS="$ADAPTIVE_WORD_DELETE_START_CHARS"
@@ -900,7 +900,7 @@ export DIFFVIM_WORD_ACCEL="$([[ $WORD_ACCEL -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_WORD_ACCEL_DELETE_PCT="$WORD_ACCEL_DELETE_PCT"
 export DIFFVIM_WORD_END_PAUSE_MS="$WORD_END_PAUSE_MS"
 export DIFFVIM_LINE_CHANGE_PAUSE_MS="$LINE_CHANGE_PAUSE_MS"
-export DIFFVIM_PRESET="$PRESET"
+export AD_PRESET="$PRESET"
 export DIFFVIM_LOG_TIMING="$LOG_TIMING"
 export DIFFVIM_HIGHLIGHT_INLINE="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
 export DIFFVIM_HIGHLIGHT_INLINE_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
@@ -1037,13 +1037,13 @@ fi
 # ---------------------------------------------------------------------------
 if [[ -n "$LOG_MODE" ]]; then
     COMPUTE_BIN=""
-    for d in compute/bin/diffvim-compute-cpp \
-             /usr/local/bin/diffvim-compute-cpp \
-             "$HOME/.local/bin/diffvim-compute-cpp"; do
+    for d in bin/ad_compute \
+             /usr/local/bin/ad_compute \
+             "$HOME/.local/bin/ad_compute"; do
         if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
     done
     if [[ -z "$COMPUTE_BIN" ]]; then
-        echo "Error: --log-mode requires the compute tool (compute/bin/diffvim-compute-cpp)." >&2
+        echo "Error: --log-mode requires the compute tool (bin/ad_compute)." >&2
         echo "       Run 'make -C compute' to build it." >&2
         exit 1
     fi
@@ -1068,9 +1068,9 @@ if [[ -n "$LOG_MODE" ]]; then
         my $block_delete_size = $ENV{DIFFVIM_BLOCK_DELETE_SIZE} || 3;
         my $pause_before = $ENV{DIFFVIM_PAUSE_BEFORE_DELETE_MS} || 200;
         my $pause_after = $ENV{DIFFVIM_PAUSE_AFTER_DELETE_MS} || 200;
-        my $type_delay = $ENV{DIFFVIM_TYPE_DELAY_MS} || 50;
-        my $delete_delay = $ENV{DIFFVIM_DELETE_DELAY_MS} || 40;
-        my $hunk_pause = $ENV{DIFFVIM_HUNK_PAUSE_MS} || 250;
+        my $type_delay = $ENV{AD_TYPE_DELAY_MS} || 50;
+        my $delete_delay = $ENV{AD_DELETE_DELAY_MS} || 40;
+        my $hunk_pause = $ENV{AD_HUNK_PAUSE_MS} || 250;
         my $rapid_eol_delay = $ENV{DIFFVIM_RAPID_EOL_DELAY_MS} || 80;
         my $awd_start_ms = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS} || 80;
         my $awd_min_ms = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS} || 15;
@@ -1329,19 +1329,19 @@ fi
 # fallback is needed.
 if [[ -z "$PRECOMPUTED_FILE" ]]; then
     COMPUTE_BIN=""
-    for d in "compute/bin/diffvim-compute-cpp" \
-             "/usr/local/bin/diffvim-compute-cpp" \
-             "$HOME/.local/bin/diffvim-compute-cpp"; do
+    for d in "bin/ad_compute" \
+             "/usr/local/bin/ad_compute" \
+             "$HOME/.local/bin/ad_compute"; do
         if [[ -f "$d" ]]; then COMPUTE_BIN="$d"; break; fi
     done
     POSTPROCESS_BIN=""
-    for d in "animator/bin/diffvim-postprocess" \
-             "/usr/local/bin/diffvim-postprocess"; do
+    for d in "bin/ad_postprocess" \
+             "/usr/local/bin/ad_postprocess"; do
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
     done
     PACE_BIN=""
-    for d in "animator/bin/pp_pace" \
-             "/usr/local/bin/pp_pace"; do
+    for d in "bin/ad_layer_pace" \
+             "/usr/local/bin/ad_layer_pace"; do
         if [[ -f "$d" ]]; then PACE_BIN="$d"; break; fi
     done
 
@@ -1365,7 +1365,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         # Forward dynamically-discovered layer flags (--pp-foo → --foo).
         [[ ${#EXTRA_PP_FLAGS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_FLAGS[@]}")
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
-        export DV_OLD_FILE="$OLD"
+        export AD_OLD_FILE="$OLD"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 
@@ -1408,8 +1408,8 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
 
         # Stage 4: Decorate (insert highlight/dim/fold/sign ops)
         DECORATE_BIN=""
-        for d in "animator/bin/pp_highlight" \
-                 "/usr/local/bin/pp_highlight"; do
+        for d in "bin/ad_layer_highlight" \
+                 "/usr/local/bin/ad_layer_highlight"; do
             if [[ -f "$d" ]]; then DECORATE_BIN="$d"; break; fi
         done
         DECORATED_OPS="$WORKDIR/decorated_ops.txt"
@@ -1440,13 +1440,13 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
 else
     # User provided a precomputed diff — still need to run postprocess + pace
     POSTPROCESS_BIN=""
-    for d in "animator/bin/diffvim-postprocess" \
-             "/usr/local/bin/diffvim-postprocess"; do
+    for d in "bin/ad_postprocess" \
+             "/usr/local/bin/ad_postprocess"; do
         if [[ -f "$d" ]]; then POSTPROCESS_BIN="$d"; break; fi
     done
     PACE_BIN=""
-    for d in "animator/bin/pp_pace" \
-             "/usr/local/bin/pp_pace"; do
+    for d in "bin/ad_layer_pace" \
+             "/usr/local/bin/ad_layer_pace"; do
         if [[ -f "$d" ]]; then PACE_BIN="$d"; break; fi
     done
     if [[ -n "$POSTPROCESS_BIN" && -n "$PACE_BIN" ]]; then
@@ -1495,14 +1495,14 @@ endif
 " In Vimscript, $NAME accesses environment variables.  empty($NAME) is true
 " when the var is unset or empty.  str2nr() converts the string to a number.
 let g:diffvim = extend({
-    \ 'type_delay_ms':      !empty($DIFFVIM_TYPE_DELAY_MS)    ? str2nr($DIFFVIM_TYPE_DELAY_MS)    : 50,
-    \ 'delete_delay_ms':    !empty($DIFFVIM_DELETE_DELAY_MS)  ? str2nr($DIFFVIM_DELETE_DELAY_MS)  : 40,
-    \ 'move_min_ms':        !empty($DIFFVIM_MOVE_MIN_MS)      ? str2nr($DIFFVIM_MOVE_MIN_MS)      : 200,
-    \ 'move_max_ms':        !empty($DIFFVIM_MOVE_MAX_MS)      ? str2nr($DIFFVIM_MOVE_MAX_MS)      : 2000,
-    \ 'move_ms_per_unit':   !empty($DIFFVIM_MOVE_MS_PER_UNIT) ? str2nr($DIFFVIM_MOVE_MS_PER_UNIT) : 1,
-    \ 'hunk_pause_ms':      !empty($DIFFVIM_HUNK_PAUSE_MS)    ? str2nr($DIFFVIM_HUNK_PAUSE_MS)    : 250,
-    \ 'tick_ms':            !empty($DIFFVIM_TICK_MS)          ? str2nr($DIFFVIM_TICK_MS)          : 16,
-    \ 'word_pause_ms':      !empty($DIFFVIM_WORD_PAUSE_MS)    ? str2nr($DIFFVIM_WORD_PAUSE_MS)    : 150,
+    \ 'type_delay_ms':      !empty($AD_TYPE_DELAY_MS)    ? str2nr($AD_TYPE_DELAY_MS)    : 50,
+    \ 'delete_delay_ms':    !empty($AD_DELETE_DELAY_MS)  ? str2nr($AD_DELETE_DELAY_MS)  : 40,
+    \ 'move_min_ms':        !empty($AD_MOVE_MIN_MS)      ? str2nr($AD_MOVE_MIN_MS)      : 200,
+    \ 'move_max_ms':        !empty($AD_MOVE_MAX_MS)      ? str2nr($AD_MOVE_MAX_MS)      : 2000,
+    \ 'move_ms_per_unit':   !empty($AD_MOVE_MS_PER_UNIT) ? str2nr($AD_MOVE_MS_PER_UNIT) : 1,
+    \ 'hunk_pause_ms':      !empty($AD_HUNK_PAUSE_MS)    ? str2nr($AD_HUNK_PAUSE_MS)    : 250,
+    \ 'tick_ms':            !empty($AD_TICK_MS)          ? str2nr($AD_TICK_MS)          : 16,
+    \ 'word_pause_ms':      !empty($AD_WORD_PAUSE_MS)    ? str2nr($AD_WORD_PAUSE_MS)    : 150,
     \ 'scroll':             !empty($DIFFVIM_SCROLL)           ? $DIFFVIM_SCROLL                   : 'zz',
     \ 'max_hunk_chars':     !empty($DIFFVIM_MAX_HUNK_CHARS)   ? str2nr($DIFFVIM_MAX_HUNK_CHARS)   : 0,
     \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
@@ -1539,7 +1539,7 @@ let g:diffvim = extend({
     \ 'accel_delete_start_ms': !empty($DIFFVIM_ACCEL_DELETE_START_MS) ? str2nr($DIFFVIM_ACCEL_DELETE_START_MS) : 80,
     \ 'accel_delete_min_ms':!empty($DIFFVIM_ACCEL_DELETE_MIN_MS) ? str2nr($DIFFVIM_ACCEL_DELETE_MIN_MS) : 10,
     \ 'accel_delete_accel': !empty($DIFFVIM_ACCEL_DELETE_ACCEL)  ? str2nr($DIFFVIM_ACCEL_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
-    \ 'overwrite_mode':     !empty($DIFFVIM_OVERWRITE_MODE)      ? 1 : 0,
+    \ 'overwrite_mode':     !empty($AD_OVERWRITE_MODE)      ? 1 : 0,
     \ 'delete_end_first':   !empty($DIFFVIM_DELETE_END_FIRST)    ? 1 : 0,
     \ 'delete_end_first_delay_ms': !empty($DIFFVIM_DELETE_END_FIRST_DELAY_MS) ? str2nr($DIFFVIM_DELETE_END_FIRST_DELAY_MS) : 100,
     \ 'delete_end_first_smart': !empty($DIFFVIM_DELETE_END_FIRST_SMART) ? 1 : 0,
@@ -1561,7 +1561,7 @@ let g:diffvim = extend({
     \ 'optimize_sequence':  empty($DIFFVIM_OPTIMIZE_SEQUENCE) ? 1 : ($DIFFVIM_OPTIMIZE_SEQUENCE ==# '0' ? 0 : 1),
     \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
     \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      empty($DIFFVIM_LEFT_TO_RIGHT) ? 1 : ($DIFFVIM_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
+    \ 'left_to_right':      empty($AD_LEFT_TO_RIGHT) ? 1 : ($AD_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
     \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
     \ 'adaptive_word_delete_threshold': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD) : 3,
     \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
@@ -2104,7 +2104,7 @@ endif
 
 __DIFFVIM_VIMSCRIPT_EOF__
 
-# The external pipeline (diffvim-compute-cpp, diffvim-postprocess, pp_pace)
+# The external pipeline (ad_compute, ad_postprocess, ad_layer_pace)
 # now handles all diff computation. This engine only animates the result.
 
 # Find vim runtime directory for syntax files (used in --no-vimrc mode)

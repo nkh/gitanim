@@ -1,6 +1,6 @@
 # Postprocess transformations
 
-The postprocess stage (`diffvim-postprocess`) reads raw char ops
+The postprocess stage (`ad_postprocess`) reads raw char ops
 from the compute stage and produces the op stream that the pace
 stage will time. It is **the most important stage for animation
 quality** — it determines what the animator will actually do.
@@ -299,7 +299,7 @@ bash scripts/dv_debug.sh tests/minimal/15_join_two_lines/old \
                           tests/minimal/15_join_two_lines/new
 ```
 
-Then inspect `/tmp/dv_debug/post.txt` to see the transformation
+Then inspect `/tmp/ad_debug/post.txt` to see the transformation
 in action.
 
 ## What the postprocess does NOT do

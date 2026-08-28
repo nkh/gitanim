@@ -2,13 +2,13 @@
 
 ## Question
 
-Can `diffvim-compute-cpp` be replaced by an existing diff tool like
+Can `ad_compute` be replaced by an existing diff tool like
 GNU diff, difftastic, or `git diff`? This would remove one executable
 and its associated code.
 
 ## Answer: No — but the reasons are instructive.
 
-### What diffvim-compute-cpp does
+### What ad_compute does
 
 It produces **char-level ops** (keep/delete/insert with Unicode code
 points) grouped into **hunks**. This is a TWO-LEVEL diff:
@@ -28,7 +28,7 @@ insert <char_code>
 
 ### GNU diff (`diff -u`)
 
-**Cannot replace diffvim-compute-cpp.**
+**Cannot replace ad_compute.**
 
 - Produces **unified diff** format (line-level only, no char-level ops)
 - No char-level diffing — would need a second stage to diff within
@@ -45,7 +45,7 @@ insert <char_code>
 
 ### difftastic (`difft`)
 
-**Cannot replace diffvim-compute-cpp.**
+**Cannot replace ad_compute.**
 
 - Produces a **structured tree diff** (AST-level), not char-level ops
 - Different output format (JSON or terminal rendering)
@@ -62,17 +62,17 @@ insert <char_code>
 
 ### `git diff --patience`
 
-**Cannot replace diffvim-compute-cpp.**
+**Cannot replace ad_compute.**
 
 - Same as GNU diff — produces unified diff format (line-level only)
 - No char-level ops
 - Would need the same parser + char-level diff as GNU diff
-- Only does line-level Patience; diffvim-compute-cpp does both
+- Only does line-level Patience; ad_compute does both
   line-level Patience AND char-level LCS
 - `git diff` also can't be piped to file easily in the format we need
 - **Net result**: same as GNU diff — more code, not less
 
-### Why keeping diffvim-compute-cpp is the right choice
+### Why keeping ad_compute is the right choice
 
 1. **Two-level diff in one tool**: line-level (Patience) + char-level
    (LCS) in a single ~700-line C++ file. No external tool does both.
@@ -102,7 +102,7 @@ insert <char_code>
 
 - **Add difftastic as an OPTIONAL compute backend** for structural
   diffing (when the user wants AST-aware diffs). But keep
-  diffvim-compute-cpp as the default.
+  ad_compute as the default.
 - **Add `git diff --patience` as a fallback** when the C++ binary
   isn't available and the Perl builtin is too slow. But this requires
   the parser + char-level diff code.
@@ -111,7 +111,7 @@ insert <char_code>
 
 ## Conclusion
 
-**Keep `diffvim-compute-cpp`.** It does two jobs (line-level + char-level
+**Keep `ad_compute`.** It does two jobs (line-level + char-level
 diff) in one small, fast, dependency-free executable. Replacing it with
 GNU diff, difftastic, or git diff would require a parser + the same
 char-level diff code, resulting in MORE code, not less.

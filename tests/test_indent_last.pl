@@ -23,13 +23,13 @@ open(my $fh, '>', $old) or die; print $fh "def foo():\n    print(\"hello\")\n   
 open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; close($fh);
 
 # Run compute
-system("DIFFVIM_LEFT_TO_RIGHT=1 ./compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
+system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
 
 # Run postprocess WITHOUT indent-last
-system("./animator/bin/diffvim-postprocess < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
+system("./bin/ad_postprocess < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
 
 # Run postprocess WITH indent-last
-system("./animator/bin/diffvim-postprocess --indent-last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
+system("./bin/ad_postprocess --indent-last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
 
 # Read the ops
 sub read_ops {
@@ -92,10 +92,10 @@ if ($found_space_after_content) {
 }
 
 # Check: both produce correct output
-system("./animator/bin/pp_pace < /tmp/il_test_post_no.txt > /tmp/il_test_timed_no.txt 2>/dev/null");
-system("./animator/bin/pp_pace < /tmp/il_test_post_il.txt > /tmp/il_test_timed_il.txt 2>/dev/null");
-system("./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/il_test_out_no.txt '$old' < /tmp/il_test_timed_no.txt 2>/dev/null");
-system("./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/il_test_out_il.txt '$old' < /tmp/il_test_timed_il.txt 2>/dev/null");
+system("./bin/ad_layer_pace < /tmp/il_test_post_no.txt > /tmp/il_test_timed_no.txt 2>/dev/null");
+system("./bin/ad_layer_pace < /tmp/il_test_post_il.txt > /tmp/il_test_timed_il.txt 2>/dev/null");
+system("./bin/ad --no-display --speed 1000 --snapshot /tmp/il_test_out_no.txt '$old' < /tmp/il_test_timed_no.txt 2>/dev/null");
+system("./bin/ad --no-display --speed 1000 --snapshot /tmp/il_test_out_il.txt '$old' < /tmp/il_test_timed_il.txt 2>/dev/null");
 
 if (system("diff -q '$new' /tmp/il_test_out_no.txt >/dev/null 2>&1") == 0) {
     print "PASS: WITHOUT indent-last, output matches\n";
@@ -114,9 +114,9 @@ if (system("diff -q '$new' /tmp/il_test_out_il.txt >/dev/null 2>&1") == 0) {
 }
 
 # Check: C and Perl implementations of indent_last produce identical output
-system("./animator/bin/pp_reorder < /tmp/il_test_raw.txt > /tmp/il_test_reord.txt 2>/dev/null");
-system("./animator/bin/pp_indent_last < /tmp/il_test_reord.txt > /tmp/il_test_c.txt 2>/dev/null");
-system("perl ./animator/perl/pp_indent_last.pl < /tmp/il_test_reord.txt > /tmp/il_test_perl.txt 2>/dev/null");
+system("./bin/ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_reord.txt 2>/dev/null");
+system("./bin/ad_layer_indent_last < /tmp/il_test_reord.txt > /tmp/il_test_c.txt 2>/dev/null");
+system("perl ./animator/perl/ad_layer_indent_last.pl < /tmp/il_test_reord.txt > /tmp/il_test_perl.txt 2>/dev/null");
 if (system("diff -q /tmp/il_test_c.txt /tmp/il_test_perl.txt >/dev/null 2>&1") == 0) {
     print "PASS: C and Perl indent_last produce identical output (parity)\n";
     $pass++;
@@ -126,7 +126,7 @@ if (system("diff -q /tmp/il_test_c.txt /tmp/il_test_perl.txt >/dev/null 2>&1") =
 }
 
 # Check: --pp-indent-last dynamic flag produces same output as --indent-last
-system("./animator/bin/diffvim-postprocess --pp-indent-last < /tmp/il_test_raw.txt > /tmp/il_test_pp_flag.txt 2>/dev/null");
+system("./bin/ad_postprocess --pp-indent-last < /tmp/il_test_raw.txt > /tmp/il_test_pp_flag.txt 2>/dev/null");
 # Strip pace/highlight delays — they aren't deterministic. Compare only
 # the post-processed ops (HUNK header through HUNK_END of each hunk).
 sub extract_hunk_ops {

@@ -3,7 +3,7 @@
 # sets the underlying env vars that the vimscript engine reads.
 #
 # Bug being tested: The highlight resolution block was placed AFTER
-# the export block, so DIFFVIM_HIGHLIGHT_WORD/HUNK/INLINE were exported
+# the export block, so AD_HIGHLIGHT_WORD/HUNK/INLINE were exported
 # as empty (0) before the resolution set the shell variables to 1.
 #
 # We verify this by checking the line numbers in the diffvim script:
@@ -34,13 +34,13 @@ for my $i (0 .. $#lines) {
     if ($lines[$i] =~ /^# Resolve --highlight into the individual/) {
         $resolve_line = $line;
     }
-    if ($lines[$i] =~ /^export DIFFVIM_HIGHLIGHT_HUNK=/) {
+    if ($lines[$i] =~ /^export AD_HIGHLIGHT_HUNK=/) {
         $export_hunk = $line;
     }
-    if ($lines[$i] =~ /^export DIFFVIM_HIGHLIGHT_WORD=/) {
+    if ($lines[$i] =~ /^export AD_HIGHLIGHT_WORD=/) {
         $export_word = $line;
     }
-    if ($lines[$i] =~ /^export DIFFVIM_INLINE_HIGHLIGHT=/) {
+    if ($lines[$i] =~ /^export AD_INLINE_HIGHLIGHT=/) {
         $export_inline = $line;
     }
 }

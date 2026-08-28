@@ -9,19 +9,19 @@ my $threshold = 5.0;  # seconds — alert if any example takes longer
 
 my @times;
 opendir(my $dh, "$root/examples") or die $!;
-my @dirs = grep { /^\d+_/ && -d "$root/examples/$_" } readdir($dh);
+my @dirs = grep { /^\d+_/ && -d "$root/tests/tests/examples/$_" } readdir($dh);
 closedir($dh);
 
 my $max_time = 0;
 my $max_name = "";
 
 for my $dir (sort @dirs) {
-    my @olds = glob("$root/examples/$dir/old.*");
-    my @news = glob("$root/examples/$dir/new.*");
+    my @olds = glob("$root/tests/tests/examples/$dir/old.*");
+    my @news = glob("$root/tests/tests/examples/$dir/new.*");
     next unless @olds && @news;
     
     my $t0 = time();
-    system("$root/animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/perf_snap.txt '$olds[0]' '$news[0]' 2>/dev/null");
+    system("$root/animator/ad_pipeline --no-display --speed 1000 --snapshot /tmp/perf_snap.txt '$olds[0]' '$news[0]' 2>/dev/null");
     my $elapsed = time() - $t0;
     
     push @times, [$dir, $elapsed];

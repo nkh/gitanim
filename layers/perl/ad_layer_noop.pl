@@ -1,23 +1,23 @@
 #!/usr/bin/env perl
-# pp_layer_noop.pl — No-op postprocess layer (Perl version).
+# ad_layer_noop.pl — No-op postprocess layer (Perl version).
 #
 # A Perl passthrough layer that reads V2 TSV from stdin, passes it
 # through unchanged, and writes to stdout. Includes debug logging.
 #
 # This is the Perl equivalent of the C no-op layers. It can be used
 # in a pipeline:
-#   compute | perl pp_layer_noop.pl | pace
+#   compute | perl ad_layer_noop.pl | pace
 #
 # Or as a template for implementing real layers in Perl.
 #
 # Usage:
-#   perl pp_layer_noop.pl < input.tsv > output.tsv
-#   DV_DEBUG_POSTPROCESS=1 perl pp_layer_noop.pl < input.tsv > output.tsv
+#   perl ad_layer_noop.pl < input.tsv > output.tsv
+#   AD_DEBUG_LAYERS=1 perl ad_layer_noop.pl < input.tsv > output.tsv
 #
 # Debug:
-#   When DV_DEBUG_POSTPROCESS=1, writes a log to
-#   /tmp/dv_debug/postprocess.log and op dumps to
-#   /tmp/dv_debug/perl_layer_input.txt and perl_layer_output.txt
+#   When AD_DEBUG_LAYERS=1, writes a log to
+#   /tmp/ad_debug/postprocess.log and op dumps to
+#   /tmp/ad_debug/perl_layer_input.txt and perl_layer_output.txt
 
 use strict;
 use warnings;
@@ -30,14 +30,14 @@ binmode(STDERR, ':utf8');
 # ── Configuration ────────────────────────────────────────────────────
 
 my $LAYER_NAME = 'Perl Layer (no-op)';
-my $DEBUG = ($ENV{DV_DEBUG_POSTPROCESS} // '0') eq '1';
+my $DEBUG = ($ENV{AD_DEBUG_LAYERS} // '0') eq '1';
 
 # ── Debug helpers ────────────────────────────────────────────────────
 
 sub debug_log {
     my ($msg) = @_;
     return unless $DEBUG;
-    open(my $fh, '>>', '/tmp/dv_debug/postprocess.log') or return;
+    open(my $fh, '>>', '/tmp/ad_debug/postprocess.log') or return;
     print $fh "[$LAYER_NAME] $msg\n";
     close($fh);
 }
@@ -45,7 +45,7 @@ sub debug_log {
 sub debug_dump {
     my ($filename, @lines) = @_;
     return unless $DEBUG;
-    open(my $fh, '>', "/tmp/dv_debug/$filename") or return;
+    open(my $fh, '>', "/tmp/ad_debug/$filename") or return;
     print $fh join("\n", @lines), "\n";
     close($fh);
 }
@@ -89,7 +89,7 @@ debug_log("Starting");
 
 # Ensure debug directory exists
 if ($DEBUG) {
-    mkdir '/tmp/dv_debug' unless -d '/tmp/dv_debug';
+    mkdir '/tmp/ad_debug' unless -d '/tmp/ad_debug';
 }
 
 my @input_lines;

@@ -3,7 +3,7 @@
 #   1. new file (expected)
 #   2. diffvim saved buffer — simple-loop test (test_vim_correctness.pl style)
 #   3. diffvim saved buffer — ProcessCharOp test (test_vim_roundtrip.pl style)
-#   4. diffvim-pipeline snapshot
+#   4. ad_pipeline snapshot
 #
 # All run in parallel via fork+exec. Total runtime ~30s for all 42 examples.
 
@@ -272,17 +272,17 @@ extract_engine_roundtrip();
 
 # --- discover example pairs -----------------------------------------------
 opendir(my $dh, "$root/examples") or die;
-my @dirs = sort grep { -d "$root/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 # Build task list: (example_dir, test_kind, old, new, out_file)
 my @tasks;
 my $taskid = 0;
 for my $d (@dirs) {
-    my @news = glob("$root/examples/$d/new.*");
+    my @news = glob("$root/tests/tests/examples/$d/new.*");
     next unless @news;
     my $new = $news[0];
-    my @olds = glob("$root/examples/$d/old.*");
+    my @olds = glob("$root/tests/tests/examples/$d/old.*");
     my $old = $olds[0];
 
     push @tasks, {
@@ -319,22 +319,22 @@ sub spawn {
                     '-c', "source $engine_simple",
                     $t->{old});
         } elsif ($t->{kind} eq 'roundtrip') {
-            $ENV{DIFFVIM_OUTPUT} = $t->{out};
-            $ENV{DIFFVIM_TICK_MS} = 16;
-            $ENV{DIFFVIM_TYPE_DELAY_MS} = 50;
-            $ENV{DIFFVIM_DELETE_DELAY_MS} = 40;
-            $ENV{DIFFVIM_OP_ORDER} = 'optimize';
-            $ENV{DIFFVIM_DELETE_PACING} = 'word';
-            $ENV{DIFFVIM_INSERT_PACING} = 'char';
-            $ENV{DIFFVIM_PACING} = 'uniform';
-            $ENV{DIFFVIM_HIGHLIGHT} = 'none';
+            $ENV{AD_OUTPUT} = $t->{out};
+            $ENV{AD_TICK_MS} = 16;
+            $ENV{AD_TYPE_DELAY_MS} = 50;
+            $ENV{AD_DELETE_DELAY_MS} = 40;
+            $ENV{AD_OP_ORDER} = 'optimize';
+            $ENV{AD_DELETE_PACING} = 'word';
+            $ENV{AD_INSERT_PACING} = 'char';
+            $ENV{AD_PACING} = 'uniform';
+            $ENV{AD_HIGHLIGHT} = 'none';
             @cmd = ('timeout', '12', 'vim', '-u', 'NONE', '-N', '-n', '-es',
                     '-c', "let g:diffvim_new_file = '$t->{new}'",
                     '-c', "source $engine_roundtrip",
                     $t->{old});
         } else {
             @cmd = ('timeout', '12', 'bash', '-c',
-                    "cd $root && animator/diffvim-pipeline --no-display --snapshot '$t->{out}' '$t->{old}' '$t->{new}'");
+                    "cd $root && animator/ad_pipeline --no-display --snapshot '$t->{out}' '$t->{old}' '$t->{new}'");
         }
         open(STDOUT, '>', '/dev/null');
         open(STDERR, '>', '/dev/null');
@@ -389,7 +389,7 @@ print "Round-trip MD5 verification — all 42 example pairs\n";
 print "=" x 130, "\n";
 printf "%-22s | %-32s | %-32s | %-32s | %-32s\n",
        'example', 'new-file MD5',
-       'diffvim (simple loop)', 'diffvim (ProcessCharOp)', 'diffvim-pipeline';
+       'diffvim (simple loop)', 'diffvim (ProcessCharOp)', 'ad_pipeline';
 print "-" x 130, "\n";
 my ($s_ok, $s_bad, $r_ok, $r_bad, $p_ok, $p_bad) = (0,0,0,0,0,0);
 for my $d (@dirs) {
@@ -408,5 +408,5 @@ print "=" x 130, "\n";
 printf "\nSummary:\n";
 printf "  diffvim (simple loop / primitives only):    %2d OK / %2d bad\n", $s_ok, $s_bad;
 printf "  diffvim (ProcessCharOp / full engine):      %2d OK / %2d bad\n", $r_ok, $r_bad;
-printf "  diffvim-pipeline (Go animator):             %2d OK / %2d bad\n", $p_ok, $p_bad;
+printf "  ad_pipeline (Go animator):             %2d OK / %2d bad\n", $p_ok, $p_bad;
 print "\n";

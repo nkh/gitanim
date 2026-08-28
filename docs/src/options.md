@@ -61,8 +61,8 @@ Use pre-computed diff from FILE (see `compute/` directory).
 
 ### Compute tool selection
 
-The C++ compute tool `compute/bin/diffvim-compute-cpp` is the default.
-`diffvim` searches for it in `compute/bin/`, `/usr/local/bin/`, and
+The C++ compute tool `bin/ad_compute` is the default.
+`diffvim` searches for it in `bin/ad_compute `, `/usr/local/bin/`, and
 `~/.local/bin/`. If found, the diff is pre-computed before launching
 vim (10-100x faster than the in-vim Patience for large files). If not
 found, diffvim falls back to the embedded vimscript Patience
@@ -71,7 +71,7 @@ warning on stderr. (The `--tool` flag that used to select between
 C/C++/Rust/Go compute tools was removed in the refactor — there's only
 one compute implementation now.)
 
-For `diffvim-pipeline`, the fallback is the pure-Perl
+For `ad_pipeline`, the fallback is the pure-Perl
 `compute/perl/compute_builtin.pl` wrapper.
 
 ### `--preset NAME` / `-p`
@@ -213,12 +213,12 @@ Core timing env vars:
 
 | Variable                  | Default | Description                          |
 | ------------------------- | ------- | ------------------------------------ |
-| `DIFFVIM_TICK_MS`         | 16      | Animation frame interval (~60fps)    |
-| `DIFFVIM_TYPE_DELAY_MS`   | 50      | Delay between typed characters       |
-| `DIFFVIM_DELETE_DELAY_MS` | 40      | Delay between deleted characters     |
-| `DIFFVIM_MOVE_MIN_MS`     | 250     | Minimum cursor glide duration        |
-| `DIFFVIM_MOVE_MAX_MS`     | 1600    | Maximum cursor glide duration        |
-| `DIFFVIM_HUNK_PAUSE_MS`   | 250     | Pause between hunks                  |
+| `AD_TICK_MS`         | 16      | Animation frame interval (~60fps)    |
+| `AD_TYPE_DELAY_MS`   | 50      | Delay between typed characters       |
+| `AD_DELETE_DELAY_MS` | 40      | Delay between deleted characters     |
+| `AD_MOVE_MIN_MS`     | 250     | Minimum cursor glide duration        |
+| `AD_MOVE_MAX_MS`     | 1600    | Maximum cursor glide duration        |
+| `AD_HUNK_PAUSE_MS`   | 250     | Pause between hunks                  |
 
 ### New Category A/B/C env vars
 
@@ -236,7 +236,7 @@ Core timing env vars:
 | `DIFFVIM_BLOCK_DELETE_SIZE`    | 3         | Group deletes into blocks of N           |
 | `DIFFVIM_PAUSE_BEFORE_DELETE_MS`| 200      | Pause before delete block                |
 | `DIFFVIM_PAUSE_AFTER_DELETE_MS`| 200       | Pause after delete block                 |
-| `DIFFVIM_OVERWRITE_MODE`       | 0         | In-place overwrite mode                  |
+| `AD_OVERWRITE_MODE`       | 0         | In-place overwrite mode                  |
 | `DIFFVIM_SCROLL`               | zz        | Scroll mode (zz\|zt\|zb\|none)            |
 | `DIFFVIM_SIGN_COLUMN`          | (off)     | Show +/- signs                           |
 | `DIFFVIM_GIT_BLAME`            | (off)     | Show git blame                           |

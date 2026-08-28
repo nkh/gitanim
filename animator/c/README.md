@@ -18,15 +18,15 @@ animator).
   layer. See `../../docs/POSTPROCESS_LAYERS.md` for the layer
   breakdown and `../../docs/POSTPROCESS_TRANSFORMS.md` for what
   the transforms do.
-- `pp_layer0_v2.c` — Layer 0: V1/V2 detection and conversion.
-- `pp_layer1_reorder.c` — Layer 1: 4-sweep reorder within line groups.
+- `ad_layer_noop_v2.c` — Layer 0: V1/V2 detection and conversion.
+- `ad_layer_noop_reorder.c` — Layer 1: 4-sweep reorder within line groups.
 - `pp_layer_indent_last.c` — delete-indent-last transform (reorders
   leading-whitespace deletes; does NOT touch line/col).
 - `pp_layer_overwrite.c` — overwrite transform (marks delete+insert
   pairs as `overwrite_insert`).
-- `pp_common.h` — Shared types (Op struct: `type`, `code`, `line`,
+- `ad_layer_common.h` — Shared types (Op struct: `type`, `code`, `line`,
   `col` — no `pos_set` field), logging, TSV parsing, standalone runner.
-- `pp_pace.c` — Reads post-processed ops, inserts `delay` lines between
+- `ad_layer_pace.c` — Reads post-processed ops, inserts `delay` lines between
   them. Does NOT modify, reorder, or add ops (except delays).
 
 ## Build
@@ -34,31 +34,31 @@ animator).
 There's no Makefile in this directory. Build from the project root.
 `postprocess.c` must be compiled together with the layer files it
 orchestrates (the `adjust_positions()` step lives only in this
-combined binary — there is no standalone `pp_layer3` for cursor
+combined binary — there is no standalone `ad_layer_noop` for cursor
 recomputation):
 
 ```bash
-cc -O2 -o animator/bin/diffvim-animator-c animator/c/animator.c
+cc -O2 -o bin/ad animator/c/ad.c
 cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
-   -o animator/bin/diffvim-postprocess \
+   -o bin/ad_postprocess \
    animator/c/postprocess.c \
-   animator/c/pp_layer0_v2.c \
-   animator/c/pp_layer1_reorder.c \
-   animator/c/pp_layer_indent_last.c \
-   animator/c/pp_layer_overwrite.c
-cc -O2 -o animator/bin/pp_pace animator/c/pp_pace.c
+   animator/c/ad_layer_noop_v2.c \
+   animator/c/ad_layer_noop_reorder.c \
+   layers/c/ad_layer_layer_indent_last.c \
+   layers/c/ad_layer_layer_overwrite.c
+cc -O2 -o bin/ad_layer_pace animator/c/ad_layer_pace.c
 ```
 
 Or all at once:
 ```bash
 cd /path/to/gitanim
-cc -O2 -o animator/bin/diffvim-animator-c animator/c/animator.c
+cc -O2 -o bin/ad animator/c/ad.c
 cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
-   -o animator/bin/diffvim-postprocess \
-   animator/c/postprocess.c animator/c/pp_layer0_v2.c \
-   animator/c/pp_layer1_reorder.c animator/c/pp_layer_indent_last.c \
-   animator/c/pp_layer_overwrite.c
-cc -O2 -o animator/bin/pp_pace animator/c/pp_pace.c
+   -o bin/ad_postprocess \
+   animator/c/postprocess.c animator/c/ad_layer_noop_v2.c \
+   animator/c/ad_layer_noop_reorder.c layers/c/ad_layer_layer_indent_last.c \
+   layers/c/ad_layer_layer_overwrite.c
+cc -O2 -o bin/ad_layer_pace animator/c/ad_layer_pace.c
 ```
 
 ## Input validation

@@ -25,19 +25,19 @@ DESCRIPTION
       1. Extracts the vimscript engine from the diffvim launcher.
       2. Runs compute-cpp + postprocess + pace to get the timed ops.
       3. Runs headless Vim (vim -e -s -n) with the engine sourced,
-         DIFFVIM_SPEED=1000000 (delays become ~0ms), and a 60s timeout.
+         AD_SPEED=1000000 (delays become ~0ms), and a 60s timeout.
       4. Compares the engine's output buffer to the expected new file.
 
 OPTIONS
     -h, --help        Show this help message and exit 0.
     <example_dir>     Path to an example directory containing old.*
-                      and new.* files (e.g. examples/01_small_python).
+                      and new.* files (e.g. tests/tests/examples/01_small_python).
 
 EXAMPLES
-    test_async_vimscript.sh examples/01_small_python
+    test_async_vimscript.sh tests/tests/examples/01_small_python
         Run the async test on the small Python example.
 
-    test_async_vimscript.sh /home/z/my-project/gitanim/examples/32_python_classes
+    test_async_vimscript.sh /home/z/my-project/gitanim/tests/tests/examples/32_python_classes
         Use an absolute path to the example directory.
 
 EXIT STATUS
@@ -89,15 +89,15 @@ RAW="$TMPDIR/raw.txt"
 POST="$TMPDIR/post.txt"
 TIMED="$TMPDIR/timed.txt"
 OUT="$TMPDIR/out.txt"
-"$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$RAW" 2>/dev/null
-"$ROOT/animator/bin/diffvim-postprocess" < "$RAW" > "$POST" 2>/dev/null
-"$ROOT/animator/bin/diffvim-pace" < "$POST" > "$TIMED" 2>/dev/null
+"$ROOT/bin/ad_compute" "$OLD" "$NEW" "$RAW" 2>/dev/null
+"$ROOT/bin/ad_postprocess" < "$RAW" > "$POST" 2>/dev/null
+"$ROOT/bin/ad_layer_pace" < "$POST" > "$TIMED" 2>/dev/null
 
 # Run the REAL vimscript animator (with timers, headless)
 # Speed 1000000 makes delays ~0ms, so it finishes fast
-DIFFVIM_TIMED_OPS="$TIMED" \
-DIFFVIM_OUTPUT="$OUT" \
-DIFFVIM_SPEED=1000000 \
+AD_TIMED_OPS="$TIMED" \
+AD_OUTPUT="$OUT" \
+AD_SPEED=1000000 \
 timeout -k 5 60 vim -e -s -n -Nu NONE -U NONE \
     -c "let g:diffvim_new_file = '$NEW'" \
     -c "source $ENG" \

@@ -13,10 +13,10 @@ use FindBin qw($Bin);
 use lib "$Bin/../perl";
 
 my $root = "$Bin/../..";
-my $compute = "$root/compute/bin/diffvim-compute-cpp";
-my $postprocess = "$root/animator/perl/postprocess.pl";
-my $pace = "$root/animator/perl/pace.pl";
-my $animator = "$root/animator/bin/diffvim-animator-c";
+my $compute = "$root/bin/ad_compute";
+my $postprocess = "$root/layers/perl/postprocess.pl";
+my $pace = "$root/layers/perl/ad_layer_pace.pl";
+my $animator = "$root/bin/ad";
 
 my $pass = 0;
 my $fail = 0;

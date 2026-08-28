@@ -69,8 +69,8 @@ EXAMPLES
     dv_debug_bundle.sh old.py new.py "Cursor jumps to wrong line after \\n delete"
         Generate a bundle with a specific problem description.
 
-    dv_debug_bundle.sh examples/02_large_python/old.py \\
-                         examples/02_large_python/new.py \\
+    dv_debug_bundle.sh tests/examples/02_large_python/old.py \\
+                         tests/examples/02_large_python/new.py \\
                          "Line 7 shows 'O operation.' instead of 'O'"
         Reproduce the scattered-LCS bug for the maintainer.
 
@@ -82,7 +82,7 @@ EXIT STATUS
     1   Invalid arguments or pipeline failure.
 
 SEE ALSO
-    diffvim(1), diffvim-compute-cpp(1), diffvim-animator-c(1),
+    diffvim(1), ad_compute(1), ad(1),
     snapshot_per_op(1)
 HELP
 }
@@ -134,38 +134,38 @@ cp "$OLD" "$BUNDLE_DIR/old.txt"
 cp "$NEW" "$BUNDLE_DIR/new.txt"
 
 # 2. Run pipeline with DEFAULT settings (same as launcher)
-export DIFFVIM_LEFT_TO_RIGHT=1
-"$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$BUNDLE_DIR/raw_ops.txt" 2>"$BUNDLE_DIR/compute_stderr.txt"
-"$ROOT/animator/bin/diffvim-postprocess" < "$BUNDLE_DIR/raw_ops.txt" > "$BUNDLE_DIR/post_ops.txt" 2>"$BUNDLE_DIR/postprocess_stderr.txt"
-"$ROOT/animator/bin/pp_pace" --delete-pacing word --insert-pacing char < "$BUNDLE_DIR/post_ops.txt" > "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/pace_stderr.txt"
+export AD_LEFT_TO_RIGHT=1
+"$ROOT/bin/ad_compute" "$OLD" "$NEW" "$BUNDLE_DIR/raw_ops.txt" 2>"$BUNDLE_DIR/compute_stderr.txt"
+"$ROOT/bin/ad_postprocess" < "$BUNDLE_DIR/raw_ops.txt" > "$BUNDLE_DIR/post_ops.txt" 2>"$BUNDLE_DIR/postprocess_stderr.txt"
+"$ROOT/bin/ad_layer_pace" --delete-pacing word --insert-pacing char < "$BUNDLE_DIR/post_ops.txt" > "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/pace_stderr.txt"
 
 # 3. Run decorate if available
-if [[ -f "$ROOT/animator/bin/pp_highlight" ]]; then
-    "$ROOT/animator/bin/pp_highlight" < "$BUNDLE_DIR/timed_ops.txt" > "$BUNDLE_DIR/decorated_ops.txt" 2>"$BUNDLE_DIR/decorate_stderr.txt"
+if [[ -f "$ROOT/bin/ad_layer_highlight" ]]; then
+    "$ROOT/bin/ad_layer_highlight" < "$BUNDLE_DIR/timed_ops.txt" > "$BUNDLE_DIR/decorated_ops.txt" 2>"$BUNDLE_DIR/decorate_stderr.txt"
 fi
 
 # 4. Run animator
-"$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$BUNDLE_DIR/animator_output.txt" "$OLD" < "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/animator_stderr.txt"
+"$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$BUNDLE_DIR/animator_output.txt" "$OLD" < "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/animator_stderr.txt"
 
 # 5. Binary MD5s
 {
     echo "# Binary MD5s"
-    echo "compute-cpp: $(md5sum "$ROOT/compute/bin/diffvim-compute-cpp" | awk '{print $1}')"
-    echo "postprocess: $(md5sum "$ROOT/animator/bin/diffvim-postprocess" | awk '{print $1}')"
-    echo "pace: $(md5sum "$ROOT/animator/bin/pp_pace" | awk '{print $1}')"
-    echo "animator-c: $(md5sum "$ROOT/animator/bin/diffvim-animator-c" | awk '{print $1}')"
-    echo "decorate: $(md5sum "$ROOT/animator/bin/pp_highlight" | awk '{print $1}')"
+    echo "compute-cpp: $(md5sum "$ROOT/bin/ad_compute" | awk '{print $1}')"
+    echo "postprocess: $(md5sum "$ROOT/bin/ad_postprocess" | awk '{print $1}')"
+    echo "pace: $(md5sum "$ROOT/bin/ad_layer_pace" | awk '{print $1}')"
+    echo "animator-c: $(md5sum "$ROOT/bin/ad" | awk '{print $1}')"
+    echo "decorate: $(md5sum "$ROOT/bin/ad_layer_highlight" | awk '{print $1}')"
 } > "$BUNDLE_DIR/binary_md5s.txt"
 
 # 6. Settings
 {
     echo "# diffvim launcher default settings"
-    echo "DIFFVIM_LEFT_TO_RIGHT=1"
-    echo "DIFFVIM_DELETE_PACING=word"
-    echo "DIFFVIM_INSERT_PACING=char"
-    echo "DIFFVIM_OP_ORDER=optimize"
-    echo "DIFFVIM_PACING=uniform"
-    echo "DIFFVIM_HIGHLIGHT=none"
+    echo "AD_LEFT_TO_RIGHT=1"
+    echo "AD_DELETE_PACING=word"
+    echo "AD_INSERT_PACING=char"
+    echo "AD_OP_ORDER=optimize"
+    echo "AD_PACING=uniform"
+    echo "AD_HIGHLIGHT=none"
     echo "# (all other settings are defaults — see set_config for details)"
 } > "$BUNDLE_DIR/settings.conf"
 

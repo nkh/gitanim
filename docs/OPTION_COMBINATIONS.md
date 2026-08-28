@@ -111,8 +111,8 @@ diffvim --indent-aware --indent-last --overwrite old.py new.py
 perl animator/perl/colorize.pl --backend vim old.py > old.colormap
 perl animator/perl/colorize.pl --backend vim new.py > new.colormap
 
-# Run with colormaps (via diffvim-pipeline)
-diffvim-pipeline --animator-colormap-old old.colormap --animator-colormap-new new.colormap --highlight inline old.py new.py
+# Run with colormaps (via ad_pipeline)
+ad_pipeline --animator-colormap-old old.colormap --animator-colormap-new new.colormap --highlight inline old.py new.py
 ```
 
 ---

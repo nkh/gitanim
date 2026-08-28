@@ -14,11 +14,11 @@ The `diffvim` bash launcher embeds a 3,064-line vimscript engine (`autoload/diff
 
 | Stage | C/Perl pipeline | vimscript engine (duplicated) |
 |-------|-----------------|--------------------------------|
-| compute | `diffvim-compute-cpp` | `s:LineDiff`, `s:CharDiff`, `s:WordDiff`, `s:BuildHunks` (lines 173–964) |
-| postprocess | `diffvim-postprocess` | `s:OptimizeSequence`, `s:LeftToRight`, `s:OverwriteTransform`, `s:DeleteEndFirst`, `s:SemanticCleanup`, `s:SortLineOps` (lines 338–788) |
-| pace | `diffvim-pace` | `s:ComputeMoveDuration`, `s:ProcessCharOp`, `s:AdvanceForKeepChar`, `s:InsertCharAtCursor`, `s:DeleteCharAtCursor`, `s:Tick`, `s:ScheduleNext` (lines 974–1700+) |
+| compute | `ad_compute` | `s:LineDiff`, `s:CharDiff`, `s:WordDiff`, `s:BuildHunks` (lines 173–964) |
+| postprocess | `ad_postprocess` | `s:OptimizeSequence`, `s:LeftToRight`, `s:OverwriteTransform`, `s:DeleteEndFirst`, `s:SemanticCleanup`, `s:SortLineOps` (lines 338–788) |
+| pace | `ad_layer_pace` | `s:ComputeMoveDuration`, `s:ProcessCharOp`, `s:AdvanceForKeepChar`, `s:InsertCharAtCursor`, `s:DeleteCharAtCursor`, `s:Tick`, `s:ScheduleNext` (lines 974–1700+) |
 
-The bash launcher already calls `diffvim-compute-cpp` when available (Phase B), so **the compute duplication is already half-resolved** — the engine's `s:LineDiff`/`s:CharDiff` is now a fallback. But postprocess and pace still run inside vim.
+The bash launcher already calls `ad_compute` when available (Phase B), so **the compute duplication is already half-resolved** — the engine's `s:LineDiff`/`s:CharDiff` is now a fallback. But postprocess and pace still run inside vim.
 
 ### Proposed approach
 
@@ -29,7 +29,7 @@ Add a `--precomputed-pipeline FILE` mode to `diffvim` that:
 
 **Estimated LOC reduction:** ~1,800 lines of vimscript can be deleted from the engine (the postprocess + pace functions), leaving ~1,200 lines for the animator + UI.
 
-**Speed gain:** On `examples/33_large_python` (28K ops), vimscript postprocess+pace takes 11+ seconds (NEXT_SESSION.md confirms). The C versions do it in <100ms. So **a ~100x speedup** on large files.
+**Speed gain:** On `tests/tests/examples/33_large_python` (28K ops), vimscript postprocess+pace takes 11+ seconds (NEXT_SESSION.md confirms). The C versions do it in <100ms. So **a ~100x speedup** on large files.
 
 **Work involved:** ~1 day. Modify the bash launcher to call the pipeline; modify the engine to read a v2 TSV timed-op stream (we already wrote the v2 spec; the animator.c/animator.pl parsers exist as a reference).
 
@@ -79,7 +79,7 @@ But once we do item #1 above (move postprocess+pace out of vim), the vimscript e
 
 ### Current state
 
-`diffvim-postprocess` has 4 options today:
+`ad_postprocess` has 4 options today:
 
 ```
 --op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite
@@ -106,7 +106,7 @@ Each is a transformation pass over the op stream. They run sequentially inside o
 ### Recommendation
 
 Don't split the executable. Instead:
-1. Keep `diffvim-postprocess` as one tool.
+1. Keep `ad_postprocess` as one tool.
 2. Restructure the code so each transformation is a clearly-named function (already done — `semantic_cleanup()`, `reorder_hunk_ops()`, etc.).
 3. Add a `--list-transforms` flag that prints the available transforms and their order, so the user can see what's running.
 4. For users who really want to experiment with transforms in isolation, expose them as `--transform NAME` repeated flags (e.g. `--transform semantic-cleanup --transform op-order:optimize`).
@@ -175,7 +175,7 @@ void read_input(void) {
 void write_output(void) { /* emit all */ }
 ```
 
-The pipeline is wired with temp files in `diffvim-pipeline`:
+The pipeline is wired with temp files in `ad_pipeline`:
 
 ```bash
 $COMPUTE  ... "$RAW_OPS"            # writes file

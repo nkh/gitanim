@@ -1,5 +1,5 @@
 #define MAX_LINE_LEN 1048576  // 1MB — was 8192
-/* diffvim-animator — Standalone terminal animation application.
+/* ad — Standalone terminal animation application.
  * C implementation.
  *
  * Reads a TSV timed op stream and animates the transformation.
@@ -8,8 +8,8 @@
  * scroll-safe — even if the user scrolls mid-animation, each op is
  * applied at the right place.
  *
- * Usage: diffvim-animator [options] <oldfile>
- * Build: cc -O2 -o diffvim-animator animator.c
+ * Usage: ad [options] <oldfile>
+ * Build: cc -O2 -o ad animator.c
  */
 
 #include <stdio.h>
@@ -151,7 +151,7 @@ void handle_key(int c) {
         case 'h':
         case 'H':
             /* Show help overlay on stderr */
-            fprintf(stderr, "\n--- diffvim-animator keys ---\n");
+            fprintf(stderr, "\n--- ad keys ---\n");
             fprintf(stderr, "  q/Esc/Ctrl-C  stop animation\n");
             fprintf(stderr, "  Space/p       pause / resume\n");
             fprintf(stderr, "  n             skip to next hunk\n");
@@ -215,7 +215,7 @@ static void ensure_lines_capacity(int needed) {
     int new_cap = cap_lines == 0 ? 1024 : cap_lines;
     while (new_cap < needed) new_cap *= 2;
     char **new_lines = (char **)realloc(lines, new_cap * sizeof(char *));
-    if (!new_lines) { fprintf(stderr, "diffvim-animator-c: out of memory (lines %d)\n", new_cap); exit(1); }
+    if (!new_lines) { fprintf(stderr, "ad: out of memory (lines %d)\n", new_cap); exit(1); }
     lines = new_lines;
     cap_lines = new_cap;
 }
@@ -609,9 +609,9 @@ int main(int argc, char **argv) {
              * zz = center cursor, zt = top, zb = bottom, none = no scroll */
             strncpy(scroll_mode, argv[++i], 7);
         }
-        else if (strcmp(argv[i], "--version") == 0) { printf("diffvim-animator-c 2.0\n"); exit(0); }
+        else if (strcmp(argv[i], "--version") == 0) { printf("ad 2.0\n"); exit(0); }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            fprintf(stderr, "Usage: diffvim-animator [options] <oldfile>\n");
+            fprintf(stderr, "Usage: ad [options] <oldfile>\n");
             fprintf(stderr, "  --colormap-old FILE  ANSI-colored lines for old file\n");
             fprintf(stderr, "  --colormap-new FILE  ANSI-colored lines for new file\n");
             fprintf(stderr, "  --line-numbers       Show line numbers in the margin\n");
@@ -625,16 +625,16 @@ int main(int argc, char **argv) {
 
     if (!old_file_path[0]) { fprintf(stderr, "Error: oldfile required\n"); exit(1); }
     load_file(old_file_path);
-    if (verbose) fprintf(stderr, "diffvim-animator: loaded %d lines from %s\n", n_lines, old_file_path);
+    if (verbose) fprintf(stderr, "ad: loaded %d lines from %s\n", n_lines, old_file_path);
     if (dry_run) {
-        fprintf(stderr, "diffvim-animator: dry run — %d lines loaded, reading timed op stream...\n", n_lines);
+        fprintf(stderr, "ad: dry run — %d lines loaded, reading timed op stream...\n", n_lines);
         /* Count ops */
         int op_count = 0;
         char dl[1048576];
         while (fgets(dl, sizeof(dl), stdin)) {
             if (dl[0] && dl[0] != '#' && dl[0] != '\n') op_count++;
         }
-        fprintf(stderr, "diffvim-animator: %d ops in stream, would animate\n", op_count);
+        fprintf(stderr, "ad: %d ops in stream, would animate\n", op_count);
         return 0;
     }
     if (colormap_old_path[0]) load_colormap(colormap_old_path, &colormap_old, &colormap_old_count);
@@ -659,7 +659,7 @@ int main(int argc, char **argv) {
 
         /* Detect v1 format and fail loudly with a helpful message. */
         if (strncmp(line, "op\t", 3) == 0) {
-            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'op\\t<type>...' prefix\n");
+            fprintf(stderr, "ad: ERROR: timed stream uses v1 'op\\t<type>...' prefix\n");
             fprintf(stderr, "  Line: [%s]\n", line);
             fprintf(stderr, "  v2 format has the type directly: keep\\t<line>\\t<col>\\t<code>\\n");
             fprintf(stderr, "  Rebuild the pipeline: make -C compute && make -C animator  (or use 'make all')\n");
@@ -667,21 +667,21 @@ int main(int argc, char **argv) {
             exit(1);
         }
         if (strncmp(line, "newline_delete", 14) == 0 || strncmp(line, "newline_insert", 14) == 0) {
-            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'newline_delete'/'newline_insert' op\n");
+            fprintf(stderr, "ad: ERROR: timed stream uses v1 'newline_delete'/'newline_insert' op\n");
             fprintf(stderr, "  Line: [%s]\n", line);
             fprintf(stderr, "  v2 format uses delete\\t<line>\\t<col>\\t10\\t\\\\n\n");
             cleanup_handler(1);
             exit(1);
         }
         if (strncmp(line, "hunk_start\t", 11) == 0 || strncmp(line, "hunk_end", 8) == 0) {
-            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'hunk_start'/'hunk_end'\n");
+            fprintf(stderr, "ad: ERROR: timed stream uses v1 'hunk_start'/'hunk_end'\n");
             fprintf(stderr, "  Line: [%s]\n", line);
             fprintf(stderr, "  v2 format uses 'HUNK' and 'HUNK_END'\n");
             cleanup_handler(1);
             exit(1);
         }
         if (strncmp(line, "batch_delete", 11) == 0 || strncmp(line, "batch_insert", 12) == 0) {
-            fprintf(stderr, "diffvim-animator-c: ERROR: timed stream uses v1 'batch_delete'/'batch_insert'\n");
+            fprintf(stderr, "ad: ERROR: timed stream uses v1 'batch_delete'/'batch_insert'\n");
             fprintf(stderr, "  Line: [%s]\n", line);
             fprintf(stderr, "  v2 format uses single-char delete/insert ops (pace does not batch anymore)\n");
             cleanup_handler(1);
@@ -692,7 +692,7 @@ int main(int argc, char **argv) {
             /* v2: delay\t<ms>\t<type>. The 2nd field should be a number. */
             char *p = line + 6;
             if (*p < '0' || *p > '9') {
-                fprintf(stderr, "diffvim-animator-c: ERROR: delay op has non-numeric first arg (v1 format)\n");
+                fprintf(stderr, "ad: ERROR: delay op has non-numeric first arg (v1 format)\n");
                 fprintf(stderr, "  Line: [%s]\n", line);
                 fprintf(stderr, "  v2 format: delay\\t<ms>\\t<type>\n");
                 cleanup_handler(1);
@@ -930,7 +930,7 @@ int main(int argc, char **argv) {
     if (snapshot_file_path[0]) buffer_write(snapshot_file_path);
     if (output_file[0]) buffer_write(output_file);
     if (ops_total == 0) {
-        fprintf(stderr, "diffvim-animator-c: WARNING: no ops were applied\n");
+        fprintf(stderr, "ad: WARNING: no ops were applied\n");
         fprintf(stderr, "  The timed op stream was empty or contained only comments.\n");
         fprintf(stderr, "  Did the pipeline stages (compute, postprocess, pace) produce any output?\n");
         fprintf(stderr, "  Run with: bash scripts/dv_debug.sh <old> <new> to inspect each stage.\n");

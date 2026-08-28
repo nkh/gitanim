@@ -14,7 +14,7 @@ DESCRIPTION
     source, then archives them together with the Perl pipeline, the
     launcher scripts (diffvim, diffvim.pl, diffvim-tmux, diffvim-compare),
     the Vim plugin (plugin/, autoload/, completion/, man/, DiffVim/),
-    the examples/, the scripts/, README, CHANGELOG and LICENSE into a
+    the tests/examples/, the scripts/, README, CHANGELOG and LICENSE into a
     single distributable .tar.gz.
 
     The resulting tarball is written to /tmp/diffvim-<version>.tar.gz.
@@ -51,23 +51,23 @@ TARBALL="/tmp/diffvim-${VERSION}.tar.gz"
 echo "Building..."
 make -C "$ROOT/compute" clean all
 cd "$ROOT/animator/c"
-cc -O2 -o ../bin/diffvim-animator-c animator.c
-cc -O2 -o ../bin/diffvim-postprocess postprocess.c
-cc -O2 -o ../bin/pp_pace pp_pace.c
+cc -O2 -o ../bin/ad animator.c
+cc -O2 -o ../bin/ad_postprocess postprocess.c
+cc -O2 -o ../bin/ad_layer_pace ad_layer_pace.c
 cd "$ROOT"
 
 echo "Packaging..."
 tar czf "$TARBALL" \
-    compute/bin/diffvim-compute-cpp \
-    animator/bin/diffvim-animator-c \
-    animator/bin/diffvim-postprocess \
-    animator/bin/pp_pace \
+    bin/ad_compute \
+    bin/ad \
+    bin/ad_postprocess \
+    bin/ad_layer_pace \
     animator/perl/ \
-    animator/diffvim-pipeline \
+    animator/ad_pipeline \
     diffvim diffvim.pl diffvim-tmux diffvim-compare \
     plugin/ autoload/ completion/ man/ \
     DiffVim/ \
-    examples/ \
+    tests/examples/ \
     scripts/ \
     README.md CHANGELOG.md LICENSE
 

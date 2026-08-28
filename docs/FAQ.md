@@ -34,9 +34,9 @@ Or use `:DiffvimPick` in vim to interactively select a commit.
 
 ## How do I get syntax highlighting?
 
-The standalone pipeline (`diffvim-pipeline`) runs coloring in parallel:
+The standalone pipeline (`ad_pipeline`) runs coloring in parallel:
 ```bash
-diffvim-pipeline old.py new.py
+ad_pipeline old.py new.py
 ```
 
 In vim, syntax highlighting is automatic (vim's built-in filetype detection).

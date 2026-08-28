@@ -2,8 +2,8 @@
 # verify_md5.sh — Round-trip MD5 verification using xargs -P for parallelism.
 #
 # For each example pair, runs TWO pipelines in parallel:
-#   - diffvim-pipeline (C animator): compute-cpp → postprocess (C) → pace (C) → animator-c
-#   - diffvim-pipeline (Perl):       compute_builtin.pl → postprocess.pl → pace.pl → animator.pl
+#   - ad_pipeline (C animator): compute-cpp → postprocess (C) → pace (C) → animator-c
+#   - ad_pipeline (Perl):       compute_builtin.pl → postprocess.pl → pace.pl → animator.pl
 #
 # Both must produce a buffer whose MD5 matches the new file's MD5.
 # This verifies that:
@@ -28,11 +28,11 @@ SYNOPSIS
     verify_md5.sh [-h|--help]
 
 DESCRIPTION
-    For every example pair under examples/ (matching [0-9]*_*), runs
+    For every example pair under tests/tests/examples/ (matching [0-9]*_*), runs
     TWO diffvim pipelines in parallel (8 concurrent via xargs -P):
 
       1. C pipeline:        compute-cpp → C postprocess → C pace → C animator
-                            (via animator/diffvim-pipeline --no-display ...)
+                            (via animator/ad_pipeline --no-display ...)
       2. Pure-Perl pipeline: compute_builtin.pl → postprocess.pl →
                             pace.pl → animator.pl
 
@@ -53,7 +53,7 @@ DESCRIPTION
 OPTIONS
     -h, --help     Show this help message and exit 0.
                    This script takes no other arguments — it always
-                   processes every example under examples/.
+                   processes every example under tests/tests/examples/.
 
 EXAMPLES
     verify_md5.sh
@@ -61,7 +61,7 @@ EXAMPLES
 
 OUTPUT
     A table to stdout, plus per-example MD5 files under
-    /tmp/dv_md5_verify/.
+    /tmp/ad_md5_verify/.
 HELP
 }
 
@@ -74,7 +74,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 ROOT=/home/z/my-project/gitanim
-OUTDIR=/tmp/dv_md5_verify
+OUTDIR=/tmp/ad_md5_verify
 rm -rf "$OUTDIR"; mkdir -p "$OUTDIR"
 
 # -----------------------------------------------------------------------------
@@ -86,7 +86,7 @@ run_pipe() {
     local buf="/tmp/dv_buf_${d}_pipe.txt"
     rm -f "$buf"
     ( cd "$ROOT" && timeout -k 5 120 bash -c \
-        "animator/diffvim-pipeline --no-display --speed 1000 --snapshot '$buf' '$old' '$new'" \
+        "animator/ad_pipeline --no-display --speed 1000 --snapshot '$buf' '$old' '$new'" \
         >/dev/null 2>&1 )
     if [[ -f "$buf" ]]; then
         md5sum "$buf" | awk '{print $1}' > "$out"
@@ -108,9 +108,9 @@ run_perl_pipe() {
     rm -f "$buf"
     ( cd "$ROOT" && timeout -k 5 180 bash -c \
         "perl compute/perl/compute_builtin.pl '$old' '$new' /tmp/_perl_raw_$$.txt 2>/dev/null && \
-         perl animator/perl/postprocess.pl < /tmp/_perl_raw_$$.txt 2>/dev/null | \
-         perl animator/perl/pace.pl 2>/dev/null | \
-         perl animator/perl/animator.pl --no-display --speed 1000 --snapshot '$buf' '$old' 2>/dev/null" \
+         perl layers/perl/postprocess.pl < /tmp/_perl_raw_$$.txt 2>/dev/null | \
+         perl layers/perl/ad_layer_pace.pl 2>/dev/null | \
+         perl animator/perl/ad.pl --no-display --speed 1000 --snapshot '$buf' '$old' 2>/dev/null" \
         >/dev/null 2>&1 )
     rm -f /tmp/_perl_raw_$$.txt
     if [[ -f "$buf" ]]; then
@@ -129,8 +129,8 @@ export ROOT OUTDIR
 # -----------------------------------------------------------------------------
 > /tmp/dv_tasks.txt
 for d in $(ls "$ROOT/examples" | grep '^[0-9]*_' | sort); do
-    news=( "$ROOT/examples/$d"/new.* )
-    olds=( "$ROOT/examples/$d"/old.* )
+    news=( "$ROOT/tests/tests/examples/$d"/new.* )
+    olds=( "$ROOT/tests/tests/examples/$d"/old.* )
     [[ ${#news[@]} -eq 0 || ${#olds[@]} -eq 0 ]] && continue
     new="${news[0]}"; old="${olds[0]}"
     echo "pipe|$d|$old|$new"          >> /tmp/dv_tasks.txt
@@ -165,7 +165,7 @@ printf '%s\n' "$(printf '%.0s-' {1..120})"
 p_ok=0; p_bad=0; pp_ok=0; pp_bad=0
 
 for d in $(ls "$ROOT/examples" | grep '^[0-9]*_' | sort); do
-    news=( "$ROOT/examples/$d"/new.* )
+    news=( "$ROOT/tests/tests/examples/$d"/new.* )
     [[ ${#news[@]} -eq 0 ]] && continue
     new="${news[0]}"
 
@@ -181,6 +181,6 @@ done
 
 printf '%s\n' "$(printf '%.0s=' {1..120})"
 printf "\nSummary:\n"
-printf "  diffvim-pipeline (C animator):              %2d OK / %2d bad\n" $p_ok $p_bad
-printf "  diffvim-pipeline (Perl):                   %2d OK / %2d bad\n" $pp_ok $pp_bad
+printf "  ad_pipeline (C animator):              %2d OK / %2d bad\n" $p_ok $p_bad
+printf "  ad_pipeline (Perl):                   %2d OK / %2d bad\n" $pp_ok $pp_bad
 echo ""

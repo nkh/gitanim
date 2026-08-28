@@ -7,14 +7,14 @@ options override environment variables, which override built-in defaults.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DIFFVIM_TICK_MS` | `16` | Animation frame interval (~60fps) |
-| `DIFFVIM_TYPE_DELAY_MS` | `50` | Delay between typed characters (ms) |
-| `DIFFVIM_DELETE_DELAY_MS` | `40` | Delay between deleted characters (ms) |
-| `DIFFVIM_MOVE_MIN_MS` | `250` | Minimum cursor glide duration (ms) |
-| `DIFFVIM_MOVE_MAX_MS` | `1600` | Maximum cursor glide duration (ms) |
-| `DIFFVIM_MOVE_MS_PER_UNIT` | `6` | Milliseconds per unit of glide distance |
-| `DIFFVIM_HUNK_PAUSE_MS` | `250` | Pause between hunks (ms) |
-| `DIFFVIM_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
+| `AD_TICK_MS` | `16` | Animation frame interval (~60fps) |
+| `AD_TYPE_DELAY_MS` | `50` | Delay between typed characters (ms) |
+| `AD_DELETE_DELAY_MS` | `40` | Delay between deleted characters (ms) |
+| `AD_MOVE_MIN_MS` | `250` | Minimum cursor glide duration (ms) |
+| `AD_MOVE_MAX_MS` | `1600` | Maximum cursor glide duration (ms) |
+| `AD_MOVE_MS_PER_UNIT` | `6` | Milliseconds per unit of glide distance |
+| `AD_HUNK_PAUSE_MS` | `250` | Pause between hunks (ms) |
+| `AD_WORD_PAUSE_MS` | `150` | Pause after instant word (ms) |
 | `DIFFVIM_RAPID_EOL_DELAY_MS` | `80` | Delay for rapid end-of-line deletion (ms) |
 | `DIFFVIM_RAPID_EOL_MIN_CHARS` | `3` | Min trailing chars to trigger rapid EOL |
 | `DIFFVIM_HIGHLIGHT_WORD_COLOR` | `Search` | Highlight group for `--highlight-word` |
@@ -29,34 +29,34 @@ options override environment variables, which override built-in defaults.
 ### Presentation Mode (slow, dramatic)
 
 ```bash
-export DIFFVIM_TYPE_DELAY_MS=80
-export DIFFVIM_DELETE_DELAY_MS=60
-export DIFFVIM_MOVE_MIN_MS=400
-export DIFFVIM_MOVE_MAX_MS=3000
-export DIFFVIM_MOVE_MS_PER_UNIT=10
-export DIFFVIM_HUNK_PAUSE_MS=500
+export AD_TYPE_DELAY_MS=80
+export AD_DELETE_DELAY_MS=60
+export AD_MOVE_MIN_MS=400
+export AD_MOVE_MAX_MS=3000
+export AD_MOVE_MS_PER_UNIT=10
+export AD_HUNK_PAUSE_MS=500
 ```
 
 ### Quick Review Mode (fast)
 
 ```bash
-export DIFFVIM_TYPE_DELAY_MS=10
-export DIFFVIM_DELETE_DELAY_MS=10
-export DIFFVIM_MOVE_MIN_MS=50
-export DIFFVIM_MOVE_MAX_MS=300
-export DIFFVIM_MOVE_MS_PER_UNIT=3
-export DIFFVIM_HUNK_PAUSE_MS=50
+export AD_TYPE_DELAY_MS=10
+export AD_DELETE_DELAY_MS=10
+export AD_MOVE_MIN_MS=50
+export AD_MOVE_MAX_MS=300
+export AD_MOVE_MS_PER_UNIT=3
+export AD_HUNK_PAUSE_MS=50
 ```
 
 ### Debug Mode (very slow, visible char ops)
 
 ```bash
-export DIFFVIM_TYPE_DELAY_MS=200
-export DIFFVIM_DELETE_DELAY_MS=150
-export DIFFVIM_MOVE_MIN_MS=500
-export DIFFVIM_MOVE_MAX_MS=5000
-export DIFFVIM_MOVE_MS_PER_UNIT=15
-export DIFFVIM_HUNK_PAUSE_MS=1000
+export AD_TYPE_DELAY_MS=200
+export AD_DELETE_DELAY_MS=150
+export AD_MOVE_MIN_MS=500
+export AD_MOVE_MAX_MS=5000
+export AD_MOVE_MS_PER_UNIT=15
+export AD_HUNK_PAUSE_MS=1000
 ```
 
 ## Vimscript Configuration (diffvim only)
@@ -98,4 +98,4 @@ tmux set-option -g escape-time 50
 tmux set-option -g focus-events on
 ```
 
-> **Note:** The project now uses an external pipeline (diffvim-compute-cpp → diffvim-postprocess → diffvim-pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

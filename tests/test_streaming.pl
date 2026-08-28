@@ -8,16 +8,16 @@ my $pass = 0;
 my $fail = 0;
 
 for my $ex (qw(01_small_python 07_text_prose 32_python_classes)) {
-    my $old = (glob("$root/examples/$ex/old.*"))[0];
-    my $new = (glob("$root/examples/$ex/new.*"))[0];
+    my $old = (glob("$root/tests/tests/examples/$ex/old.*"))[0];
+    my $new = (glob("$root/tests/tests/examples/$ex/new.*"))[0];
     
-    system("$root/compute/bin/diffvim-compute-cpp '$old' '$new' /tmp/raw.txt 2>/dev/null");
+    system("$root/bin/ad_compute '$old' '$new' /tmp/raw.txt 2>/dev/null");
     
     # Batch mode
-    system("$root/animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/batch.txt 2>/dev/null");
+    system("$root/bin/ad_postprocess < /tmp/raw.txt > /tmp/batch.txt 2>/dev/null");
     
     # Stream mode
-    system("$root/animator/bin/diffvim-postprocess --stream < /tmp/raw.txt > /tmp/stream.txt 2>/dev/null");
+    system("$root/bin/ad_postprocess --stream < /tmp/raw.txt > /tmp/stream.txt 2>/dev/null");
     
     # Compare (ignore hunk_count and hunk_end differences)
     my $batch = `grep -v 'hunk_count\\|hunk_end' /tmp/batch.txt`;

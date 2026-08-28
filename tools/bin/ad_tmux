@@ -113,9 +113,9 @@ Controls (during animation, in vim normal mode):
   =        reset speed to 1.0
 
 Environment variables:
-  DIFFVIM_TICK_MS, DIFFVIM_TYPE_DELAY_MS, DIFFVIM_DELETE_DELAY_MS,
-  DIFFVIM_MOVE_MIN_MS, DIFFVIM_MOVE_MAX_MS, DIFFVIM_MOVE_MS_PER_UNIT,
-  DIFFVIM_HUNK_PAUSE_MS, DIFFVIM_WORD_PAUSE_MS, DIFFVIM_SPEED
+  AD_TICK_MS, AD_TYPE_DELAY_MS, AD_DELETE_DELAY_MS,
+  AD_MOVE_MIN_MS, AD_MOVE_MAX_MS, AD_MOVE_MS_PER_UNIT,
+  AD_HUNK_PAUSE_MS, AD_WORD_PAUSE_MS, DIFFVIM_SPEED
   Feature flags (set by CLI flags, read by the engine vimscript):
   DIFFVIM_WORD_DIFF, DIFFVIM_STEP_MODE, DIFFVIM_ADAPTIVE_TIMING,
   DIFFVIM_SIGN_COLUMN, DIFFVIM_GIT_BLAME
@@ -163,7 +163,7 @@ while true; do
         --context)        CONTEXT_LINES="$2"; shift 2 ;;
         --max-hunk-chars) MAX_HUNK_CHARS="$2"; shift 2 ;;
         --max-word-chars) MAX_WORD_CHARS="$2"; shift 2 ;;
-        --word-pause-ms)  DIFFVIM_WORD_PAUSE_MS="$2"; shift 2 ;;
+        --word-pause-ms)  AD_WORD_PAUSE_MS="$2"; shift 2 ;;
         --scroll)         SCROLL_MODE="$2"; shift 2 ;;
         --multi)          MULTI_MODE=1; shift ;;
         --replay)         REPLAY_MODE=1; shift ;;
@@ -260,7 +260,7 @@ export DIFFVIM_ACCEL_DELETE="$([[ ${ACCEL_DELETE:-0} -eq 1 ]] && echo 1)"
 export DIFFVIM_ACCEL_DELETE_START_MS="${ACCEL_DELETE_START_MS:-80}"
 export DIFFVIM_ACCEL_DELETE_MIN_MS="${ACCEL_DELETE_MIN_MS:-10}"
 export DIFFVIM_ACCEL_DELETE_ACCEL="${ACCEL_DELETE_ACCEL:-85}"
-export DIFFVIM_OVERWRITE_MODE="$([[ ${OVERWRITE_MODE:-0} -eq 1 ]] && echo 1)"
+export AD_OVERWRITE_MODE="$([[ ${OVERWRITE_MODE:-0} -eq 1 ]] && echo 1)"
 export DIFFVIM_DELETE_END_FIRST="$([[ ${DELETE_END_FIRST:-0} -eq 1 ]] && echo 1)"
 export DIFFVIM_DELETE_END_FIRST_DELAY_MS="${DELETE_END_FIRST_DELAY_MS:-100}"
 export DIFFVIM_STARTUP_FEEDBACK="$([[ ${STARTUP_FEEDBACK:-0} -eq 1 ]] && echo 1)"
@@ -398,14 +398,14 @@ export LC_ALL=C
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-TICK_MS=${DIFFVIM_TICK_MS:-16}
-TYPE_DELAY_MS=${DIFFVIM_TYPE_DELAY_MS:-50}
-DELETE_DELAY_MS=${DIFFVIM_DELETE_DELAY_MS:-40}
-MOVE_MIN_MS=${DIFFVIM_MOVE_MIN_MS:-250}
-MOVE_MAX_MS=${DIFFVIM_MOVE_MAX_MS:-1600}
-MOVE_MS_PER_UNIT=${DIFFVIM_MOVE_MS_PER_UNIT:-6}
-HUNK_PAUSE_MS=${DIFFVIM_HUNK_PAUSE_MS:-250}
-WORD_PAUSE_MS=${DIFFVIM_WORD_PAUSE_MS:-150}
+TICK_MS=${AD_TICK_MS:-16}
+TYPE_DELAY_MS=${AD_TYPE_DELAY_MS:-50}
+DELETE_DELAY_MS=${AD_DELETE_DELAY_MS:-40}
+MOVE_MIN_MS=${AD_MOVE_MIN_MS:-250}
+MOVE_MAX_MS=${AD_MOVE_MAX_MS:-1600}
+MOVE_MS_PER_UNIT=${AD_MOVE_MS_PER_UNIT:-6}
+HUNK_PAUSE_MS=${AD_HUNK_PAUSE_MS:-250}
+WORD_PAUSE_MS=${AD_WORD_PAUSE_MS:-150}
 
 # ---------------------------------------------------------------------------
 # Apply speed multiplier (divide all *_MS values by SPEED_MULT, min 1ms)

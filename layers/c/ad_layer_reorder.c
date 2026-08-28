@@ -1,5 +1,5 @@
-/* pp_reorder.c — standalone layer: 4-sweep reorder + position adjust */
-#include "pp_common.h"
+/* ad_layer_reorder.c — standalone layer: 4-sweep reorder + position adjust */
+#include "ad_layer_common.h"
 
 int main(void) {
     char line[PP_MAX_LINE];

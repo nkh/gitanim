@@ -23,7 +23,7 @@ NEW: abcdefXYZ
 
 (The `def` is inserted between `abc` and `XYZ`.)
 
-### Without left_to_right (DIFFVIM_LEFT_TO_RIGHT=0)
+### Without left_to_right (AD_LEFT_TO_RIGHT=0)
 
 ```
 HUNK	1	1	1	0	0
@@ -57,7 +57,7 @@ HUNK_END
 
 **Visual:** the cursor types `abc`, then inserts `def` (shifting `XYZ` to the right), then continues past `XYZ`. This looks like natural human typing.
 
-### With left_to_right=1 (DIFFVIM_LEFT_TO_RIGHT=1, the current default)
+### With left_to_right=1 (AD_LEFT_TO_RIGHT=1, the current default)
 
 ```
 HUNK	1	1	1	0	0
@@ -120,17 +120,17 @@ printf 'abcXYZ\n' > /tmp/old.txt
 printf 'abcdefXYZ\n' > /tmp/new.txt
 
 # WITHOUT left_to_right (currently the default is 1, so set it to 0):
-DIFFVIM_LEFT_TO_RIGHT=0 ./compute/bin/diffvim-compute-cpp /tmp/old.txt /tmp/new.txt /tmp/raw.txt 2>/dev/null
-./animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null
-./animator/bin/diffvim-pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null
-./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/out.txt /tmp/old.txt < /tmp/timed.txt 2>/dev/null
+AD_LEFT_TO_RIGHT=0 ./bin/ad_compute /tmp/old.txt /tmp/new.txt /tmp/raw.txt 2>/dev/null
+./bin/ad_postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null
+./bin/ad_layer_pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null
+./bin/ad --no-display --speed 1000 --snapshot /tmp/out.txt /tmp/old.txt < /tmp/timed.txt 2>/dev/null
 echo "Without l2r:"; cat /tmp/out.txt
 
 # WITH left_to_right=1:
-DIFFVIM_LEFT_TO_RIGHT=1 ./compute/bin/diffvim-compute-cpp /tmp/old.txt /tmp/new.txt /tmp/raw.txt 2>/dev/null
-./animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null
-./animator/bin/diffvim-pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null
-./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/out.txt /tmp/old.txt < /tmp/timed.txt 2>/dev/null
+AD_LEFT_TO_RIGHT=1 ./bin/ad_compute /tmp/old.txt /tmp/new.txt /tmp/raw.txt 2>/dev/null
+./bin/ad_postprocess < /tmp/raw.txt > /tmp/post.txt 2>/dev/null
+./bin/ad_layer_pace < /tmp/post.txt > /tmp/timed.txt 2>/dev/null
+./bin/ad --no-display --speed 1000 --snapshot /tmp/out.txt /tmp/old.txt < /tmp/timed.txt 2>/dev/null
 echo "With l2r:"; cat /tmp/out.txt
 
 echo "Expected:"; cat /tmp/new.txt
@@ -138,9 +138,9 @@ echo "Expected:"; cat /tmp/new.txt
 
 ## Current default
 
-The launcher currently exports `DIFFVIM_LEFT_TO_RIGHT=1` by default. This means the diffvim launcher produces **wrong output** for any mid-line insert.
+The launcher currently exports `AD_LEFT_TO_RIGHT=1` by default. This means the diffvim launcher produces **wrong output** for any mid-line insert.
 
-The `dv_debug.sh` script and `verify_md5.sh` set `DIFFVIM_LEFT_TO_RIGHT` to 0 (or don't set it, and the compute tool defaults to 0), which is why those tests pass but the launcher fails.
+The `dv_debug.sh` script and `verify_md5.sh` set `AD_LEFT_TO_RIGHT` to 0 (or don't set it, and the compute tool defaults to 0), which is why those tests pass but the launcher fails.
 
 ## Options
 
@@ -149,4 +149,4 @@ The `dv_debug.sh` script and `verify_md5.sh` set `DIFFVIM_LEFT_TO_RIGHT` to 0 (o
 3. **Keep the default at 1** but document that it produces wrong output for mid-line inserts
 4. **Remove the transform entirely** (most aggressive)
 
-The decision is yours. The transform is in `compute/cpp/diffvim-compute.cpp`, function `left_to_right()`.
+The decision is yours. The transform is in `compute/cpp/ad_compute.cpp`, function `left_to_right()`.

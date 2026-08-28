@@ -142,36 +142,36 @@ VIM
 my @cases = (
     # Accelerated deletion with multi-line deletes
     ['accel-delete small', "line1\nline2\nline3\n", "line1\n",
-     {DIFFVIM_ACCEL_DELETE => '1'}],
+     {AD_ACCEL_DELETE => '1'}],
     ['accel-delete large', "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n", "a\nj\n",
-     {DIFFVIM_ACCEL_DELETE => '1', DIFFVIM_ACCEL_DELETE_START_MS => '80',
-      DIFFVIM_ACCEL_DELETE_MIN_MS => '10', DIFFVIM_ACCEL_DELETE_ACCEL => '85'}],
+     {AD_ACCEL_DELETE => '1', AD_ACCEL_DELETE_START_MS => '80',
+      AD_ACCEL_DELETE_MIN_MS => '10', AD_ACCEL_DELETE_ACCEL => '85'}],
 
     # Inline highlight (visual only, no buffer effect)
     ['inline-highlight', "hello world\n", "hello there\n",
-     {DIFFVIM_INLINE_HIGHLIGHT => '1'}],
+     {AD_INLINE_HIGHLIGHT => '1'}],
     ['inline-highlight delete', "hello world foo\n", "hello \n",
-     {DIFFVIM_INLINE_HIGHLIGHT => '1'}],
+     {AD_INLINE_HIGHLIGHT => '1'}],
 
     # Gaussian jitter (timing only, no buffer effect)
     ['gaussian-jitter', "hello world\n", "hello there\n",
-     {DIFFVIM_GAUSSIAN_JITTER => '1', DIFFVIM_GAUSSIAN_JITTER_PCT => '20'}],
+     {AD_GAUSSIAN_JITTER => '1', AD_GAUSSIAN_JITTER_PCT => '20'}],
 
     # Dim unchanged (visual only)
     ['dim-unchanged', "same\nchange\nsame\n", "same\nchanged\nsame\n",
-     {DIFFVIM_DIM_UNCHANGED => '1', DIFFVIM_DIM_UNCHANGED_PCT => '60'}],
+     {AD_DIM_UNCHANGED => '1', AD_DIM_UNCHANGED_PCT => '60'}],
 
     # Pause after lines (timing only)
     ['pause-after-lines', "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n",
      "a\nb\nC\nd\ne\nF\ng\nh\nI\nj\n",
-     {DIFFVIM_PAUSE_AFTER_LINES => '3', DIFFVIM_PAUSE_AFTER_THRESHOLD => '5',
-      DIFFVIM_PAUSE_AFTER_MS => '100'}],
+     {AD_PAUSE_AFTER_LINES => '3', AD_PAUSE_AFTER_THRESHOLD => '5',
+      AD_PAUSE_AFTER_MS => '100'}],
 
     # Combined: multiple new features at once
     ['all new features', "line1\nline2\nline3\nline4\nline5\n",
      "line1\nLINE2\nline3\nLINE4\nline5\n",
-     {DIFFVIM_ACCEL_DELETE => '1', DIFFVIM_INLINE_HIGHLIGHT => '1',
-      DIFFVIM_GAUSSIAN_JITTER => '1', DIFFVIM_DIM_UNCHANGED => '1'}],
+     {AD_ACCEL_DELETE => '1', AD_INLINE_HIGHLIGHT => '1',
+      AD_GAUSSIAN_JITTER => '1', AD_DIM_UNCHANGED => '1'}],
 
     # Control: no new features (should still work)
     ['control (no new features)', "hello\nworld\n", "hello\nthere\n", {}],

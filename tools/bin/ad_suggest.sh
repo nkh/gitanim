@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # dv_suggest.sh — Shared "did you mean?" suggestion function.
-# Source this from diffvim, diffvim-pipeline, and dv_snapshot_per_op.sh.
+# Source this from diffvim, ad_pipeline, and dv_snapshot_per_op.sh.
 #
 # Usage: dv_suggest_option "--wrong-option" "option1 option2 option3"
 # Prints: "Did you mean: --option2?" to stderr

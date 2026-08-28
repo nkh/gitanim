@@ -139,26 +139,26 @@ VIM
 my @cases = (
     # Overwrite mode: word replace (same length)
     ['overwrite same length', "hello world\n", "hello there\n",
-     {DIFFVIM_OVERWRITE_MODE => '1'}],
+     {AD_OVERWRITE_MODE => '1'}],
     # Overwrite mode: replacement shorter
     ['overwrite shorter', "hello world\n", "hello hi\n",
-     {DIFFVIM_OVERWRITE_MODE => '1'}],
+     {AD_OVERWRITE_MODE => '1'}],
     # Overwrite mode: replacement longer
     ['overwrite longer', "hello hi\n", "hello world\n",
-     {DIFFVIM_OVERWRITE_MODE => '1'}],
+     {AD_OVERWRITE_MODE => '1'}],
     # Overwrite mode: multi-word
     ['overwrite multi-word', "foo bar baz\n", "fox bat boz\n",
-     {DIFFVIM_OVERWRITE_MODE => '1'}],
+     {AD_OVERWRITE_MODE => '1'}],
 
     # Delete-end-first
     ['delete-end-first', "print(\"hello world\")\n", "print(\"hi\")\n",
-     {DIFFVIM_DELETE_END_FIRST => '1'}],
+     {AD_DELETE_END_FIRST => '1'}],
     ['delete-end-first with insert', "x = old_value\n", "y = new_value extra\n",
-     {DIFFVIM_DELETE_END_FIRST => '1'}],
+     {AD_DELETE_END_FIRST => '1'}],
 
     # Combined overwrite + delete-end-first
     ['overwrite + delete-end-first', "print(\"hello world\")\n", "print(\"hi\")\n",
-     {DIFFVIM_OVERWRITE_MODE => '1', DIFFVIM_DELETE_END_FIRST => '1'}],
+     {AD_OVERWRITE_MODE => '1', AD_DELETE_END_FIRST => '1'}],
 
     # Control
     ['control', "hello\n", "there\n", {}],

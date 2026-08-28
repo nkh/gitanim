@@ -241,7 +241,7 @@ op count as Patience.)
                                + highlight-inline + dim-unchanged
                                + pause-after-lines 7
 
-  --preset custom        ──►  reads DIFFVIM_PRESET_CUSTOM env var
+  --preset custom        ──►  reads AD_PRESET_CUSTOM env var
                                (your personal preferred options)
 ```
 

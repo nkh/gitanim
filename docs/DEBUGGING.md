@@ -14,13 +14,13 @@ bash scripts/dv_debug.sh <oldfile> <newfile>
 ```
 
 This runs all 4 stages, prints a summary to stdout, AND writes the
-stage files to `/tmp/dv_debug/` so you can inspect them:
+stage files to `/tmp/ad_debug/` so you can inspect them:
 
 ```
-/tmp/dv_debug/raw.txt    ← Stage 1: compute output (raw char ops)
-/tmp/dv_debug/post.txt   ← Stage 2: postprocess output (per-op positions)
-/tmp/dv_debug/timed.txt  ← Stage 3: pace output (delays added)
-/tmp/dv_debug/snap.txt   ← Stage 4: animator final buffer
+/tmp/ad_debug/raw.txt    ← Stage 1: compute output (raw char ops)
+/tmp/ad_debug/post.txt   ← Stage 2: postprocess output (per-op positions)
+/tmp/ad_debug/timed.txt  ← Stage 3: pace output (delays added)
+/tmp/ad_debug/snap.txt   ← Stage 4: animator final buffer
 ```
 
 ## The pipeline
@@ -29,7 +29,7 @@ stage files to `/tmp/dv_debug/` so you can inspect them:
                   ┌─────────────┐     ┌──────────────┐     ┌─────────┐     ┌───────────┐
 <old> <new> ──→   │  compute    │ ──→ │  postprocess │ ──→ │  pace   │ ──→ │  animator │
                   └─────────────┘     └──────────────┘     └─────────┘     └───────────┘
-                  diffvim-compute-cpp diffvim-postprocess diffvim-pace   diffvim-animator-c
+                  ad_compute ad_postprocess ad_layer_pace   ad
                                        (or postprocess.pl) (or pace.pl)   (or animator.pl)
                                                                                    │
                                                                                    ↓
@@ -43,15 +43,15 @@ for details on what the postprocess does.
 
 ## Running stages separately
 
-### Stage 1: compute (diffvim-compute-cpp)
+### Stage 1: compute (ad_compute)
 
 Produces raw char-level ops from the diff between old and new files.
 
 ```bash
-./compute/bin/diffvim-compute-cpp old.txt new.txt raw.txt
+./bin/ad_compute old.txt new.txt raw.txt
 
 # Or to stdout:
-./compute/bin/diffvim-compute-cpp old.txt new.txt /dev/stdout
+./bin/ad_compute old.txt new.txt /dev/stdout
 ```
 
 **Output format (v2 TSV):**
@@ -76,15 +76,15 @@ HUNK_END
 - `# diffvim precomputed diff v1` → your binary is stale. Rebuild: `make -C compute clean && make -C compute`
 - `HUNK 1 1 1 0 0` (spaces, not tabs) → same — v1 format, rebuild
 
-### Stage 2: postprocess (diffvim-postprocess)
+### Stage 2: postprocess (ad_postprocess)
 
 Reads raw ops, reorders them, computes per-op (line, col) positions.
 
 ```bash
-./animator/bin/diffvim-postprocess < raw.txt > post.txt
+./bin/ad_postprocess < raw.txt > post.txt
 
 # With transforms:
-./animator/bin/diffvim-postprocess --semantic-cleanup --indent-aware < raw.txt > post.txt
+./bin/ad_postprocess --semantic-cleanup --indent-aware < raw.txt > post.txt
 ```
 
 **Output format (v2 TSV):**
@@ -107,16 +107,16 @@ HUNK_END
 - `ERROR: input is v1 format` → your compute binary is stale. Rebuild.
 - `WARNING: no hunks and no ops parsed` → input was empty or wrong format. Check Stage 1 output.
 
-### Stage 3: pace (diffvim-pace)
+### Stage 3: pace (ad_layer_pace)
 
 Reads post-processed ops, inserts delays between them. **Does NOT
 modify, reorder, or add ops.** Only inserts `delay` lines.
 
 ```bash
-./animator/bin/diffvim-pace < post.txt > timed.txt
+./bin/ad_layer_pace < post.txt > timed.txt
 
 # With options:
-./animator/bin/diffvim-pace --delete-pacing word --insert-pacing char < post.txt > timed.txt
+./bin/ad_layer_pace --delete-pacing word --insert-pacing char < post.txt > timed.txt
 ```
 
 **Output format (v2 TSV):**
@@ -144,16 +144,16 @@ HUNK    ...
 - `ERROR: input has 'op\t<type>...' prefix` → input is v1 format. Check Stage 2.
 - `WARNING: no ops read from input` → Stage 2 produced no output. Check that.
 
-### Stage 4: animator (diffvim-animator-c)
+### Stage 4: animator (ad)
 
 Reads timed ops, animates the transformation in the terminal.
 
 ```bash
 # Animate (uses TTY):
-./animator/bin/diffvim-animator-c old.txt < timed.txt
+./bin/ad old.txt < timed.txt
 
 # Snapshot only (no animation, for testing):
-./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot out.txt old.txt < timed.txt
+./bin/ad --no-display --speed 1000 --snapshot out.txt old.txt < timed.txt
 ```
 
 **Keyboard controls (during animation):**
@@ -187,15 +187,15 @@ OLD: old
 ─── STAGE 1: RAW DIFF OPS (compute) ──────────────────────────
 compute: 0.34 ms (read 0.06 + diff 0.01 + write 0.25)
 ...
-  → 27 lines written to /tmp/dv_debug/raw.txt
+  → 27 lines written to /tmp/ad_debug/raw.txt
   → Header: # diffvim raw diff v2
 
 ─── STAGE 2: POST-PROCESSED OPS (postprocess) ───────────────
-  → 24 lines written to /tmp/dv_debug/post.txt
+  → 24 lines written to /tmp/ad_debug/post.txt
 ...
 
 ─── STAGE 3: TIMED OPS (pace) ───────────────────────────────
-  → 50 lines written to /tmp/dv_debug/timed.txt
+  → 50 lines written to /tmp/ad_debug/timed.txt
 ...
 
 ─── STAGE 4: ANIMATOR RESULT ────────────────────────────────
@@ -211,36 +211,36 @@ Actual (animator output):
 ✓ MATCH — animator output matches new file
 ```
 
-The stage files are kept in `/tmp/dv_debug/` so you can inspect them
+The stage files are kept in `/tmp/ad_debug/` so you can inspect them
 with `less`, `cat -A`, `wc -l`, `diff`, etc.
 
 ## Useful commands for inspecting stage files
 
 ```bash
 # View with tabs visible (tabs shown as ^I):
-cat -A /tmp/dv_debug/post.txt | head -20
+cat -A /tmp/ad_debug/post.txt | head -20
 
 # View with line numbers and tabs as visible chars:
-less -S /tmp/dv_debug/post.txt
+less -S /tmp/ad_debug/post.txt
 # (less -S prevents wrapping, type :n to switch files)
 
 # Count lines per stage:
-wc -l /tmp/dv_debug/*.txt
+wc -l /tmp/ad_debug/*.txt
 
 # Show just the HUNK headers:
-grep '^HUNK' /tmp/dv_debug/post.txt
+grep '^HUNK' /tmp/ad_debug/post.txt
 
 # Show just the deletes:
-grep '^delete' /tmp/dv_debug/post.txt
+grep '^delete' /tmp/ad_debug/post.txt
 
 # Show the \n deletes specifically:
-grep '^delete.* 10      ' /tmp/dv_debug/post.txt
+grep '^delete.* 10      ' /tmp/ad_debug/post.txt
 
 # Compare final output with expected:
-diff /tmp/dv_debug/snap.txt new.txt
+diff /tmp/ad_debug/snap.txt new.txt
 
 # View the timed ops with delay types highlighted:
-grep -E '^(delay|HUNK|HUNK_END)' /tmp/dv_debug/timed.txt
+grep -E '^(delay|HUNK|HUNK_END)' /tmp/ad_debug/timed.txt
 ```
 
 ## Running the Perl pipeline (instead of C)
@@ -252,9 +252,9 @@ or in the format spec; if they differ, the bug is in one of them.
 ```bash
 # Pure Perl pipeline:
 perl compute/perl/compute_builtin.pl old new /tmp/raw.txt
-perl animator/perl/postprocess.pl < /tmp/raw.txt > /tmp/post.txt
-perl animator/perl/pace.pl < /tmp/post.txt > /tmp/timed.txt
-perl animator/perl/animator.pl --no-display --speed 1000 --snapshot /tmp/out.txt old < /tmp/timed.txt
+perl layers/perl/postprocess.pl < /tmp/raw.txt > /tmp/post.txt
+perl layers/perl/ad_layer_pace.pl < /tmp/post.txt > /tmp/timed.txt
+perl animator/perl/ad.pl --no-display --speed 1000 --snapshot /tmp/out.txt old < /tmp/timed.txt
 diff /tmp/out.txt new
 ```
 
@@ -264,7 +264,7 @@ The `./diffvim old new` launcher uses the vimscript animator. To
 test it headless (no vim window), use:
 
 ```bash
-bash tests/test_vimscript_animator.sh examples/01_small_python
+bash tests/test_vimscript_animator.sh tests/tests/examples/01_small_python
 ```
 
 This extracts the vimscript engine, patches it to be synchronous
@@ -326,8 +326,8 @@ The key sanity checks:
 
 The timed stream is empty. Check:
 ```bash
-wc -l /tmp/dv_debug/timed.txt
-head -5 /tmp/dv_debug/timed.txt
+wc -l /tmp/ad_debug/timed.txt
+head -5 /tmp/ad_debug/timed.txt
 ```
 
 If empty, work backwards: check `post.txt`, then `raw.txt`. The
@@ -349,7 +349,7 @@ what each transformation should look like.
 The diffvim launcher uses the vimscript animator, which has its
 own snapshot writer. Check:
 ```bash
-bash tests/test_vimscript_animator.sh examples/<name>
+bash tests/test_vimscript_animator.sh tests/tests/examples/<name>
 ```
 
 If that passes but the launcher doesn't, the issue is in the
@@ -359,8 +359,8 @@ launcher's pipeline setup, not the animator.
 
 Run the specific case through dv_debug.sh and look at the diff:
 ```bash
-bash scripts/dv_debug.sh examples/34_large_javascript/old.js \
-                          examples/34_large_javascript/new.js 2>&1 | tail -30
+bash scripts/dv_debug.sh tests/tests/examples/34_large_javascript/old.js \
+                          tests/tests/examples/34_large_javascript/new.js 2>&1 | tail -30
 ```
 
 The diff at the end shows the exact mismatch.
@@ -381,9 +381,9 @@ a `git pull`, you must rebuild:
 ```bash
 make -C compute clean && make -C compute
 # Animator binaries are tracked in git, but if you modify C source:
-cc -O2 -o animator/bin/diffvim-animator-c animator/c/animator.c
-cc -O2 -o animator/bin/diffvim-postprocess animator/c/postprocess.c
-cc -O2 -o animator/bin/diffvim-pace animator/c/pace.c
+cc -O2 -o bin/ad animator/c/ad.c
+cc -O2 -o bin/ad_postprocess animator/c/postprocess.c
+cc -O2 -o bin/ad_layer_pace animator/c/pace.c
 ```
 
 If you see `# diffvim precomputed diff v1` in Stage 1 output, your

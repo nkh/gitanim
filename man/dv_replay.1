@@ -15,7 +15,7 @@ SYNOPSIS\fR
 DESCRIPTION\fR
     Replays a timed op stream previously recorded by dv_record.sh.\fR
     Loads the old file into the animator as the initial buffer, then\fR
-    feeds the timed op stream through diffvim-animator-c (in\fR
+    feeds the timed op stream through ad (in\fR
     --no-display mode at speed 1000, with --snapshot) so that the\fR
     final buffer state is written to /tmp/dv_replay_out.txt.\fR
 \fR
@@ -29,7 +29,7 @@ OPTIONS\fR
     <recording.dv>      Path to a recording file produced by dv_record.sh.\fR
 \fR
 EXAMPLES\fR
-    dv_replay.sh examples/01_small_python/old.py /tmp/my_recording.dv\fR
+    dv_replay.sh tests/tests/examples/01_small_python/old.py /tmp/my_recording.dv\fR
         Replay the recording, writing the final buffer to\fR
         /tmp/dv_replay_out.txt.\fR
 \fR

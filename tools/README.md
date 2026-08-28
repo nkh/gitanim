@@ -7,13 +7,13 @@ Debugging, testing, and verification scripts for the diffvim pipeline.
 ### Debugging
 
 - `dv_debug.sh` — Run all 4 pipeline stages on a file pair, print
-  summary, and write stage files to `/tmp/dv_debug/` for inspection.
+  summary, and write stage files to `/tmp/ad_debug/` for inspection.
   Usage: `bash scripts/dv_debug.sh <old> <new>`
 
 - `snapshot_per_op.sh` — Take a snapshot of the buffer after every
   op and produce an HTML visualization (list format).
   Usage: `bash scripts/snapshot_per_op.sh [--show-pacing] <old> <new>`
-  Output: `/tmp/dv_snapshots/snapshots.html`
+  Output: `/tmp/ad_snapshots/snapshots.html`
 
 - `dv_demo.sh` — Run a demo animation on example files.
 
@@ -48,7 +48,7 @@ bash scripts/dv_debug.sh old.py new.py
 
 # Visualize every op:
 bash scripts/snapshot_per_op.sh old.py new.py
-# Then open: file:///tmp/dv_snapshots/snapshots.html
+# Then open: file:///tmp/ad_snapshots/snapshots.html
 
 # Run full test suite:
 bash tests/verify_md5.sh
@@ -60,13 +60,13 @@ bash ../tests/run_minimal_tests.sh
 
 ## Output directories
 
-- `/tmp/dv_debug/` — Stage files from `dv_debug.sh`
+- `/tmp/ad_debug/` — Stage files from `dv_debug.sh`
   - `raw.txt` — Stage 1 (compute output)
   - `post.txt` — Stage 2 (postprocess output)
   - `timed.txt` — Stage 3 (pace output)
   - `snap.txt` — Stage 4 (animator final buffer)
 
-- `/tmp/dv_snapshots/` — Per-op snapshots from `snapshot_per_op.sh`
+- `/tmp/ad_snapshots/` — Per-op snapshots from `snapshot_per_op.sh`
   - `snap_0000.txt`, `snap_0001.txt`, ... — Buffer state after each op
   - `snapshots.html` — Combined HTML visualization
 

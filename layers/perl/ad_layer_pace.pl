@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# pp_pace — Insert delays between ops.
+# ad_layer_pace — Insert delays between ops.
 #
 # Reads post-processed ops from stdin, inserts delay lines between them,
 # writes timed ops to stdout.
@@ -9,7 +9,7 @@
 #
 # Delay types: char, word, hunk, awd_slow, awd_fast, awd_skip
 #
-# Usage: pp_pace [options] < postprocessed_ops > timed_ops
+# Usage: ad_layer_pace [options] < postprocessed_ops > timed_ops
 
 use strict;
 use warnings;
@@ -62,7 +62,7 @@ GetOptions(
 ) or die "Usage: $0 [options]\n";
 
 if ($help) {
-    print STDERR "Usage: pp_pace [options]\n";
+    print STDERR "Usage: ad_layer_pace [options]\n";
     exit 0;
 }
 

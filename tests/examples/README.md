@@ -10,7 +10,7 @@ in a subdirectory named `NN_description/`.
 ./diffvim examples/01_small_python/old.py examples/01_small_python/new.py
 
 # Run the C pipeline:
-./animator/diffvim-pipeline examples/01_small_python/old.py examples/01_small_python/new.py
+./animator/ad_pipeline examples/01_small_python/old.py examples/01_small_python/new.py
 
 # Debug a specific example:
 bash scripts/dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py

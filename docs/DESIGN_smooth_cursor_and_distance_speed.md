@@ -68,9 +68,9 @@ line. If so, insert glide frames before processing the next op.
   different cursor positions, which should work.
 
 **Files affected:**
-- `animator/c/animator.c` — add glide logic in main loop
-- `animator/c/animator.c` — change `disp_l`/`disp_c` to `double`
-- `animator/c/animator.c` — update `render()` to round for display
+- `animator/c/ad.c` — add glide logic in main loop
+- `animator/c/ad.c` — change `disp_l`/`disp_c` to `double`
+- `animator/c/ad.c` — update `render()` to round for display
 - `diffvim` launcher — add `--cursor-glide` and `--cursor-glide-ms` options
 - `set_config` — add `DIFFVIM_CURSOR_GLIDE` and `DIFFVIM_CURSOR_GLIDE_MS`
 
@@ -139,7 +139,7 @@ them.
 
 **Files affected:**
 - `animator/c/pace.c` — add distance-based delay adjustment
-- `animator/c/animator.c` — OR add per-hunk speed multiplier
+- `animator/c/ad.c` — OR add per-hunk speed multiplier
 - `diffvim` launcher — add `--distance-speed` and related options
 - `set_config` — add `DIFFVIM_DISTANCE_SPEED` etc.
 

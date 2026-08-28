@@ -14,10 +14,10 @@ were typing the changes.
 
 | Stage | Binary | Language | Purpose |
 |-------|--------|----------|---------|
-| compute | `compute/bin/diffvim-compute-cpp` | C++ | Patience diff → raw char ops |
-| postprocess | `animator/bin/diffvim-postprocess` | C | Reorder ops, compute (line,col) positions |
-| pace | `animator/bin/diffvim-pace` | C | Insert delays between ops |
-| animator | `animator/bin/diffvim-animator-c` | C | Apply ops to buffer, render to terminal |
+| compute | `bin/ad_compute` | C++ | Patience diff → raw char ops |
+| postprocess | `bin/ad_postprocess` | C | Reorder ops, compute (line,col) positions |
+| pace | `bin/ad_layer_pace` | C | Insert delays between ops |
+| animator | `bin/ad` | C | Apply ops to buffer, render to terminal |
 
 Each stage also has a Perl implementation (in `animator/perl/` and
 `compute/perl/`) that produces identical output.
@@ -29,7 +29,7 @@ Each stage also has a Perl implementation (in `animator/perl/` and
 ./diffvim old.py new.py
 
 # Animate using the C animator (terminal):
-./animator/diffvim-pipeline old.py new.py
+./animator/ad_pipeline old.py new.py
 
 # Debug the pipeline:
 bash scripts/dv_debug.sh old.py new.py
@@ -50,7 +50,7 @@ perl animator/tests/test_all_animators.pl   # animator unit tests
 | `plugin/` | Vim plugin entry point |
 | `scripts/` | Debugging, testing, and verification scripts |
 | `tests/` | Test suites + minimal test cases |
-| `examples/` | 42 old/new file pairs for testing |
+| `tests/tests/examples/` | 42 old/new file pairs for testing |
 | `docs/` | Documentation (DEBUGGING, FORMATS, PIPELINE, etc.) |
 | `man/` | Man pages |
 | `completion/` | Shell completions (bash, fish, zsh) |

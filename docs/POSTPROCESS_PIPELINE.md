@@ -40,7 +40,7 @@ compute output (raw V2 TSV, read directly from stdin)
     │       of the line's ops.
     │
     ▼
-reorder (pp_layer1_reorder.c)
+reorder (ad_layer_noop_reorder.c)
     │   Reorders ops within each line group using 4 sweeps.
     │   Always runs (not optional).
     │
@@ -85,30 +85,30 @@ postprocess output (V2 TSV to stdout)
 ## Build
 
 ```sh
-cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c -o diffvim-postprocess \
+cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c -o ad_postprocess \
   postprocess.c \
-  pp_layer1_reorder.c \
+  ad_layer_noop_reorder.c \
   pp_layer_indent_last.c \
   pp_layer_overwrite.c
 ```
 
-No `pp_layer0_v2.c` — compute output is already V2, so Layer 0 (V2
+No `ad_layer_noop_v2.c` — compute output is already V2, so Layer 0 (V2
 conversion) was removed.
 
 ## Usage
 
 ```sh
-diffvim-postprocess [--indent-last] [--overwrite] [--op-debug]
+ad_postprocess [--indent-last] [--overwrite] [--op-debug]
 ```
 
 ## Standalone Layer Binaries
 
 Each layer can be run standalone (for debugging):
-- `pp_overwrite` — overwrite layer
-- `pp_indent_last` — delete-indent-last layer
-- `pp_layer1` — reorder layer
+- `ad_layer_overwrite` — overwrite layer
+- `ad_layer_indent_last` — delete-indent-last layer
+- `ad_layer_noop` — reorder layer
 
-No `pp_layer0` (removed) and no `pp_layer3` (removed).
+No `ad_layer_noop` (removed) and no `ad_layer_noop` (removed).
 
 ## Known Limitations
 

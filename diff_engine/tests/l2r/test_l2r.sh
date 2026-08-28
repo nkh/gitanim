@@ -61,16 +61,16 @@ _run_pipeline() {
     local check_snapshot="${4:-1}"
 
     # Pipeline WITHOUT l2r
-    "$ROOT/compute/bin/diffvim-compute-cpp" "$old" "$new" "$TMPDIR/raw.txt" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-postprocess" < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
-    "$ROOT/animator/bin/pp_pace" < "$TMPDIR/post.txt" > "$TMPDIR/timed.txt" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$TMPDIR/out_no_l2r.txt" "$old" < "$TMPDIR/timed.txt" 2>/dev/null
+    "$ROOT/bin/ad_compute" "$old" "$new" "$TMPDIR/raw.txt" 2>/dev/null
+    "$ROOT/bin/ad_postprocess" < "$TMPDIR/raw.txt" > "$TMPDIR/post.txt" 2>/dev/null
+    "$ROOT/bin/ad_layer_pace" < "$TMPDIR/post.txt" > "$TMPDIR/timed.txt" 2>/dev/null
+    "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/out_no_l2r.txt" "$old" < "$TMPDIR/timed.txt" 2>/dev/null
 
     # Pipeline WITH l2r
     "$L2R/l2r_tool" < "$TMPDIR/raw.txt" > "$TMPDIR/raw_l2r.txt"
-    "$ROOT/animator/bin/diffvim-postprocess" < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
-    "$ROOT/animator/bin/pp_pace" < "$TMPDIR/post_l2r.txt" > "$TMPDIR/timed_l2r.txt" 2>/dev/null
-    "$ROOT/animator/bin/diffvim-animator-c" --no-display --speed 1000 --snapshot "$TMPDIR/out_l2r.txt" "$old" < "$TMPDIR/timed_l2r.txt" 2>/dev/null
+    "$ROOT/bin/ad_postprocess" < "$TMPDIR/raw_l2r.txt" > "$TMPDIR/post_l2r.txt" 2>/dev/null
+    "$ROOT/bin/ad_layer_pace" < "$TMPDIR/post_l2r.txt" > "$TMPDIR/timed_l2r.txt" 2>/dev/null
+    "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/out_l2r.txt" "$old" < "$TMPDIR/timed_l2r.txt" 2>/dev/null
 
     # Check 1: l2r output must match new file
     if [[ "$check_snapshot" == "1" ]]; then
@@ -415,8 +415,8 @@ impl Point3D {
 # === The test that broke 02_large_python ===
 
 run_test_files "02_large_python_EXACT" \
-    "$ROOT/examples/02_large_python/old.py" \
-    "$ROOT/examples/02_large_python/new.py"
+    "$ROOT/tests/tests/examples/02_large_python/old.py" \
+    "$ROOT/tests/tests/examples/02_large_python/new.py"
 
 # === Edge cases ===
 
@@ -465,8 +465,8 @@ run_test "long_line_many_changes" \
 # === Stress tests (small subset for speed) ===
 
 run_test_files "large_python_33" \
-    "$ROOT/examples/33_large_python/old.py" \
-    "$ROOT/examples/33_large_python/new.py"
+    "$ROOT/tests/tests/examples/33_large_python/old.py" \
+    "$ROOT/tests/tests/examples/33_large_python/new.py"
 
 echo ""
 echo "=== Results: $pass passed, $fail failed (of $total total) ==="

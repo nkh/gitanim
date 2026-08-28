@@ -11,10 +11,10 @@ fixes `(line, col)` based on `\n` deletes.
 compute output (raw ops)
     │
     ▼
-Layer 0: V2 Conversion (pp_layer0_v2.c)
+Layer 0: V2 Conversion (ad_layer_noop_v2.c)
     │   Converts V1→V2, writes headers. No modification.
     ▼
-Layer 1: Reorder (pp_layer1_reorder.c)
+Layer 1: Reorder (ad_layer_noop_reorder.c)
     │   4-sweep: content del → content ins → \n del → \n ins.
     ▼
 delete-indent-last (pp_layer_indent_last.c)  [optional, --indent-last]
@@ -34,15 +34,15 @@ postprocess output (V2 TSV)
 
 | File | Role | Status |
 |------|------|--------|
-| `pp_common.h` | Shared | Types, logging, TSV parsing, standalone runner |
-| `pp_layer0_v2.c` | Layer 0 | **Implemented** — V1/V2 detection, conversion |
-| `pp_layer1_reorder.c` | Layer 1 | 4-sweep reorder |
+| `ad_layer_common.h` | Shared | Types, logging, TSV parsing, standalone runner |
+| `ad_layer_noop_v2.c` | Layer 0 | **Implemented** — V1/V2 detection, conversion |
+| `ad_layer_noop_reorder.c` | Layer 1 | 4-sweep reorder |
 | `pp_layer_indent_last.c` | delete-indent-last | Reorders leading-whitespace deletes (no line/col changes) |
 | `pp_layer_overwrite.c` | overwrite | Marks delete+insert pairs as `overwrite_insert` |
 | `postprocess.c` | Orchestrator | Runs the pipeline; contains inline `adjust_positions()` |
-| `pp_layer_noop.pl` | Perl | No-op (passthrough) — Perl template |
+| `ad_layer_noop.pl` | Perl | No-op (passthrough) — Perl template |
 
-> There is no `pp_layer2_transforms.c` or `pp_layer3_cursor.c`.
+> There is no `ad_layer_noop_transforms.c` or `ad_layer_noop_cursor.c`.
 > Cursor recomputation is not a separate layer — it is the inline
 > `adjust_positions()` function in `postprocess.c`.
 
@@ -51,49 +51,49 @@ postprocess output (V2 TSV)
 ### Main executable (orchestrator):
 ```bash
 cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
-   -o diffvim-postprocess postprocess.c \
-   pp_layer0_v2.c pp_layer1_reorder.c \
+   -o ad_postprocess postprocess.c \
+   ad_layer_noop_v2.c ad_layer_noop_reorder.c \
    pp_layer_indent_last.c pp_layer_overwrite.c
 ```
 
 ### Standalone binaries (each reads stdin, writes stdout):
 ```bash
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Werror -I animator/c \
-   -o animator/bin/pp_layer0 animator/c/pp_layer0_v2.c
+   -o bin/ad_layer_noop animator/c/ad_layer_noop_v2.c
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Werror -I animator/c \
-   -o animator/bin/pp_layer1 animator/c/pp_layer1_reorder.c
+   -o bin/ad_layer_noop animator/c/ad_layer_noop_reorder.c
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
-   -o animator/bin/pp_indent_last animator/c/pp_layer_indent_last.c
+   -o bin/ad_layer_indent_last layers/c/ad_layer_layer_indent_last.c
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
-   -o animator/bin/pp_overwrite animator/c/pp_layer_overwrite.c
+   -o bin/ad_layer_overwrite layers/c/ad_layer_layer_overwrite.c
 ```
 
 > Standalone binaries do NOT run `adjust_positions`. That step lives
 > only inside `postprocess.c` and runs as the final stage of the
 > combined pipeline. When piped manually, the consumer must apply its
-> own equivalent (or run `diffvim-postprocess` instead of the chain).
+> own equivalent (or run `ad_postprocess` instead of the chain).
 
 ### Piped (layers as separate processes, before adjust_positions):
 ```bash
-compute | pp_layer0 | pp_layer1 | pp_indent_last | pp_overwrite > output
+compute | ad_layer_noop | ad_layer_noop | ad_layer_indent_last | ad_layer_overwrite > output
 ```
 
 ### Perl (no-op layer):
 ```bash
-compute | perl pp_layer_noop.pl > output
+compute | perl ad_layer_noop.pl > output
 ```
 
 ## Debug Logging
 
-Set `DV_DEBUG_POSTPROCESS=1` to enable:
-- `/tmp/dv_debug/postprocess.log` — log from each layer
-- `/tmp/dv_debug/layer_input.txt` — ops before the layer
-- `/tmp/dv_debug/layer_output.txt` — ops after the layer
-- `/tmp/dv_debug/layer0_output.txt` — Layer 0 V2 output dump
+Set `AD_DEBUG_LAYERS=1` to enable:
+- `/tmp/ad_debug/postprocess.log` — log from each layer
+- `/tmp/ad_debug/layer_input.txt` — ops before the layer
+- `/tmp/ad_debug/layer_output.txt` — ops after the layer
+- `/tmp/ad_debug/layer0_output.txt` — Layer 0 V2 output dump
 
 ```bash
-DV_DEBUG_POSTPROCESS=1 pp_layer1 < input > output
-cat /tmp/dv_debug/postprocess.log
+AD_DEBUG_LAYERS=1 ad_layer_noop < input > output
+cat /tmp/ad_debug/postprocess.log
 ```
 
 ## Op Struct

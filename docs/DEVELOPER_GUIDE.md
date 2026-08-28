@@ -15,7 +15,7 @@ layout, development workflow, and how to extend the project.
 5. [The Pipeline Stages](#5-the-pipeline-stages)
 6. [The Timed Op Stream Format (v2 TSV)](#6-the-timed-op-stream-format-v2-tsv)
 7. [How diffvim (vimscript) Works](#7-how-diffvim-vimscript-works)
-8. [How diffvim-pipeline (standalone) Works](#8-how-diffvim-pipeline-standalone-works)
+8. [How ad_pipeline (standalone) Works](#8-how-ad_pipeline-standalone-works)
 9. [The Coloring System](#9-the-coloring-system)
 10. [Testing](#10-testing)
 11. [Adding a New Language](#11-adding-a-new-language)
@@ -39,7 +39,7 @@ The project has two modes:
 - **diffvim** (vimscript): Opens the old file in vim and animates the
   transformation inside vim. Uses vim's syntax highlighting, buffer
   manipulation, and timer-based animation. Best for interactive use.
-- **diffvim-pipeline** (standalone): Runs the full pipeline
+- **ad_pipeline** (standalone): Runs the full pipeline
   (compute → postprocess → pace → animate) as external executables.
   Renders to a terminal with ANSI escapes. Best for scripting and
   testing. Supports syntax coloring via external colorizers.
@@ -93,10 +93,10 @@ gitanim/
 ├── diffvim-jogger                # Test-case exerciser
 │
 ├── compute/
-│   ├── cpp/diffvim-compute.cpp   # C++ Patience diff (the only compute tool)
+│   ├── cpp/ad_compute.cpp   # C++ Patience diff (the only compute tool)
 │   ├── perl/compute_builtin.pl   # Perl fallback (byte-identical to C++)
-│   ├── Makefile                  # `make` → builds diffvim-compute-cpp
-│   └── bin/diffvim-compute-cpp   # Compiled binary
+│   ├── Makefile                  # `make` → builds ad_compute
+│   └── bin/ad_compute   # Compiled binary
 │
 ├── animator/
 │   ├── c/                         # C source
@@ -109,7 +109,7 @@ gitanim/
 │   │   ├── pace.pl
 │   │   └── colorize.pl            # Syntax coloring tool (vim/pygmentize)
 │   ├── bin/                       # Compiled C binaries
-│   ├── diffvim-pipeline           # Bash script: runs all 4 stages
+│   ├── ad_pipeline           # Bash script: runs all 4 stages
 │   ├── tests/                     # Animator-specific tests
 │   └── docs/                      # Animator documentation
 │
@@ -125,7 +125,7 @@ gitanim/
 │   ├── DEVELOPER_GUIDE.md        # This file
 │   └── ...
 │
-├── examples/                     # 42 example file pairs (old/new)
+├── tests/tests/examples/                     # 42 example file pairs (old/new)
 ├── tests/                        # vimscript engine tests
 ├── tests/verify_md5.sh         # Round-trip MD5 verification
 ├── DiffVim/Parser/Perl.pm        # Pure-Perl Patience diff parser
@@ -146,15 +146,15 @@ make -C compute
 
 # Build C animator tools
 cd animator/c
-cc -O2 -o ../bin/diffvim-animator-c animator.c
-cc -O2 -o ../bin/diffvim-postprocess postprocess.c
-cc -O2 -o ../bin/diffvim-pace pace.c
+cc -O2 -o ../bin/ad animator.c
+cc -O2 -o ../bin/ad_postprocess postprocess.c
+cc -O2 -o ../bin/ad_layer_pace pace.c
 cd ..
 
 # Verify
-./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
-    examples/01_small_python/old.py examples/01_small_python/new.py
-md5sum /tmp/out.txt examples/01_small_python/new.py
+./animator/ad_pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
+    tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
+md5sum /tmp/out.txt tests/tests/examples/01_small_python/new.py
 # Should match
 
 # Run the full test suite
@@ -174,7 +174,7 @@ bash tests/verify_md5.sh
 
 ## 5. The Pipeline Stages
 
-### Stage 1: Compute (`diffvim-compute-cpp`)
+### Stage 1: Compute (`ad_compute`)
 
 **Input:** old file + new file
 **Output:** raw char-level ops (HUNK/keep/delete/insert format)
@@ -183,7 +183,7 @@ Uses the **Patience diff algorithm**: anchors on unique common lines,
 recurses on the gaps, and falls back to LCS for ranges with no anchors.
 
 ```bash
-diffvim-compute-cpp old.py new.py raw_ops.txt
+ad_compute old.py new.py raw_ops.txt
 ```
 
 Output format:
@@ -197,7 +197,7 @@ delete <char_code>
 insert <char_code>
 ```
 
-### Stage 2: Postprocess (`diffvim-postprocess`)
+### Stage 2: Postprocess (`ad_postprocess`)
 
 **Input:** raw ops from compute
 **Output:** positioned ops (TSV with per-op line, col)
@@ -213,9 +213,9 @@ Applies transformations:
 Computes per-op `(line, col)` positions by simulating the cursor.
 
 ```bash
-diffvim-postprocess --transform op-order:optimize < raw_ops.txt > positioned_ops.txt
+ad_postprocess --transform op-order:optimize < raw_ops.txt > positioned_ops.txt
 # Or streaming mode:
-diffvim-postprocess --stream < raw_ops.txt > positioned_ops.txt
+ad_postprocess --stream < raw_ops.txt > positioned_ops.txt
 ```
 
 Output format (TSV):
@@ -226,7 +226,7 @@ newline_delete\t<line>
 newline_insert\t<line>\t<col>
 ```
 
-### Stage 3: Pace (`diffvim-pace`)
+### Stage 3: Pace (`ad_layer_pace`)
 
 **Input:** positioned ops from postprocess
 **Output:** timed op stream (ops + typed delays + batch operations)
@@ -235,14 +235,14 @@ Adds timing and batching. Does NOT modify any op — only adds delays and
 batch operations around them.
 
 ```bash
-diffvim-pace --delete-pacing word --insert-pacing char < positioned_ops.txt > timed_ops.txt
+ad_layer_pace --delete-pacing word --insert-pacing char < positioned_ops.txt > timed_ops.txt
 ```
 
 Delay types: `type`, `keep`, `delete`, `hunk_pause`, `rapid_eol`,
 `awd_start`, `awd_word`, `awd_space`, `word_insert`, `newline_delete`,
 `newline_insert`.
 
-### Stage 4: Animate (`diffvim-animator-c` or `diffvim`)
+### Stage 4: Animate (`ad` or `diffvim`)
 
 **Input:** timed op stream
 **Output:** visual animation in terminal (or vim)
@@ -319,9 +319,9 @@ The vimscript animator avoids flashing by:
 
 ---
 
-## 8. How diffvim-pipeline (standalone) Works
+## 8. How ad_pipeline (standalone) Works
 
-The `diffvim-pipeline` bash script:
+The `ad_pipeline` bash script:
 
 1. Finds all tool binaries (C++ preferred, Perl fallback)
 2. Starts coloring in **parallel** with the processing pipeline
@@ -329,14 +329,14 @@ The `diffvim-pipeline` bash script:
 4. Passes colormap files to the animator via `--colormap-old`/`--colormap-new`
 
 ```bash
-diffvim-pipeline [options] <oldfile> <newfile>
+ad_pipeline [options] <oldfile> <newfile>
 
 # Options are routed by prefix:
-#   --compute-*       → diffvim-compute-cpp
-#   --postprocess-*   → diffvim-postprocess
-#   --pace-*          → diffvim-pace
-#   --animator-*      → diffvim-animator-c
-#   (unprefixed)      → diffvim-animator-c
+#   --compute-*       → ad_compute
+#   --postprocess-*   → ad_postprocess
+#   --pace-*          → ad_layer_pace
+#   --animator-*      → ad
+#   (unprefixed)      → ad
 ```
 
 ### The C animator's incremental rendering
@@ -368,7 +368,7 @@ diffvim-colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
 
 ### How coloring integrates with the pipeline
 
-The `diffvim-pipeline` script:
+The `ad_pipeline` script:
 1. Starts both colorizations (old + new) in the **background**
 2. Concurrently runs compute → postprocess → pace
 3. Waits for coloring to finish
@@ -401,9 +401,9 @@ with the new file.
 bash tests/verify_md5.sh
 
 # Single example:
-./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
-    examples/01_small_python/old.py examples/01_small_python/new.py
-md5sum /tmp/out.txt examples/01_small_python/new.py
+./animator/ad_pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
+    tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
+md5sum /tmp/out.txt tests/tests/examples/01_small_python/new.py
 ```
 
 ### Perl test suites
@@ -427,13 +427,13 @@ perl tests/test_delete_pacing.pl
 
 ### Adding a new test case
 
-1. Create `examples/NN_description/old.ext` and `new.ext`
+1. Create `tests/tests/examples/NN_description/old.ext` and `new.ext`
 2. Run `bash tests/verify_md5.sh` — the new example is automatically included
 3. If the MD5 doesn't match, debug with:
    ```bash
-   ./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
-       examples/NN_description/old.ext examples/NN_description/new.ext
-   diff /tmp/out.txt examples/NN_description/new.ext
+   ./animator/ad_pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
+       tests/tests/examples/NN_description/old.ext tests/tests/examples/NN_description/new.ext
+   diff /tmp/out.txt tests/tests/examples/NN_description/new.ext
    ```
 
 ---
@@ -443,11 +443,11 @@ perl tests/test_delete_pacing.pl
 diffvim auto-detects language from file extension. To add a new one:
 
 1. **Add to the extension map** in:
-   - `compute/cpp/diffvim-compute.cpp` (not needed — compute is language-agnostic)
+   - `compute/cpp/ad_compute.cpp` (not needed — compute is language-agnostic)
    - `animator/perl/colorize.pl` — add to `%ext_map`
    - `diffvim` (vimscript) — add to the `setfiletype` if-chain
 
-2. **Add example files**: Create `examples/NN_lang_name/old.ext` and `new.ext`
+2. **Add example files**: Create `tests/tests/examples/NN_lang_name/old.ext` and `new.ext`
 
 3. **Add completion** (optional): Add the extension to `completion/diffvim.bash`
    in the `--language` completion.
@@ -458,7 +458,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 1. **Implement the transform** in both:
    - `animator/c/postprocess.c` — add a function and wire it into `write_output()`
-   - `animator/perl/postprocess.pl` — add a `sub` and call it in the transform loop
+   - `layers/perl/postprocess.pl` — add a `sub` and call it in the transform loop
 
 2. **Add to `--transform` parsing**:
    - In `apply_transform()` (C) or the `--transform` handler (Perl)
@@ -466,7 +466,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 3. **Test**:
    ```bash
-   diffvim-postprocess --transform your_transform < raw_ops.txt > out.txt
+   ad_postprocess --transform your_transform < raw_ops.txt > out.txt
    ```
 
 ---
@@ -475,7 +475,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 1. **Add the mode** to `process_delete()` or `process_awd()` in:
    - `animator/c/pace.c`
-   - `animator/perl/pace.pl`
+   - `layers/perl/ad_layer_pace.pl`
 
 2. **Add to validation**: Add to `%valid_dp` in Perl, and to the `--delete-pacing` help.
 
@@ -485,7 +485,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 4. **Test**:
    ```bash
-   diffvim-pace --delete-pacing your_mode < positioned_ops.txt > timed_ops.txt
+   ad_layer_pace --delete-pacing your_mode < positioned_ops.txt > timed_ops.txt
    ```
 
 ---
@@ -500,43 +500,43 @@ diffvim --debug old.py new.py
 # Writes to /tmp/diffvim-debug.log
 
 # See the timed op stream:
-WORKDIR=/tmp/dv_debug diffvim --no-vimrc old.py new.py
-# Stream is at /tmp/dv_debug/timed_ops.txt
+WORKDIR=/tmp/ad_debug diffvim --no-vimrc old.py new.py
+# Stream is at /tmp/ad_debug/timed_ops.txt
 ```
 
 ### Run pipeline stages manually
 
 ```bash
 # Stage 1: Compute
-./compute/bin/diffvim-compute-cpp old.py new.py /tmp/raw.txt
+./bin/ad_compute old.py new.py /tmp/raw.txt
 
 # Stage 2: Postprocess
-./animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt
+./bin/ad_postprocess < /tmp/raw.txt > /tmp/post.txt
 
 # Stage 3: Pace
-./animator/bin/diffvim-pace < /tmp/post.txt > /tmp/timed.txt
+./bin/ad_layer_pace < /tmp/post.txt > /tmp/timed.txt
 
 # Stage 4: Animate
-./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/out.txt old.py < /tmp/timed.txt
+./bin/ad --no-display --speed 1000 --snapshot /tmp/out.txt old.py < /tmp/timed.txt
 ```
 
 ### Compare C vs Perl output
 
 ```bash
 # Postprocess
-diff <(./animator/bin/diffvim-postprocess < /tmp/raw.txt) \
-     <(perl animator/perl/postprocess.pl < /tmp/raw.txt)
+diff <(./bin/ad_postprocess < /tmp/raw.txt) \
+     <(perl layers/perl/postprocess.pl < /tmp/raw.txt)
 
 # Pace
-diff <(./animator/bin/diffvim-pace < /tmp/post.txt) \
-     <(perl animator/perl/pace.pl < /tmp/post.txt)
+diff <(./bin/ad_layer_pace < /tmp/post.txt) \
+     <(perl layers/perl/ad_layer_pace.pl < /tmp/post.txt)
 ```
 
 ### Use AddressSanitizer
 
 If you suspect memory corruption:
 ```bash
-cc -O0 -g -fsanitize=address -o /tmp/anim_asan animator/c/animator.c
+cc -O0 -g -fsanitize=address -o /tmp/anim_asan animator/c/ad.c
 /tmp/anim_asan --no-display --speed 1000 --snapshot /tmp/out.txt old.py < /tmp/timed.txt
 ```
 
@@ -620,13 +620,13 @@ ignore this value — they process hunks as they arrive.
 
 | File | Purpose |
 |------|---------|
-| `compute/cpp/diffvim-compute.cpp` | Patience diff algorithm (C++) |
+| `compute/cpp/ad_compute.cpp` | Patience diff algorithm (C++) |
 | `animator/c/postprocess.c` | Op reordering + per-op positioning |
 | `animator/c/pace.c` | Timing + batching |
-| `animator/c/animator.c` | Terminal renderer with incremental display |
+| `animator/c/ad.c` | Terminal renderer with incremental display |
 | `animator/perl/*.pl` | Perl mirrors of the C tools |
 | `animator/perl/colorize.pl` | Syntax coloring (vim/pygmentize backends) |
-| `animator/diffvim-pipeline` | Bash script wiring all 4 stages |
+| `animator/ad_pipeline` | Bash script wiring all 4 stages |
 | `diffvim` | Bash launcher + embedded vimscript engine |
 | `autoload/diffvim/engine.vim` | Standalone vimscript engine (for plugin mode) |
 | `plugin/diffvim.vim` | Vim plugin (:Diffvim, :DiffvimPick) |

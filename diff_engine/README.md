@@ -11,15 +11,15 @@ COMPUTE → postprocess → pace → animator
 
 ## Files
 
-- `cpp/diffvim-compute.cpp` — C++ implementation (the only compute tool)
+- `cpp/ad_compute.cpp` — C++ implementation (the only compute tool)
 - `perl/compute_builtin.pl` — Perl fallback (produces identical output)
-- `Makefile` — Builds `bin/diffvim-compute-cpp`
+- `Makefile` — Builds `bin/ad_compute`
 - `README.md` — Detailed compute documentation
 - `PARALLELISM.md` — Parallelism notes
 
 ## Binary
 
-`bin/diffvim-compute-cpp` — the compiled C++ binary.
+`bin/ad_compute` — the compiled C++ binary.
 
 **NOTE:** `bin/` is gitignored! After `git pull`, you must rebuild:
 ```bash
@@ -32,7 +32,7 @@ is stale (the v2 format has been the default since the refactor).
 ## Usage
 
 ```bash
-./compute/bin/diffvim-compute-cpp old.py new.py raw_ops.txt
+./bin/ad_compute old.py new.py raw_ops.txt
 ```
 
 Output format (v2 TSV):

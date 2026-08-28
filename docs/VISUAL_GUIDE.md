@@ -308,7 +308,7 @@ Patience becomes slow.
    ┌────────────────────────────────────────────────────────────────┐
    │                  diffvim --precomputed                          │
    │                                                                │
-   │   1. Calls compute/bin/diffvim-compute-<c|cpp|rust|go>         │
+   │   1. Calls bin/ad_compute-<c|cpp|rust|go>         │
    │      to pre-compute the diff into a temp file.                 │
    │                                                                │
    │   2. Calls diffvim --precomputed <tempfile>                    │
@@ -318,7 +318,7 @@ Patience becomes slow.
               ┌───────────┘             └────────────┐
               ▼                                       ▼
    ┌──────────────────────┐                ┌──────────────────────┐
-   │  diffvim-compute-cpp │                │       diffvim        │
+   │  ad_compute │                │       diffvim        │
    │                      │                │   (loads precomputed │
    │  10-100x faster      │                │    diff, just anims) │
    │  than vimscript Patience  │                │                      │
@@ -329,9 +329,9 @@ Patience becomes slow.
    └──────────────────────┘                └──────────────────────┘
 ```
 
-Use `compute/bin/diffvim-compute-cpp` (then `diffvim --precomputed`) — it's
+Use `bin/ad_compute` (then `diffvim --precomputed`) — it's
 the only compute implementation. When the C++ binary is missing,
-`diffvim` falls back to the in-vim Patience and `diffvim-pipeline` falls
+`diffvim` falls back to the in-vim Patience and `ad_pipeline` falls
 back to `compute/perl/compute_builtin.pl` (a Perl wrapper around
 `DiffVim::Parser::Perl`). Both produce byte-for-byte identical output.
 
@@ -361,9 +361,9 @@ cubic acceleration:
                           (min)                              (max)
 
    ────────────────────────────────────────────────────────────────────────────
-   • min duration:  250 ms  (DIFFVIM_MOVE_MIN_MS)
-   • max duration: 1600 ms  (DIFFVIM_MOVE_MAX_MS)
-   • per-unit:        6 ms  (DIFFVIM_MOVE_MS_PER_UNIT)
+   • min duration:  250 ms  (AD_MOVE_MIN_MS)
+   • max duration: 1600 ms  (AD_MOVE_MAX_MS)
+   • per-unit:        6 ms  (AD_MOVE_MS_PER_UNIT)
    • actual:          min + min(max-min, distance * per-unit)
    ────────────────────────────────────────────────────────────────────────────
 ```
@@ -470,7 +470,7 @@ for common use cases.
    Usage:
        diffvim --preset review old.py new.py
        diffvim --preset ai-code old.py new.py
-       DIFFVIM_PRESET="review --highlight-word" diffvim old.py new.py
+       AD_PRESET="review --highlight-word" diffvim old.py new.py
 ```
 
 ---
@@ -638,7 +638,7 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
 | Diff AI-generated code well          | `docs/AI_CODE_DIFFING.md`                   |
 | Reduce cognitive load while watching | `docs/FOLLOW_IMPROVEMENTS.md`               |
 | Bring diffvim to your team           | `docs/ADOPTION_GUIDE.md`                    |
-| Read the manpages                    | `man/diffvim.1`, `man/diffvim-compute.1`    |
+| Read the manpages                    | `man/diffvim.1`, `man/ad_compute.1`    |
 | Show a one-page overview             | `docs/presentation.html`                    |
 
 ---

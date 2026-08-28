@@ -23,9 +23,9 @@ done
 
 ## CLI Options
 
-### diffvim-compute-cpp
+### ad_compute
 ```
-diffvim-compute-cpp <oldfile> <newfile> <outputfile> [options]
+ad_compute <oldfile> <newfile> <outputfile> [options]
   --semantic-cleanup    Merge adjacent delete+insert pairs
   --word-diff            Use word-level diff
   --indent-aware         Normalize indentation before line diff
@@ -36,9 +36,9 @@ diffvim-compute-cpp <oldfile> <newfile> <outputfile> [options]
   -h, --help             Show help
 ```
 
-### diffvim-postprocess
+### ad_postprocess
 ```
-diffvim-postprocess [options] < raw_ops > positioned_ops
+ad_postprocess [options] < raw_ops > positioned_ops
   --transform NAME[:VALUE]  Apply transformation (repeatable)
     Available: op-order:natural|optimize, semantic-cleanup,
                indent-aware, overwrite
@@ -51,9 +51,9 @@ diffvim-postprocess [options] < raw_ops > positioned_ops
   -h, --help           Show help
 ```
 
-### diffvim-pace
+### ad_layer_pace
 ```
-diffvim-pace [options] < positioned_ops > timed_ops
+ad_layer_pace [options] < positioned_ops > timed_ops
   --delete-pacing MODE   char|rapid-eol|rapid-identical|accel|word|instant
   --delete-speed MODE     slow|normal|fast|instant
   --delete-threshold N    Min chars for rapid/word modes (default: 3)
@@ -64,9 +64,9 @@ diffvim-pace [options] < positioned_ops > timed_ops
   -h, --help              Show help
 ```
 
-### diffvim-animator-c
+### ad
 ```
-diffvim-animator-c [options] <oldfile> < timed_ops
+ad [options] <oldfile> < timed_ops
   --no-display          Process without rendering
   --speed N             Speed multiplier (default: 1.0)
   --output FILE         Write final buffer to FILE
@@ -81,14 +81,14 @@ diffvim-animator-c [options] <oldfile> < timed_ops
   -h, --help            Show help
 ```
 
-### diffvim-pipeline
+### ad_pipeline
 ```
-diffvim-pipeline [options] <oldfile> <newfile>
-  --compute-*          Options for diffvim-compute-cpp
-  --postprocess-*      Options for diffvim-postprocess
-  --pace-*             Options for diffvim-pace
-  --animator-*         Options for diffvim-animator-c
-  (unprefixed)         Options for diffvim-animator-c
+ad_pipeline [options] <oldfile> <newfile>
+  --compute-*          Options for ad_compute
+  --postprocess-*      Options for ad_postprocess
+  --pace-*             Options for ad_layer_pace
+  --animator-*         Options for ad
+  (unprefixed)         Options for ad
   -h, --help           Show help
 ```
 
@@ -104,8 +104,8 @@ diffvim-colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| DIFFVIM_COMPUTE_BIN | (auto) | Override compute binary path |
-| DIFFVIM_COLORIZE_BACKEND | auto | Coloring backend |
+| AD_COMPUTE_BIN | (auto) | Override compute binary path |
+| AD_COLORIZE_BACKEND | auto | Coloring backend |
 | DIFFVIM_TIMED_OPS | (unset) | Path to timed op stream (vimscript) |
 | DIFFVIM_OUTPUT | (unset) | Output file path |
 | DIFFVIM_SPEED | 1.0 | Speed multiplier |

@@ -1,12 +1,12 @@
 /*
- * pp_indent_last.c — standalone: move indent deletes + adjust positions
+ * ad_layer_indent_last.c — standalone: move indent deletes + adjust positions
  *
  * Moves leading whitespace DELETE ops to end of line segment.
  * Adjusts content ops' col by +n_indent (indent still in buffer
  * when content runs first). Indent deletes stay at col 1.
- * Passes through all other positions unchanged (from pp_reorder).
+ * Passes through all other positions unchanged (from ad_layer_reorder).
  */
-#include "pp_common.h"
+#include "ad_layer_common.h"
 int main(void) {
     char line[PP_MAX_LINE];
     Op *ops=NULL;int n_ops=0,ops_cap=0,in_hunk=0;Hunk hunk={0};

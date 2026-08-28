@@ -1,8 +1,8 @@
-# diffvim-animator-c
+# ad
 
 **Standalone terminal animation for code diffs — no vim required.**
 
-diffvim-animator-c is a pipeline of independent tools that animate code
+ad is a pipeline of independent tools that animate code
 diffs in any terminal. It replaces the vim-based diffvim engine with a
 simpler, faster, more correct architecture.
 
@@ -28,7 +28,7 @@ simpler, faster, more correct architecture.
 
 ## 1. Overview
 
-The diffvim-animator-c pipeline consists of 4 stages:
+The ad pipeline consists of 4 stages:
 
 ```
 compute → postprocess → pace → animator
@@ -55,7 +55,7 @@ This separation means:
 
 > **Phase A–C refactor note.** The Go implementations of postprocess /
 > pace / animator were removed; only Perl and C remain. The compute
-> stage has a single C++ tool (`compute/bin/diffvim-compute-cpp`) with a
+> stage has a single C++ tool (`bin/ad_compute`) with a
 > pure-Perl fallback (`compute/perl/compute_builtin.pl`).
 
 ---
@@ -66,9 +66,9 @@ This separation means:
 
 ```bash
 # C animator tools
-cc -O2 -o animator/bin/diffvim-postprocess animator/c/postprocess.c
-cc -O2 -o animator/bin/pp_pace animator/c/pp_pace.c
-cc -O2 -o animator/bin/diffvim-animator-c-c animator/c/animator.c
+cc -O2 -o bin/ad_postprocess animator/c/postprocess.c
+cc -O2 -o bin/ad_layer_pace animator/c/ad_layer_pace.c
+cc -O2 -o bin/ad-c animator/c/ad.c
 
 # C++ compute tool (used by the pipeline)
 make -C compute
@@ -80,12 +80,12 @@ make -C compute
 
 ```bash
 sudo cp animator/bin/diffvim-* /usr/local/bin/
-sudo cp animator/diffvim-pipeline /usr/local/bin/
+sudo cp animator/ad_pipeline /usr/local/bin/
 ```
 
 ### Prerequisites
 
-- **Compute tool:** `compute/bin/diffvim-compute-cpp` (built by `make -C compute`).
+- **Compute tool:** `bin/ad_compute` (built by `make -C compute`).
   Falls back to `compute/perl/compute_builtin.pl` when the C++ binary
   is missing.
 - **Perl tools:** Perl 5.10+ (core modules only)
@@ -96,20 +96,20 @@ sudo cp animator/diffvim-pipeline /usr/local/bin/
 
 ## 3. Quick Start
 
-### Using diffvim-pipeline (recommended)
+### Using ad_pipeline (recommended)
 
 ```bash
 # Basic animation
-animator/diffvim-pipeline old.py new.py
+animator/ad_pipeline old.py new.py
 
 # With word-by-word deletion and syntax coloring
-animator/diffvim-pipeline \
+animator/ad_pipeline \
   --pace-delete-pacing word \
   --syntax 'bat --color=always' \
   old.py new.py
 
 # Testing mode (no display, write result to file)
-animator/diffvim-pipeline \
+animator/ad_pipeline \
   --animator-no-display \
   --animator-snapshot result.txt \
   old.py new.py
@@ -119,16 +119,16 @@ animator/diffvim-pipeline \
 
 ```bash
 # Compute the diff
-compute/bin/diffvim-compute-cpp old.py new.py /tmp/raw.txt
+bin/ad_compute old.py new.py /tmp/raw.txt
 
 # Post-process (reorder ops + add per-op (line, col) positions)
-perl animator/perl/postprocess.pl --op-order optimize < /tmp/raw.txt > /tmp/post.txt
+perl layers/perl/postprocess.pl --op-order optimize < /tmp/raw.txt > /tmp/post.txt
 
 # Add timing and pacing (passes positions through)
-perl animator/perl/pace.pl --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
+perl layers/perl/ad_layer_pace.pl --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
 
 # Animate
-animator/bin/diffvim-animator-c-c --syntax 'bat --color=always' old.py < /tmp/timed.txt
+bin/ad-c --syntax 'bat --color=always' old.py < /tmp/timed.txt
 ```
 
 ---
@@ -154,7 +154,7 @@ animator/bin/diffvim-animator-c-c --syntax 'bat --color=always' old.py < /tmp/ti
 
 ### Option Routing
 
-`diffvim-pipeline` routes options by prefix:
+`ad_pipeline` routes options by prefix:
 
 | Prefix | Stage | Example |
 |--------|-------|---------|
@@ -172,7 +172,7 @@ animator/bin/diffvim-animator-c-c --syntax 'bat --color=always' old.py < /tmp/ti
 
 ## 5. Tools
 
-### diffvim-postprocess
+### ad_postprocess
 
 **Purpose:** Reorders char ops within each line for human readability,
 and emits a `(line, col)` for every op so the animator is scroll-safe.
@@ -190,7 +190,7 @@ and emits a `(line, col)` for every op so the animator is scroll-safe.
 postprocess --op-order optimize | postprocess --semantic-cleanup
 ```
 
-### pp_pace
+### ad_layer_pace
 
 **Purpose:** Adds timing and batching to the positioned op stream from
 postprocess. Passes the per-op `(line, col)` through untouched — pace
@@ -217,7 +217,7 @@ Phase 4: Delete remaining chars instantly (rapid shot)
 Phase 5: Delete \n (join lines)
 ```
 
-### diffvim-animator-c
+### ad
 
 **Purpose:** Reads a TSV timed op stream and animates the transformation
 in a terminal. Each op carries its own `(line, col)` — the animator just
@@ -234,14 +234,14 @@ sets the cursor before applying each op. No `glide` handler.
 - `--syntax CMD` — External syntax highlighter command
 - `--help, -h` — Show help
 
-### diffvim-pipeline
+### ad_pipeline
 
 **Purpose:** Runs all 4 stages with prefixed option routing. Defaults
 to the C++ compute tool + C animator; falls back to Perl when binaries
 are missing.
 
 ```bash
-diffvim-pipeline [options] <oldfile> <newfile>
+ad_pipeline [options] <oldfile> <newfile>
 ```
 
 ---
@@ -254,7 +254,7 @@ introduced in the Phase C refactor):
 ```
 # timed op stream v2
 # format: TSV, every op carries (line, col) — 1-indexed
-# generated by: pp_pace --delete-pacing word --pacing gaussian
+# generated by: ad_layer_pace --delete-pacing word --pacing gaussian
 # delete_threshold 3
 file_start	old.py	new.py
 hunk_start	1	1
@@ -332,13 +332,13 @@ The animator supports syntax coloring via external highlighters:
 
 ```bash
 # Using bat
-diffvim-pipeline --syntax 'bat --color=always' old.py new.py
+ad_pipeline --syntax 'bat --color=always' old.py new.py
 
 # Using highlight
-diffvim-pipeline --syntax 'highlight -O ansi' old.py new.py
+ad_pipeline --syntax 'highlight -O ansi' old.py new.py
 
 # Using pygments
-diffvim-pipeline --syntax 'pygmentize' old.py new.py
+ad_pipeline --syntax 'pygmentize' old.py new.py
 ```
 
 The animator writes the buffer to a temp file, runs the highlighter on
@@ -350,7 +350,7 @@ plain rendering.
 
 ## 9. Options Reference
 
-### diffvim-pipeline Options
+### ad_pipeline Options
 
 | Option | Stage | Description |
 |--------|-------|-------------|
@@ -390,7 +390,7 @@ tools. The compute stage is C++ with a Perl fallback.
 | postprocess | ✅ ~380 lines | ✅ ~170 lines |
 | pace | ✅ ~310 lines | ✅ ~210 lines |
 | animator | ✅ ~175 lines | ✅ ~200 lines |
-| (compute) | ✅ `compute_builtin.pl` (~90 lines, fallback) | C++ `diffvim-compute.cpp` |
+| (compute) | ✅ `compute_builtin.pl` (~90 lines, fallback) | C++ `ad_compute.cpp` |
 
 ### Cross-Language Parity
 
@@ -398,7 +398,7 @@ All implementations produce **byte-for-byte identical output**:
 - Postprocess: C == Perl (verified by cross-language parity tests)
 - Pace: C == Perl (verified across all 4 delete-pacing modes)
 - Animator: both produce correct round-trip results (verified by round-trip tests)
-- Compute: C++ == Perl fallback (verified on `examples/01_small_python`)
+- Compute: C++ == Perl fallback (verified on `tests/tests/examples/01_small_python`)
 
 ### Performance
 
@@ -474,7 +474,7 @@ testing without a terminal.
 diffvim old.py new.py
 
 # New (standalone)
-diffvim-pipeline old.py new.py
+ad_pipeline old.py new.py
 ```
 
 ### Phase 2: Wrapper integration

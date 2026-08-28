@@ -56,7 +56,7 @@ diffvim --preset ai-code old.py new.py
 4. **Week 2:** `diffvim --preset ai-code old.py new.py` (for AI diffs)
 5. **Week 3:** rely on the default C++ compute tool for large files
    (no `--tool` flag needed — it's automatic)
-6. **Month 2:** customize via `DIFFVIM_PRESET` env var
+6. **Month 2:** customize via `AD_PRESET` env var
 
 **Never** introduce raw options like `--word-diff`, `--semantic-cleanup`,
 or `--left-to-right` until the user has used presets for at least a
@@ -68,11 +68,11 @@ each option does.
 ## 3. External Compute as the Default for Real Codebases
 
 The in-vim patience is fast enough for toy examples but takes seconds on
-real codebases. **Make `compute/bin/diffvim-compute-cpp` the default**,
+real codebases. **Make `bin/ad_compute` the default**,
 not `diffvim` without pre-computation:
 
 ```bash
-# diffvim searches for compute/bin/diffvim-compute-cpp automatically.
+# diffvim searches for bin/ad_compute automatically.
 # Recommend this alias in every team member's shell config:
 alias dv='diffvim'
 
@@ -92,11 +92,11 @@ stop using it within a week.
 make -C compute
 
 # Symlink to /usr/local/bin (or anywhere on PATH)
-sudo ln -sf "$(pwd)/compute/bin/diffvim-compute-cpp" /usr/local/bin/
+sudo ln -sf "$(pwd)/bin/ad_compute" /usr/local/bin/
 sudo ln -sf "$(pwd)/diffvim" /usr/local/bin/
 ```
 
-Now `diffvim` and `diffvim-compute-cpp` are available to everyone on
+Now `diffvim` and `ad_compute` are available to everyone on
 the machine. (No more `--tool (removed)` flag — that was removed
 in the refactor; only the C++ tool remains.)
 
@@ -127,7 +127,7 @@ animate a diff. This is the **single biggest stickiness factor**.
 ```bash
 # In ~/.gitconfig
 [alias]
-    animate = "!f() { compute/bin/diffvim-compute-cpp \"$1\"^:\"$2\" \"$1\":\"$2\"; }; f"
+    animate = "!f() { bin/ad_compute \"$1\"^:\"$2\" \"$1\":\"$2\"; }; f"
 ```
 
 Now `git animate HEAD src/main.py` animates the last commit's changes
@@ -139,7 +139,7 @@ to `src/main.py`.
 # .git/hooks/pre-commit (chmod +x)
 #!/bin/bash
 # After staging, run diffvim on the staged changes
-compute/bin/diffvim-compute-cpp --preset review --no-vimrc \
+bin/ad_compute --preset review --no-vimrc \
     <(git show :src/main.py) src/main.py
 ```
 
@@ -233,7 +233,7 @@ help each other. Standardize via a checked-in config.
 # In your repo, at the root:
 cat > .diffvimrc <<'EOF'
 # Team default: review preset + Rust compute + inline highlight
-DIFFVIM_PRESET="review --highlight-inline"
+AD_PRESET="review --highlight-inline"
 DIFFVIM_COMPUTE_TOOL=rust
 DIFFVIM_COMPUTE_DIR="$(git rev-parse --show-toplevel)/compute"
 EOF
@@ -313,12 +313,12 @@ echo 'source ~/diffvim/plugin/diffvim.vim' >> ~/.vimrc
 
 In vim: `:DiffvimCommit`. Now everyone has it integrated.
 
-### Minute 35–45: Pick a preset, set `DIFFVIM_PRESET`
+### Minute 35–45: Pick a preset, set `AD_PRESET`
 
 Have each developer pick the preset that matches their style:
 
 ```bash
-echo 'export DIFFVIM_PRESET="review --highlight-word"' >> ~/.bashrc
+echo 'export AD_PRESET="review --highlight-word"' >> ~/.bashrc
 ```
 
 Set up `git animate` alias together. End with: "Tomorrow, replace one
@@ -360,7 +360,7 @@ animates, and `:q` quits. It's a viewer, not an editor.
 
 > **"It's too slow on large files."**
 
-Use `compute/bin/diffvim-compute-cpp`. The C++ compute tool finishes
+Use `bin/ad_compute`. The C++ compute tool finishes
 in ~1ms on a 1000-line file. The in-vim patience is the bottleneck, not
 the animation. (diffvim searches for the C++ binary automatically —
 no flag needed.)
@@ -400,12 +400,12 @@ Week 1 — Install and first runs
 
 Week 2 — Integrate into daily flow
   [ ] `git animate` alias set up
-  [ ] `DIFFVIM_PRESET` env var customized per developer
+  [ ] `AD_PRESET` env var customized per developer
   [ ] One diffvim GIF shared in the team channel
   [ ] One PR comment includes a diffvim log
 
 Week 3 — Compute tools and large files
-  [ ] `compute/bin/diffvim-compute-cpp` is the default for files >500 lines
+  [ ] `bin/ad_compute` is the default for files >500 lines
   [ ] `make -C compute` runs in CI to verify the binary builds
   [ ] Everyone has tried `--preset ai-code` on an AI-generated diff
 
@@ -425,7 +425,7 @@ When every box is checked, diffvim is part of your team's DNA.
 - **Don't** run `diffvim` without the C++ compute binary on files >500
   lines. The 3-second startup will sour users on the tool.
 - **Don't** require a specific preset for everyone. Let each developer
-  pick their own via `DIFFVIM_PRESET`.
+  pick their own via `AD_PRESET`.
 - **Don't** use `--step-mode` for demos. It's for code review, not
   presentations.
 - **Don't** forget to install the manpages (`man diffvim` should work
@@ -440,7 +440,7 @@ When every box is checked, diffvim is part of your team's DNA.
 The three things that matter most:
 
 1. **Presets** — make the on-ramp trivial. Six use cases, one flag.
-2. **External compute** — make it fast. `compute/bin/diffvim-compute-cpp`
+2. **External compute** — make it fast. `bin/ad_compute`
    is the recommended default for real codebases.
 3. **Editor integration** — make it stick. The vim plugin is the
    single biggest predictor of long-term adoption.

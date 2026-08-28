@@ -1,4 +1,4 @@
-/* diffvim-pace — Insert delays between ops.
+/* ad_layer_pace — Insert delays between ops.
  *
  * Reads post-processed ops from stdin, inserts delay lines between them,
  * writes timed ops to stdout.
@@ -25,12 +25,12 @@
  *   (same as input, with delay lines inserted between ops)
  *   delay\t<ms>\t<type>
  *
- * Usage: diffvim-pace [--delete-pacing MODE] [--delete-speed MODE]
+ * Usage: ad_layer_pace [--delete-pacing MODE] [--delete-speed MODE]
  *                     [--delete-threshold N] [--insert-pacing MODE]
  *                     [--insert-speed MODE] [--pacing MODE]
  *                     [--snapshot FILE]
  *
- * Build: cc -O2 -o diffvim-pace pace.c
+ * Build: cc -O2 -o ad_layer_pace pace.c
  */
 
 #include <stdio.h>
@@ -204,7 +204,7 @@ void parse_args(int argc, char **argv) {
         else if (strcmp(argv[i], "--snapshot") == 0 && i+1 < argc)
             strncpy(snapshot_file, argv[++i], 255);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            fprintf(stderr, "Usage: diffvim-pace [options]\n");
+            fprintf(stderr, "Usage: ad_layer_pace [options]\n");
             fprintf(stderr, "  --delete-pacing MODE  char|rapid|word|instant|flash (default: word)\n");
             fprintf(stderr, "                        flash = highlight whole line, pause, delete in one shot\n");
             fprintf(stderr, "  --flash-pause-ms N    flash mode: pause after highlight (default: 400)\n");
@@ -384,25 +384,25 @@ int main(int argc, char **argv) {
 
         /* Detect v1 format — space-separated HUNK or "op\tkeep..." prefix */
         if (strncmp(buf, "HUNK ", 5) == 0) {
-            fprintf(stderr, "diffvim-pace: ERROR: input is v1 format (space-separated HUNK)\n");
+            fprintf(stderr, "ad_layer_pace: ERROR: input is v1 format (space-separated HUNK)\n");
             fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
-            fprintf(stderr, "  Expected v2 TSV format. Pipe through diffvim-postprocess first.\n");
+            fprintf(stderr, "  Expected v2 TSV format. Pipe through ad_postprocess first.\n");
             exit(1);
         }
         if (strncmp(buf, "op\t", 3) == 0) {
-            fprintf(stderr, "diffvim-pace: ERROR: input has 'op\\t<type>...' prefix (v1 format)\n");
+            fprintf(stderr, "ad_layer_pace: ERROR: input has 'op\\t<type>...' prefix (v1 format)\n");
             fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
             fprintf(stderr, "  v2 format has the type directly: keep\\t<line>\\t<col>\\t<code>\\n");
             exit(1);
         }
         if (strncmp(buf, "newline_delete", 14) == 0 || strncmp(buf, "newline_insert", 14) == 0) {
-            fprintf(stderr, "diffvim-pace: ERROR: input has 'newline_delete'/'newline_insert' op (v1 format)\n");
+            fprintf(stderr, "ad_layer_pace: ERROR: input has 'newline_delete'/'newline_insert' op (v1 format)\n");
             fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
             fprintf(stderr, "  v2 format uses delete\\t<line>\\t<col>\\t10\\t\\\\n\n");
             exit(1);
         }
         if (strncmp(buf, "hunk_start\t", 11) == 0 || strncmp(buf, "hunk_end", 8) == 0) {
-            fprintf(stderr, "diffvim-pace: ERROR: input has 'hunk_start'/'hunk_end' (v1 format)\n");
+            fprintf(stderr, "ad_layer_pace: ERROR: input has 'hunk_start'/'hunk_end' (v1 format)\n");
             fprintf(stderr, "  Line %d: [%s]\n", line_no, buf);
             fprintf(stderr, "  v2 format uses 'HUNK' and 'HUNK_END'\n");
             exit(1);
@@ -411,7 +411,7 @@ int main(int argc, char **argv) {
         if (n_lines >= cap_lines) {
             cap_lines = cap_lines == 0 ? 4096 : cap_lines * 2;
             all_lines = (char **)realloc(all_lines, cap_lines * sizeof(char *));
-            if (!all_lines) { fprintf(stderr, "diffvim-pace: out of memory\n"); exit(1); }
+            if (!all_lines) { fprintf(stderr, "ad_layer_pace: out of memory\n"); exit(1); }
         }
         all_lines[n_lines] = strdup(buf);
         n_lines++;
@@ -419,7 +419,7 @@ int main(int argc, char **argv) {
     }
 
     if (ops_seen == 0) {
-        fprintf(stderr, "diffvim-pace: WARNING: no ops read from input\n");
+        fprintf(stderr, "ad_layer_pace: WARNING: no ops read from input\n");
         fprintf(stderr, "  Input was empty or all comments/blank lines.\n");
     }
 

@@ -1,4 +1,4 @@
-/* diffvim-decorate — Insert decoration ops into the timed op stream.
+/* ad_layer_highlight — Insert decoration ops into the timed op stream.
  *
  * Reads a timed op stream from stdin, inserts decoration ops
  * (highlight, dim, fold, sign, marker) based on the options, writes
@@ -25,7 +25,7 @@
  *   marker\t<line>\t<col>\t<text>
  *       Renderer: show <text> at the given position (e.g. git blame)
  *
- * Usage: diffvim-decorate [options]
+ * Usage: ad_layer_highlight [options]
  *   --highlight none|inline|word|hunk   (default: none)
  *   --highlight-duration-ms N           (default: 200)
  *   --dim-unchanged                     Dim unchanged anchor lines
@@ -37,7 +37,7 @@
  *   --max-hunk-chars N                 Skip animation for hunks >N chars
  *   --theme dark|light|high-contrast   Color theme
  *
- * Build: cc -O2 -o diffvim-decorate decorate.c
+ * Build: cc -O2 -o ad_layer_highlight decorate.c
  */
 
 #include <stdio.h>
@@ -95,7 +95,7 @@ void parse_args(int argc, char **argv) {
         else if (strcmp(argv[i], "--theme") == 0 && i+1 < argc)
             strncpy(theme, argv[++i], 31);
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            fprintf(stderr, "Usage: diffvim-decorate [options]\n");
+            fprintf(stderr, "Usage: ad_layer_highlight [options]\n");
             fprintf(stderr, "  --highlight none|inline|word|hunk  Highlight mode (default: none)\n");
             fprintf(stderr, "  --highlight-duration-ms N        Highlight duration (default: 200)\n");
             fprintf(stderr, "  --dim-unchanged                   Dim unchanged lines\n");

@@ -325,7 +325,7 @@ Pace-layer improvements controlling WHEN ops fire and at what speed.
 ### 34. Per-Language Pacing Profile
 - **Category:** Timing & Pacing
 - **Layer type:** pace layer
-- **Trigger:** `--lang-profile` (default off; reads `~/.config/diffvim/profiles.toml`)
+- **Trigger:** `--lang-profile` (default off; reads `~/.config/ad/profiles.toml`)
 - **Description:** Loads a per-language profile that sets default `--delay`, `--ramp`, `--pause-at-stmt`, etc. based on file type. E.g., Python (statement-per-line) gets shorter inter-stmt pauses than C (multiple statements per line).
 - **Example:** `.py` → `delay=40, pause-at-stmt=80`; `.c` → `delay=30, pause-at-stmt=120`.
 - **Test:** Config test — given a profile and a `.py` file, the pace layer applies the Python profile.
@@ -950,7 +950,7 @@ These improvements draw on:
 ## Next Actions
 
 1. **Prioritize** — rank by impact/cost. Recommended high-impact, low-cost first: #1, #8, #25, #39–#41, #42, #69, #86.
-2. **Prototype** — implement each as a standalone `pp_layer_*.c` binary for isolated testing (matches the existing `pp_overwrite` / `pp_indent_last` / `pp_layer1` pattern).
+2. **Prototype** — implement each as a standalone `pp_layer_*.c` binary for isolated testing (matches the existing `ad_layer_overwrite` / `ad_layer_indent_last` / `ad_layer_noop` pattern).
 3. **Integrate** — wire into `postprocess.c` (for postprocess layers), `pace.c` (for pace layers), `decorate.c` (for decorate layers), or the animator loop (for animator features).
 4. **Document** — each layer gets a `docs/PP_LAYER_<NAME>.md` file (matching the existing `PP_LAYER_OVERWRITE.md` pattern).
 5. **Test** — add a `tests/test_<layer_name>.pl` for each (matching the existing `test_indent_last.pl` / `test_overwrite_layer.sh` pattern).

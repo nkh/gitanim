@@ -37,28 +37,28 @@ sub run_cmd {
 }
 
 opendir(my $dh, "$root/examples") or die "opendir: $!";
-my @dirs = sort grep { -d "$root/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 my @rows;
-my $env = "DIFFVIM_TICK_MS=16 DIFFVIM_TYPE_DELAY_MS=50 DIFFVIM_DELETE_DELAY_MS=40 " .
-          "DIFFVIM_MOVE_MIN_MS=250 DIFFVIM_MOVE_MAX_MS=1600 DIFFVIM_MOVE_MS_PER_UNIT=6 " .
-          "DIFFVIM_HUNK_PAUSE_MS=250 DIFFVIM_SPEED=1 " .
-          "DIFFVIM_OP_ORDER=optimize DIFFVIM_DELETE_PACING=word " .
-          "DIFFVIM_INSERT_PACING=char DIFFVIM_PACING=uniform DIFFVIM_HIGHLIGHT=none " .
-          "DIFFVIM_ADAPTIVE_WORD_DELETE=1 DIFFVIM_RAPID_EOL_DELETE=1";
+my $env = "AD_TICK_MS=16 AD_TYPE_DELAY_MS=50 AD_DELETE_DELAY_MS=40 " .
+          "AD_MOVE_MIN_MS=250 AD_MOVE_MAX_MS=1600 AD_MOVE_MS_PER_UNIT=6 " .
+          "AD_HUNK_PAUSE_MS=250 AD_SPEED=1 " .
+          "AD_OP_ORDER=optimize AD_DELETE_PACING=word " .
+          "AD_INSERT_PACING=char AD_PACING=uniform AD_HIGHLIGHT=none " .
+          "AD_ADAPTIVE_WORD_DELETE=1 AD_RAPID_EOL_DELETE=1";
 
 for my $d (@dirs) {
     # Skip examples 01 through 19 (already verified)
     next if $d =~ /^0?[1-9]_/ || $d =~ /^1[0-9]_/;
 
-    my @new_candidates = glob("$root/examples/$d/new.*");
+    my @new_candidates = glob("$root/tests/tests/examples/$d/new.*");
     unless (@new_candidates) {
         push @rows, [$d, 'NO_NEW', '-', '-', '-', '-', ''];
         next;
     }
     my $new = $new_candidates[0];
-    my @old_candidates = glob("$root/examples/$d/old.*");
+    my @old_candidates = glob("$root/tests/tests/examples/$d/old.*");
     my $old = $old_candidates[0] if @old_candidates;
 
     my $new_md5 = md5_file($new);
@@ -66,7 +66,7 @@ for my $d (@dirs) {
     # --- diffvim run ------------------------------------------------------
     my $dv_out = "$tmpdir/dv_$d.out";
     unlink $dv_out if -f $dv_out;
-    my $cmd = "env $env DIFFVIM_OUTPUT='$dv_out' timeout 8 vim -u NONE -N -n -es " .
+    my $cmd = "env $env AD_OUTPUT='$dv_out' timeout 8 vim -u NONE -N -n -es " .
               "-c 'let g:diffvim_new_file = \"$new\"' " .
               "-c 'source $engine' " .
               "'$old' >/dev/null 2>&1";
@@ -74,10 +74,10 @@ for my $d (@dirs) {
     my $dv_md5     = md5_file($dv_out);
     my $dv_status  = ($dv_md5 eq $new_md5) ? 'OK' : 'MISMATCH';
 
-    # --- diffvim-pipeline run --------------------------------------------
+    # --- ad_pipeline run --------------------------------------------
     my $pipe_out = "$tmpdir/pipe_$d.out";
     unlink $pipe_out if -f $pipe_out;
-    my $pcmd = "cd $root && animator/diffvim-pipeline --no-display --snapshot '$pipe_out' '$old' '$new' >/dev/null 2>&1";
+    my $pcmd = "cd $root && animator/ad_pipeline --no-display --snapshot '$pipe_out' '$old' '$new' >/dev/null 2>&1";
     my $prc = run_cmd($pcmd);
     my $pipe_md5    = md5_file($pipe_out);
     my $pipe_status = ($pipe_md5 eq $new_md5) ? 'OK' : 'MISMATCH';

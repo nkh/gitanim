@@ -57,13 +57,13 @@ perl tests/test_integration.pl
 
 ```bash
 # Quick test with example files
-./diffvim examples/01_small_python/old.py examples/01_small_python/new.py
+./diffvim tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
 
 # Test with --dry-run
-perl diffvim.pl --dry-run examples/01_small_python/old.py examples/01_small_python/new.py
+perl diffvim.pl --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
 
 # Test --version
 perl diffvim.pl --version
 ```
 
-> **Note:** The project now uses an external pipeline (diffvim-compute-cpp → diffvim-postprocess → diffvim-pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

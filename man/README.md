@@ -5,7 +5,7 @@ Man pages for the diffvim commands.
 ## Files
 
 - `diffvim.1` — Main man page for the `diffvim` command
-- `diffvim-compute.1` — Man page for `diffvim-compute-cpp`
+- `ad_compute.1` — Man page for `ad_compute`
 - `diffvim-compare.1` — Man page for `diffvim-compare`
 - `diffvim-tmux.1` — Man page for `diffvim-tmux`
 - `diffvim-jogger.1` — Man page for `diffvim-jogger`
@@ -20,7 +20,7 @@ sudo mandb
 Then view with:
 ```bash
 man diffvim
-man diffvim-compute
+man ad_compute
 ```
 
 ## Related

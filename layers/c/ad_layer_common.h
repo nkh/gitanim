@@ -1,11 +1,11 @@
 /* ---
- * pp_common.h — Shared infrastructure for postprocess layers.
+ * ad_layer_common.h — Shared infrastructure for postprocess layers.
  *
  * Design principles (from user spec):
  *   1. Each layer is a pure function: Op[] → Op[]. No side effects.
  *   2. Each layer can be enabled/disabled.
  *   3. Each layer can dump input/output for debugging.
- *      DV_DEBUG_POSTPROCESS=path → dumps to $path/N_layername_input.txt
+ *      AD_DEBUG_LAYERS=path → dumps to $path/N_layername_input.txt
  *      and $path/N_layername_output.txt (TSV format).
  * *   4. No special-case line fixes. The 4-sweep reorder handles ordering.
  *   5. Layers can be piped (standalone) or linked into one executable.
@@ -60,10 +60,10 @@ typedef struct {
 
 /* ── Debug/Logging ─────────────────────────────────────────────────── */
 /* ---
- * DV_DEBUG_POSTPROCESS=path  →  dumps to $path/N_layername_input.txt
+ * AD_DEBUG_LAYERS=path  →  dumps to $path/N_layername_input.txt
  *                                and $path/N_layername_output.txt (TSV)
  *
- * If DV_DEBUG_POSTPROCESS=1 (just "1"), uses /tmp/dv_debug/ as the path.
+ * If AD_DEBUG_LAYERS=1 (just "1"), uses /tmp/ad_debug/ as the path.
  */
 
 static const char *pp_debug_dir = NULL;
@@ -71,12 +71,12 @@ static FILE *pp_log_file = NULL;
 
 /* Initialize debug for a layer. Call at start of main() or layer init. */
 __attribute__((unused)) static void pp_debug_init(const char *layer_id, const char *layer_name) {
-    const char *env = getenv("DV_DEBUG_POSTPROCESS");
+    const char *env = getenv("AD_DEBUG_LAYERS");
     if (!env || env[0] == 0) return;
 
     /* "1" means use default path */
     if (strcmp(env, "1") == 0)
-        pp_debug_dir = "/tmp/dv_debug";
+        pp_debug_dir = "/tmp/ad_debug";
     else
         pp_debug_dir = env;
 
@@ -300,10 +300,10 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
 
     /* Debug flags from env / command line */
-    const char *dump_input  = getenv("DV_DUMP_INPUT");
-    const char *dump_output = getenv("DV_DUMP_OUTPUT");
-    const char *dump_changes = getenv("DV_DUMP_CHANGES");
-    /* int trace_decisions = getenv("DV_TRACE_DECISIONS") != NULL; */
+    const char *dump_input  = getenv("AD_DUMP_INPUT");
+    const char *dump_output = getenv("AD_DUMP_OUTPUT");
+    const char *dump_changes = getenv("AD_DUMP_CHANGES");
+    /* int trace_decisions = getenv("AD_TRACE_DECISIONS") != NULL; */
     FILE *dump_in_f = NULL, *dump_out_f = NULL, *dump_chg_f = NULL;
 
     if (dump_input && dump_input[0]) {
@@ -320,7 +320,7 @@ __attribute__((unused)) static int pp_run_layer(int (*layer_func)(Op *in, int in
     }
 
     /* Get old file path from env (layers may need it) */
-    const char *old_file = getenv("DV_OLD_FILE");
+    const char *old_file = getenv("AD_OLD_FILE");
     if (!old_file) old_file = "";
 
     /* Allocate initial capacity */

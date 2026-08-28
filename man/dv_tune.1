@@ -78,7 +78,7 @@ mkfifo /tmp/dv_pipe
 diffvim-tune --stream-pipe /tmp/dv_pipe old1.txt new1.txt
 
 # Terminal 2: animator reads from pipe
-diffvim-animator-c old1.txt < /tmp/dv_pipe
+ad old1.txt < /tmp/dv_pipe
 
 # Terminal 3: another diffvim-tune with different options
 diffvim-tune --stream-pipe /tmp/dv_pipe2 old2.txt new2.txt
@@ -99,5 +99,5 @@ system_info.txt
 description.txt (typed by the user)
 .SH "SEE ALSO"
 .BR diffvim (1),
-.BR pp_highlight (1),
-.BR diffvim-animator-c (1)
+.BR ad_layer_highlight (1),
+.BR ad (1)

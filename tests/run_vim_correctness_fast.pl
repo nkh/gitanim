@@ -101,16 +101,16 @@ extract_engine();
 
 # --- discover example pairs -----------------------------------------------
 opendir(my $dh, "$root/examples") or die;
-my @dirs = sort grep { -d "$root/examples/$_" && /^\d+_/ } readdir($dh);
+my @dirs = sort grep { -d "$root/tests/tests/examples/$_" && /^\d+_/ } readdir($dh);
 closedir $dh;
 
 # --- run in parallel via fork+exec ----------------------------------------
 my @tasks;
 for my $d (@dirs) {
-    my @news = glob("$root/examples/$d/new.*");
+    my @news = glob("$root/tests/tests/examples/$d/new.*");
     next unless @news;
     my $new = $news[0];
-    my @olds = glob("$root/examples/$d/old.*");
+    my @olds = glob("$root/tests/tests/examples/$d/old.*");
     my $old = $olds[0];
     my $out = "/tmp/dv_fc_$d.out";
     unlink $out if -f $out;

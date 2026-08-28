@@ -10,12 +10,12 @@ learn every individual option.
 ```bash
 diffvim --preset NAME <oldfile> <newfile>
 diffvim --preset review --git-blame old.py new.py
-DIFFVIM_PRESET="review --highlight-word" diffvim old.py new.py
+AD_PRESET="review --highlight-word" diffvim old.py new.py
 ```
 
 You can override any preset option by passing additional flags after
 `--preset NAME` — they take precedence. You can also define a personal
-default via the `DIFFVIM_PRESET` environment variable.
+default via the `AD_PRESET` environment variable.
 
 ## The Six Built-in Presets
 
@@ -108,13 +108,13 @@ diffvim --preset presentation --output result.py old.py new.py
 
 ## Custom Presets
 
-Define your own preset via the `DIFFVIM_PRESET` environment variable.
+Define your own preset via the `AD_PRESET` environment variable.
 The value is split on spaces and prepended to the diffvim command
 line, so you can include any combination of options:
 
 ```bash
 # Personal review preset
-export DIFFVIM_PRESET="review --highlight-word --git-blame"
+export AD_PRESET="review --highlight-word --git-blame"
 diffvim old.py new.py     # uses your preset by default
 
 # Override an option in your preset

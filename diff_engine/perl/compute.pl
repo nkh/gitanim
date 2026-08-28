@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
-# compute_builtin.pl — Pure-Perl fallback for diffvim-compute-cpp.
+# compute_builtin.pl — Pure-Perl fallback for ad_compute.
 #
-# Used by diffvim-pipeline (and the diffvim bash launcher, if desired) when
+# Used by ad_pipeline (and the diffvim bash launcher, if desired) when
 # the C++ compute binary is not available. Produces v2 TSV output that is
-# byte-identical to compute/bin/diffvim-compute-cpp via the DiffVim::Parser::Perl
+# byte-identical to bin/ad_compute via the DiffVim::Parser::Perl
 # module.
 #
 # v2 TSV output format (tab-separated, 1-indexed line/col):
@@ -96,7 +96,7 @@ print $out "# optimize_sequence 1\n";
 
 # Check for left_to_right env var (mirror the C++ compute tool)
 my $do_l2r = 0;
-if (exists $ENV{DIFFVIM_LEFT_TO_RIGHT} && $ENV{DIFFVIM_LEFT_TO_RIGHT} ne '' && $ENV{DIFFVIM_LEFT_TO_RIGHT} ne '0') {
+if (exists $ENV{AD_LEFT_TO_RIGHT} && $ENV{AD_LEFT_TO_RIGHT} ne '' && $ENV{AD_LEFT_TO_RIGHT} ne '0') {
     $do_l2r = 1;
 }
 print $out "# left_to_right $do_l2r\n";

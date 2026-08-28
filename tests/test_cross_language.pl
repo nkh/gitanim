@@ -9,17 +9,17 @@ use warnings;
 use File::Temp qw(tempdir);
 
 my $root = "/home/z/my-project/gitanim";
-my $compute = "$root/compute/bin/diffvim-compute-cpp";
+my $compute = "$root/bin/ad_compute";
 
 # Tool implementations — only C and Perl remain.
 my %postprocess = (
-    perl => "perl $root/animator/perl/postprocess.pl",
-    c    => "$root/animator/bin/diffvim-postprocess",
+    perl => "perl $root/layers/perl/postprocess.pl",
+    c    => "$root/bin/ad_postprocess",
 );
 
 my %pace = (
-    perl => "perl $root/animator/perl/pace.pl",
-    c    => "$root/animator/bin/pp_pace",
+    perl => "perl $root/layers/perl/ad_layer_pace.pl",
+    c    => "$root/bin/ad_layer_pace",
 );
 
 my $pass = 0;

@@ -14,7 +14,7 @@
 #   Terminal 1: diffvim-tune --stream 5 3>&1 1>&2 2>&3 | animator oldfile
 #   Or with named pipes:
 #   mkfifo /tmp/dv_pipe
-#   Terminal 2: diffvim-animator-c oldfile < /tmp/dv_pipe
+#   Terminal 2: ad oldfile < /tmp/dv_pipe
 #   Terminal 1: diffvim-tune --stream-pipe /tmp/dv_pipe
 #
 # Debug bundle:
@@ -22,7 +22,7 @@
 
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORKDIR="${DIFFVIM_TUNE_WORKDIR:-$(mktemp -d)}"
+WORKDIR="${AD_TUNE_WORKDIR:-$(mktemp -d)}"
 STREAM_FD=""
 STREAM_PIPE=""
 USE_TMUX=0
@@ -138,21 +138,21 @@ run_pipeline() {
     local dec="$WORKDIR/decorated.txt"
 
     # Stage 1: Compute
-    "$ROOT/compute/bin/diffvim-compute-cpp" "$OLD" "$NEW" "$raw" 2>/dev/null
+    "$ROOT/bin/ad_compute" "$OLD" "$NEW" "$raw" 2>/dev/null
 
     # Stage 2: Postprocess
     local pp_args=""
     [[ "${SETTINGS[op-order]}" != "optimize" ]] && pp_args+=" --op-order ${SETTINGS[op-order]}"
     [[ "${SETTINGS[semantic-cleanup]}" == "1" ]] && pp_args+=" --semantic-cleanup"
     [[ "${SETTINGS[overwrite]}" == "1" ]] && pp_args+=" --overwrite"
-    $ROOT/animator/bin/diffvim-postprocess $pp_args < "$raw" > "$post" 2>/dev/null
+    $ROOT/bin/ad_postprocess $pp_args < "$raw" > "$post" 2>/dev/null
 
     # Stage 3: Pace
     local pace_args="--delete-pacing ${SETTINGS[delete-pacing]} --insert-pacing ${SETTINGS[insert-pacing]}"
     pace_args+=" --pacing ${SETTINGS[pacing]}"
     [[ "${SETTINGS[accel-delete]}" == "1" ]] && pace_args+=" --accel-delete"
     pace_args+=" --block-delete-size ${SETTINGS[block-delete-size]}"
-    DIFFVIM_LEFT_TO_RIGHT="${SETTINGS[left-to-right]}" $ROOT/animator/bin/pp_pace $pace_args < "$post" > "$timed" 2>/dev/null
+    AD_LEFT_TO_RIGHT="${SETTINGS[left-to-right]}" $ROOT/bin/ad_layer_pace $pace_args < "$post" > "$timed" 2>/dev/null
 
     # Stage 4: Decorate
     local dec_args=""
@@ -161,7 +161,7 @@ run_pipeline() {
     [[ "${SETTINGS[fold-unchanged]}" == "1" ]] && dec_args+=" --fold-unchanged"
     [[ "${SETTINGS[sign-column]}" == "1" ]] && dec_args+=" --sign-column"
     if [[ -n "$dec_args" ]]; then
-        $ROOT/animator/bin/pp_highlight $dec_args < "$timed" > "$dec" 2>/dev/null
+        $ROOT/bin/ad_layer_highlight $dec_args < "$timed" > "$dec" 2>/dev/null
         echo "$dec"
     else
         echo "$timed"
@@ -182,11 +182,11 @@ run_animate() {
         echo "Streamed to fd $STREAM_FD"
     elif [[ $USE_TMUX -eq 1 ]]; then
         # Run in tmux split
-        tmux split-window -h "cat '$ops_file' | $ROOT/animator/bin/diffvim-animator-c '$OLD'"
+        tmux split-window -h "cat '$ops_file' | $ROOT/bin/ad '$OLD'"
     else
         # Run directly
         echo "Running animation... (press q to quit)"
-        cat "$ops_file" | $ROOT/animator/bin/diffvim-animator-c --speed "${SETTINGS[speed]}" "$OLD"
+        cat "$ops_file" | $ROOT/bin/ad --speed "${SETTINGS[speed]}" "$OLD"
     fi
 }
 
@@ -251,7 +251,7 @@ while true; do
         v|V)
             ops_file=$(run_pipeline)
             bash "$ROOT/scripts/snapshot_per_op.sh" "$OLD" "$NEW" 2>/dev/null
-            echo "Snapshots: file:///tmp/dv_snapshots/snapshots.html"
+            echo "Snapshots: file:///tmp/ad_snapshots/snapshots.html"
             echo "Press Enter to continue..."
             read -r
             ;;

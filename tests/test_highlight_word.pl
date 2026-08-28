@@ -125,8 +125,8 @@ VIM
 
     open $fh, '>', $engine_file; print $fh $engine; close $fh;
 
-    local $ENV{DIFFVIM_HIGHLIGHT_WORD} = $hw_on ? '1' : '';
-    local $ENV{DIFFVIM_RAPID_EOL_DELETE} = '1';
+    local $ENV{AD_HIGHLIGHT_WORD} = $hw_on ? '1' : '';
+    local $ENV{AD_RAPID_EOL_DELETE} = '1';
 
     system("vim -e -s -n -Nu NONE -U NONE " .
            "-c \"let g:diffvim_new_file = '$newf'\" " .

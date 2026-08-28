@@ -1,6 +1,6 @@
 # Delete-Line-Content-First Layer
 
-**File:** `animator/c/pp_layer_delete_line_first.c`
+**File:** `layers/c/ad_layer_layer_delete_line_first.c`
 **Binary:** `animator/bin/pp_delete_line_first`
 **Trigger:** Always runs (not optional)
 
@@ -67,10 +67,10 @@ Works for any number of consecutive line deletions.
 # Standalone
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror \
    -I animator/c -o animator/bin/pp_delete_line_first \
-   animator/c/pp_layer_delete_line_first.c
+   layers/c/ad_layer_layer_delete_line_first.c
 
-# In pipeline (via diffvim-postprocess)
-compute | diffvim-postprocess | pace | animator
+# In pipeline (via ad_postprocess)
+compute | ad_postprocess | pace | animator
 ```
 
 ## Tests

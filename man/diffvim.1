@@ -140,9 +140,9 @@ around each hunk. Default: 0 (no folding).
 .TP
 .B Compute tool selection
 The C++ compute tool
-.I compute/bin/diffvim-compute-cpp
+.I bin/ad_compute
 is the default and is searched for in
-.IR compute/bin/ ,
+.IR bin/ad_compute  ,
 .IR /usr/local/bin/ ,
 and
 .IR ~/.local/bin/ .
@@ -158,7 +158,7 @@ removed.)
 .TP
 .B \-\-precomputed FILE
 Use a pre-computed diff from FILE (typically produced by
-.BR diffvim-compute-cpp (1)).
+.BR ad_compute (1)).
 Bypasses the in-vim patience diff entirely.
 
 .SS Unified Options
@@ -414,26 +414,26 @@ variables, which override built-in defaults.
 
 .SS Core Timing
 .TP
-.B DIFFVIM_TICK_MS
+.B AD_TICK_MS
 Animation frame interval in milliseconds (default: 16, ~60fps).
 .TP
-.B DIFFVIM_TYPE_DELAY_MS
+.B AD_TYPE_DELAY_MS
 Delay between typed characters in milliseconds (default: 50).
 .TP
-.B DIFFVIM_DELETE_DELAY_MS
+.B AD_DELETE_DELAY_MS
 Delay between deleted characters in milliseconds (default: 40).
 .TP
-.B DIFFVIM_MOVE_MIN_MS
+.B AD_MOVE_MIN_MS
 Minimum cursor glide duration in milliseconds (default: 250).
 .TP
-.B DIFFVIM_MOVE_MAX_MS
+.B AD_MOVE_MAX_MS
 Maximum cursor glide duration in milliseconds (default: 1600).
 .TP
-.B DIFFVIM_MOVE_MS_PER_UNIT
+.B AD_MOVE_MS_PER_UNIT
 Milliseconds per unit of glide distance (default: 6). Lines are weighted
 80x more than columns.
 .TP
-.B DIFFVIM_HUNK_PAUSE_MS
+.B AD_HUNK_PAUSE_MS
 Pause between hunks in milliseconds (default: 250).
 
 .SS Unified Selectors
@@ -479,7 +479,7 @@ Set to
 .B 1
 to leave the buffer modified after animation.
 .TP
-.B DIFFVIM_PRESET
+.B AD_PRESET
 Default preset to apply (same as
 .BR \-\-preset ).
 

@@ -18,13 +18,13 @@ handles the animate stage.
 compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → animate (C/Perl/vimscript)
 ```
 
-- **Compute**: `diffvim-compute-cpp` — Patience diff (the only algorithm;
+- **Compute**: `ad_compute` — Patience diff (the only algorithm;
   LCS and Myers were removed)
-- **Postprocess**: `diffvim-postprocess` — op reordering + per-op (line,col)
+- **Postprocess**: `ad_postprocess` — op reordering + per-op (line,col)
   positioning. Supports `--transform NAME` flags and `--stream` mode.
-- **Pace**: `diffvim-pace` — timing + batching. Emits typed delays
+- **Pace**: `ad_layer_pace` — timing + batching. Emits typed delays
   (`delay\t<type>\t<ms>`). Does NOT modify ops.
-- **Animate**: `diffvim-animator-c` (C) or `diffvim` (vimscript) — reads
+- **Animate**: `ad` (C) or `diffvim` (vimscript) — reads
   the timed op stream and renders. Incremental rendering (no flashing).
 
 ## What WORKS right now
@@ -60,9 +60,9 @@ compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → anima
 bash tests/verify_md5.sh
 
 # Test a single file
-./animator/diffvim-pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
-    examples/01_small_python/old.py examples/01_small_python/new.py
-md5sum /tmp/out.txt examples/01_small_python/new.py
+./animator/ad_pipeline --no-display --speed 1000 --snapshot /tmp/out.txt \
+    tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
+md5sum /tmp/out.txt tests/tests/examples/01_small_python/new.py
 
 # Run Perl tests
 perl animator/tests/test_all_animators.pl
@@ -72,18 +72,18 @@ perl animator/tests/test_roundtrip.pl
 perl animator/tests/test_roundtrip_verify.pl
 
 # Run pipeline stages manually
-./compute/bin/diffvim-compute-cpp old.py new.py /tmp/raw.txt
-./animator/bin/diffvim-postprocess < /tmp/raw.txt > /tmp/post.txt
-./animator/bin/diffvim-pace < /tmp/post.txt > /tmp/timed.txt
-./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/out.txt old.py < /tmp/timed.txt
+./bin/ad_compute old.py new.py /tmp/raw.txt
+./bin/ad_postprocess < /tmp/raw.txt > /tmp/post.txt
+./bin/ad_layer_pace < /tmp/post.txt > /tmp/timed.txt
+./bin/ad --no-display --speed 1000 --snapshot /tmp/out.txt old.py < /tmp/timed.txt
 
 # Test streaming mode
-./animator/bin/diffvim-postprocess --stream < /tmp/raw.txt | \
-  ./animator/bin/diffvim-pace | \
-  ./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/out.txt old.py
+./bin/ad_postprocess --stream < /tmp/raw.txt | \
+  ./bin/ad_layer_pace | \
+  ./bin/ad --no-display --speed 1000 --snapshot /tmp/out.txt old.py
 
 # Use AddressSanitizer to find memory bugs
-cc -O0 -g -fsanitize=address -o /tmp/anim_asan animator/c/animator.c
+cc -O0 -g -fsanitize=address -o /tmp/anim_asan animator/c/ad.c
 /tmp/anim_asan --no-display --speed 1000 --snapshot /tmp/out.txt old.py < /tmp/timed.txt
 ```
 

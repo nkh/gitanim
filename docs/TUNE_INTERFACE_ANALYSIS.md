@@ -14,9 +14,9 @@ Currently this workflow is:
 # Edit test files
 vim /tmp/old.txt /tmp/new.txt
 # Run pipeline with options
-./compute/bin/diffvim-compute-cpp /tmp/old.txt /tmp/new.txt /tmp/raw.txt
-./animator/bin/diffvim-postprocess --op-order optimize < /tmp/raw.txt > /tmp/post.txt
-./animator/bin/diffvim-pace --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
+./bin/ad_compute /tmp/old.txt /tmp/new.txt /tmp/raw.txt
+./bin/ad_postprocess --op-order optimize < /tmp/raw.txt > /tmp/post.txt
+./bin/ad_layer_pace --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
 # Inspect
 less -S /tmp/post.txt
 # Run animation

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# diffvim-postprocess — Dynamic postprocess orchestrator.
+# ad_postprocess — Dynamic postprocess orchestrator.
 #
 # Reads the layer manifest (animator/layers.conf) and chains the layers
 # in the declared order, enabling each optional layer when its flag is
@@ -12,10 +12,10 @@
 # any language) and add a line to animator/layers.conf.
 #
 # Usage:
-#   diffvim-postprocess [layer flags] [-- passthrough args]
-#   diffvim-postprocess --list-layers
-#   diffvim-postprocess --layers=reorder,indent_last,pace   # explicit order
-#   diffvim-postprocess --enable=indent_last                # add to defaults
+#   ad_postprocess [layer flags] [-- passthrough args]
+#   ad_postprocess --list-layers
+#   ad_postprocess --layers=reorder,indent_last,pace   # explicit order
+#   ad_postprocess --enable=indent_last                # add to defaults
 #
 # Layer routing:
 #   --overwrite, --indent-last, --line-delete-in-place, ... (per layers.conf)
@@ -23,7 +23,7 @@
 #   Positional '--' separates orchestrator flags from layer passthrough args.
 #
 # Environment:
-#   DV_DEBUG_POSTPROCESS=1    Enable layer debug dumps in /tmp/dv_debug/
+#   AD_DEBUG_LAYERS=1    Enable layer debug dumps in /tmp/ad_debug/
 
 set -euo pipefail
 
@@ -32,7 +32,7 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"   # project root (gitanim/)
 ANIMATOR_DIR="$ROOT/animator"
 MANIFEST="$ANIMATOR_DIR/layers.conf"
 
-die() { echo "diffvim-postprocess: $*" >&2; exit 1; }
+die() { echo "ad_postprocess: $*" >&2; exit 1; }
 
 # ── Layer resolution ────────────────────────────────────────────────────
 # Given a layer name, find an executable that implements it.
@@ -160,7 +160,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         # Convenience alias: --pp-foo → --foo. Lets users invoke the
         # orchestrator directly with the same prefix convention used
-        # by the diffvim launcher and diffvim-pipeline.
+        # by the diffvim launcher and ad_pipeline.
         --pp-*)
             ACTIVE_FLAGS+=("--${1#--pp-}")
             shift
@@ -170,13 +170,13 @@ while [[ $# -gt 0 ]]; do
             ;;
         --help|-h)
             cat <<HELP
-diffvim-postprocess — Dynamic postprocess orchestrator
+ad_postprocess — Dynamic postprocess orchestrator
 
 Usage:
-  diffvim-postprocess [layer flags] [-- passthrough args]
-  diffvim-postprocess --list-layers
-  diffvim-postprocess --layers=reorder,indent_last,pace [passthrough args]
-  diffvim-postprocess --enable=indent_last [other flags]
+  ad_postprocess [layer flags] [-- passthrough args]
+  ad_postprocess --list-layers
+  ad_postprocess --layers=reorder,indent_last,pace [passthrough args]
+  ad_postprocess --enable=indent_last [other flags]
 
 Layer flags (from animator/layers.conf):
   --overwrite, --indent-last, --line-delete-in-place, ...
@@ -188,7 +188,7 @@ Override:
   -- <args>          Pass remaining args verbatim to every layer
 
 Environment:
-  DV_DEBUG_POSTPROCESS=1    Enable per-layer debug dumps
+  AD_DEBUG_LAYERS=1    Enable per-layer debug dumps
 
 See FLEXIBILITY.md for the full plugin contract.
 HELP
@@ -233,7 +233,7 @@ add_layer_by_name() {
         if [[ "$name" == "$want" ]]; then
             local bin
             bin="$(resolve_layer_bin "$name")" || {
-                echo "diffvim-postprocess: layer '$name' declared in manifest but no binary found" >&2
+                echo "ad_postprocess: layer '$name' declared in manifest but no binary found" >&2
                 echo "  Looked for:" >&2
                 echo "    $ROOT/animator/bin/pp_$name" >&2
                 echo "    $ROOT/animator/perl/pp_$name.pl" >&2
@@ -249,7 +249,7 @@ add_layer_by_name() {
         LAYERS_TO_RUN+=("$want|50|$adhoc_bin")  # order 50 = middle of pipeline
         return 0
     fi
-    echo "diffvim-postprocess: unknown layer '$want' (not in manifest, no binary found)" >&2
+    echo "ad_postprocess: unknown layer '$want' (not in manifest, no binary found)" >&2
     echo "  Looked for:" >&2
     echo "    $ROOT/animator/bin/pp_$want" >&2
     echo "    $ROOT/animator/perl/pp_$want.pl" >&2
@@ -264,7 +264,7 @@ build_default_chain() {
         if [[ "$flag" == "always" ]]; then
             local bin
             if ! bin="$(resolve_layer_bin "$name" 2>/dev/null)"; then
-                echo "diffvim-postprocess: warning: always-on layer '$name' has no binary; skipping" >&2
+                echo "ad_postprocess: warning: always-on layer '$name' has no binary; skipping" >&2
                 continue
             fi
             LAYERS_TO_RUN+=("$name|$order|$bin")
@@ -285,7 +285,7 @@ build_default_chain() {
         if [[ $want -eq 1 ]]; then
             local bin
             if ! bin="$(resolve_layer_bin "$name" 2>/dev/null)"; then
-                echo "diffvim-postprocess: layer '$name' (flag $flag) has no binary; skipping" >&2
+                echo "ad_postprocess: layer '$name' (flag $flag) has no binary; skipping" >&2
                 continue
             fi
             LAYERS_TO_RUN+=("$name|$order|$bin")
@@ -315,14 +315,14 @@ unset IFS
 T=$(mktemp); cat > "$T"
 trap 'rm -f "$T" "$T.2"' EXIT
 
-echo "diffvim-postprocess: running ${#LAYERS_TO_RUN[@]} layer(s):" >&2
+echo "ad_postprocess: running ${#LAYERS_TO_RUN[@]} layer(s):" >&2
 for entry in "${LAYERS_TO_RUN[@]}"; do
     IFS='|' read -r name order bin <<< "$entry"
     echo "  → [$order] $name  ($bin)" >&2
     # Run the layer. Passthrough args go to every layer.
     # shellcheck disable=SC2086
     if ! $bin ${PASSTHROUGH_ARGS[@]:-} < "$T" > "$T.2" 2>/dev/null; then
-        echo "diffvim-postprocess: layer '$name' failed (exit $?)" >&2
+        echo "ad_postprocess: layer '$name' failed (exit $?)" >&2
         echo "  bin:  $bin" >&2
         echo "  args: ${PASSTHROUGH_ARGS[*]:-}" >&2
         exit 1

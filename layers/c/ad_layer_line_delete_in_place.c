@@ -1,13 +1,13 @@
 /*
- * pp_line_delete_in_place.c — standalone: delete lines on their own line
+ * ad_layer_line_delete_in_place.c — standalone: delete lines on their own line
  *
  * When a \n delete would join two lines, and the next line is fully
  * deleted, reorder so content is deleted FIRST (on its own line),
  * then the \n delete joins. Prevents "join then delete" visual.
  *
- * Passes through positions from pp_reorder unchanged.
+ * Passes through positions from ad_layer_reorder unchanged.
  */
-#include "pp_common.h"
+#include "ad_layer_common.h"
 
 int main(void) {
     char line[PP_MAX_LINE];

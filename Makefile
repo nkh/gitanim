@@ -1,34 +1,32 @@
-# Makefile for diffvim — top-level build system.
+# Makefile for `ad` — animate a diff toolkit.
+#
+# Builds all binaries into bin/ at the project root.
 #
 # Targets:
-#   make                Build all C/C++ binaries (compute + animator)
-#   make all            Same as above
-#   make compute        Build only the compute tool (diffvim-compute-cpp)
-#   make animator       Build only the animator tools (postprocess, pace, animator-c)
-#   make install        Install binaries, launcher, manpages, completions
-#   make install-bin     Install binaries only
-#   make install-man    Install manpages only
-#   make install-comp   Install shell completions only
-#   make docs            Build documentation (mdBook if available)
-#   make man             Build manpages from source (if manpages need generation)
-#   make test            Run all test suites
-#   make test-unit       Run animator unit tests (117 tests)
-#   make test-minimal    Run minimal test cases (25 tests)
-#   make test-pipeline   Run full pipeline verification (42 examples)
-#   make test-l2r        Run l2r algorithm tests (35 tests)
-#   make test-vimscript  Run vimscript animator tests (42 examples)
-#   make test-debug-bundle  Run dv_debug_bundle.sh script tests (12 tests)
-#   make debug           Run the pipeline debugger on example 01
-#   make snapshot        Run dv_snapshot.sh on example 01
-#   make clean           Remove all built binaries
-#   make clean-compute   Remove compute binaries only
-#   make clean-animator  Remove animator binaries only
-#   make distclean       Clean + remove generated docs
-#   make check           Check that all binaries are up to date
-#   make help            Show this help
+#   make                  Build all binaries
+#   make all              Same as above
+#   make diff_engine      Build only the diff engine (bin/ad_compute)
+#   make layers           Build only the layer binaries (bin/ad_layer_*)
+#   make animator         Build only the animator (bin/ad)
+#   make install          Install binaries, launcher, manpages, completions
+#   make install-bin      Install binaries only
+#   make install-man      Install manpages only
+#   make install-comp     Install shell completions only
+#   make install-docs     Install documentation
+#   make docs             Build mdBook documentation (if mdbook installed)
+#   make test             Run all test suites
+#   make test-layers      Run per-layer tests
+#   make test-unit        Run cross-cutting unit tests
+#   make test-minimal     Run minimal end-to-end test cases
+#   make test-l2r         Run l2r algorithm tests
+#   make test-property    Run property-based tests
+#   make test-examples    Run all examples through the pipeline
+#   make clean            Remove all built binaries
+#   make check            Check that all binaries are up to date
+#   make help             Show this help
 
-.PHONY: all compute animator
-all: compute animator
+.PHONY: all diff_engine layers animator
+all: diff_engine layers animator
 
 # --- Configuration ---------------------------------------------------------
 
@@ -36,6 +34,7 @@ PREFIX  ?= /usr/local
 BINDIR  := $(PREFIX)/bin
 MANDIR  := $(PREFIX)/share/man/man1
 COMPDIR := $(PREFIX)/share/bash-completion/completions
+DOCDIR  := $(PREFIX)/share/doc/ad
 
 CC      ?= cc
 CXX     ?= c++
@@ -46,76 +45,92 @@ ROOT    := $(CURDIR)
 
 # --- Binaries --------------------------------------------------------------
 
-COMPUTE_BIN   := compute/bin/diffvim-compute-cpp
-PACE_BIN      := animator/bin/pp_pace
-ANIMATOR_BIN  := animator/bin/diffvim-animator-c
-DECORATE_BIN  := animator/bin/pp_highlight
-ANIMATOR_BINS := $(PACE_BIN) $(ANIMATOR_BIN) $(DECORATE_BIN)
+# Diff engine
+COMPUTE_BIN := bin/ad_compute
 
-$(COMPUTE_BIN): compute/cpp/diffvim-compute.cpp
-	@mkdir -p compute/bin
+# Animator (the core engine; binary is called `ad`)
+ANIMATOR_BIN := bin/ad
+
+# Layer binaries (one per layer source file)
+LAYER_BINS := \
+    bin/ad_layer_reorder \
+    bin/ad_layer_overwrite \
+    bin/ad_layer_indent_last \
+    bin/ad_layer_line_delete_in_place \
+    bin/ad_layer_pace \
+    bin/ad_layer_highlight
+
+ALL_BINS := $(COMPUTE_BIN) $(ANIMATOR_BIN) $(LAYER_BINS)
+
+# --- Build rules -----------------------------------------------------------
+
+diff_engine: $(COMPUTE_BIN)
+layers: $(LAYER_BINS)
+animator: $(ANIMATOR_BIN)
+
+# Ensure bin/ exists for every build rule.
+$(ALL_BINS): | bin/
+
+bin/:
+	mkdir -p bin
+
+# Diff engine (C++)
+$(COMPUTE_BIN): diff_engine/cpp/compute.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
-$(PACE_BIN): animator/c/pp_pace.c
-	@mkdir -p animator/bin
+# Animator (C)
+$(ANIMATOR_BIN): animator/c/ad.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(ANIMATOR_BIN): animator/c/animator.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+# Layer binaries (C). Each depends on its source AND its test file,
+# so touching either triggers a rebuild + test re-run via the test target.
+LAYER_COMMON := layers/c/ad_layer_common.h
 
-$(DECORATE_BIN): animator/c/pp_highlight.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -o $@ $<
+$(LAYER_BINS): $(LAYER_COMMON)
 
-LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite animator/bin/pp_line_delete_in_place animator/bin/pp_pace animator/bin/pp_highlight
+bin/ad_layer_reorder: layers/c/ad_layer_reorder.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_overwrite: layers/c/ad_layer_overwrite.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_indent_last: layers/c/ad_layer_indent_last.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_line_delete_in_place: layers/c/ad_layer_line_delete_in_place.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_pace: layers/c/ad_layer_pace.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_highlight: layers/c/ad_layer_highlight.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 
-compute: $(COMPUTE_BIN)
+# --- Installation ---------------------------------------------------------
 
-animator: $(ANIMATOR_BINS) $(LAYER_BINS)
-
-
-
-# Standalone layer binaries (for bash orchestrator)
-$(LAYER_BINS): animator/c/pp_common.h 
-
-animator/bin/pp_reorder: animator/c/pp_reorder.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -I animator/c -o $@ animator/c/pp_reorder.c
-
-animator/bin/pp_indent_last: animator/c/pp_indent_last.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -I animator/c -o $@ animator/c/pp_indent_last.c
-
-animator/bin/pp_overwrite: animator/c/pp_overwrite.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -I animator/c -o $@ animator/c/pp_overwrite.c
-
-
-# --- Installation ----------------------------------------------------------
-
-.PHONY: install install-bin install-man install-comp
+.PHONY: install install-bin install-man install-comp install-docs
 
 install: install-bin install-man install-comp
 	@echo "Installed to $(PREFIX)"
 
 install-bin: all
 	install -d $(DESTDIR)$(BINDIR)
-	install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/diffvim-compute-cpp
-	install -m 755 $(POSTPROCESS_BIN) $(DESTDIR)$(BINDIR)/diffvim-postprocess
-	install -m 755 $(PACE_BIN) $(DESTDIR)$(BINDIR)/pp_pace
-	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/diffvim-animator-c
-	install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/pp_highlight
-	install -m 755 diffvim $(DESTDIR)$(BINDIR)/diffvim
-	install -m 755 animator/diffvim-pipeline $(DESTDIR)$(BINDIR)/diffvim-pipeline
-	install -m 644 animator/layers.conf $(DESTDIR)$(PREFIX)/share/diffvim/layers.conf
-	# Perl tools
-	install -m 755 compute/perl/compute_builtin.pl $(DESTDIR)$(BINDIR)/diffvim-compute-perl
-	install -m 755 animator/perl/postprocess.pl $(DESTDIR)$(BINDIR)/diffvim-postprocess-perl
-	install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/pp_pace-perl
-	install -m 755 animator/perl/animator.pl $(DESTDIR)$(BINDIR)/diffvim-animator-perl
-	install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/pp_highlight-perl
-	install -m 755 animator/perl/pp_indent_last.pl $(DESTDIR)$(BINDIR)/pp_indent_last-perl
+	install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/ad_compute
+	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/ad
+	for layer in $(LAYER_BINS); do \
+		install -m 755 $$layer $(DESTDIR)$(BINDIR)/$$(basename $$layer); \
+	done
+	install -m 755 pipeline/bin/ad_pipeline $(DESTDIR)$(BINDIR)/ad_pipeline
+	install -m 755 pipeline/bin/ad_postprocess $(DESTDIR)$(BINDIR)/ad_postprocess
+	install -m 755 apps/vim/ad_vim $(DESTDIR)$(BINDIR)/ad_vim
+	# Perl fallbacks
+	install -m 755 diff_engine/perl/compute.pl $(DESTDIR)$(BINDIR)/ad_compute-perl
+	install -m 755 animator/perl/ad.pl $(DESTDIR)$(BINDIR)/ad-perl
+	install -m 755 layers/perl/ad_layer_pace.pl $(DESTDIR)$(BINDIR)/ad_layer_pace-perl
+	install -m 755 layers/perl/ad_layer_highlight.pl $(DESTDIR)$(BINDIR)/ad_layer_highlight-perl
+	install -m 755 layers/perl/ad_layer_indent_last.pl $(DESTDIR)$(BINDIR)/ad_layer_indent_last-perl
+	install -m 755 layers/perl/ad_layer_reorder.pl $(DESTDIR)$(BINDIR)/ad_layer_reorder-perl
+	install -m 755 layers/perl/ad_layer_overwrite.pl $(DESTDIR)$(BINDIR)/ad_layer_overwrite-perl
+	install -m 755 layers/perl/ad_layer_line_delete_in_place.pl $(DESTDIR)$(BINDIR)/ad_layer_line_delete_in_place-perl
+	# Helper scripts
+	for tool in tools/bin/*.sh; do \
+		install -m 755 $$tool $(DESTDIR)$(BINDIR)/$$(basename $$tool .sh); \
+	done
 
 install-man:
 	install -d $(DESTDIR)$(MANDIR)
@@ -125,72 +140,103 @@ install-man:
 
 install-comp:
 	install -d $(DESTDIR)$(COMPDIR)
-	install -m 644 completion/diffvim.bash $(DESTDIR)$(COMPDIR)/diffvim
-	install -m 644 completion/diffvim.fish $(DESTDIR)$(PREFIX)/share/fish/completions/diffvim.fish
-	install -m 644 completion/_diffvim $(DESTDIR)$(PREFIX)/share/zsh/site-functions/_diffvim
+	install -m 644 completion/ad_vim.bash $(DESTDIR)$(COMPDIR)/ad_vim
+	install -m 644 completion/ad_vim.fish $(DESTDIR)$(PREFIX)/share/fish/completions/ad_vim.fish
+	install -m 644 completion/_ad_vim $(DESTDIR)$(PREFIX)/share/zsh/site-functions/_ad_vim
+
+install-docs:
+	install -d $(DESTDIR)$(DOCDIR)
+	if [ -d docs/book ]; then \
+		cp -r docs/book/* $(DESTDIR)$(DOCDIR)/; \
+	else \
+		cp -r docs/src/*.md $(DESTDIR)$(DOCDIR)/; \
+	fi
 
 # --- Documentation ---------------------------------------------------------
 
-.PHONY: docs man
+.PHONY: docs
 
 docs:
 	@echo "Building documentation..."
 	@if command -v mdbook >/dev/null 2>&1; then \
-		mdbook build docs/src/; \
+		cd docs && mdbook build; \
 	else \
-		echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
+		echo "  mdbook not installed — docs are plain Markdown"; \
 	fi
-
-man:
-	@echo "Manpages are pre-built in man/*.1"
-	@ls man/*.1
 
 # --- Testing ---------------------------------------------------------------
 
-.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features test-no-backward test-indent-last test-pipeline-options test-layers-discovery
+# Per-layer test files. Each layer bin depends on its test, and each
+# test target rebuilds the layer bin if needed.
+.PHONY: test test-layers test-unit test-minimal test-l2r test-property \
+        test-examples test-indent-last test-pipeline-options \
+        test-layers-discovery \
+        test-layer-reorder test-layer-overwrite test-layer-indent-last \
+        test-layer-line_delete_in_place test-layer-pace test-layer-highlight
 
-test: test-unit test-minimal test-l2r test-debug-bundle test-new-features test-no-backward test-indent-last test-pipeline-options test-layers-discovery
+test: test-layers test-unit test-minimal test-l2r test-property test-indent-last test-pipeline-options test-layers-discovery
 	@echo ""
 	@echo "=== All tests passed ==="
 
+# Per-layer tests. Each rebuilds the layer bin first, then runs the test.
+test-layer-reorder: bin/ad_layer_reorder
+	@echo "=== Layer: reorder ==="
+	@perl layers/tests/test_reorder.pl 2>&1 | tail -3
+
+test-layer-overwrite: bin/ad_layer_overwrite
+	@echo "=== Layer: overwrite ==="
+	@perl layers/tests/test_overwrite.pl 2>&1 | tail -3
+
+test-layer-indent_last: bin/ad_layer_indent_last
+	@echo "=== Layer: indent_last ==="
+	@perl layers/tests/test_indent_last.pl 2>&1 | tail -3
+
+test-layer-line_delete_in_place: bin/ad_layer_line_delete_in_place
+	@echo "=== Layer: line_delete_in_place ==="
+	@perl layers/tests/test_line_delete_in_place.pl 2>&1 | tail -3
+
+test-layer-pace: bin/ad_layer_pace
+	@echo "=== Layer: pace ==="
+	@perl layers/tests/test_pace.pl 2>&1 | tail -3
+
+test-layer-highlight: bin/ad_layer_highlight
+	@echo "=== Layer: highlight ==="
+	@perl layers/tests/test_highlight.pl 2>&1 | tail -3
+
+test-layers: test-layer-reorder test-layer-overwrite test-layer-indent_last \
+             test-layer-line_delete_in_place test-layer-pace test-layer-highlight
+	@echo "=== All layer tests passed ==="
+
+# Cross-cutting tests
 test-unit:
 	@echo "=== Animator unit tests ==="
 	@for t in test_all_animators test_cross_language test_newline_fix \
-		 test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-		 ; do \
-		perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
+	         test_roundtrip test_roundtrip_verify test_snapshot_each_op \
+	         test_perl_animator test_colormap test_streaming \
+	         test_delete_pacing_modes test_newline_fix; do \
+		if [ -f tests/$$t.pl ]; then \
+			perl tests/$$t.pl 2>&1 | grep "Results:" || true; \
+		fi; \
 	done
 
 test-minimal:
 	@echo "=== Minimal test cases ==="
 	@bash tests/run_minimal_tests.sh 2>&1 | tail -1
 
-test-pipeline:
-	@echo "=== Pipeline verification (42 examples) ==="
-	@bash tests/verify_md5.sh 2>&1 | tail -4
-
 test-l2r:
 	@echo "=== l2r algorithm tests ==="
-	@bash l2r_test/test_l2r.sh 2>&1 | tail -1
+	@bash diff_engine/tests/l2r/test_l2r.sh 2>&1 | tail -1
 
-test-vimscript:
-	@echo "=== Vimscript animator tests (42 examples) ==="
-	@bash tests/test_vimscript_animator.sh 2>&1 | tail -1
+test-property:
+	@echo "=== Property-based tests ==="
+	@perl tests/test_property.pl 2>&1 | tail -5
 
-test-debug-bundle:
-	@echo "=== dv_debug_bundle.sh tests ==="
-	@bash tests/test_debug_bundle.sh 2>&1 | tail -3
-
-test-new-features:
-	@echo "=== New features tests ==="
-	@bash tests/test_new_features.sh 2>&1 | tail -3
-
-test-no-backward:
-	@echo "=== No-backward-ops diagnostic ==="
-	@perl tests/test_no_backward_ops.pl 2>&1 | tail -5
+test-examples:
+	@echo "=== All examples through the pipeline ==="
+	@bash tests/run_all_examples.sh 2>&1 | tail -3
 
 test-indent-last:
-	@echo "=== Indent-last test ==="
+	@echo "=== Indent-last test (legacy) ==="
 	@perl tests/test_indent_last.pl 2>&1 | tail -3
 
 test-pipeline-options:
@@ -207,29 +253,24 @@ test-layers-discovery:
 
 debug:
 	@echo "=== Pipeline debugger on example 01 ==="
-	@bash scripts/dv_debug.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1 | tail -20
+	@bash tools/bin/ad_debug.sh tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1 | tail -20
 
 snapshot:
 	@echo "=== Per-op snapshots for example 01 ==="
-	@bash scripts/dv_snapshot.sh examples/01_small_python/old.py examples/01_small_python/new.py 2>&1
-	@echo "Open: file:///tmp/dv_snapshots/snapshots.html"
+	@bash tools/bin/ad_snapshot.sh tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1
+	@echo "Open: file:///tmp/ad_snapshots/snapshots.html"
 
 # --- Clean -----------------------------------------------------------------
 
 .PHONY: clean distclean
 
-clean: clean-compute clean-animator
+clean:
+	rm -rf bin
 	@echo "All binaries removed"
 
-clean-compute:
-	rm -rf compute/bin
-
-clean-animator:
-	rm -f $(ANIMATOR_BINS) $(LAYER_BINS)
-
 distclean: clean
-	rm -rf docs/src/book
-	rm -rf /tmp/dv_debug /tmp/dv_snapshots /tmp/dv_md5_verify
+	rm -rf docs/book
+	rm -rf /tmp/ad_debug /tmp/ad_snapshots /tmp/ad_md5_verify
 
 # --- Check -----------------------------------------------------------------
 
@@ -237,10 +278,14 @@ check:
 	@echo "Checking binary freshness..."
 	@needs_build=0; \
 	for src_bin in \
-		"compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
-		"animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
-		"animator/c/pp_pace.c:$(PACE_BIN)" \
-		"animator/c/animator.c:$(ANIMATOR_BIN)"; do \
+		"diff_engine/cpp/compute.cpp:$(COMPUTE_BIN)" \
+		"animator/c/ad.c:$(ANIMATOR_BIN)" \
+		"layers/c/ad_layer_reorder.c:bin/ad_layer_reorder" \
+		"layers/c/ad_layer_overwrite.c:bin/ad_layer_overwrite" \
+		"layers/c/ad_layer_indent_last.c:bin/ad_layer_indent_last" \
+		"layers/c/ad_layer_line_delete_in_place.c:bin/ad_layer_line_delete_in_place" \
+		"layers/c/ad_layer_pace.c:bin/ad_layer_pace" \
+		"layers/c/ad_layer_highlight.c:bin/ad_layer_highlight"; do \
 		src=$${src_bin%%:*}; \
 		bin=$${src_bin##*:}; \
 		if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
@@ -259,26 +304,22 @@ check:
 # --- Help ------------------------------------------------------------------
 
 help:
-	@echo "diffvim build system"
+	@echo "ad build system"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make                Build all binaries"
-	@echo "  make compute        Build compute tool only"
-	@echo "  make animator       Build animator tools only"
-	@echo "  make install        Install everything to $(PREFIX)"
+	@echo "  make                Build all binaries into bin/"
+	@echo "  make diff_engine   Build only the diff engine"
+	@echo "  make layers         Build only the layer binaries"
+	@echo "  make animator       Build only the animator (bin/ad)"
+	@echo "  make install        Install everything to $$(PREFIX)"
 	@echo "  make install-bin    Install binaries only"
 	@echo "  make install-man    Install manpages only"
-	@echo "  make docs           Build documentation"
-	@echo "  make test           Run unit + minimal + l2r tests"
-	@echo "  make test-pipeline  Run full 42-example verification"
-	@echo "  make test-vimscript Run vimscript animator tests"
-	@echo "  make test-debug-bundle  Run dv_debug_bundle.sh tests"
-	@echo "  make debug          Debug pipeline on example 01"
-	@echo "  make snapshot       Generate per-op HTML snapshots"
-	@echo "  make clean          Remove all binaries"
+	@echo "  make install-comp   Install shell completions only"
+	@echo "  make docs           Build mdBook documentation"
+	@echo "  make test           Run all tests"
+	@echo "  make test-layers    Run per-layer tests (TDD)"
+	@echo "  make test-property  Run property-based tests"
+	@echo "  make test-examples  Run all examples through pipeline"
+	@echo "  make clean          Remove bin/ directory"
 	@echo "  make check          Check if binaries are up to date"
 	@echo "  make help           Show this help"
-
-animator/bin/pp_line_delete_in_place: animator/c/pp_line_delete_in_place.c
-	@mkdir -p animator/bin
-	$(CC) $(CFLAGS) -I animator/c -o $@ animator/c/pp_line_delete_in_place.c

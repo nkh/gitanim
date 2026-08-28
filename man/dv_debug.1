@@ -16,14 +16,14 @@ DESCRIPTION\fR
     Takes an old and new file, runs the full diffvim pipeline (compute →\fR
     postprocess → pace → animator) stage by stage, prints diagnostic\fR
     information to the terminal, AND writes the intermediate output of\fR
-    each stage to disk under /tmp/dv_debug/ so you can inspect it with\fR
+    each stage to disk under /tmp/ad_debug/ so you can inspect it with\fR
     any external tool (less, cat -A, diff, wc, etc.).\fR
 \fR
     Stage files produced:\fR
-      /tmp/dv_debug/raw.txt    — Stage 1 (diffvim-compute-cpp output)\fR
-      /tmp/dv_debug/post.txt   — Stage 2 (diffvim-postprocess output)\fR
-      /tmp/dv_debug/timed.txt  — Stage 3 (pp_pace output)\fR
-      /tmp/dv_debug/snap.txt   — Stage 4 (diffvim-animator-c final buffer)\fR
+      /tmp/ad_debug/raw.txt    — Stage 1 (ad_compute output)\fR
+      /tmp/ad_debug/post.txt   — Stage 2 (ad_postprocess output)\fR
+      /tmp/ad_debug/timed.txt  — Stage 3 (ad_layer_pace output)\fR
+      /tmp/ad_debug/snap.txt   — Stage 4 (ad final buffer)\fR
 \fR
     The script then compares the animator's final buffer (snap.txt)\fR
     against the new file and reports either a MATCH or a MISMATCH\fR
@@ -31,7 +31,7 @@ DESCRIPTION\fR
 \fR
 OPTIONS\fR
     -h, --help     Show this help message and exit 0.\fR
-    --keep         Do not clear /tmp/dv_debug/ before running. Useful\fR
+    --keep         Do not clear /tmp/ad_debug/ before running. Useful\fR
                    when you want to compare stage files across runs.\fR
     <oldfile>      Path to the original/source file (initial buffer).\fR
     <newfile>      Path to the target file the animation should produce.\fR

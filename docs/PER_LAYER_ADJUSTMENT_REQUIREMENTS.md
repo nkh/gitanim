@@ -38,12 +38,12 @@ These layers need their own adjustment. The principle: the layer knows what it m
 
 ### The Animator as Validator
 
-Instead of writing a separate buffer simulator, we use the existing animator executable (`diffvim-animator-c`) to validate. The animator takes an old file and a timed op stream, applies the ops, and writes a snapshot. If the snapshot matches the expected new file, the ops are valid.
+Instead of writing a separate buffer simulator, we use the existing animator executable (`ad`) to validate. The animator takes an old file and a timed op stream, applies the ops, and writes a snapshot. If the snapshot matches the expected new file, the ops are valid.
 
 The orchestrator calls the animator:
 
 ```
-diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/snap.txt old.txt < timed_ops.txt
+ad --no-display --speed 1000 --snapshot /tmp/snap.txt old.txt < timed_ops.txt
 diff /tmp/snap.txt new.txt
 ```
 
@@ -137,7 +137,7 @@ Apply the output ops to the old file → write the resulting buffer to FILE. Thi
 
 Implementation: call the animator:
 ```
-diffvim-animator-c --no-display --speed 1000 --snapshot FILE old.txt < output_ops.txt
+ad --no-display --speed 1000 --snapshot FILE old.txt < output_ops.txt
 ```
 
 #### 5. `--dump-input FILE` and `--dump-output FILE`
@@ -316,10 +316,10 @@ cat > "$OPS_FILE"
 
 # Layer chain (edit this to add/remove/reorder layers)
 LAYERS=()
-[[ "$OVERWRITE" -eq 1 ]] && LAYERS+=("pp_overwrite")
-[[ "$INDENT_LAST" -eq 1 ]] && LAYERS+=("pp_indent_last")
-LAYERS+=("pp_layer1")          # reorder (always)
-LAYERS+=("pp_line_delete_in_place")  # always (when implemented)
+[[ "$OVERWRITE" -eq 1 ]] && LAYERS+=("ad_layer_overwrite")
+[[ "$INDENT_LAST" -eq 1 ]] && LAYERS+=("ad_layer_indent_last")
+LAYERS+=("ad_layer_noop")          # reorder (always)
+LAYERS+=("ad_layer_line_delete_in_place")  # always (when implemented)
 
 # Run each layer
 for layer in "${LAYERS[@]}"; do
@@ -382,7 +382,7 @@ A test script that runs all possible combinations of layers and verifies the inv
 #   4. Compare snapshot with new file
 #   5. Report pass/fail
 
-LAYERS=(pp_overwrite pp_indent_last pp_layer1 pp_line_delete_in_place)
+LAYERS=(ad_layer_overwrite ad_layer_indent_last ad_layer_noop ad_layer_line_delete_in_place)
 
 # Generate all 2^4 = 16 combinations
 for mask in $(seq 0 $((2**${#LAYERS[@]} - 1))); do
@@ -419,12 +419,12 @@ $ pp-debug old.py new.py raw_ops.txt
 pp-debug> load old.py new.py raw_ops.txt
 Loaded: 61 ops, 3 hunks
 pp-debug> show ops              # show current op stream
-pp-debug> run pp_overwrite      # run overwrite layer
+pp-debug> run ad_layer_overwrite      # run overwrite layer
   → 58 ops (3 merges)
 pp-debug> show changes          # show what changed
-pp-debug> run pp_indent_last    # run indent-last layer
+pp-debug> run ad_layer_indent_last    # run indent-last layer
   → 58 ops (0 changes)
-pp-debug> run pp_layer1          # run reorder layer
+pp-debug> run ad_layer_noop          # run reorder layer
   → 58 ops (12 reordered)
 pp-debug> show buffer           # apply ops to old file, show result
 pp-debug> step 5                 # step 5 ops, show buffer after each
@@ -445,10 +445,10 @@ pp-debug --script /tmp/debug_session.txt old.py new.py raw_ops.txt
 Where `/tmp/debug_session.txt` contains:
 ```
 load old.py new.py raw_ops.txt
-run pp_overwrite
+run ad_layer_overwrite
 show changes
 write ops /tmp/after_overwrite.txt
-run pp_layer1
+run ad_layer_noop
 show changes
 write buffer /tmp/buffer_after_reorder.txt
 step 10
@@ -488,7 +488,7 @@ No C code needed — it orchestrates existing tools (layer binaries, animator, d
 
 ### Buffer Simulator Accuracy
 
-Use the animator executable, do not have different code. The animator (`diffvim-animator-c`) is the single source of truth for buffer manipulation. We call it as a subprocess:
+Use the animator executable, do not have different code. The animator (`ad`) is the single source of truth for buffer manipulation. We call it as a subprocess:
 
 - `--snapshot FILE` writes the final buffer after all ops
 - `--no-display --speed 1000` runs it headless and fast
@@ -508,8 +508,8 @@ Debug flags are set per-layer (when running standalone) and at the orchestrator 
 
 For the bash orchestrator:
 ```bash
-pp_overwrite --dump-changes /tmp/ow_changes.txt < ops.txt > ops2.txt
-pp_indent_last --dump-changes /tmp/il_changes.txt < ops2.txt > ops3.txt
+ad_layer_overwrite --dump-changes /tmp/ow_changes.txt < ops.txt > ops2.txt
+ad_layer_indent_last --dump-changes /tmp/il_changes.txt < ops2.txt > ops3.txt
 ```
 
 Or globally:

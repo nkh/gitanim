@@ -5,7 +5,7 @@
 #
 # Usage:
 #   diffvim-compare <oldfile> <newfile> [output_dir]
-#   diffvim-compare examples/42_large_huge_python/old.py examples/42_large_huge_python/new.py
+#   diffvim-compare tests/examples/42_large_huge_python/old.py tests/examples/42_large_huge_python/new.py
 #
 # Generates a matrix of precomputed diff files using every combination of:
 #   - Algorithm: lcs, myers, patience
@@ -57,16 +57,16 @@ WHAT IT DOES
     <algorithm>-<options>.diff in the output directory.
 
 ENVIRONMENT
-    DIFFVIM_COMPUTE_BIN  Override the path to the compute binary
-                         (default: compute/bin/diffvim-compute-c).
+    AD_COMPUTE_BIN  Override the path to the compute binary
+                         (default: bin/ad_compute-c).
 
 EXAMPLES
-    diffvim-compare examples/01_small_python/old.py examples/01_small_python/new.py
+    diffvim-compare tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py
     diffvim-compare a.py b.py /tmp/mycompare
     diffvim-compare --help
 
 SEE ALSO
-    diffvim(1), diffvim-compute(1), diffvim-jogger(1)
+    diffvim(1), ad_compute(1), diffvim-jogger(1)
     Full docs: docs/OPTION_COMBINATIONS.md, docs/DIFF_STUDY.md
 EOF
 }
@@ -93,10 +93,10 @@ OUTDIR="${3:-/tmp/diffvim-compare}"
 
 mkdir -p "$OUTDIR"
 
-COMPUTE="${DIFFVIM_COMPUTE_BIN:-compute/bin/diffvim-compute-c}"
+COMPUTE="${AD_COMPUTE_BIN:-bin/ad_compute-c}"
 if [[ ! -f "$COMPUTE" ]]; then
     echo "Error: $COMPUTE not found. Run 'make -C compute' first." >&2
-    echo "Tip: set DIFFVIM_COMPUTE_BIN to point at another variant." >&2
+    echo "Tip: set AD_COMPUTE_BIN to point at another variant." >&2
     exit 1
 fi
 
