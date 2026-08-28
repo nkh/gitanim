@@ -139,6 +139,11 @@ OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
 INDENT_LAST="${DIFFVIM_INDENT_LAST:-0}"
 LINE_DELETE_IN_PLACE="${DIFFVIM_LINE_DELETE_IN_PLACE:-0}"
+# Extra postprocess flags forwarded dynamically to the orchestrator.
+# Lets users enable any layer from animator/layers.conf without editing
+# this launcher — e.g. `diffvim --pp-foo old new` runs `--foo` in the
+# orchestrator. See FLEXIBILITY.md.
+EXTRA_PP_FLAGS=()
 # Display options (forwarded to C animator)
 DIFF_STAT="${DIFFVIM_DIFF_STAT:-0}"
 DIFF_HIGHLIGHT="${DIFFVIM_DIFF_HIGHLIGHT:-0}"
@@ -465,6 +470,29 @@ while [[ $# -gt 0 ]]; do
         --highlight-duration-ms) HIGHLIGHT_DURATION_MS="$2"; shift 2 ;;
         --indent-last)      INDENT_LAST=1; shift ;;
         --overwrite)        OVERWRITE_MODE=1; shift ;;
+        --line-delete-in-place) LINE_DELETE_IN_PLACE=1; shift ;;
+        # Generic dynamic layer forwarding: --pp-<name> [-- value] forwards
+        # `--<name>` (and optional value) to the postprocess orchestrator.
+        # This makes adding a new layer zero-edit — see FLEXIBILITY.md.
+        --pp-*)
+            _pp_flag="${1#--pp-}"
+            EXTRA_PP_FLAGS+=("--$_pp_flag")
+            shift
+            if [[ $# -gt 0 && "${1:-}" != -* ]]; then
+                EXTRA_PP_FLAGS+=("$1"); shift
+            fi
+            ;;
+        --list-layers)
+            # Delegate to the orchestrator — print available layers and exit.
+            for d in "animator/bin/diffvim-postprocess" \
+                     "/usr/local/bin/diffvim-postprocess"; do
+                if [[ -f "$d" ]]; then
+                    exec "$d" --list-layers
+                fi
+            done
+            echo "diffvim: no orchestrator found (expected animator/bin/diffvim-postprocess)" >&2
+            exit 1
+            ;;
         --diff-stat)        DIFF_STAT=1; shift ;;
         --diff-highlight)   DIFF_HIGHLIGHT=1; shift ;;
         --bell)             BELL_ON_ERROR=1; shift ;;
@@ -1334,6 +1362,8 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--overwrite")
         [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--indent-last")
         [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--line-delete-in-place")
+        # Forward dynamically-discovered layer flags (--pp-foo → --foo).
+        [[ ${#EXTRA_PP_FLAGS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_FLAGS[@]}")
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
         export DV_OLD_FILE="$OLD"
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null

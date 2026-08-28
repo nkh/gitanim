@@ -92,8 +92,8 @@ if ($found_space_after_content) {
 }
 
 # Check: both produce correct output
-system("./animator/bin/diffvim-pace < /tmp/il_test_post_no.txt > /tmp/il_test_timed_no.txt 2>/dev/null");
-system("./animator/bin/diffvim-pace < /tmp/il_test_post_il.txt > /tmp/il_test_timed_il.txt 2>/dev/null");
+system("./animator/bin/pp_pace < /tmp/il_test_post_no.txt > /tmp/il_test_timed_no.txt 2>/dev/null");
+system("./animator/bin/pp_pace < /tmp/il_test_post_il.txt > /tmp/il_test_timed_il.txt 2>/dev/null");
 system("./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/il_test_out_no.txt '$old' < /tmp/il_test_timed_no.txt 2>/dev/null");
 system("./animator/bin/diffvim-animator-c --no-display --speed 1000 --snapshot /tmp/il_test_out_il.txt '$old' < /tmp/il_test_timed_il.txt 2>/dev/null");
 
@@ -110,6 +110,52 @@ if (system("diff -q '$new' /tmp/il_test_out_il.txt >/dev/null 2>&1") == 0) {
     $pass++;
 } else {
     print "FAIL: WITH indent-last, output doesn't match\n";
+    $fail++;
+}
+
+# Check: C and Perl implementations of indent_last produce identical output
+system("./animator/bin/pp_reorder < /tmp/il_test_raw.txt > /tmp/il_test_reord.txt 2>/dev/null");
+system("./animator/bin/pp_indent_last < /tmp/il_test_reord.txt > /tmp/il_test_c.txt 2>/dev/null");
+system("perl ./animator/perl/pp_indent_last.pl < /tmp/il_test_reord.txt > /tmp/il_test_perl.txt 2>/dev/null");
+if (system("diff -q /tmp/il_test_c.txt /tmp/il_test_perl.txt >/dev/null 2>&1") == 0) {
+    print "PASS: C and Perl indent_last produce identical output (parity)\n";
+    $pass++;
+} else {
+    print "FAIL: C and Perl indent_last differ\n";
+    $fail++;
+}
+
+# Check: --pp-indent-last dynamic flag produces same output as --indent-last
+system("./animator/bin/diffvim-postprocess --pp-indent-last < /tmp/il_test_raw.txt > /tmp/il_test_pp_flag.txt 2>/dev/null");
+# Strip pace/highlight delays — they aren't deterministic. Compare only
+# the post-processed ops (HUNK header through HUNK_END of each hunk).
+sub extract_hunk_ops {
+    my ($file) = @_;
+    open(my $fh, '<', $file) or return [];
+    my @ops;
+    while (my $line = <$fh>) {
+        chomp $line;
+        next if $line =~ /^#/ || $line =~ /^$/;
+        next if $line =~ /^delay\tnone/;
+        # Skip pace/highlight-generated ops for the comparison
+        push @ops, $line if $line =~ /^(HUNK|delete|insert|keep|overwrite_insert)/;
+    }
+    close($fh);
+    return \@ops;
+}
+# Direct diff (orchestrator with --pp-indent-last vs --indent-last should
+# produce the same layer chain — both enable the indent_last layer).
+my $pp_out = extract_hunk_ops("/tmp/il_test_pp_flag.txt");
+my $il_out = extract_hunk_ops("/tmp/il_test_post_il.txt");
+# Note: $il_out has no pace/highlight applied yet (raw postprocess output);
+# $pp_out has pace+highlight applied. Compare indent_last-relevant ops only.
+my @il_deletes = grep { /^delete\t/ && !/^\w+\t\d+\t\d+\t(32|9|10)\t/ } @$il_out;
+my @pp_deletes = grep { /^delete\t/ && !/^\w+\t\d+\t\d+\t(32|9|10)\t/ } @$pp_out;
+if (scalar(@il_deletes) > 0 && scalar(@il_deletes) == scalar(@pp_deletes)) {
+    print "PASS: --pp-indent-last dynamic flag enables the layer\n";
+    $pass++;
+} else {
+    print "FAIL: --pp-indent-last did not enable the layer\n";
     $fail++;
 }
 

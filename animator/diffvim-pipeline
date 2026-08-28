@@ -159,6 +159,20 @@ while [[ $# -gt 0 ]]; do
             POSTPROCESS_ARGS+=("--overwrite")
             shift
             ;;
+        # Generic dynamic layer forwarding: --pp-<name> [-- value] forwards
+        # `--<name>` (and optional value) to the postprocess orchestrator.
+        # This makes adding a new layer zero-edit — see FLEXIBILITY.md.
+        --pp-*)
+            opt="${1#--pp-}"
+            POSTPROCESS_ARGS+=("--$opt")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                POSTPROCESS_ARGS+=("$1"); shift
+            fi
+            ;;
+        --list-layers)
+            exec "$ROOT_DIR/animator/bin/diffvim-postprocess" --list-layers
+            ;;
         --postprocess-*)
             opt="${1#--postprocess-}"
             POSTPROCESS_ARGS+=("--$opt")

@@ -108,17 +108,19 @@ install-bin: all
 	install -m 755 $(DECORATE_BIN) $(DESTDIR)$(BINDIR)/pp_highlight
 	install -m 755 diffvim $(DESTDIR)$(BINDIR)/diffvim
 	install -m 755 animator/diffvim-pipeline $(DESTDIR)$(BINDIR)/diffvim-pipeline
+	install -m 644 animator/layers.conf $(DESTDIR)$(PREFIX)/share/diffvim/layers.conf
 	# Perl tools
 	install -m 755 compute/perl/compute_builtin.pl $(DESTDIR)$(BINDIR)/diffvim-compute-perl
 	install -m 755 animator/perl/postprocess.pl $(DESTDIR)$(BINDIR)/diffvim-postprocess-perl
 	install -m 755 animator/perl/pace.pl $(DESTDIR)$(BINDIR)/pp_pace-perl
 	install -m 755 animator/perl/animator.pl $(DESTDIR)$(BINDIR)/diffvim-animator-perl
 	install -m 755 animator/perl/decorate.pl $(DESTDIR)$(BINDIR)/pp_highlight-perl
+	install -m 755 animator/perl/pp_indent_last.pl $(DESTDIR)$(BINDIR)/pp_indent_last-perl
 
 install-man:
 	install -d $(DESTDIR)$(MANDIR)
 	for f in man/*.1; do \
-	        install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
+		install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
 	done
 
 install-comp:
@@ -134,9 +136,9 @@ install-comp:
 docs:
 	@echo "Building documentation..."
 	@if command -v mdbook >/dev/null 2>&1; then \
-	        mdbook build docs/src/; \
+		mdbook build docs/src/; \
 	else \
-	        echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
+		echo "  mdbook not installed — docs are plain Markdown, no build needed"; \
 	fi
 
 man:
@@ -145,18 +147,18 @@ man:
 
 # --- Testing ---------------------------------------------------------------
 
-.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features test-no-backward test-indent-last test-pipeline-options
+.PHONY: test test-unit test-minimal test-pipeline test-l2r test-vimscript test-debug-bundle test-new-features test-no-backward test-indent-last test-pipeline-options test-layers-discovery
 
-test: test-unit test-minimal test-l2r test-debug-bundle test-new-features test-no-backward test-indent-last test-pipeline-options
+test: test-unit test-minimal test-l2r test-debug-bundle test-new-features test-no-backward test-indent-last test-pipeline-options test-layers-discovery
 	@echo ""
 	@echo "=== All tests passed ==="
 
 test-unit:
 	@echo "=== Animator unit tests ==="
 	@for t in test_all_animators test_cross_language test_newline_fix \
-	         test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-	         ; do \
-	        perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
+		 test_roundtrip test_roundtrip_verify test_snapshot_each_op \
+		 ; do \
+		perl animator/tests/$$t.pl 2>&1 | grep "Results:"; \
 	done
 
 test-minimal:
@@ -195,6 +197,10 @@ test-pipeline-options:
 	@echo "=== Pipeline options end-to-end ==="
 	@bash tests/test_pipeline_options.sh 2>&1 | tail -3
 
+test-layers-discovery:
+	@echo "=== Layer discovery + plugin contract ==="
+	@perl tests/test_layers_discovery.pl 2>&1 | tail -3
+
 # --- Debugging -------------------------------------------------------------
 
 .PHONY: debug snapshot
@@ -231,23 +237,23 @@ check:
 	@echo "Checking binary freshness..."
 	@needs_build=0; \
 	for src_bin in \
-	        "compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
-	        "animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
-	        "animator/c/pp_pace.c:$(PACE_BIN)" \
-	        "animator/c/animator.c:$(ANIMATOR_BIN)"; do \
-	        src=$${src_bin%%:*}; \
-	        bin=$${src_bin##*:}; \
-	        if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
-	                echo "  STALE: $$bin (newer source: $$src)"; \
-	                needs_build=1; \
-	        fi; \
+		"compute/cpp/diffvim-compute.cpp:$(COMPUTE_BIN)" \
+		"animator/c/postprocess.c:$(POSTPROCESS_BIN)" \
+		"animator/c/pp_pace.c:$(PACE_BIN)" \
+		"animator/c/animator.c:$(ANIMATOR_BIN)"; do \
+		src=$${src_bin%%:*}; \
+		bin=$${src_bin##*:}; \
+		if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
+			echo "  STALE: $$bin (newer source: $$src)"; \
+			needs_build=1; \
+		fi; \
 	done; \
 	if [ $$needs_build -eq 1 ]; then \
-	        echo ""; \
-	        echo "Run 'make' to rebuild."; \
-	        exit 1; \
+		echo ""; \
+		echo "Run 'make' to rebuild."; \
+		exit 1; \
 	else \
-	        echo "  All binaries up to date."; \
+		echo "  All binaries up to date."; \
 	fi
 
 # --- Help ------------------------------------------------------------------
