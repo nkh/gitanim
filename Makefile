@@ -27,6 +27,9 @@
 #   make check           Check that all binaries are up to date
 #   make help            Show this help
 
+.PHONY: all compute animator
+all: compute animator
+
 # --- Configuration ---------------------------------------------------------
 
 PREFIX  ?= /usr/local
@@ -66,10 +69,6 @@ $(DECORATE_BIN): animator/c/decorate.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 LAYER_BINS := animator/bin/pp_reorder animator/bin/pp_indent_last animator/bin/pp_overwrite
-
-.PHONY: all compute animator
-
-all: compute animator
 
 compute: $(COMPUTE_BIN)
 
