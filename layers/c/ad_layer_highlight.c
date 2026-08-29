@@ -56,6 +56,7 @@ static int context_lines = 0;
 static int fold_unchanged = 0;
 static int sign_column = 0;
 static int git_blame = 0;
+static char old_file_path[1024] = "";  /* set by --old-file=PATH */
 static int max_hunk_chars = 0;
 static char theme[32] = "";
 
@@ -91,6 +92,8 @@ void parse_args(int argc, char **argv) {
             sign_column = 1;
         else if (strcmp(argv[i], "--git-blame") == 0)
             git_blame = 1;
+        else if (strncmp(argv[i], "--old-file=", 11) == 0)
+            strncpy(old_file_path, argv[i] + 11, sizeof(old_file_path) - 1);
         else if (strcmp(argv[i], "--max-hunk-chars") == 0 && i+1 < argc)
             max_hunk_chars = atoi(argv[++i]);
         else if (strcmp(argv[i], "--theme") == 0 && i+1 < argc)
@@ -112,20 +115,6 @@ void parse_args(int argc, char **argv) {
     }
 }
 
-/* Parse a TSV line into tokens. Returns token count. */
-int parse_tsv(char *line, char *toks[], int max_toks) {
-    int n = 0;
-    char *p = line;
-    char *tab = strchr(p, '\t');
-    while (tab && n < max_toks - 1) {
-        *tab = 0;
-        toks[n++] = p;
-        p = tab + 1;
-        tab = strchr(p, '\t');
-    }
-    toks[n++] = p;
-    return n;
-}
 
 /* Check if a line is a keep op (unchanged content) */
 int is_keep_op(const char *line) {
@@ -148,7 +137,7 @@ int get_op_line(const char *line) {
     strncpy(buf, line, MAX_LINE - 1);
     buf[MAX_LINE - 1] = 0;
     char *toks[8];
-    int n = parse_tsv(buf, toks, 8);
+    int n = ad_layer_parse_tsv(buf, toks, 8);
     if (n >= 2) return atoi(toks[1]);
     return 0;
 }
@@ -159,7 +148,7 @@ int get_op_col(const char *line) {
     strncpy(buf, line, MAX_LINE - 1);
     buf[MAX_LINE - 1] = 0;
     char *toks[8];
-    int n = parse_tsv(buf, toks, 8);
+    int n = ad_layer_parse_tsv(buf, toks, 8);
     if (n >= 3) return atoi(toks[2]);
     return 0;
 }
@@ -170,7 +159,7 @@ int get_op_code(const char *line) {
     strncpy(buf, line, MAX_LINE - 1);
     buf[MAX_LINE - 1] = 0;
     char *toks[8];
-    int n = parse_tsv(buf, toks, 8);
+    int n = ad_layer_parse_tsv(buf, toks, 8);
     if (n >= 4) return atoi(toks[3]);
     return 0;
 }
@@ -240,11 +229,58 @@ void do_highlight_inline(int idx) {
         emit_highlight(op_line, op_col, op_line, op_col, "insert", highlight_duration_ms);
 }
 
+/* Check if a line is an op (keep/delete/insert/overwrite_insert). */
+static int is_op(const char *line) {
+    return strncmp(line, "keep\t", 5) == 0 ||
+           strncmp(line, "delete\t", 7) == 0 ||
+           strncmp(line, "insert\t", 7) == 0 ||
+           strncmp(line, "overwrite_insert\t", 17) == 0;
+}
+
 /* Process: --highlight word
- * After each delete/insert op, highlight the word containing the change */
+ * After each delete/insert op, highlight the entire word containing
+ * the change. A "word" is a run of non-whitespace chars on the same
+ * line. Walk backward and forward from the change op to find word
+ * boundaries (whitespace or newline). */
 void do_highlight_word(int idx) {
-    /* For now, same as inline — word detection would need lookahead */
-    do_highlight_inline(idx);
+    const char *line = all_lines[idx];
+    if (!is_change_op(line) || is_delay_op(line)) return;
+
+    int op_line = get_op_line(line);
+    int op_col = get_op_col(line);
+    const char *type = get_op_type(line);
+
+    /* Walk backward to find word start (first col of the word). */
+    int word_start = op_col;
+    for (int j = idx - 1; j >= 0; j--) {
+        const char *prev = all_lines[j];
+        if (is_delay_op(prev) || !is_op(prev)) break;
+        int prev_line = get_op_line(prev);
+        int prev_col = get_op_col(prev);
+        int prev_code = get_op_code(prev);
+        if (prev_line != op_line) break;  /* different line */
+        if (prev_code == 32 || prev_code == 9 || prev_code == 10) break; /* whitespace */
+        word_start = prev_col;
+    }
+
+    /* Walk forward to find word end (last col of the word). */
+    int word_end = op_col;
+    for (int j = idx + 1; j < n_lines; j++) {
+        const char *next = all_lines[j];
+        if (is_delay_op(next) || !is_op(next)) break;
+        int next_line = get_op_line(next);
+        int next_col = get_op_col(next);
+        int next_code = get_op_code(next);
+        if (next_line != op_line) break;  /* different line */
+        if (next_code == 32 || next_code == 9 || next_code == 10) break; /* whitespace */
+        word_end = next_col;
+    }
+
+    /* Emit highlight covering the entire word. */
+    if (strcmp(type, "delete") == 0)
+        emit_highlight(op_line, word_start, op_line, word_end, "delete_word", highlight_duration_ms);
+    else
+        emit_highlight(op_line, word_start, op_line, word_end, "insert_word", highlight_duration_ms);
 }
 
 /* Process: --highlight hunk
@@ -387,16 +423,31 @@ int main(int argc, char **argv) {
             if (sign_column) {
                 do_sign_column(i);
             }
-            /* Git blame: emit a marker op with the line number.
-             * The actual blame text would require running `git blame`
-             * and caching the results — this is a simplified version
-             * that just marks each changed line. */
-            if (git_blame) {
+            /* Git blame: run `git blame` on the old file and emit markers
+             * with the commit hash for each changed line. */
+            if (git_blame && old_file_path[0]) {
                 const char *blame_type = get_op_type(all_lines[i]);
                 if (strcmp(blame_type, "delete") == 0 || strcmp(blame_type, "insert") == 0) {
                     int op_line = get_op_line(all_lines[i]);
                     if (op_line > 0) {
-                        emit_marker(op_line, 1, "blame");
+                        /* Run git blame for this line, extract commit hash. */
+                        char cmd[2048];
+                        snprintf(cmd, sizeof(cmd),
+                            "git blame -L %d,%d --porcelain '%s' 2>/dev/null | head -1 | cut -d' ' -f1",
+                            op_line, op_line, old_file_path);
+                        FILE *fp = popen(cmd, "r");
+                        if (fp) {
+                            char hash[64] = "";
+                            if (fgets(hash, sizeof(hash), fp)) {
+                                hash[strcspn(hash, "\n")] = 0;
+                                if (hash[0]) {
+                                    char marker[128];
+                                    snprintf(marker, sizeof(marker), "blame %s", hash);
+                                    emit_marker(op_line, 1, marker);
+                                }
+                            }
+                            pclose(fp);
+                        }
                     }
                 }
             }

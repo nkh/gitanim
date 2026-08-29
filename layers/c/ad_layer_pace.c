@@ -255,20 +255,6 @@ void apply_speeds(void) {
     }
 }
 
-/* Parse a TSV line into tokens. Returns token count. */
-int parse_tsv(char *line, char *toks[], int max_toks) {
-    int n = 0;
-    char *p = line;
-    char *tab = strchr(p, '\t');
-    while (tab && n < max_toks - 1) {
-        *tab = 0;
-        toks[n++] = p;
-        p = tab + 1;
-        tab = strchr(p, '\t');
-    }
-    toks[n++] = p;
-    return n;
-}
 
 /* AWD: process a run of consecutive non-newline deletes on the same line.
  * Emits each delete op verbatim, with delays between them. */
@@ -284,7 +270,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
         char buf[MAX_LINE];
         strncpy(buf, lines[i], MAX_LINE - 1);
         buf[MAX_LINE - 1] = 0;
-        int nt = parse_tsv(buf, toks, 8);
+        int nt = ad_layer_parse_tsv(buf, toks, 8);
         int code = (nt >= 4) ? atoi(toks[3]) : 0;
 
         if (code == 32 || code == 9) {
@@ -323,7 +309,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
             strncpy(buf2, lines[i + word_len], MAX_LINE - 1);
             buf2[MAX_LINE - 1] = 0;
             char *t2[8];
-            int n2 = parse_tsv(buf2, t2, 8);
+            int n2 = ad_layer_parse_tsv(buf2, t2, 8);
             int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
             if (c2 == 32 || c2 == 9) break;
             word_len++;
@@ -344,7 +330,7 @@ void process_awd(char *lines[], int start, int count, int same_line) {
                 strncpy(buf3, lines[i], MAX_LINE - 1);
                 buf3[MAX_LINE - 1] = 0;
                 char *t3[8];
-                int n3 = parse_tsv(buf3, t3, 8);
+                int n3 = ad_layer_parse_tsv(buf3, t3, 8);
                 int c3 = (n3 >= 4) ? atoi(t3[3]) : 0;
                 if (c3 != 32 && c3 != 9) break;
                 i++;
@@ -432,7 +418,7 @@ int main(int argc, char **argv) {
         char tbuf[MAX_LINE];
         strncpy(tbuf, all_lines[i], MAX_LINE - 1);
         tbuf[MAX_LINE - 1] = 0;
-        int nt = parse_tsv(tbuf, toks, 8);
+        int nt = ad_layer_parse_tsv(tbuf, toks, 8);
 
         if (strcmp(toks[0], "HUNK") == 0) {
             /* Before the HUNK, emit glide ops if enabled.
@@ -474,7 +460,7 @@ int main(int argc, char **argv) {
                 strncpy(nbuf, all_lines[i + 1], MAX_LINE - 1);
                 nbuf[MAX_LINE - 1] = 0;
                 char *ntoks[8];
-                int nnt = parse_tsv(nbuf, ntoks, 8);
+                int nnt = ad_layer_parse_tsv(nbuf, ntoks, 8);
                 if (nnt >= 1 && strcmp(ntoks[0], "HUNK") == 0) {
                     emit_paced_delay(hunk_pause, "hunk");
                 }
@@ -503,7 +489,7 @@ int main(int argc, char **argv) {
                         strncpy(abuf, all_lines[i], MAX_LINE - 1);
                         abuf[MAX_LINE - 1] = 0;
                         char *at[8];
-                        int an = parse_tsv(abuf, at, 8);
+                        int an = ad_layer_parse_tsv(abuf, at, 8);
                         int ac = (an >= 4) ? atoi(at[3]) : 0;
                         if (strcmp(at[0], "delete") != 0 || ac != 10) break;
                         i++;
@@ -551,7 +537,7 @@ int main(int argc, char **argv) {
                         strncpy(buf2, all_lines[i], MAX_LINE - 1);
                         buf2[MAX_LINE - 1] = 0;
                         char *t2[8];
-                        int n2 = parse_tsv(buf2, t2, 8);
+                        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
                         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
                         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
                         if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
@@ -591,7 +577,7 @@ int main(int argc, char **argv) {
                         strncpy(buf2, all_lines[i], MAX_LINE - 1);
                         buf2[MAX_LINE - 1] = 0;
                         char *t2[8];
-                        int n2 = parse_tsv(buf2, t2, 8);
+                        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
                         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
                         int col2 = (n2 >= 3) ? atoi(t2[2]) : 1;
                         if (strcmp(t2[0], "delete") != 0 || l2 != start_line)
@@ -628,7 +614,7 @@ int main(int argc, char **argv) {
                         strncpy(buf2, all_lines[i], MAX_LINE - 1);
                         buf2[MAX_LINE - 1] = 0;
                         char *t2[8];
-                        int n2 = parse_tsv(buf2, t2, 8);
+                        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
                         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
                         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
                         if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
@@ -664,7 +650,7 @@ int main(int argc, char **argv) {
                         strncpy(buf2, all_lines[i], MAX_LINE - 1);
                         buf2[MAX_LINE - 1] = 0;
                         char *t2[8];
-                        int n2 = parse_tsv(buf2, t2, 8);
+                        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
                         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
                         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
                         if (strcmp(t2[0], "delete") != 0 || c2 != start_code || l2 != start_line)
@@ -695,7 +681,7 @@ int main(int argc, char **argv) {
                         strncpy(buf2, all_lines[i], MAX_LINE - 1);
                         buf2[MAX_LINE - 1] = 0;
                         char *t2[8];
-                        int n2 = parse_tsv(buf2, t2, 8);
+                        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
                         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
                         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
                         if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
@@ -736,7 +722,7 @@ int main(int argc, char **argv) {
                     strncpy(ibuf2, all_lines[i], MAX_LINE - 1);
                     ibuf2[MAX_LINE - 1] = 0;
                     char *it2[8];
-                    int in2 = parse_tsv(ibuf2, it2, 8);
+                    int in2 = ad_layer_parse_tsv(ibuf2, it2, 8);
                     int ic2 = (in2 >= 4) ? atoi(it2[3]) : 0;
                     int il2 = (in2 >= 2) ? atoi(it2[1]) : 0;
                     if (strcmp(it2[0], "insert") != 0 || ic2 == 10 || il2 != start_line)
@@ -755,7 +741,7 @@ int main(int argc, char **argv) {
                     strncpy(lastbuf, all_lines[start_idx + count - 1], MAX_LINE - 1);
                     lastbuf[MAX_LINE - 1] = 0;
                     char *lt2[8];
-                    int ln2 = parse_tsv(lastbuf, lt2, 8);
+                    int ln2 = ad_layer_parse_tsv(lastbuf, lt2, 8);
                     int last_code = (ln2 >= 4) ? atoi(lt2[3]) : 0;
                     if (last_code == 32 || last_code == 9) {
                         /* Whitespace — pause after word */

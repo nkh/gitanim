@@ -97,6 +97,22 @@ __attribute__((unused)) static int ad_layer_parse_op_fields(const char *line, co
     return 0;
 }
 
+/* ── Parse TSV line into tokens (for layers that need all fields) ────
+ * Splits on \t in place. Returns token count. */
+__attribute__((unused)) static int ad_layer_parse_tsv(char *line, char *toks[], int max_toks) {
+    int n = 0;
+    char *p = line;
+    char *tab = strchr(p, '\t');
+    while (tab && n < max_toks - 1) {
+        *tab = 0;
+        toks[n++] = p;
+        p = tab + 1;
+        tab = strchr(p, '\t');
+    }
+    toks[n++] = p;
+    return n;
+}
+
 /* ── TSV Writing ──────────────────────────────────────────────────── */
 
 static void ad_layer_write_op(Op *op) {
