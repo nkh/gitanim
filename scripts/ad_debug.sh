@@ -127,7 +127,7 @@ head -30 "$RAW" | cat -n
 echo ""
 
 echo "─── STAGE 2: POST-PROCESSED OPS (postprocess) ───────────────"
-"$ROOT/bin/ad_postprocess" < "$RAW" > "$POST" 2>&1 || true
+"$ROOT/bin/ad_postprocess" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt" || true
 echo "  → $(wc -l < "$POST") lines written to $POST"
 echo "  → Header:"
 head -1 "$POST"
@@ -137,7 +137,7 @@ head -30 "$POST" | cat -n
 echo ""
 
 echo "─── STAGE 3: TIMED OPS (pace) ───────────────────────────────"
-"$ROOT/bin/ad_layer_pace" < "$POST" > "$TIMED" 2>&1 || true
+"$ROOT/bin/ad_layer_pace" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt" || true
 echo "  → $(wc -l < "$TIMED") lines written to $TIMED"
 echo "  → Header:"
 head -3 "$TIMED"
@@ -147,7 +147,7 @@ head -30 "$TIMED" | cat -n
 echo ""
 
 echo "─── STAGE 4: ANIMATOR RESULT ────────────────────────────────"
-"$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$SNAP" "$OLD" < "$TIMED" 2>&1 || true
+"$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$SNAP" "$OLD" < "$TIMED" 2>"$OUTDIR/animator_stderr.txt" || true
 echo "  → $(wc -l < "$SNAP" 2>/dev/null || echo 0) lines written to $SNAP"
 echo ""
 

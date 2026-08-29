@@ -441,7 +441,7 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
             if (in_hunk) {
                 if (in_count >= in_cap) {
                     in_cap *= 2;
-                    in_ops = (Op *)realloc(in_ops, in_cap * sizeof(Op));
+                    { Op *_tmp = realloc(in_ops, in_cap * sizeof(Op)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } in_ops = _tmp; }
                 }
                 /* Parse as a regular op (type="debug", line/col from fields) */
                 ad_layer_parse_op(line, &in_ops[in_count]);
@@ -454,7 +454,7 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
         if (in_hunk) {
             if (in_count >= in_cap) {
                 in_cap *= 2;
-                in_ops = (Op *)realloc(in_ops, in_cap * sizeof(Op));
+                { Op *_tmp = realloc(in_ops, in_cap * sizeof(Op)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } in_ops = _tmp; }
                 if (!in_ops) { fprintf(stderr, "out of memory\n"); return 1; }
             }
             if (ad_layer_parse_op(line, &in_ops[in_count])) {

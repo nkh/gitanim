@@ -26,13 +26,24 @@
 void sleep_ms(int ms);
 void disable_raw_mode(void);
 
-/* Ctrl+C handler: restore terminal before exiting */
+/* Ctrl+C handler: async-signal-safe — only uses write() and _exit().
+ * Terminal restoration is done by the atexit handler.
+ */
+static volatile sig_atomic_t got_signal = 0;
+
 static void cleanup_handler(int sig) {
-    (void)sig;  /* signal number not used — handler is registered for both SIGINT/SIGTERM */
+    (void)sig;
+    got_signal = 1;
+    const char msg[] = "\r\n";
+    ssize_t unused = write(STDOUT_FILENO, msg, sizeof(msg) - 1);
+    (void)unused;
+    _exit(1);
+}
+
+static void atexit_handler(void) {
     disable_raw_mode();
-    printf("\033[?25h\033[0m\033[2J\033[H");
+    printf("\033[?25h\033[0m");
     fflush(stdout);
-    exit(1);
 }
 
 
@@ -52,6 +63,7 @@ static int show_progress = 0;
 static int verbose = 0;
 static int dry_run = 0;
 static int seek_op = 0;  /* #70: start at this op index */
+static int suppress_render = 0;  /* When 1, render() is a no-op (used by --seek) */
 static int show_diff_stat = 0;  /* #76: diff stat overlay */
 static int bell_on_error = 0;  /* #40: terminal bell on error */
 static int diff_highlight = 0;  /* #24: green/red highlighting */
@@ -196,7 +208,7 @@ static void ensure_line_modified(int needed) {
     if (needed < line_modified_cap) return;
     int new_cap = line_modified_cap == 0 ? 1024 : line_modified_cap;
     while (new_cap <= needed) new_cap *= 2;
-    line_modified = (char *)realloc(line_modified, new_cap);
+    { char *_tmp = realloc(line_modified, new_cap); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } line_modified = _tmp; }
     if (!line_modified) { fprintf(stderr, "out of memory (line_modified)\n"); exit(1); }
     memset(line_modified + line_modified_cap, 0, new_cap - line_modified_cap);
     line_modified_cap = new_cap;
@@ -419,7 +431,7 @@ void insert_char(int code) {
             buf[3] = 0x80 | (code & 0x3F);
             blen = 4;
         }
-        s = realloc(s, len + blen + 1);
+        { char *_tmp = realloc(s, len + blen + 1); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } s = _tmp; }
         memmove(s + byte + blen, s + byte, len - byte + 1);
         memcpy(s + byte, buf, blen);
         lines[cursor_l] = s;
@@ -445,7 +457,7 @@ void batch_insert(int *codes, int count) {
 }
 
 void render(void) {
-    if (no_display) return;
+    if (no_display || suppress_render) return;
     printf("\033[2J\033[H");
 
     /* Get terminal height (default 24 if unavailable) */
@@ -527,7 +539,7 @@ void render(void) {
         for (int i = 0; i < n_lines && i < line_modified_cap; i++)
             if (line_modified[i]) modified_count++;
         printf("\033[%d;1H\033[2K[diff: %d/%d lines changed]\n",
-               viewport_height + (show_progress ? 0 : 0),
+               viewport_height + 1,
                modified_count, n_lines);
     }
     /* Terminal bell on error: ring the bell if the last op was at an
@@ -583,6 +595,7 @@ void sleep_ms(int ms) {
 }
 
 int main(int argc, char **argv) {
+    atexit(atexit_handler);
     signal(SIGINT, cleanup_handler);
     signal(SIGTERM, cleanup_handler);
 
@@ -646,14 +659,12 @@ int main(int argc, char **argv) {
     int op_count = 0;
     int ops_total = 0;
     while (fgets(line, sizeof(line), stdin)) {
-        /* #70: Seek — skip ops until we reach the seek position */
-        if (seek_op > 0 && op_count < seek_op) {
-            line[strcspn(line, "\n")] = 0;
-            if (line[0] && line[0] != '#') op_count++;
-            /* Still apply ops to maintain buffer state, but don't render */
-            /* Actually, for seek we need to APPLY ops but not render */
-            continue;
-        }
+        /* #70: Seek — apply ops but suppress rendering until we reach
+         * the seek position. This maintains buffer state. */
+        suppress_render = (seek_op > 0 && op_count < seek_op);
+        line[strcspn(line, "\n")] = 0;
+        if (line[0] == 0 || line[0] == '#') continue;
+        if (suppress_render) op_count++;
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') continue;
 

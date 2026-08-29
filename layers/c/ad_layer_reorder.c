@@ -10,6 +10,7 @@ int main(void) {
 
     ops_cap = 4096;
     ops = (Op *)malloc(ops_cap * sizeof(Op));
+    if (!ops) { fprintf(stderr, "out of memory\n"); exit(1); }
 
     while (fgets(line, sizeof(line), stdin)) {
         line[strcspn(line, "\n\r")] = 0;

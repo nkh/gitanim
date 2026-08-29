@@ -18,8 +18,8 @@ DESCRIPTION
     the original new file — only the old file (initial buffer) is
     needed at replay time.
 
-    Intermediate files are written to /tmp/dv_raw.txt and
-    /tmp/dv_post.txt (overwritten each run).
+    Intermediate files are written to /tmp/ad_raw_$$.txt and
+    /tmp/ad_post_$$.txt (overwritten each run).
 
 OPTIONS
     -h, --help       Show this help message and exit 0.
@@ -50,8 +50,8 @@ fi
 
 OLD="$1"; NEW="$2"; RECORDING="$3"
 
-"$ROOT/bin/ad_compute" "$OLD" "$NEW" /tmp/dv_raw.txt 2>/dev/null
-"$ROOT/bin/ad_postprocess" < /tmp/dv_raw.txt > /tmp/dv_post.txt 2>/dev/null
-"$ROOT/bin/ad_layer_pace" < /tmp/dv_post.txt > "$RECORDING"
+"$ROOT/bin/ad_compute" "$OLD" "$NEW" /tmp/ad_raw_$$.txt 2>/dev/null
+"$ROOT/bin/ad_postprocess" < /tmp/ad_raw_$$.txt > /tmp/ad_post_$$.txt 2>/dev/null
+"$ROOT/bin/ad_layer_pace" < /tmp/ad_post_$$.txt > "$RECORDING"
 echo "Recording saved to $RECORDING ($(wc -l < "$RECORDING") ops)"
 echo "Replay with: dv_replay.sh $OLD recording.dv"

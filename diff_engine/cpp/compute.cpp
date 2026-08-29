@@ -508,27 +508,6 @@ vector<CharOp> semantic_cleanup(vector<CharOp> ops) {
 }
 
 /* --- Op-sequence optimization: consolidate interleaved del/ins --- */
-vector<CharOp> optimize_sequence(vector<CharOp> ops) {
-    if (ops.size() < 4) return ops;
-    vector<CharOp> out;
-    out.reserve(ops.size());
-    size_t i = 0;
-    while (i < ops.size()) {
-        if (ops[i].type != OP_KEEP && ops[i].code != 10) {
-            while (i < ops.size()) {
-                if (ops[i].type == OP_KEEP) break;
-                if (ops[i].code == 10) break;
-                out.push_back(ops[i]);
-                i++;
-            }
-        } else {
-            out.push_back(ops[i]);
-            i++;
-        }
-    }
-    return out;
-}
-
 /* --- Left-to-right: within each change region (consecutive non-keep,
  * non-\n ops between boundaries), emit all DELETEs first, then all
  * INSERTs. Keeps and \n ops stay in place as anchors/line boundaries.
@@ -688,7 +667,7 @@ int main(int argc, char** argv) {
     bool do_semantic = false;
     bool do_word_diff = false;
     bool do_indent_aware = false;
-    bool do_optimize = true;   /* default on */
+
     bool do_l2r = false;
 
     /* Parse args:
@@ -717,8 +696,6 @@ int main(int argc, char** argv) {
 "    --semantic-cleanup    Merge adjacent delete+insert pairs that cancel out\n"
 "    --word-diff            Use word-level diff (groups changes by word tokens)\n"
 "    --indent-aware         Normalize indentation before line diff\n"
-"    --optimize-sequence    Enable op-sequence optimization (default: on)\n"
-"    --no-optimize-sequence Disable op-sequence optimization\n"
 "    --left-to-right        Sort ops left-to-right by column\n"
 "\n"
 "CONFIGURATION\n"
@@ -743,10 +720,6 @@ int main(int argc, char** argv) {
             do_word_diff = true;
         } else if (strcmp(argv[i], "--indent-aware") == 0) {
             do_indent_aware = true;
-        } else if (strcmp(argv[i], "--optimize-sequence") == 0) {
-            do_optimize = true;
-        } else if (strcmp(argv[i], "--no-optimize-sequence") == 0) {
-            do_optimize = false;
         } else if (strcmp(argv[i], "--left-to-right") == 0) {
             do_l2r = true;
         } else if (strcmp(argv[i], "--diff") == 0) {
@@ -867,9 +840,6 @@ int main(int argc, char** argv) {
             if (do_semantic) {
                 h.char_ops = semantic_cleanup(move(h.char_ops));
             }
-            if (do_optimize) {
-                h.char_ops = optimize_sequence(move(h.char_ops));
-            }
             if (do_l2r) {
                 h.char_ops = left_to_right(move(h.char_ops));
             }
@@ -886,7 +856,7 @@ int main(int argc, char** argv) {
     out << "# semantic_cleanup " << (do_semantic ? 1 : 0) << "\n";
     out << "# word_diff " << (do_word_diff ? 1 : 0) << "\n";
     out << "# indent_aware " << (do_indent_aware ? 1 : 0) << "\n";
-    out << "# optimize_sequence " << (do_optimize ? 1 : 0) << "\n";
+    out << "# optimize_sequence 1\n";
     out << "# left_to_right " << (do_l2r ? 1 : 0) << "\n";
     out << "# hunk_count " << hunks.size() << "\n";
     for (auto& h : hunks) {

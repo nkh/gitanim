@@ -38,18 +38,25 @@ use DiffVim::Parser::Perl qw(parse_diff);
 binmode(STDERR, ':utf8');
 
 my $algorithm = 'patience';
+my $do_semantic = 0;
+my $do_word_diff = 0;
+my $do_indent_aware = 0;
+my $do_l2r = 0;
 my @positionals;
 
 for (my $i = 0; $i < @ARGV; $i++) {
     my $a = $ARGV[$i];
     if ($a eq '--semantic-cleanup') {
-        # passed through to parser via options below
+        $do_semantic = 1;
     } elsif ($a eq '--word-diff') {
-        # passed through to parser via options below
+        $do_word_diff = 1;
     } elsif ($a eq '--indent-aware') {
-        # passed through
+        $do_indent_aware = 1;
+    } elsif ($a eq '--left-to-right') {
+        $do_l2r = 1;
     } elsif ($a eq '-h' || $a eq '--help') {
-        print STDERR "Usage: $0 <oldfile> <newfile> <outputfile> [--algorithm lcs|patience]\n";
+        print STDERR "Usage: $0 <oldfile> <newfile> <outputfile> [options]\n";
+        print STDERR "Options: --semantic-cleanup --word-diff --indent-aware --left-to-right\n";
         exit 0;
     } else {
         push @positionals, $a;
@@ -57,7 +64,7 @@ for (my $i = 0; $i < @ARGV; $i++) {
 }
 
 if (@positionals < 3) {
-    print STDERR "Usage: $0 <oldfile> <newfile> <outputfile> [--algorithm lcs|patience]\n";
+    print STDERR "Usage: $0 <oldfile> <newfile> <outputfile> [options]\n";
     exit 1;
 }
 
@@ -67,8 +74,9 @@ my $t_start = Time::HiRes::time() if eval { require Time::HiRes; };
 
 my $result = parse_diff($oldfile, $newfile, {
     algorithm       => $algorithm,
-    semantic_cleanup => 0,
-    indent_aware    => 0,
+    semantic_cleanup => $do_semantic,
+    indent_aware    => $do_indent_aware,
+    word_diff       => $do_word_diff,
 });
 
 my @hunks = @{$result->{hunks}};
@@ -89,17 +97,12 @@ sub char_repr {
 open my $out, '>:raw', $outfile or die "Cannot write $outfile: $!";
 print $out "# diffvim raw diff v2\n";
 print $out "# algorithm $algorithm\n";
-print $out "# semantic_cleanup 0\n";
-print $out "# word_diff 0\n";
-print $out "# indent_aware 0\n";
+print $out "# semantic_cleanup $do_semantic\n";
+print $out "# word_diff $do_word_diff\n";
+print $out "# indent_aware $do_indent_aware\n";
 print $out "# optimize_sequence 1\n";
 
-# Check for --left-to-right CLI flag (mirror the C++ compute tool).
-# No env vars.
-my $do_l2r = 0;
-for my $arg (@ARGV) {
-    $do_l2r = 1 if $arg eq '--left-to-right';
-}
+# --left-to-right is parsed above (in the main CLI loop).
 print $out "# left_to_right $do_l2r\n";
 print $out "# hunk_count " . scalar(@hunks) . "\n";
 

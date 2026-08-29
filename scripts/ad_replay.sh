@@ -15,7 +15,7 @@ DESCRIPTION
     Loads the old file into the animator as the initial buffer, then
     feeds the timed op stream through ad (in
     --no-display mode at speed 1000, with --snapshot) so that the
-    final buffer state is written to /tmp/dv_replay_out.txt.
+    final buffer state is written to /tmp/ad_replay_$$.txt.
 
     This is the counterpart to dv_record.sh: the recording captures
     the timed ops, and this script replays them.
@@ -29,7 +29,7 @@ OPTIONS
 EXAMPLES
     dv_replay.sh tests/examples/01_small_python/old.py /tmp/my_recording.dv
         Replay the recording, writing the final buffer to
-        /tmp/dv_replay_out.txt.
+        /tmp/ad_replay_$$.txt.
 
     dv_record.sh old.py new.py /tmp/my_recording.dv
         (Companion command) record the animation first.
@@ -46,5 +46,5 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 OLD="$1"; RECORDING="$2"
-"$ROOT/bin/ad" --no-display --speed 1000 --snapshot /tmp/dv_replay_out.txt "$OLD" < "$RECORDING"
-echo "Replay complete. Output: /tmp/dv_replay_out.txt"
+"$ROOT/bin/ad" --no-display --speed 1000 --snapshot /tmp/ad_replay_$$.txt "$OLD" < "$RECORDING"
+echo "Replay complete. Output: /tmp/ad_replay_$$.txt"

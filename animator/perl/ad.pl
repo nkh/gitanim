@@ -179,24 +179,6 @@ sub insert_char {
     }
 }
 
-sub batch_delete {
-    my ($n) = @_;
-    my $line = $lines[$cursor_l];
-    my @chars = split //, $line;
-    my $end = $cursor_c + $n;
-    $end = scalar(@chars) if $end > scalar(@chars);
-    my $count = $end - $cursor_c;
-    splice(@chars, $cursor_c, $count) if $count > 0;
-    $lines[$cursor_l] = join("", @chars);
-}
-
-sub batch_insert {
-    my @codes = @_;
-    for my $code (@codes) {
-        insert_char($code);
-    }
-}
-
 sub render {
     return if $no_display;
     print "\033[2J\033[H";  # Clear screen

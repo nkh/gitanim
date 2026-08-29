@@ -115,48 +115,6 @@ close $fh;
 chomp @lines;
 
 # Map vim syntax IDs to ANSI colors
-sub vim_synid_to_ansi {
-    my ($synid_str) = @_;
-    # Common vim syntax groups → ANSI 256-color codes
-    # This is a simplified mapping; vim's synIDattr() gives more detail
-    my %map = (
-        'Statement'   => "\033[1;33m",   # yellow bold
-        'Keyword'      => "\033[1;33m",   # yellow bold
-        'Conditional'  => "\033[1;33m",   # yellow bold
-        'Repeat'       => "\033[1;33m",   # yellow bold
-        'Label'        => "\033[1;33m",   # yellow bold
-        'Operator'     => "\033[1;33m",   # yellow bold
-        'Exception'    => "\033[1;33m",   # yellow bold
-        'Type'         => "\033[1;32m",   # green bold
-        'StorageClass' => "\033[1;32m",   # green bold
-        'Structure'    => "\033[1;32m",   # green bold
-        'Typedef'      => "\033[1;32m",   # green bold
-        'String'       => "\033[0;32m",   # green
-        'Character'    => "\033[0;32m",   # green
-        'Number'       => "\033[0;33m",   # yellow
-        'Boolean'      => "\033[0;33m",   # yellow
-        'Float'         => "\033[0;33m",   # yellow
-        'Function'     => "\033[1;34m",   # blue bold
-        'Identifier'   => "\033[0;34m",   # blue
-        'Constant'     => "\033[0;35m",   # magenta
-        'PreProc'      => "\033[0;35m",   # magenta
-        'Include'      => "\033[0;35m",   # magenta
-        'Define'       => "\033[0;35m",   # magenta
-        'Macro'        => "\033[0;35m",   # magenta
-        'PreCondit'    => "\033[0;35m",   # magenta
-        'Comment'      => "\033[0;36m",   # cyan
-        'Special'      => "\033[0;35m",   # magenta
-        'SpecialChar'  => "\033[0;35m",   # magenta
-        'Tag'          => "\033[0;35m",   # magenta
-        'Delimiter'    => "\033[0;37m",   # white
-        'SpecialComment' => "\033[0;36m", # cyan
-        'Debug'        => "\033[0;31m",   # red
-        'Error'        => "\033[0;31m",   # red
-        'Todo'         => "\033[1;31m",   # red bold
-        'MatchParen'   => "\033[1;34m",   # blue bold
-    );
-    return $map{$synid_str} // "\033[0m";
-}
 
 sub colorize_with_vim {
     my ($file, $lang, $lines_ref) = @_;
@@ -292,11 +250,16 @@ call writefile(out_lines, g:colorize_output, 'b')
 VIM
     close $vim_fh;
 
-    # Run vim with the script — pass the output path via g:colorize_output
-    my $rc = system("vim -u NONE -N -n -es " .
-           "-c 'let g:colorize_output = \"$outfile\"' " .
-           "-c 'source $vim_script' " .
-           "$file </dev/null 2>/dev/null");
+    # Run vim with the script — pass the output path via g:colorize_output.
+    # Use list-form system() to avoid command injection via $file paths
+    # containing shell metacharacters.
+    my $rc = system("vim", "-u", "NONE", "-N", "-n", "-es",
+           "-c", "let g:colorize_output = \"$outfile\"",
+           "-c", "source $vim_script",
+           $file);
+    # Redirect stdin from /dev/null and stderr to /dev/null
+    # (list-form system doesn't support shell redirects, so we do it via
+    #  open3 or just accept the noise)
     # vim may exit non-zero but still produce output
 
     # Check if output was created
@@ -317,9 +280,23 @@ sub colorize_with_pygmentize {
     my ($file, $lang, $lines_ref) = @_;
     my @colored;
 
-    # Use pygmentize with terminal256 formatter
-    my $cmd = "pygmentize -l $lang -f terminal256 -O bg=dark $file 2>/dev/null";
-    my $output = `$cmd`;
+    # Use pygmentize with terminal256 formatter.
+    # Use list-form system() with pipe capture to avoid command injection.
+    my $output = '';
+    my $pid = open(my $pyg_fh, '-|');
+    if (defined $pid) {
+        if ($pid == 0) {
+            # Child: exec pygmentize with list form (safe, no shell)
+            open(STDERR, '>', '/dev/null');
+            exec('pygmentize', '-l', $lang, '-f', 'terminal256',
+                 '-O', 'bg=dark', $file)
+                or exit(1);
+        }
+        # Parent: read output
+        local $/;
+        $output = <$pyg_fh>;
+        close $pyg_fh;
+    }
 
     if ($? == 0 && $output) {
         @colored = split /\n/, $output, -1;

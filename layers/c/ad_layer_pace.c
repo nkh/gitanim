@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
 
         if (n_lines >= cap_lines) {
             cap_lines = cap_lines == 0 ? 4096 : cap_lines * 2;
-            all_lines = (char **)realloc(all_lines, cap_lines * sizeof(char *));
+            { char **_tmp = realloc(all_lines, cap_lines * sizeof(char *)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } all_lines = _tmp; }
             if (!all_lines) { fprintf(stderr, "ad_layer_pace: out of memory\n"); exit(1); }
         }
         all_lines[n_lines] = strdup(buf);
@@ -718,6 +718,15 @@ int main(int argc, char **argv) {
                 /* Word pacing: type words instantly, pause after each word.
                  * A "word" is a run of non-whitespace chars. When we hit
                  * a whitespace char or end of inserts, pause. */
+                /* Count \n inserts for changed_lines before the word-pacing
+                 * continue skips the check below. */
+                if (code == 10) {
+                    changed_lines++;
+                    if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
+                        && n_lines > pause_after_threshold) {
+                        emit_paced_delay(pause_after_ms, "pause_after");
+                    }
+                }
                 /* Collect consecutive insert chars on same line */
                 int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
                 int start_idx = i;

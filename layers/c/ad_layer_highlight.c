@@ -67,7 +67,7 @@ void ensure_capacity(int needed) {
     if (needed <= cap_lines) return;
     int nc = cap_lines == 0 ? 4096 : cap_lines;
     while (nc < needed) nc *= 2;
-    all_lines = realloc(all_lines, nc * sizeof(char *));
+    { char **_tmp = realloc(all_lines, nc * sizeof(char *)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } all_lines = _tmp; }
     if (!all_lines) { fprintf(stderr, "out of memory\n"); exit(1); }
     cap_lines = nc;
 }
@@ -333,6 +333,7 @@ int main(int argc, char **argv) {
             int target = get_op_line(line);
             hunk_start_line = target;
             hunk_char_count = 0;
+            last_changed_line = 0;  /* Reset per hunk — prevents stale value from previous hunk */
             in_hunk = 1;
 
             /* Dim unchanged region before this hunk */
