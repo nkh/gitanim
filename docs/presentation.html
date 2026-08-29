@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>diffvim — Animate Code Diffs in Vim</title>
+<title>ad — Animate a Diff</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -44,712 +44,138 @@
   .badge-feat { background: var(--green); color: var(--bg); }
   .badge-platform { background: var(--purple); color: var(--bg); }
   .badge-version { background: var(--yellow); color: var(--bg); }
-
-  /* Code terminal */
   .terminal {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 1rem;
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-    font-size: 0.9rem;
-    line-height: 1.5;
     overflow-x: auto;
     margin: 1rem 0;
-    position: relative;
   }
-  .terminal::before {
-    content: '● ● ●';
-    color: var(--red);
-    font-size: 0.7rem;
-    display: block;
-    margin-bottom: 0.5rem;
-  }
-  .terminal .line-num { color: #484f58; margin-right: 1rem; }
-  .terminal .cursor {
-    display: inline-block;
-    width: 8px;
-    height: 16px;
-    background: var(--accent);
-    animation: blink 1s step-end infinite;
-    vertical-align: text-bottom;
-  }
-  @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
-  }
-
-  /* Animation frames */
-  .anim-container {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    margin: 1rem 0;
-  }
-  .anim-header {
-    background: var(--border);
-    padding: 0.5rem 1rem;
-    font-size: 0.8rem;
-    color: var(--fg);
-    opacity: 0.7;
-    font-family: monospace;
-  }
-  .anim-body {
-    padding: 1rem;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 0.85rem;
-    line-height: 1.6;
-    min-height: 200px;
-  }
-  .anim-frame {
-    display: none;
-  }
-  .anim-frame.active {
-    display: block;
-  }
-  .anim-controls {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: var(--border);
-    align-items: center;
-  }
-  .anim-btn {
-    background: var(--accent);
-    color: var(--bg);
-    border: none;
-    padding: 0.3rem 0.8rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  .anim-btn:hover { opacity: 0.8; }
-  .anim-progress {
-    flex: 1;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .anim-progress-bar {
-    height: 100%;
-    background: var(--green);
-    transition: width 0.3s;
-  }
-  .anim-label { font-size: 0.75rem; color: var(--fg); opacity: 0.6; }
-
-  /* Typing animation */
-  .typing-demo {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-  .typing-demo .added { color: var(--green); }
-  .typing-demo .deleted { color: var(--red); text-decoration: line-through; opacity: 0.5; }
-  .typing-demo .kept { color: var(--fg); opacity: 0.7; }
-  .typing-demo .cursor-mark {
-    background: var(--accent);
-    color: var(--bg);
-    padding: 0 2px;
-    border-radius: 2px;
-  }
-
-  /* Feature grid */
+  .terminal pre { margin: 0; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.9rem; }
   .feature-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 1rem;
     margin: 1rem 0;
   }
   .feature-card {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.2rem;
-    transition: transform 0.2s, border-color 0.2s;
+    border-radius: 6px;
+    padding: 1rem;
   }
-  .feature-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent);
-  }
-  .feature-card .icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
-  .feature-card h4 { color: var(--accent); font-size: 1rem; margin-bottom: 0.3rem; }
-  .feature-card p { font-size: 0.85rem; opacity: 0.8; margin: 0; }
-
-  /* Stats */
+  .feature-card .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .feature-card h4 { color: var(--accent); margin-bottom: 0.3rem; }
   .stats {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
-    margin: 2rem 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
   }
   .stat {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
     text-align: center;
   }
-  .stat .number {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--accent);
-  }
-  .stat .label {
-    font-size: 0.85rem;
-    opacity: 0.7;
-  }
-
-  /* Command reference */
-  .cmd-table {
+  .stat .number { font-size: 2rem; font-weight: bold; color: var(--accent); }
+  .stat .label { font-size: 0.85rem; opacity: 0.8; }
+  table.cmd-table {
     width: 100%;
     border-collapse: collapse;
     margin: 1rem 0;
   }
-  .cmd-table th {
+  table.cmd-table th, table.cmd-table td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.8rem;
     text-align: left;
-    padding: 0.5rem;
-    background: var(--border);
-    color: var(--accent);
-    font-size: 0.85rem;
   }
-  .cmd-table td {
-    padding: 0.5rem;
-    border-bottom: 1px solid var(--border);
-    font-family: monospace;
-    font-size: 0.85rem;
-  }
-  .cmd-table td:first-child { color: var(--green); white-space: nowrap; }
-  .cmd-table td:last-child { color: var(--fg); opacity: 0.7; font-family: inherit; }
-
-  /* Architecture diagram */
+  table.cmd-table th { background: var(--code-bg); color: var(--accent); }
+  table.cmd-table code { color: var(--green); }
   .arch-diagram {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 2rem;
-    margin: 1rem 0;
-    font-family: monospace;
-    font-size: 0.85rem;
-    line-height: 1.5;
-    color: var(--fg);
-    overflow-x: auto;
-  }
-  .arch-box {
-    display: inline-block;
-    border: 2px solid var(--accent);
     border-radius: 6px;
-    padding: 0.5rem 1rem;
-    margin: 0.5rem;
-    text-align: center;
-  }
-  .arch-arrow { color: var(--green); }
-
-  /* Quick start */
-  .quick-start {
-    background: linear-gradient(135deg, #161b22, #0d1117);
-    border: 1px solid var(--accent);
-    border-radius: 8px;
-    padding: 1.5rem;
+    padding: 1rem;
+    overflow-x: auto;
     margin: 1rem 0;
   }
-  .quick-start h3 { color: var(--green); margin-top: 0; }
-  .quick-start code {
-    background: var(--code-bg);
-    padding: 0.2rem 0.4rem;
-    border-radius: 3px;
-    font-size: 0.9rem;
-    color: var(--yellow);
-  }
-
-  /* Video placeholder */
-  .video-frame {
-    position: relative;
-    padding-bottom: 56.25%;
-    height: 0;
-    overflow: hidden;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    margin: 1rem 0;
-    background: var(--code-bg);
-  }
-  .video-frame .play-btn {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 3rem;
-    color: var(--accent);
-    opacity: 0.7;
-    cursor: pointer;
-  }
-  .video-frame .play-btn:hover { opacity: 1; }
-  .video-frame .video-label {
-    position: absolute;
-    bottom: 1rem; left: 1rem;
+  .arch-diagram pre {
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 0.85rem;
-    opacity: 0.6;
+    line-height: 1.4;
   }
-
-  /* Language icons */
-  .lang-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 1rem 0;
-  }
-  .lang-chip {
+  .lang-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 1rem 0; }
+  .lang-badge {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
     font-size: 0.8rem;
     font-family: monospace;
   }
-  .lang-chip:hover { border-color: var(--accent); }
-
-  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
-
-  .cta {
-    text-align: center;
-    margin: 3rem 0;
-    padding: 2rem;
-    background: linear-gradient(135deg, #1a1f2e, #0d1117);
-    border: 1px solid var(--accent);
-    border-radius: 12px;
-  }
-  .cta h2 { border: none; color: var(--green); }
-  .cta .install-cmd {
-    font-family: monospace;
-    font-size: 1.1rem;
-    background: var(--code-bg);
-    padding: 0.8rem 1.5rem;
-    border-radius: 6px;
-    display: inline-block;
-    margin: 1rem 0;
-    color: var(--yellow);
-  }
-
-  footer {
-    text-align: center;
-    margin-top: 3rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--border);
-    opacity: 0.6;
-    font-size: 0.85rem;
-  }
-
-  /* Preset grid (new in 1.4) */
-  .preset-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
-    margin: 1.5rem 0;
-  }
-  .preset-card {
+  .quick-start {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem 1.2rem;
-    transition: border-color 0.15s, transform 0.15s;
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin: 1rem 0;
   }
-  .preset-card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-  }
-  .preset-name {
-    color: var(--accent);
-    font-family: monospace;
-    font-size: 1.05rem;
-    font-weight: 600;
-  }
-  .preset-tag {
-    display: inline-block;
-    background: var(--purple);
-    color: var(--bg);
-    padding: 0.1rem 0.5rem;
-    border-radius: 10px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    margin: 0.3rem 0 0.6rem;
-  }
-  .preset-cmd {
-    background: #0d1117;
-    border-left: 3px solid var(--green);
-    padding: 0.4rem 0.7rem;
-    margin: 0.4rem 0;
-    font-size: 0.82rem;
-    color: var(--fg);
-    overflow-x: auto;
-  }
-  .preset-card p {
-    font-size: 0.85rem;
-    color: var(--fg);
-    opacity: 0.8;
-    margin: 0.4rem 0 0;
-  }
-
-  /* Compute grid (new in 1.4) */
   .compute-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
-    margin: 1.5rem 0;
+    margin: 1rem 0;
   }
   .compute-card {
     background: var(--code-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem 1.2rem;
-    text-align: center;
-    transition: border-color 0.15s, transform 0.15s;
+    border-radius: 6px;
+    padding: 1rem;
   }
-  .compute-card:hover {
-    border-color: var(--green);
-    transform: translateY(-2px);
-  }
-  .compute-lang {
-    font-family: monospace;
-    font-size: 1.5rem;
-    color: var(--green);
-    font-weight: 700;
-  }
-  .compute-file {
-    font-family: monospace;
-    font-size: 0.85rem;
-    color: var(--accent);
-    margin: 0.4rem 0;
-  }
-  .compute-note {
-    font-size: 0.82rem;
-    opacity: 0.75;
-  }
-
-  /* Doc grid (new in 1.4) */
-  .doc-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1rem;
-    margin: 1.5rem 0;
-  }
-  .doc-card {
-    display: block;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1rem 1.2rem;
-    text-decoration: none;
-    color: var(--fg);
-    transition: border-color 0.15s, transform 0.15s;
-  }
-  .doc-card:hover {
-    border-color: var(--purple);
-    transform: translateY(-2px);
-  }
-  .doc-title {
-    color: var(--purple);
-    font-family: monospace;
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin-bottom: 0.3rem;
-  }
-  .doc-desc {
-    font-size: 0.85rem;
-    opacity: 0.8;
-  }
+  .compute-lang { color: var(--accent); font-weight: bold; }
+  .compute-file { color: var(--green); font-family: monospace; margin: 0.3rem 0; }
+  .compute-note { font-size: 0.85rem; opacity: 0.8; }
+  code { color: var(--green); font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+  .section-break { border: 0; border-top: 1px solid var(--border); margin: 3rem 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
 
-<!-- ================================================================ -->
-<!-- HEADER -->
-<!-- ================================================================ -->
-
-<h1><span class="accent">diff</span>vim</h1>
-<p class="tagline">Animate code diffs in vim — as if a human were typing them.</p>
+<h1><span class="accent">ad</span> — animate a diff</h1>
+<p class="tagline">Watch your code changes come alive, character by character, as if a human were typing them.</p>
 
 <div class="badges">
-  <span class="badge badge-lang">Vim</span>
-  <span class="badge badge-lang">Bash</span>
-  <span class="badge badge-lang">Perl</span>
-  <span class="badge badge-feat">35+ options</span>
-  <span class="badge badge-feat">3 diff algorithms</span>
-  <span class="badge badge-feat">UTF-8</span>
-  <span class="badge badge-platform">macOS</span>
-  <span class="badge badge-platform">Linux</span>
-  <span class="badge badge-version">v1.4</span>
+  <span class="badge badge-lang">C / C++ / Perl / Bash</span>
+  <span class="badge badge-feat">Plugin Layers</span>
+  <span class="badge badge-platform">Linux / macOS</span>
+  <span class="badge badge-version">v2.0</span>
 </div>
 
 <!-- ================================================================ -->
-<!-- WHAT IS DIFFVIM -->
+<!-- WHAT IS AD -->
 <!-- ================================================================ -->
 
-<h2>What is diffvim?</h2>
+<h2>What is ad?</h2>
 
 <p>
-<strong>diffvim</strong> opens the old version of a file in vim and animates the
-transformation into the new version <em>character by character</em>. The cursor
-glides between change locations with smooth ease-in-out acceleration, and only
-the actually-changed characters are deleted and re-typed — surrounding text is
+<strong>ad</strong> is a toolkit that animates code diffs. It opens the old version of a
+file and progressively transforms it into the new version, character by
+character, as if a human were typing the changes. The cursor glides between
+change locations with smooth ease-in-out acceleration, and only the
+actually-changed characters are deleted and re-typed — surrounding text is
 never touched.
 </p>
 
 <p>
-It's like watching a senior developer type out a code change in real time,
-except it's automated, perfectly paced, and you can pause, skip, rewind, and
+<code>ad_vim</code> is the vim application — one consumer of the toolkit —
+that renders the animation inside vim. You can pause, skip, rewind, and
 change speed at any moment.
 </p>
-
-<!-- ================================================================ -->
-<!-- LIVE ANIMATION DEMO -->
-<!-- ================================================================ -->
-
-<h2>Watch it in action</h2>
-
-<p>Here's a live demo of diffvim animating a Python f-string conversion.
-Click <strong>Play</strong> to see the animation, or step through frames manually.</p>
-
-<div class="anim-container">
-  <div class="anim-header">diffvim — examples/01_small_python/old.py → new.py</div>
-  <div class="anim-body" id="animBody">
-    <!-- Frames will be inserted by JavaScript -->
-  </div>
-  <div class="anim-controls">
-    <button class="anim-btn" onclick="prevFrame()">◀ Prev</button>
-    <button class="anim-btn" onclick="togglePlay()" id="playBtn">▶ Play</button>
-    <button class="anim-btn" onclick="nextFrame()">Next ▶</button>
-    <div class="anim-progress">
-      <div class="anim-progress-bar" id="progressBar" style="width: 0%"></div>
-    </div>
-    <span class="anim-label" id="frameLabel">Frame 0 / 15</span>
-  </div>
-</div>
-
-<script>
-// Animation frames generated from actual diffvim output
-const frames = [
-  // Frame 0: Original
-  {cursor: [2, 12], lines: ["def greet(name):", '    print("Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 1: Cursor gliding (visual only)
-  {cursor: [2, 11], lines: ["def greet(name):", '    print("Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 2: Insert 'f' before the quote
-  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 3: Delete the closing quote
-  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello, " + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 4: Delete space
-  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello," + name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 5: Delete +
-  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello," name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 6: Delete space
-  {cursor: [2, 13], lines: ["def greet(name):", '    print(f"Hello,name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 7: Insert {
-  {cursor: [2, 14], lines: ["def greet(name):", '    print(f"Hello,{name)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 8: Insert }
-  {cursor: [2, 19], lines: ["def greet(name):", '    print(f"Hello,{name})', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 9: Insert !
-  {cursor: [2, 20], lines: ["def greet(name):", '    print(f"Hello,{name}!)', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 10: Insert closing "
-  {cursor: [2, 21], lines: ["def greet(name):", '    print(f"Hello,{name}!")', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 11: Final result (hunk 1 done)
-  {cursor: [5, 1], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b"]},
-  // Frame 12: Insert new line
-  {cursor: [7, 1], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", ""]},
-  // Frame 13: Insert "def multiply..."
-  {cursor: [7, 20], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", "", "def multiply(a, b):"]},
-  // Frame 14: Insert "    return a * b"
-  {cursor: [8, 18], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", "", "def multiply(a, b):", "    return a * b"]},
-  // Frame 15: Done
-  {cursor: [8, 18], lines: ["def greet(name):", '    print(f"Hello, {name}!")', "    return None", "", "def add(a, b):", "    return a + b", "", "def multiply(a, b):", "    return a * b"]},
-];
-
-let currentFrame = 0;
-let playing = false;
-let playInterval = null;
-
-function renderFrame(idx) {
-  const frame = frames[idx];
-  const body = document.getElementById('animBody');
-  let html = '';
-  frame.lines.forEach((line, i) => {
-    const lineNum = i + 1;
-    const isCursorLine = frame.cursor[0] === lineNum;
-    if (isCursorLine) {
-      const cursorCol = frame.cursor[1];
-      const before = line.substring(0, cursorCol - 1);
-      const cursorChar = line.length >= cursorCol ? line[cursorCol - 1] : ' ';
-      const after = line.substring(cursorCol);
-      html += `<span style="color:#484f58">${String(lineNum).padStart(3, ' ')}</span>  `;
-      html += `<span style="color:#e6edf3">${before}</span>`;
-      html += `<span style="background:#58a6ff;color:#0d1117">${cursorChar}</span>`;
-      html += `<span style="color:#e6edf3">${after}</span>`;
-    } else {
-      html += `<span style="color:#484f58">${String(lineNum).padStart(3, ' ')}</span>  `;
-      html += `<span style="color:#e6edf3">${line}</span>`;
-    }
-    html += '\n';
-  });
-  body.innerHTML = '<pre style="margin:0">' + html + '</pre>';
-
-  // Update progress
-  const pct = ((idx + 1) / frames.length * 100).toFixed(0);
-  document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('frameLabel').textContent = `Frame ${idx + 1} / ${frames.length}`;
-}
-
-function nextFrame() {
-  if (currentFrame < frames.length - 1) {
-    currentFrame++;
-    renderFrame(currentFrame);
-  } else {
-    stopPlay();
-  }
-}
-
-function prevFrame() {
-  if (currentFrame > 0) {
-    currentFrame--;
-    renderFrame(currentFrame);
-  }
-}
-
-function togglePlay() {
-  if (playing) {
-    stopPlay();
-  } else {
-    startPlay();
-  }
-}
-
-function startPlay() {
-  playing = true;
-  document.getElementById('playBtn').textContent = '⏸ Pause';
-  if (currentFrame >= frames.length - 1) currentFrame = 0;
-  playInterval = setInterval(() => {
-    nextFrame();
-  }, 500);
-}
-
-function stopPlay() {
-  playing = false;
-  document.getElementById('playBtn').textContent = '▶ Play';
-  clearInterval(playInterval);
-}
-
-// Initial render
-renderFrame(0);
-</script>
-
-<!-- ================================================================ -->
-<!-- VIDEO PLACEHOLDER -->
-<!-- ================================================================ -->
-
-<h3>Full demo video</h3>
-<p>Record a screencast of diffvim running on a larger file (like the Python
-refactoring example) and embed it here. Use <code>asciinema</code> or
-<code>screenkey</code> to show keystrokes.</p>
-
-<div class="video-frame">
-  <div class="play-btn">▶</div>
-  <div class="video-label">diffvim demo — Python refactoring (02_large_python)</div>
-</div>
-
-<p style="opacity:0.6;font-size:0.85rem">
-To create this video:
-</p>
-<pre style="background:var(--code-bg);padding:1rem;border-radius:8px;font-size:0.85rem;opacity:0.8">
-# Record with asciinema:
-asciinema rec demo.cast --command="diffvim --speed 0.7 --scroll zz examples/02_large_python/old.py examples/02_large_python/new.py"
-
-# Convert to GIF:
-agg demo.cast demo.gif --speed 0.8
-
-# Or use tmux + script:
-script -q demo.typescript -c "diffvim --speed 0.7 --scroll zz examples/02_large_python/old.py examples/02_large_python/new.py"
-</pre>
-
-<!-- ================================================================ -->
-<!-- KEY FEATURES -->
-<!-- ================================================================ -->
-
-<h2>Key features</h2>
-
-<div class="feature-grid">
-  <div class="feature-card">
-    <div class="icon">🎯</div>
-    <h4>Char-level precision</h4>
-    <p>Only the actually-changed characters are touched. No whole-line rewrites. The Patience algorithm finds the minimal edit script.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">🌊</div>
-    <h4>Smooth cursor glide</h4>
-    <p>Cursor glides between change locations with ease-in-out cubic acceleration. Slow start, fast middle, slow end — like a human.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">⏸️</div>
-    <h4>Full playback control</h4>
-    <p>Pause, skip hunks, go back, change speed (±), undo/redo, step mode. All in real time without restarting.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">🔀</div>
-    <h4>3 diff algorithms</h4>
-    <p>Patience (classic, default) and Patience (unique-line anchoring). Choose the one that produces the most readable diff. (Myers was removed.)</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">🌍</div>
-    <h4>UTF-8 aware</h4>
-    <p>Multi-byte characters (em-dash —, ©, emoji) are handled correctly. The cursor tracks byte positions, not character positions.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">📝</div>
-    <h4>Vim plugin mode</h4>
-    <p>Run inside an existing vim session via <code>:Diffvim</code>, <code>:DiffvimCommit</code>, and <code>:DiffvimPick</code> commands. No tmux needed.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">🎨</div>
-    <h4>Visual highlighting</h4>
-    <p>Highlight hunk regions before animating. Choose colors, duration, and minimum size. Fold unchanged regions. Apply themes.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">🔧</div>
-    <h4>Git integration</h4>
-    <p>Replay git history commit-by-commit. Pick commits with fzf preview. Show git blame during animation. Accept piped diffs.</p>
-  </div>
-  <div class="feature-card">
-    <div class="icon">📊</div>
-    <h4>32 example file pairs</h4>
-    <p>Tested across 15+ languages: Python, Java, Kotlin, Swift, Ruby, Go, Rust, C, TypeScript, Haskell, Elixir, Clojure, and more.</p>
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<!-- STATS -->
-<!-- ================================================================ -->
-
-<h2>By the numbers</h2>
-
-<div class="stats">
-  <div class="stat">
-    <div class="number">35+</div>
-    <div class="label">CLI options</div>
-  </div>
-  <div class="stat">
-    <div class="number">32</div>
-    <div class="label">Example file pairs</div>
-  </div>
-  <div class="stat">
-    <div class="number">15+</div>
-    <div class="label">Programming languages</div>
-  </div>
-  <div class="stat">
-    <div class="number">378+</div>
-    <div class="label">Test assertions</div>
-  </div>
-  <div class="stat">
-    <div class="number">52/100</div>
-    <div class="label">Features implemented</div>
-  </div>
-  <div class="stat">
-    <div class="number">0</div>
-    <div class="label">External dependencies (diffvim)</div>
-  </div>
-</div>
 
 <!-- ================================================================ -->
 <!-- QUICK START -->
@@ -760,27 +186,35 @@ script -q demo.typescript -c "diffvim --speed 0.7 --scroll zz examples/02_large_
 <div class="quick-start">
   <h3>⚡ Quick start</h3>
 
-  <p><strong>Option 1: Homebrew (macOS)</strong></p>
-  <pre style="background:var(--code-bg);padding:1rem;border-radius:6px;margin:0.5rem 0">
-brew install ./packaging/diffvim.rb
-diffvim old.py new.py</pre>
-
-  <p><strong>Option 2: Manual</strong></p>
-  <pre style="background:var(--code-bg);padding:1rem;border-radius:6px;margin:0.5rem 0">
+  <p><strong>Option 1: Build from source</strong></p>
+  <div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># Clone and build</span>
 git clone https://github.com/nkh/gitanim.git
 cd gitanim
-chmod +x diffvim
-./diffvim old.py new.py</pre>
+make
+
+<span style="color:#3fb950"># Animate a diff in vim</span>
+./apps/vim/ad_vim old.py new.py
+
+<span style="color:#3fb950"># Or run the full pipeline (terminal output)</span>
+./pipeline/ad_pipeline old.py new.py</pre>
+  </div>
+
+  <p><strong>Option 2: Homebrew (macOS)</strong></p>
+  <div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># Install via Homebrew formula</span>
+brew install ./packaging/ad_vim.rb
+ad_vim old.py new.py</pre>
+  </div>
 
   <p><strong>Option 3: Vim plugin</strong></p>
-  <pre style="background:var(--code-bg);padding:1rem;border-radius:6px;margin:0.5rem 0">
-" In vimrc with vim-plug:
-Plug 'nkh/gitanim', {'rtp': '.'}
+  <div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># In vimrc with vim-plug:</span>
+Plug 'nkh/gitanim', {'rtp': 'apps/vim'}
 
-" Then in vim:
-:Diffvim old.py new.py
-:DiffvimCommit HEAD~3
-:DiffvimPick</pre>
+<span style="color:#3fb950"># Then in vim:</span>
+:Diffvim old.py new.py</pre>
+  </div>
 </div>
 
 <!-- ================================================================ -->
@@ -789,57 +223,152 @@ Plug 'nkh/gitanim', {'rtp': '.'}
 
 <h2>Controls during animation</h2>
 
+<p>While the animation is running in vim, these keys are active:</p>
+
 <table class="cmd-table">
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td>Space</td><td>Pause / resume (or advance one op in step mode)</td></tr>
-  <tr><td>n</td><td>Skip current hunk — apply instantly, move to next</td></tr>
-  <tr><td>b</td><td>Back to previous hunk — revert and restart</td></tr>
-  <tr><td>q</td><td>Stop animation — leave buffer for editing</td></tr>
-  <tr><td>+ / -</td><td>Speed up / slow down (×1.5 per press)</td></tr>
-  <tr><td>=</td><td>Reset speed to 1.0×</td></tr>
-  <tr><td>u / Ctrl-r</td><td>Undo / redo last hunk</td></tr>
-  <tr><td>B / N</td><td>Go back one op / skip to next file</td></tr>
-  <tr><td>Ctrl-B / Ctrl-N</td><td>Go to beginning / skip to end</td></tr>
-  <tr><td>f</td><td>Toggle fold (with --fold-unchanged)</td></tr>
-  <tr><td>?</td><td>Toggle full-screen help overlay</td></tr>
+  <tr><td><code>Space</code></td><td>Pause / resume (or advance one op in step mode)</td></tr>
+  <tr><td><code>n</code></td><td>Skip current hunk — apply instantly, move to next</td></tr>
+  <tr><td><code>b</code></td><td>Back to previous hunk — revert and restart it</td></tr>
+  <tr><td><code>q</code></td><td>Stop animation (leave buffer in current state)</td></tr>
+  <tr><td><code>+</code></td><td>Speed up (×1.5)</td></tr>
+  <tr><td><code>-</code></td><td>Slow down (×0.67)</td></tr>
+  <tr><td><code>=</code></td><td>Reset speed to 1.0×</td></tr>
+  <tr><td><code>?</code></td><td>Show in-vim help</td></tr>
 </table>
 
+<p>These controls work in <strong>normal mode</strong>. The animation runs
+in vim's buffer using timer-based rendering — no tmux, no external terminal
+tricks. The buffer is real, the cursor is real, the syntax highlighting is
+real.</p>
+
 <!-- ================================================================ -->
-<!-- SUPPORTED LANGUAGES -->
+<!-- KEY FEATURES -->
 <!-- ================================================================ -->
 
-<h2>Tested with 15+ languages</h2>
+<h2>Key features</h2>
 
-<div class="lang-grid">
-  <span class="lang-chip">Python</span>
-  <span class="lang-chip">Java</span>
-  <span class="lang-chip">Kotlin</span>
-  <span class="lang-chip">Swift</span>
-  <span class="lang-chip">Ruby</span>
-  <span class="lang-chip">PHP</span>
-  <span class="lang-chip">Scala</span>
-  <span class="lang-chip">Elixir</span>
-  <span class="lang-chip">Clojure</span>
-  <span class="lang-chip">Haskell</span>
-  <span class="lang-chip">Lua</span>
-  <span class="lang-chip">Perl</span>
-  <span class="lang-chip">R</span>
-  <span class="lang-chip">SQL</span>
-  <span class="lang-chip">JavaScript</span>
-  <span class="lang-chip">TypeScript</span>
-  <span class="lang-chip">Go</span>
-  <span class="lang-chip">Rust</span>
-  <span class="lang-chip">C</span>
-  <span class="lang-chip">Shell</span>
-  <span class="lang-chip">Markdown</span>
-  <span class="lang-chip">HTML</span>
-  <span class="lang-chip">CSS</span>
-  <span class="lang-chip">JSON</span>
-  <span class="lang-chip">YAML</span>
-  <span class="lang-chip">TOML</span>
-  <span class="lang-chip">XML</span>
-  <span class="lang-chip">Dockerfile</span>
-  <span class="lang-chip">Makefile</span>
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="icon">🎯</div>
+    <h4>Character-level precision</h4>
+    <p>Only the actually-changed characters are deleted and re-typed. Surrounding text stays untouched — no whole-line rewrites.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🌊</div>
+    <h4>Smooth cursor glide</h4>
+    <p>The cursor doesn't jump between hunks. It glides with ease-in-out cubic acceleration so the viewer's eye can follow.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">⏸️</div>
+    <h4>Interactive controls</h4>
+    <p>Pause, skip hunks, go back, change speed — all without leaving vim. The animation responds instantly to your keystrokes.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔀</div>
+    <h4>Plugin layer system</h4>
+    <p>Postprocess layers are standalone executables chained by the orchestrator. Add your own layer in any language — C, Perl, Python, Ruby, bash.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🌍</div>
+    <h4>26+ languages</h4>
+    <p>Tested with Python, Go, Rust, C, TypeScript, Java, JavaScript, Ruby, PHP, Swift, Scala, Clojure, Haskell, R, SQL, YAML, TOML, JSON, XML, HTML, CSS, Shell, Dockerfile, Makefile, Markdown, Lua, Perl, Elixir, Kotlin, C#.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📝</div>
+    <h4>Config file + CLI flags</h4>
+    <p>No environment variables. Configure via <code>~/.config/ad/config</code> (XDG), override per-invocation with CLI flags. Simple precedence: config file &lt; CLI flag.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🎨</div>
+    <h4>Syntax highlighting</h4>
+    <p>Vim's native syntax highlighting is active during animation. Changed lines can be highlighted, unchanged regions dimmed or folded.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔧</div>
+    <h4>C + Perl twins</h4>
+    <p>Every layer has both a C implementation (preferred) and a Perl twin that produces byte-identical output. Verified by parity tests.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📊</div>
+    <h4>161 tests</h4>
+    <p>25 minimal cases, 36 examples, 35 l2r tests, 9 plugin-contract tests, 50 property-based tests, 6 per-layer tests. All passing.</p>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- BY THE NUMBERS -->
+<!-- ================================================================ -->
+
+<h2>By the numbers</h2>
+
+<div class="stats">
+  <div class="stat">
+    <div class="number">40+</div>
+    <div class="label">CLI options</div>
+  </div>
+  <div class="stat">
+    <div class="number">36</div>
+    <div class="label">Example file pairs</div>
+  </div>
+  <div class="stat">
+    <div class="number">26+</div>
+    <div class="label">Programming languages</div>
+  </div>
+  <div class="stat">
+    <div class="number">161</div>
+    <div class="label">Test assertions</div>
+  </div>
+  <div class="stat">
+    <div class="number">6</div>
+    <div class="label">Postprocess layers</div>
+  </div>
+  <div class="stat">
+    <div class="number">0</div>
+    <div class="label">Environment variables</div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- TESTED LANGUAGES -->
+<!-- ================================================================ -->
+
+<h2>Tested with 26+ languages</h2>
+
+<p>Every example in <code>tests/examples/</code> is run through the full
+pipeline and verified to produce the correct output. 36/36 pass.</p>
+
+<div class="lang-badges">
+  <span class="lang-badge">Python</span>
+  <span class="lang-badge">Go</span>
+  <span class="lang-badge">Rust</span>
+  <span class="lang-badge">C</span>
+  <span class="lang-badge">TypeScript</span>
+  <span class="lang-badge">Java</span>
+  <span class="lang-badge">JavaScript</span>
+  <span class="lang-badge">Ruby</span>
+  <span class="lang-badge">PHP</span>
+  <span class="lang-badge">Swift</span>
+  <span class="lang-badge">Scala</span>
+  <span class="lang-badge">Clojure</span>
+  <span class="lang-badge">Haskell</span>
+  <span class="lang-badge">R</span>
+  <span class="lang-badge">SQL</span>
+  <span class="lang-badge">YAML</span>
+  <span class="lang-badge">TOML</span>
+  <span class="lang-badge">JSON</span>
+  <span class="lang-badge">XML</span>
+  <span class="lang-badge">HTML</span>
+  <span class="lang-badge">CSS</span>
+  <span class="lang-badge">Shell</span>
+  <span class="lang-badge">Dockerfile</span>
+  <span class="lang-badge">Makefile</span>
+  <span class="lang-badge">Markdown</span>
+  <span class="lang-badge">Lua</span>
+  <span class="lang-badge">Perl</span>
+  <span class="lang-badge">Elixir</span>
+  <span class="lang-badge">Kotlin</span>
+  <span class="lang-badge">C#</span>
 </div>
 
 <!-- ================================================================ -->
@@ -850,35 +379,87 @@ Plug 'nkh/gitanim', {'rtp': '.'}
 
 <div class="arch-diagram">
 <pre style="margin:0">
-                    ┌──────────────────────────────────────────────────┐
-                    │              diffvim pipeline                    │
-                    │                                                  │
-  ┌─────────┐       │  ┌────────┐   ┌────────┐   ┌────────┐          │
-  │ old.py  │──────▶│  │  Diff  │──▶│ Hunk   │──▶│ Char   │          │
-  └─────────┘       │  │ compute│   │ grouping│  │ Patience    │          │
-                    │  └────────┘   └────────┘   └───┬────┘          │
-  ┌─────────┐       │                                 │               │
-  │ new.py  │──────▶│                                 ▼               │
-  └─────────┘       │                          ┌────────────┐         │
-                    │                          │  Animate   │         │
-                    │                          │  in Vim    │◀───┐    │
-                    │                          └────────────┘    │    │
-                    │                                 ▲           │    │
-                    │                          ┌──────┴──────┐    │    │
-                    │                          │ User Input  │────┘    │
-                    │                          │ (FIFO/timer)│         │
-                    │                          └─────────────┘         │
-                    └──────────────────────────────────────────────────┘
+  ┌─────────┐                                                        ┌──────────┐
+  │ old.py  │──────┐                                                 │ vim /    │
+  └─────────┘      │                                                 │ terminal │
+                   ▼                                                 └────▲─────┘
+  ┌─────────┐  ┌────────────┐   ┌──────────────┐   ┌────────────┐        │
+  │ new.py  │─▶│ ad_compute │──▶│ad_postprocess│──▶│ ad (anim)  │────────┘
+  └─────────┘  └────────────┘   └──────┬───────┘   └────────────┘
+                                      │
+                                      │ chains --ad-layer=<name> plugins
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                 ▼
+              ┌────────────┐  ┌────────────┐  ┌────────────┐
+              │ad_layer_   │  │ad_layer_   │  │ad_layer_   │
+              │ reorder    │  │ pace       │  │ highlight  │
+              └────────────┘  └────────────┘  └────────────┘
+                    │                 │                 │
+                    ▼                 ▼                 ▼
+              ┌────────────┐  ┌────────────┐  ┌────────────┐
+              │ C + Perl   │  │ C + Perl   │  │ C + Perl   │
+              │ twins      │  │ twins      │  │ twins      │
+              └────────────┘  └────────────┘  └────────────┘
 
-  Three implementations:
-  ┌────────────┐  ┌───────────────┐  ┌──────────────┐
-  │  diffvim   │  │ diffvim-tmux  │  │  diffvim.pl  │
-  │ Bash+Vim   │  │ Bash+tmux     │  │ Perl+tmux    │
-  │ No deps    │  │ tmux required │  │ Pluggable    │
-  │ timer_start│  │ send-keys     │  │ parsers      │
-  └────────────┘  └───────────────┘  └──────────────┘
+  Directory structure:
+  diff_engine/     ← ad_compute (C++ + Perl)
+  layers/          ← ad_layer_* (C + Perl twins)
+  animator/        ← ad (C + Perl)
+  pipeline/        ← ad_postprocess (orchestrator) + ad_pipeline
+  apps/vim/        ← ad_vim (vim application launcher)
+  scripts/         ← ad_debug, ad_snapshot, ad_record, ad_replay, ...
 </pre>
 </div>
+
+<p>The pipeline is modular: each stage reads V2 TSV from stdin and writes V2
+TSV to stdout. Stages are independent executables — you can run any layer
+standalone for debugging.</p>
+
+<!-- ================================================================ -->
+<!-- PLUGIN LAYER SYSTEM -->
+<!-- ================================================================ -->
+
+<h2>Plugin layer system</h2>
+
+<p>Postprocess layers are standalone executables that transform the op
+stream. The orchestrator (<code>ad_postprocess</code>) chains them in
+the order you specify on the command line.</p>
+
+<div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># List available layers</span>
+./pipeline/ad_postprocess --list-layers
+
+<span style="color:#3fb950"># Run a specific chain</span>
+./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last --ad-layer=ad_layer_pace
+
+<span style="color:#3fb950"># Add a custom layer from any language</span>
+./pipeline/ad_pipeline --ad-layer=my_custom_layer old.py new.py
+
+<span style="color:#3fb950"># Add a custom layer from a specific path</span>
+./pipeline/ad_pipeline --ad-layer=/path/to/my_layer.sh old.py new.py
+
+<span style="color:#3fb950"># Add a search path for layers</span>
+./pipeline/ad_pipeline --ad-layer-path=/my/layers --ad-layer=my_layer old.py new.py</pre>
+</div>
+
+<p>Layers run in <strong>argv order</strong> — not sorted, not deduplicated.
+The same layer can be passed twice (it runs twice). Extensions are
+honored: <code>.pl</code> → perl, <code>.py</code> → python3,
+<code>.rb</code> → ruby, <code>.sh</code> → bash, <code>.js</code> → node.
+No extension = must be executable.</p>
+
+<h3>Built-in layers</h3>
+
+<table class="cmd-table">
+  <tr><th>Layer</th><th>What it does</th><th>C</th><th>Perl</th></tr>
+  <tr><td><code>ad_layer_reorder</code></td><td>4-sweep reorder + position adjust</td><td>✓</td><td>✓</td></tr>
+  <tr><td><code>ad_layer_overwrite</code></td><td>Merge delete+insert into overwrite_insert</td><td>✓</td><td>✓</td></tr>
+  <tr><td><code>ad_layer_indent_last</code></td><td>Move whitespace deletes to end of line</td><td>✓</td><td>✓</td></tr>
+  <tr><td><code>ad_layer_line_delete_in_place</code></td><td>Delete lines on their own line</td><td>✓</td><td>✓</td></tr>
+  <tr><td><code>ad_layer_pace</code></td><td>Insert delay ops between ops</td><td>✓</td><td>✓</td></tr>
+  <tr><td><code>ad_layer_highlight</code></td><td>Insert highlight/dim/fold ops</td><td>✓</td><td>✓</td></tr>
+</table>
 
 <!-- ================================================================ -->
 <!-- POPULAR OPTION COMBINATIONS -->
@@ -887,174 +468,115 @@ Plug 'nkh/gitanim', {'rtp': '.'}
 <h2>Popular option combinations</h2>
 
 <div class="terminal">
-<pre style="margin:0">
-<span style="color:#3fb950"># Presentation mode — slow, centered, highlighted</span>
-diffvim --speed 0.5 --scroll zz --highlight-hunk --theme high-contrast old.py new.py
+<pre style="margin:0"><span style="color:#3fb950"># Basic animation</span>
+ad_vim old.py new.py
 
-<span style="color:#3fb950"># Quick review — fast, skip large hunks, fold unchanged</span>
-diffvim --speed 3 --max-hunk-chars 100 --fold-unchanged old.py new.py
+<span style="color:#3fb950"># Fast review — skip pacing, just show the diff</span>
+ad_vim --speed 5 --no-display --snapshot out.txt old.py new.py
 
-<span style="color:#3fb950"># Detailed code review — step through one char at a time</span>
-diffvim --step-mode --highlight-hunk --sign-column --scroll zz old.py new.py
+<span style="color:#3fb950"># Slow, dramatic — for presentations</span>
+ad_vim --speed 0.5 --pacing gaussian --highlight inline old.py new.py
 
-<span style="color:#3fb950"># Git replay with fzf commit picker</span>
-:DiffvimPick
+<span style="color:#3fb950"># Code review — highlight hunks, dim unchanged</span>
+ad_vim --highlight hunk --dim-unchanged --context 3 old.py new.py
 
-<span style="color:#3fb950"># Pipe git diff directly</span>
-git diff HEAD~1 -- src/main.py | diffvim --diff -
+<span style="color:#3fb950"># Overwrite mode — replace in place instead of delete+insert</span>
+ad_vim --overwrite --indent-last old.py new.py
 
-<span style="color:#3fb950"># Multi-file animation</span>
-diffvim --multi old1.py:new1.py old2.py:new2.py old3.go:new3.go
+<span style="color:#3fb950"># Custom layer chain</span>
+ad_vim --ad-layer=ad_layer_reorder --ad-layer=my_word_split --ad-layer=ad_layer_pace old.py new.py
 
-<span style="color:#3fb950"># Patience diff with word-level changes</span>
-diffvim --algorithm patience --word-diff --semantic-cleanup old.py new.py
-</pre>
+<span style="color:#3fb950"># Snapshot every op to HTML (for documentation)</span>
+bash scripts/ad_snapshot.sh old.py new.py
+<span style="color:var(--yellow)"># Open: file:///tmp/ad_snapshots/snapshots.html</span></pre>
 </div>
 
 <!-- ================================================================ -->
-<!-- PRESETS -->
+<!-- BUILT-IN PRESETS -->
 <!-- ================================================================ -->
 
-<h2>Six built-in presets</h2>
+<h2>Built-in presets</h2>
 
-<p>Skip the option soup — pick a preset and you're done. Each preset
-bundles a sensible combination of post-processing, timing, and
-highlighting flags tuned for one common use case.</p>
+<p>Presets set multiple options at once. Use <code>--preset NAME</code> or
+set <code>PRESET=NAME</code> in the config file.</p>
 
-<div class="preset-grid">
-  <div class="preset-card">
-    <div class="preset-name">default</div>
-    <div class="preset-tag">Everyday use</div>
-    <pre class="preset-cmd">diffvim old.py new.py</pre>
-    <p>Raw Patience with optimize_sequence. No surprises.</p>
-  </div>
-  <div class="preset-card">
-    <div class="preset-name">fast-delete</div>
-    <div class="preset-tag">Refactors</div>
-    <pre class="preset-cmd">diffvim --preset fast-delete old.py new.py</pre>
-    <p>Rapid-EOL + accel-delete + word-accel. Burns through long deletion blocks.</p>
-  </div>
-  <div class="preset-card">
-    <div class="preset-name">review</div>
-    <div class="preset-tag">Code review</div>
-    <pre class="preset-cmd">diffvim --preset review --git-blame old.py new.py</pre>
-    <p>Step-mode, hunk highlight, dim-unchanged, top-aligned. Press <code>n</code> to advance.</p>
-  </div>
-  <div class="preset-card">
-    <div class="preset-name">ai-code</div>
-    <div class="preset-tag">AI diffs</div>
-    <pre class="preset-cmd">diffvim --preset ai-code old.py new.py</pre>
-    <p>Semantic cleanup + left-to-right + word-diff. Tames messy AI-generated diffs.</p>
-  </div>
-  <div class="preset-card">
-    <div class="preset-name">demo</div>
-    <div class="preset-tag">Live demos</div>
-    <pre class="preset-cmd">diffvim --preset demo old.py new.py</pre>
-    <p>0.7x speed, inline highlight, word pause. For audience-friendly walkthroughs.</p>
-  </div>
-  <div class="preset-card">
-    <div class="preset-name">presentation</div>
-    <div class="preset-tag">Screencasts</div>
-    <pre class="preset-cmd">diffvim --preset presentation --output out.py old.py new.py</pre>
-    <p>1.2x speed, no rapid-EOL, centered scroll. For recording smooth video.</p>
-  </div>
+<table class="cmd-table">
+  <tr><th>Preset</th><th>Description</th><th>Options set</th></tr>
+  <tr><td><code>fast-delete</code></td><td>Maximize non-char deletion and acceleration</td><td><code>--delete-pacing word --delete-speed fast</code></td></tr>
+  <tr><td><code>review</code></td><td>Thorough review with highlighting and pauses</td><td><code>--pacing review --highlight hunk --dim-unchanged</code></td></tr>
+  <tr><td><code>demo</code></td><td>Slow, dramatic for presentations</td><td><code>--pacing gaussian --speed 0.7 --highlight inline</code></td></tr>
+  <tr><td><code>ai-code</code></td><td>Optimized for AI-generated code diffs</td><td><code>--highlight inline --pacing adaptive</code></td></tr>
+</table>
+
+<!-- ================================================================ -->
+<!-- CONFIGURATION -->
+<!-- ================================================================ -->
+
+<h2>Configuration — no env vars</h2>
+
+<p>Configuration comes from a single file, with CLI flags overriding
+per-invocation. <strong>There are no environment variables.</strong></p>
+
+<h3>Config file location</h3>
+<p><code>$XDG_CONFIG_HOME/ad/config</code> (defaults to
+<code>~/.config/ad/config</code>)</p>
+
+<h3>Precedence</h3>
+<div class="terminal">
+<pre style="margin:0">1. /etc/ad/config        (system-wide defaults, lowest priority)
+2. ~/.config/ad/config   (user config)
+3. CLI flags             (per-invocation, highest priority)</pre>
 </div>
 
-<p style="margin-top:1.5rem;color:var(--fg);opacity:0.7">
-  Define your own with <code>DIFFVIM_PRESET="review --highlight-word"</code>.
-</p>
-
-<!-- ================================================================ -->
-<!-- POST-PROCESSING PIPELINE -->
-<!-- ================================================================ -->
-
-<h2>Post-processing pipeline</h2>
-
-<p>Raw Patience diffs can be confusing — characters deleted here, inserted
-there, then more deletes elsewhere on the same line. diffvim's
-post-processing passes reorder ops for human readability.</p>
-
-<div class="arch-diagram">
-<pre style="margin:0">
-   raw char_ops
-        │
-        ▼
-   ┌─────────────────┐
-   │ semantic_cleanup│  ← merge adjacent del/ins pairs into keeps
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ optimize_seq    │  ← within each line, deletes before inserts
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ left_to_right   │  ← within each line: keeps, then dels, then ins
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ delete_end_first│  ← move trailing deletes to the end of the line
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ overwrite       │  ← replace delete+insert with in-place overwrite
-   └────────┬────────┘
-            ▼
-   final char_ops (what the animator consumes)
-</pre>
+<h3>Example config file</h3>
+<div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># ~/.config/ad/config</span>
+DELETE_PACING=word
+INSERT_PACING=char
+PACING=uniform
+INDENT_LAST=1
+OVERWRITE_MODE=1
+CURSOR_GLIDE_MS=100
+HIGHLIGHT_MODE=inline
+HIGHLIGHT_DURATION_MS=200</pre>
 </div>
 
-<p style="margin-top:1rem;color:var(--fg);opacity:0.8">
-  Each pass is independently toggleable. See
-  <code>docs/POST_PROCESSING.md</code> for the full reference.
-</p>
+<p>Every CLI flag has a config variable equivalent. Run
+<code>ad_vim --help</code> for the full list.</p>
 
 <!-- ================================================================ -->
-<!-- EXTERNAL COMPUTE -->
+<!-- DIFF ENGINE -->
 <!-- ================================================================ -->
 
-<h2>External compute tool</h2>
+<h2>Diff engine</h2>
 
-<p>For files larger than a few hundred lines, the in-vim Patience can take
-seconds. The external compute tool solves this — 10-100x faster,
-implemented in C++ (with a pure-Perl fallback when the binary is
-missing).</p>
+<p>The diff engine computes a character-level diff using the Patience
+algorithm (anchored on unique common lines, with LCS fallback for ranges
+with no anchors).</p>
 
 <div class="compute-grid">
   <div class="compute-card">
-    <div class="compute-lang">C++</div>
-    <div class="compute-file">diffvim-compute-cpp</div>
-    <div class="compute-note">The only compute implementation. ~1ms on a 1000-line file.</div>
+    <div class="compute-lang">C++ (preferred)</div>
+    <div class="compute-file">diff_engine/cpp/compute.cpp → bin/ad_compute</div>
+    <div class="compute-note">~1ms on a 1000-line file. 318× faster than the old vimscript Patience.</div>
   </div>
   <div class="compute-card">
-    <div class="compute-lang">Perl</div>
-    <div class="compute-file">compute_builtin.pl</div>
-    <div class="compute-note">Pure-Perl fallback used when the C++ binary is missing.</div>
+    <div class="compute-lang">Perl (fallback)</div>
+    <div class="compute-file">diff_engine/perl/compute.pl</div>
+    <div class="compute-note">Pure-Perl fallback used when the C++ binary is missing. Produces identical output.</div>
   </div>
 </div>
 
-<p style="margin-top:1rem;color:var(--fg);opacity:0.7">
-  The historical C, Rust, and Go variants were removed in the refactor —
-  they all produced byte-identical output, and only the C++ tool remains.
-  <code>--tool</code> flag is gone; the C++ binary is searched for
-  automatically.
-</p>
-
 <div class="terminal">
-<pre style="margin:0">
-<span style="color:#3fb950"># Build the C++ binary</span>
-make -C compute
+<pre style="margin:0"><span style="color:#3fb950"># Compute the diff</span>
+./bin/ad_compute old.py new.py raw_ops.txt
 
-<span style="color:#3fb950"># Compute the diff, then run diffvim with --precomputed</span>
-compute/bin/diffvim-compute-cpp old.py new.py /tmp/diff.txt
-diffvim --precomputed /tmp/diff.txt old.py new.py
-
-<span style="color:#3fb950"># With semantic cleanup</span>
-compute/bin/diffvim-compute-cpp --semantic-cleanup old.py new.py /tmp/diff.txt
+<span style="color:#3fb950"># With left-to-right sorting</span>
+./bin/ad_compute --left-to-right old.py new.py raw_ops.txt
 
 <span style="color:#3fb950"># Benchmark on a 1000-line Python file:</span>
-<span style="color:var(--yellow)">  vimscript Patience:        ~3500 ms</span>
-<span style="color:var(--green)">  diffvim-compute-cpp:     11 ms   (318x faster)</span>
-</pre>
+<span style="color:var(--yellow)">  Perl compute:       ~3500 ms</span>
+<span style="color:var(--green)">  C++ ad_compute:     11 ms   (318× faster)</span></pre>
 </div>
 
 <!-- ================================================================ -->
@@ -1068,88 +590,154 @@ cubic acceleration, so the viewer's eye can follow even long jumps.</p>
 
 <div class="arch-diagram">
 <pre style="margin:0">
-   Position
-       ▲
-   100 │                                ▄██████████▄
-       │                            ▄███▘          ▀███▄
-       │                         ▄███▘                ▀███▄
-       │                      ▄███▘                      ▀███▄
-       │                   ▄███▘                            ▀███▄
-       │                ▄███▘                                  ▀███▄
-       │             ▄███▘                                        ▀███▄
-       │          ▄███▘                                              ▀███▄
-       │       ▄███▘                                                    ▀███▄
-       │    ▄███▘                                                          ▀███▄
-       │ ▄███▘                                                                ▀███▄
-     0 └────────────────────────────────────────────────────────────────────────▶ Time
-       0ms                250ms                              1600ms            1850ms
-                          (min)                              (max)
-</pre>
+  Hunk 1 (line 3)          Hunk 2 (line 47)         Hunk 3 (line 92)
+     │                        │                        │
+     ▼                        ▼                        ▼
+  ────████████████████████████████████████████████████████████────
+       ↑  ease-in    ↑  constant   ↑  ease-out
+       acceleration   velocity      deceleration
+
+  Duration = clamp(move_min_ms + distance × move_ms_per_unit, move_min_ms, move_max_ms)</pre>
+</div>
+
+<p>The glide is interpolated frame-by-frame at <code>--tick-ms</code>
+intervals (default 16ms = ~60fps). Intermediate cursor positions can be
+shown or hidden with <code>--cursor-glide-show-intermediate</code>.</p>
+
+<!-- ================================================================ -->
+<!-- TESTING -->
+<!-- ================================================================ -->
+
+<h2>Testing</h2>
+
+<p>161 tests across 6 test suites. All passing.</p>
+
+<table class="cmd-table">
+  <tr><th>Test suite</th><th>Coverage</th><th>Count</th></tr>
+  <tr><td>Per-layer tests</td><td>One test file per layer (C/Perl parity)</td><td>6</td></tr>
+  <tr><td>Minimal cases</td><td>One transformation per case (insert, delete, replace, etc.)</td><td>25</td></tr>
+  <tr><td>Examples</td><td>Full pipeline on 36 file pairs (26 languages)</td><td>36</td></tr>
+  <tr><td>L2R algorithm</td><td>Left-to-right diff mode</td><td>35</td></tr>
+  <tr><td>Plugin contract</td><td>Layer discovery, --ad-layer, extensions, parity</td><td>9</td></tr>
+  <tr><td>Property-based</td><td>50 random diffs through the pipeline</td><td>50</td></tr>
+</table>
+
+<div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># Run all tests</span>
+make test
+
+<span style="color:#3fb950"># Run specific suite</span>
+make test-layers       <span style="color:var(--yellow)"># per-layer TDD tests</span>
+make test-minimal      <span style="color:var(--yellow)"># 25 minimal cases</span>
+make test-examples     <span style="color:var(--yellow)"># 36-example corpus</span>
+make test-l2r          <span style="color:var(--yellow)"># l2r algorithm</span>
+make test-property     <span style="color:var(--yellow)"># 50 random property tests</span>
+make test-layers-discovery  <span style="color:var(--yellow)"># plugin contract</span></pre>
 </div>
 
 <!-- ================================================================ -->
-<!-- DOCUMENTATION MAP -->
+<!-- CI -->
 <!-- ================================================================ -->
 
-<h2>Documentation map</h2>
+<h2>Continuous integration</h2>
 
-<p>Not sure where to look? Here's the map.</p>
+<p>4 GitHub Actions workflows (in <code>github/</code> — move to
+<code>.github/workflows/</code> to activate):</p>
 
-<div class="doc-grid">
-  <a class="doc-card" href="../VISUAL_GUIDE.md">
-    <div class="doc-title">Visual Guide</div>
-    <div class="doc-desc">Graphical overview with ASCII art. Start here if you're new.</div>
-  </a>
-  <a class="doc-card" href="src/SUMMARY.md">
-    <div class="doc-title">mdBook</div>
-    <div class="doc-desc">Full structured documentation (installation, options, controls, architecture).</div>
-  </a>
-  <a class="doc-card" href="../man/diffvim.1">
-    <div class="doc-title">Manpages</div>
-    <div class="doc-desc">Offline reference for every executable (diffvim, diffvim-tmux, compute tools).</div>
-  </a>
-  <a class="doc-card" href="../ADOPTION_GUIDE.md">
-    <div class="doc-title">Adoption Guide</div>
-    <div class="doc-desc">How to introduce diffvim to your team and make it part of daily workflow.</div>
-  </a>
-  <a class="doc-card" href="../OPTION_COMBINATIONS.md">
-    <div class="doc-title">100 Option Combos</div>
-    <div class="doc-desc">Worked examples covering every common use case.</div>
-  </a>
-  <a class="doc-card" href="../AI_CODE_DIFFING.md">
-    <div class="doc-title">AI Code Diffing</div>
-    <div class="doc-desc">100 ways to make diffvim better for AI-generated code.</div>
-  </a>
-  <a class="doc-card" href="../POST_PROCESSING.md">
-    <div class="doc-title">Post-Processing</div>
-    <div class="doc-desc">How each post-processing pass works and when to use it.</div>
-  </a>
-  <a class="doc-card" href="../FOLLOW_IMPROVEMENTS.md">
-    <div class="doc-title">50 UX Improvements</div>
-    <div class="doc-desc">Ways to reduce cognitive load while watching patches.</div>
-  </a>
+<table class="cmd-table">
+  <tr><th>Workflow</th><th>Triggers</th><th>What it does</th></tr>
+  <tr><td><code>build-and-test.yml</code></td><td>push to main, PRs</td><td>Builds with <code>make</code>, runs all tests</td></tr>
+  <tr><td><code>docs.yml</code></td><td>changes to <code>docs/**</code></td><td>Builds mdBook, uploads artifact</td></tr>
+  <tr><td><code>lint.yml</code></td><td>push to main, PRs</td><td>shellcheck + perl -c + gcc -fsyntax-only</td></tr>
+  <tr><td><code>release.yml</code></td><td>git tag <code>v*</code></td><td>Creates GitHub Release with tarball</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<!-- DOCUMENTATION -->
+<!-- ================================================================ -->
+
+<h2>Documentation</h2>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="icon">📖</div>
+    <h4>User guide</h4>
+    <p><code>docs/src/</code> — mdBook source. Build with <code>cd docs && mdbook serve</code>.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔌</div>
+    <h4>Plugin layers</h4>
+    <p><code>docs/src/plugin-layers.md</code> — the <code>--ad-layer</code> plugin contract</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">⚙️</div>
+    <h4>Configuration</h4>
+    <p><code>docs/src/configuration.md</code> — config file + CLI flags (no env vars)</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🤝</div>
+    <h4>Contributing</h4>
+    <p><code>docs/src/contributing.md</code> — TDD workflow for adding layers</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔍</div>
+    <h4>Code analysis</h4>
+    <p><code>docs/CODE_ANALYSIS.md</code> — 41 issues found, prioritized</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📊</div>
+    <h4>Env var analysis</h4>
+    <p><code>docs/ENV_VAR_ANALYSIS.md</code> — why all 107 env vars were removed</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📋</div>
+    <h4>Docs audit</h4>
+    <p><code>docs/DOCS_AUDIT.md</code> — relevance-scored inventory of design docs</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🏗️</div>
+    <h4>Restructure</h4>
+    <p><code>docs/RESTRUCTURE_ANALYSIS.md</code> — the analysis that drove the refactor</p>
+  </div>
 </div>
+
+<!-- ================================================================ -->
+<!-- HELPER SCRIPTS -->
+<!-- ================================================================ -->
+
+<h2>Helper scripts</h2>
+
+<table class="cmd-table">
+  <tr><th>Script</th><th>What it does</th></tr>
+  <tr><td><code>scripts/ad_debug.sh</code></td><td>Interactive pipeline debugger — runs each stage, shows output</td></tr>
+  <tr><td><code>scripts/ad_snapshot.sh</code></td><td>Per-op HTML snapshots — generate documentation</td></tr>
+  <tr><td><code>scripts/ad_record.sh</code> / <code>ad_replay.sh</code></td><td>Record and replay animations</td></tr>
+  <tr><td><code>scripts/ad_demo.sh</code></td><td>Demo runner with preset examples</td></tr>
+  <tr><td><code>scripts/ad_tune.sh</code></td><td>Interactive option tuner (tmux-based)</td></tr>
+  <tr><td><code>scripts/ad_suggest.sh</code></td><td>Suggest options for a given diff</td></tr>
+  <tr><td><code>scripts/ad_debug_bundle.sh</code></td><td>Collect debug info into a tarball</td></tr>
+  <tr><td><code>scripts/ad_compare</code></td><td>Generate diffs with all option combinations</td></tr>
+  <tr><td><code>scripts/ad_jogger</code></td><td>Generate test cases with various patterns</td></tr>
+  <tr><td><code>scripts/ad_tmux</code></td><td>tmux-based animation launcher</td></tr>
+</table>
 
 <!-- ================================================================ -->
 <!-- CALL TO ACTION -->
 <!-- ================================================================ -->
 
-<div class="cta">
-  <h2>Ready to see your diffs come alive?</h2>
-  <p>Install diffvim and watch your code changes animate in real time.</p>
-  <div class="install-cmd">git clone https://github.com/nkh/gitanim.git && cd gitanim && ./diffvim --help</div>
-  <br>
-  <a href="https://github.com/nkh/gitanim" style="color:var(--accent);font-size:1.1rem;">→ View on GitHub</a>
+<h2>Ready to see your diffs come alive?</h2>
+
+<div class="terminal">
+<pre style="margin:0"><span style="color:#3fb950"># Clone, build, animate</span>
+git clone https://github.com/nkh/gitanim.git
+cd gitanim
+make
+./apps/vim/ad_vim tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py</pre>
 </div>
 
-<!-- ================================================================ -->
-<!-- FOOTER -->
-<!-- ================================================================ -->
-
-<footer>
-  <p>diffvim v1.4 — Artistic License 2.0 / GPL 3.0 (dual) — <a href="https://github.com/nkh/gitanim" style="color:var(--accent)">GitHub</a></p>
-  <p>6 presets · 1 native compute tool (C++) + Perl fallback · 50+ CLI options · 42 example file pairs · 15+ languages · 6 manpages</p>
-</footer>
+<p style="text-align:center;margin-top:2rem">
+  <a href="https://github.com/nkh/gitanim">github.com/nkh/gitanim</a>
+</p>
 
 </body>
 </html>

@@ -1390,7 +1390,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         [[ ${#EXTRA_PP_LAYERS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_LAYERS[@]/#/--ad-layer=}")
         # Extra search paths from --ad-layer-path=<dir>.
         [[ ${#EXTRA_PP_PATHS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_PATHS[@]/#/--ad-layer-path=}")
-        echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
+        debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
 
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
@@ -1456,7 +1456,6 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
             TIMED_OPS="$DECORATED_OPS"
         else
             # No decorate tool — use timed ops directly
-            TIMED_OPS="$TIMED_OPS"
         fi
     else
         echo "diffvim: pipeline executables not found (need compute-cpp, postprocess, pace)" >&2
@@ -1481,7 +1480,6 @@ else
         TIMED_OPS="$WORKDIR/timed_ops.txt"
         "$POSTPROCESS_BIN" < "$PRECOMPUTED_FILE" > "$POST_OPS" 2>/dev/null
         "$PACE_BIN" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
-        TIMED_OPS="$TIMED_OPS"
     fi
 fi
 

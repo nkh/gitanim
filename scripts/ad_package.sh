@@ -49,7 +49,7 @@ VERSION="${1:-2.0}"
 TARBALL="/tmp/diffvim-${VERSION}.tar.gz"
 
 echo "Building..."
-make -C "$ROOT/compute" clean all
+make -C "$ROOT/diff_engine" clean all
 cd "$ROOT/animator/c"
 cc -O2 -o ../bin/ad animator.c
 cc -O2 -o ../bin/ad_postprocess postprocess.c

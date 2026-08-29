@@ -201,7 +201,7 @@ generate_debug_bundle() {
     cp "$NEW" "$bundle_dir/new.txt"
     [[ -f "$WORKDIR/raw.txt" ]] && cp "$WORKDIR/raw.txt" "$bundle_dir/"
     [[ -f "$WORKDIR/post.txt" ]] && cp "$WORKDIR/post.txt" "$bundle_dir/"
-    [[ -f "$WORKDIR/timed.txt" ]] && cp "$WORKDIR/timed.txt" "$bundledir/"
+    [[ -f "$WORKDIR/timed.txt" ]] && cp "$WORKDIR/timed.txt" "$bundle_dir/"
     [[ -f "$WORKDIR/decorated.txt" ]] && cp "$WORKDIR/decorated.txt" "$bundle_dir/"
 
     # Save settings
@@ -252,7 +252,7 @@ while true; do
             ;;
         v|V)
             ops_file=$(run_pipeline)
-            bash "$ROOT/scripts/snapshot_per_op.sh" "$OLD" "$NEW" 2>/dev/null
+            bash "$ROOT/scripts/ad_snapshot.sh" "$OLD" "$NEW" 2>/dev/null
             echo "Snapshots: file:///tmp/ad_snapshots/snapshots.html"
             echo "Press Enter to continue..."
             read -r
@@ -267,16 +267,14 @@ while true; do
             echo "Press Enter to continue..."
             read -r
             ;;
-        e|E)
+        e)
             ${EDITOR:-vim} "$OLD"
             ;;
         E)
             ${EDITOR:-vim} "$NEW"
             ;;
         s|S)
-            if [[ "$1" == "s" ]]; then
-                tmp="$OLD"; OLD="$NEW"; NEW="$tmp"
-            fi
+            tmp="$OLD"; OLD="$NEW"; NEW="$tmp"
             ;;
         d|D)
             diff "$OLD" "$NEW" | less

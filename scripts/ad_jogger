@@ -224,7 +224,7 @@ run_jogger() {
             local log_file="$combo_dir/${base}.log"
 
             # Run diffvim in log mode 2 with this combo
-            "$SCRIPT_DIR/diffvim" $combo --log-mode 2 --log-file "$log_file" \
+            "$SCRIPT_DIR/../apps/vim/ad_vim" $combo --log-mode 2 --log-file "$log_file" \
                 "$old_file" "$new_file" 2>/dev/null || true
         done
 

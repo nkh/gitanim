@@ -58,7 +58,7 @@ WHAT IT DOES
 
 ENVIRONMENT
     AD_COMPUTE_BIN  Override the path to the compute binary
-                         (default: bin/ad_compute-c).
+                         (default: bin/ad_compute).
 
 EXAMPLES
     diffvim-compare tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py
@@ -93,9 +93,9 @@ OUTDIR="${3:-/tmp/diffvim-compare}"
 
 mkdir -p "$OUTDIR"
 
-COMPUTE="${AD_COMPUTE_BIN:-bin/ad_compute-c}"
+COMPUTE="${AD_COMPUTE_BIN:-bin/ad_compute}"
 if [[ ! -f "$COMPUTE" ]]; then
-    echo "Error: $COMPUTE not found. Run 'make -C compute' first." >&2
+    echo "Error: $COMPUTE not found. Run 'make -C diff_engine' first." >&2
     echo "Tip: set AD_COMPUTE_BIN to point at another variant." >&2
     exit 1
 fi

@@ -45,15 +45,15 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 echo "=== Demo 1: Small Python ==="
-"$ROOT/animator/ad_pipeline" --no-display --speed 2 "$ROOT/tests/examples/01_small_python/old.py" "$ROOT/tests/examples/01_small_python/new.py"
+"$ROOT/pipeline/ad_pipeline" --no-display --speed 2 "$ROOT/tests/examples/01_small_python/old.py" "$ROOT/tests/examples/01_small_python/new.py"
 
 echo ""
 echo "=== Demo 2: Python Classes ==="
-"$ROOT/animator/ad_pipeline" --no-display --speed 2 "$ROOT/tests/examples/32_python_classes/old.py" "$ROOT/tests/examples/32_python_classes/new.py"
+"$ROOT/pipeline/ad_pipeline" --no-display --speed 2 "$ROOT/tests/examples/32_python_classes/old.py" "$ROOT/tests/examples/32_python_classes/new.py"
 
 echo ""
 echo "=== Demo 3: Large Python ==="
-"$ROOT/animator/ad_pipeline" --no-display --speed 5 "$ROOT/tests/examples/33_large_python/old.py" "$ROOT/tests/examples/33_large_python/new.py"
+"$ROOT/pipeline/ad_pipeline" --no-display --speed 5 "$ROOT/tests/examples/33_large_python/old.py" "$ROOT/tests/examples/33_large_python/new.py"
 
 echo ""
 echo "Demos complete."

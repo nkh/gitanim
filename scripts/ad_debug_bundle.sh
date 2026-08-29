@@ -134,7 +134,6 @@ cp "$OLD" "$BUNDLE_DIR/old.txt"
 cp "$NEW" "$BUNDLE_DIR/new.txt"
 
 # 2. Run pipeline with DEFAULT settings (same as launcher)
-export --left-to-right
 "$ROOT/bin/ad_compute" "$OLD" "$NEW" "$BUNDLE_DIR/raw_ops.txt" 2>"$BUNDLE_DIR/compute_stderr.txt"
 "$ROOT/bin/ad_postprocess" < "$BUNDLE_DIR/raw_ops.txt" > "$BUNDLE_DIR/post_ops.txt" 2>"$BUNDLE_DIR/postprocess_stderr.txt"
 "$ROOT/bin/ad_layer_pace" --delete-pacing word --insert-pacing char < "$BUNDLE_DIR/post_ops.txt" > "$BUNDLE_DIR/timed_ops.txt" 2>"$BUNDLE_DIR/pace_stderr.txt"

@@ -130,6 +130,7 @@ COMPUTE_ARGS=()
 POSTPROCESS_ARGS=()
 PACE_ARGS=()
 ANIMATOR_ARGS=()
+DECORATE_ARGS=()
 POSITIONAL=()
 
 while [[ $# -gt 0 ]]; do
@@ -224,11 +225,11 @@ while [[ $# -gt 0 ]]; do
             case "$opt" in
                 --op-order|--semantic-cleanup|-S|--indent-aware|-i|--indent-last|--overwrite|--stream)
                     POSTPROCESS_ARGS+=("$opt")
-                    [[ -n "$val" ]] && POSTPROCESS_ARGS+=("$dp_val")
+                    [[ -n "$val" ]] && POSTPROCESS_ARGS+=("$val")
                     ;;
                 --word-diff|--no-optimize-sequence)
                     COMPUTE_ARGS+=("$opt")
-                    [[ -n "$val" ]] && COMPUTE_ARGS+=("$dp_val")
+                    [[ -n "$val" ]] && COMPUTE_ARGS+=("$val")
                     ;;
                 --delete-pacing|--insert-pacing|--delete-speed|--insert-speed|\
                 --delete-threshold|--pacing|--gaussian-jitter-pct|\
@@ -240,16 +241,16 @@ while [[ $# -gt 0 ]]; do
                 --distance-speed|--distance-threshold|--distance-fast-mult|--distance-slow-mult|\
                 --hunk-pause-ms|--type-delay-ms|--delete-delay-ms|--word-pause-ms)
                     PACE_ARGS+=("$opt")
-                    [[ -n "$val" ]] && PACE_ARGS+=("$dp_val")
+                    [[ -n "$val" ]] && PACE_ARGS+=("$val")
                     ;;
                 --highlight|--highlight-duration-ms|--dim-unchanged|-D|--dim-unchanged-pct|\
                 --fold-unchanged|--sign-column|--git-blame|-g|--max-hunk-chars|--theme|-t)
                     DECORATE_ARGS+=("$opt")
-                    [[ -n "$val" ]] && DECORATE_ARGS+=("$dp_val")
+                    [[ -n "$val" ]] && DECORATE_ARGS+=("$val")
                     ;;
                 --diff-stat|--diff-highlight|--bell|--scroll|--line-numbers|--progress|--speed)
                     ANIMATOR_ARGS+=("$opt")
-                    [[ -n "$val" ]] && ANIMATOR_ARGS+=("$dp_val")
+                    [[ -n "$val" ]] && ANIMATOR_ARGS+=("$val")
                     ;;
                 --left-to-right)
                     export AD_LEFT_TO_RIGHT=1
@@ -259,7 +260,7 @@ while [[ $# -gt 0 ]]; do
                     ;;
                 *)
                     ANIMATOR_ARGS+=("$opt")
-                    [[ -n "$val" ]] && ANIMATOR_ARGS+=("$dp_val")
+                    [[ -n "$val" ]] && ANIMATOR_ARGS+=("$val")
                     ;;
             esac
             ;;
@@ -344,7 +345,7 @@ run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS
 run_stage "pace" "$TIMED_OPS" $PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt"
 
 # Stage 3b: Decorate (optional — passes through if no decoration args)
-DECORATE_ARGS=()
+# DECORATE_ARGS was initialized at top with other arrays
 DECORATED_OPS="$WORKDIR/decorated_ops.txt"
 if [[ -f "$DECORATE" ]] || [[ -f "$DECORATE_PERL" ]]; then
     run_stage "decorate" "$DECORATED_OPS" $DECORATE "${DECORATE_ARGS[@]}" < "$TIMED_OPS"
