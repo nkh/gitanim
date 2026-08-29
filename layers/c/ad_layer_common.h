@@ -1,28 +1,20 @@
-/* ---
- * ad_layer_common.h — Shared infrastructure for postprocess layers.
+/* --- ad_layer_common.h — Shared infrastructure for postprocess layers.
  *
- * Design principles (from user spec):
- *   1. Each layer is a pure function: Op[] → Op[]. No side effects.
- *   2. Each layer can be enabled/disabled.
- *   3. Each layer can dump input/output for debugging.
- *      --debug=<dir> flag: dumps to <dir>/N_layername_input.txt
- *      and $path/N_layername_output.txt (TSV format).
- * *   4. No special-case line fixes. The 4-sweep reorder handles ordering.
- *   5. Layers can be piped (standalone) or linked into one executable.
- *   6. Layers may need the input file (old file path passed via env var).
+ * Design principles:
+ *   1. Each layer is a standalone binary: reads TSV stdin → writes TSV stdout.
+ *   2. The ad_layer_run() driver handles all I/O — layers just provide
+ *      a transform function.
+ *   3. No env vars, no debug dumps, no dead code.
  *
  * Layer function signature:
- *   int layer_N(Op *in, int in_count, Op *out, int out_cap,
- *               const char *old_file);
+ *   int layer_func(Op *in, int in_count, Op *out, int out_cap, int *line_offset);
  *   Returns: number of output ops.
+ *   May update *line_offset (for cross-hunk position tracking).
  *
- * Standalone mode:
- *   cc -DAD_LAYER_STANDALONE -I layers/c -o ad_layer_layerN ad_layer_layerN.c
- *   Reads TSV stdin → parses to Op[] → calls layer → writes TSV stdout.
- *
- * Include mode:
- *   #include "ad_layer_layerN.c"  (or link object file)
- *   Calls layer_N() directly with in-memory Op array.
+ * Standalone mode (each layer .c file):
+ *   int main(void) {
+ *       return ad_layer_run(my_transform);
+ *   }
  */
 
 #ifndef AD_LAYER_COMMON_H
@@ -32,7 +24,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <sys/stat.h>
 
 /* ── Constants ─────────────────────────────────────────────────────── */
 
@@ -58,71 +49,8 @@ typedef struct {
     int end_del;
 } Hunk;
 
-/* ── Debug/Logging ─────────────────────────────────────────────────── */
-/* Debug logging is disabled by default. To enable, layers accept
- * --debug flag (parsed by the layer's main() if it wants to).
- * No env vars are read. */
+/* ── char_repr helper ──────────────────────────────────────────────── */
 
-static const char *ad_layer_debug_dir = NULL;
-static FILE *ad_layer_log_file = NULL;
-
-/* Initialize debug for a layer. Pass the debug directory path (or NULL
- * to disable). Call at start of main() if --debug was given. */
-__attribute__((unused)) static void ad_layer_debug_init(const char *debug_dir, const char *layer_id, const char *layer_name) {
-    if (!debug_dir || debug_dir[0] == 0) return;
-    ad_layer_debug_dir = debug_dir;
-
-    /* Create directory */
-    mkdir(ad_layer_debug_dir, 0755);
-
-    /* Open log (append — all layers share one log) */
-    char log_path[512];
-    snprintf(log_path, sizeof(log_path), "%s/postprocess.log", ad_layer_debug_dir);
-    ad_layer_log_file = fopen(log_path, "a");
-    if (ad_layer_log_file) {
-        fprintf(ad_layer_log_file, "\n--- %s: %s ---\n", layer_id, layer_name);
-    }
-}
-
-/* Log a message. */
-__attribute__((unused)) static void ad_layer_log(const char *msg) {
-    if (!ad_layer_log_file) return;
-    fprintf(ad_layer_log_file, "%s\n", msg);
-    fflush(ad_layer_log_file);
-}
-
-/* Log a formatted message. */
-static void ad_layer_logf(const char *fmt, ...) {
-    if (!ad_layer_log_file) return;
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(ad_layer_log_file, fmt, args);
-    fprintf(ad_layer_log_file, "\n");
-    va_end(args);
-    fflush(ad_layer_log_file);
-}
-
-/* Dump Op array to a TSV file. Filename: $dir/N_layername_suffix.txt */
-static void ad_layer_dump_ops(const char *layer_id, const char *suffix,
-                        Op *ops, int count) {
-    if (!ad_layer_debug_dir) return;
-    char path[512];
-    snprintf(path, sizeof(path), "%s/%s_%s", ad_layer_debug_dir, layer_id, suffix);
-    FILE *f = fopen(path, "w");
-    if (!f) return;
-    for (int i = 0; i < count; i++) {
-        fprintf(f, "%s\t%d\t%d\t%d\n", ops[i].type, ops[i].line,
-                ops[i].col, ops[i].code);
-    }
-    fclose(f);
-}
-
-/* ── char_repr helper ───────────────────────────────────────────────── */
-/* ---
- * Returns a human-readable representation of a char code.
- * Used for the 5th TSV field (cosmetic, not stored in Op struct).
- *   10 → \n, 9 → \t, 32 → space, 33-126 → 'x', else → number
- */
 static const char *ad_layer_char_repr(int code) {
     static char buf[8];
     switch (code) {
@@ -142,8 +70,6 @@ static const char *ad_layer_char_repr(int code) {
 
 /* ── TSV Parsing ──────────────────────────────────────────────────── */
 
-/* Parse a TSV line into an Op. Returns 1 on success, 0 on failure.
- * Format: type\tline\tcol\tcode  (char_repr field ignored if present) */
 static int ad_layer_parse_op(const char *line, Op *op) {
     char type[AD_LAYER_TYPE_LEN];
     int l, c, code;
@@ -161,128 +87,55 @@ static int ad_layer_parse_op(const char *line, Op *op) {
     return 0;
 }
 
+/* ── Parse op fields from a raw TSV line (for layers that tokenize
+ * differently). Returns 1 on success. */
+__attribute__((unused)) static int ad_layer_parse_op_fields(const char *line, const char *type,
+                                     int *out_line, int *out_col, int *out_code) {
+    char t[AD_LAYER_TYPE_LEN];
+    int n = sscanf(line, "%19s\t%d\t%d\t%d", t, out_line, out_col, out_code);
+    if (n >= 4 && strcmp(t, type) == 0) return 1;
+    return 0;
+}
+
 /* ── TSV Writing ──────────────────────────────────────────────────── */
 
-/* Write an Op to stdout in V2 TSV format (5 fields, with char_repr). */
 static void ad_layer_write_op(Op *op) {
     printf("%s\t%d\t%d\t%d\t%s\n", op->type, op->line, op->col,
            op->code, ad_layer_char_repr(op->code));
 }
 
-/* Write a HUNK header. */
 static void ad_layer_write_hunk(Hunk *h) {
     printf("HUNK\t%d\t%d\t%d\t%d\t%d\n", h->target, h->del, h->ins,
            h->end_ins, h->end_del);
 }
 
-/* Write HUNK_END. */
 static void ad_layer_write_hunk_end(void) {
     printf("HUNK_END\n");
 }
 
-/* ── Debug op insertion ───────────────────────────────────────────── */
-/* ---
- * Insert a debug op into the stream. Debug ops are ignored by all
- * other layers and the animator. They carry human-readable text
- * that explains what a layer did.
- *
- * Format: debug\t<layer_id>\t<message>
- *
- * The message is a single line of text (no tabs, no newlines).
- * Example: debug\tL2_indent_last\tmoved 4 leading spaces to end of group
- */
-__attribute__((unused)) static void ad_layer_write_debug_op(const char *layer_id, const char *message) {
-    printf("debug\t%s\t%s\n", layer_id, message);
-}
+/* ── Debug op helpers ──────────────────────────────────────────────── */
 
-/* Check if an op is a debug op (so layers can skip them). */
 __attribute__((unused)) static int ad_layer_is_debug_op(Op *op) {
     return strcmp(op->type, "debug") == 0;
-}
-
-/* ── Debug dump helpers (used by ad_layer_run_layer) ──────────────────── */
-
-/* Dump ops to a file in V2 TSV format */
-__attribute__((unused)) static void ad_layer_dump_ops_to_file(FILE *f, Op *ops, int count) {
-    if (!f) return;
-    for (int i = 0; i < count; i++) {
-        fprintf(f, "%s\t%d\t%d\t%d\t%s\n", ops[i].type, ops[i].line,
-                ops[i].col, ops[i].code, ad_layer_char_repr(ops[i].code));
-    }
-}
-
-/* Dump changes between input and output ops.
- * Since layers may reorder ops (different positions in the array),
- * we compare each output op against ALL input ops to find a match.
- * If no match found, it's a new/changed op. */
-__attribute__((unused)) static void ad_layer_dump_changes_to_file(FILE *f,
-        Op *in_ops, int in_count, Op *out_ops, int out_count) {
-    if (!f) return;
-    fprintf(f, "=== Changes (input: %d ops, output: %d ops) ===\n", in_count, out_count);
-
-    for (int i = 0; i < out_count; i++) {
-        /* Try to find this op in the input (same type+code, different position) */
-        int found = 0;
-        for (int j = 0; j < in_count; j++) {
-            if (strcmp(out_ops[i].type, in_ops[j].type) == 0 &&
-                out_ops[i].code == in_ops[j].code) {
-                if (out_ops[i].line != in_ops[j].line || out_ops[i].col != in_ops[j].col) {
-                    fprintf(f, "[%2d] %s (%d,%d) → (%d,%d) code=%d  [position changed]\n",
-                            i, out_ops[i].type,
-                            in_ops[j].line, in_ops[j].col,
-                            out_ops[i].line, out_ops[i].col,
-                            out_ops[i].code);
-                }
-                found = 1;
-                break;
-            }
-        }
-        if (!found) {
-            fprintf(f, "[%2d] %s (%d,%d) code=%d  [NEW/changed op]\n",
-                    i, out_ops[i].type, out_ops[i].line, out_ops[i].col,
-                    out_ops[i].code);
-        }
-    }
-
-    /* Check for dropped ops (in input but not output) */
-    for (int j = 0; j < in_count; j++) {
-        int found = 0;
-        for (int i = 0; i < out_count; i++) {
-            if (strcmp(out_ops[i].type, in_ops[j].type) == 0 &&
-                out_ops[i].code == in_ops[j].code) {
-                found = 1; break;
-            }
-        }
-        if (!found) {
-            fprintf(f, "     %s (%d,%d) code=%d  [DROPPED]\n",
-                    in_ops[j].type, in_ops[j].line, in_ops[j].col,
-                    in_ops[j].code);
-        }
-    }
 }
 
 /* ── Standalone Layer Runner ────────────────────────────────────────
  * Reads TSV from stdin, parses into Op array per hunk, calls the
  * layer function for each hunk, writes the result to stdout.
  *
- * Headers and HUNK/HUNK_END are passed through.
- * Debug ops (type="debug") are passed through unchanged.
+ * The layer function:
+ *   int func(Op *in, int in_count, Op *out, int out_cap, int *line_offset)
+ *   - Reads from in[0..in_count-1]
+ *   - Writes to out[0..out_cap-1]
+ *   - May update *line_offset (for cross-hunk tracking)
+ *   - Returns number of output ops
  *
- * Usage in standalone file:
- *   int my_layer(Op *in, int in_count, Op *out, int out_cap,
- *                const char *old_file) { ... }
- *   #ifdef AD_LAYER_STANDALONE
- *   int main(void) {
- *       ad_layer_debug_init("L1", "Reorder");
- *       return ad_layer_run_layer(my_layer);
- *   }
- *   #endif
+ * Headers, HUNK/HUNK_END lines, and blank lines are handled by the runner.
+ * Debug ops (type="debug") are passed through to the layer function.
  */
-
-__attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
-                                          int (*layer_func)(Op *in, int in_count,
-                                          Op *out, int out_cap,
-                                          const char *old_file)) {
+__attribute__((unused)) static int ad_layer_run(
+    int (*layer_func)(Op *in, int in_count, Op *out, int out_cap, int *line_offset)
+) {
     char line[AD_LAYER_MAX_LINE];
     Op *in_ops = NULL;
     int in_count = 0;
@@ -292,46 +145,29 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
     int hunk_count = 0;
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
 
-    /* Debug dump paths — set by the orchestrator via CLI flags (passed
-     * through to layers). No env vars. */
-    const char *dump_input  = NULL;   /* set by --dump-input=PATH */
-    const char *dump_output = NULL;   /* set by --dump-output=PATH */
-    const char *dump_changes = NULL;  /* set by --dump-changes=PATH */
-    FILE *dump_in_f = NULL, *dump_out_f = NULL, *dump_chg_f = NULL;
-
-    /* Parse argv for dump flags (passed through by orchestrator) */
-    for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "--dump-input=", 13) == 0) dump_input = argv[i] + 13;
-        else if (strncmp(argv[i], "--dump-output=", 14) == 0) dump_output = argv[i] + 14;
-        else if (strncmp(argv[i], "--dump-changes=", 15) == 0) dump_changes = argv[i] + 15;
-    }
-
-    if (dump_input && dump_input[0]) {
-        dump_in_f = fopen(dump_input, "w");
-        if (dump_in_f) fprintf(stderr, "dump-input: %s\n", dump_input);
-    }
-    if (dump_output && dump_output[0]) {
-        dump_out_f = fopen(dump_output, "w");
-        if (dump_out_f) fprintf(stderr, "dump-output: %s\n", dump_output);
-    }
-    if (dump_changes && dump_changes[0]) {
-        dump_chg_f = fopen(dump_changes, "w");
-        if (dump_chg_f) fprintf(stderr, "dump-changes: %s\n", dump_changes);
-    }
-
-    /* Old file path — set by --old-file=PATH (passed through by orchestrator) */
-    const char *old_file = "";
-    for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "--old-file=", 11) == 0) {
-            old_file = argv[i] + 11;
-            break;
-        }
-    }
-
-    /* Allocate initial capacity */
     in_cap = 4096;
     in_ops = (Op *)malloc(in_cap * sizeof(Op));
     if (!in_ops) { fprintf(stderr, "out of memory\n"); return 1; }
+
+    /* Process a completed hunk: call the layer function, write output,
+     * update line_offset. */
+    #define AD_LAYER_FLUSH_HUNK() do {                                    \
+        if (in_hunk && in_count > 0) {                                   \
+            /* Apply cross-hunk line_offset to all ops */               \
+            for (int j = 0; j < in_count; j++)                          \
+                in_ops[j].line += line_offset;                          \
+            Op *out_ops = (Op *)malloc((in_count + 1024) * sizeof(Op)); \
+            if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; } \
+            int out_count = layer_func(in_ops, in_count, out_ops,       \
+                                       in_count + 1024, &line_offset);  \
+            ad_layer_write_hunk(&current_hunk);                         \
+            for (int i = 0; i < out_count; i++)                         \
+                ad_layer_write_op(&out_ops[i]);                        \
+            ad_layer_write_hunk_end();                                   \
+            free(out_ops);                                              \
+        }                                                                \
+        in_count = 0;                                                   \
+    } while (0)
 
     while (fgets(line, sizeof(line), stdin)) {
         line[strcspn(line, "\n\r")] = 0;
@@ -350,43 +186,7 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
 
         /* HUNK header */
         if (strncmp(line, "HUNK\t", 5) == 0) {
-            /* If we were in a hunk, process it first */
-            if (in_hunk && in_count > 0) {
-                /* Apply cross-hunk line_offset to all ops */
-                for (int j = 0; j < in_count; j++)
-                    in_ops[j].line += line_offset;
-
-                Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
-                if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
-
-                ad_layer_dump_ops("L", "input.txt", in_ops, in_count);
-
-                int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
-
-                ad_layer_dump_ops("L", "output.txt", out_ops, out_count);
-                if (dump_in_f) ad_layer_dump_ops_to_file(dump_in_f, in_ops, in_count);
-                if (dump_out_f) ad_layer_dump_ops_to_file(dump_out_f, out_ops, out_count);
-                if (dump_chg_f) ad_layer_dump_changes_to_file(dump_chg_f, in_ops, in_count, out_ops, out_count);
-                ad_layer_logf("Hunk %d: %d ops → %d ops", hunk_count, in_count, out_count);
-
-                ad_layer_write_hunk(&current_hunk);
-                for (int i = 0; i < out_count; i++)
-                    ad_layer_write_op(&out_ops[i]);
-                ad_layer_write_hunk_end();
-
-                /* Update line_offset for next hunk */
-                { int ni=0, nd=0;
-                  for (int j=0; j<out_count; j++) {
-                      if (strcmp(out_ops[j].type,"insert")==0 && out_ops[j].code==10) ni++;
-                      if (strcmp(out_ops[j].type,"delete")==0 && out_ops[j].code==10) nd++;
-                  }
-                  line_offset += ni - nd;
-                }
-
-                free(out_ops);
-                in_count = 0;
-            }
-
+            AD_LAYER_FLUSH_HUNK();
             sscanf(line, "HUNK\t%d\t%d\t%d\t%d\t%d",
                    &current_hunk.target, &current_hunk.del, &current_hunk.ins,
                    &current_hunk.end_ins, &current_hunk.end_del);
@@ -397,56 +197,8 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
 
         /* HUNK_END */
         if (strncmp(line, "HUNK_END", 8) == 0) {
-            if (in_hunk && in_count > 0) {
-                /* Apply cross-hunk line_offset to all ops */
-                for (int j = 0; j < in_count; j++)
-                    in_ops[j].line += line_offset;
-
-                Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
-                if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
-
-                ad_layer_dump_ops("L", "input.txt", in_ops, in_count);
-
-                int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
-
-                ad_layer_dump_ops("L", "output.txt", out_ops, out_count);
-                if (dump_in_f) ad_layer_dump_ops_to_file(dump_in_f, in_ops, in_count);
-                if (dump_out_f) ad_layer_dump_ops_to_file(dump_out_f, out_ops, out_count);
-                if (dump_chg_f) ad_layer_dump_changes_to_file(dump_chg_f, in_ops, in_count, out_ops, out_count);
-                ad_layer_logf("Hunk %d: %d ops → %d ops", hunk_count, in_count, out_count);
-
-                ad_layer_write_hunk(&current_hunk);
-                for (int i = 0; i < out_count; i++)
-                    ad_layer_write_op(&out_ops[i]);
-                ad_layer_write_hunk_end();
-
-                /* Update line_offset for next hunk */
-                { int ni=0, nd=0;
-                  for (int j=0; j<out_count; j++) {
-                      if (strcmp(out_ops[j].type,"insert")==0 && out_ops[j].code==10) ni++;
-                      if (strcmp(out_ops[j].type,"delete")==0 && out_ops[j].code==10) nd++;
-                  }
-                  line_offset += ni - nd;
-                }
-
-                free(out_ops);
-                in_count = 0;
-            }
+            AD_LAYER_FLUSH_HUNK();
             in_hunk = 0;
-            continue;
-        }
-
-        /* Debug ops — pass through unchanged */
-        if (strncmp(line, "debug\t", 6) == 0) {
-            if (in_hunk) {
-                if (in_count >= in_cap) {
-                    in_cap *= 2;
-                    { Op *_tmp = realloc(in_ops, in_cap * sizeof(Op)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } in_ops = _tmp; }
-                }
-                /* Parse as a regular op (type="debug", line/col from fields) */
-                ad_layer_parse_op(line, &in_ops[in_count]);
-                in_count++;
-            }
             continue;
         }
 
@@ -454,8 +206,9 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
         if (in_hunk) {
             if (in_count >= in_cap) {
                 in_cap *= 2;
-                { Op *_tmp = realloc(in_ops, in_cap * sizeof(Op)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } in_ops = _tmp; }
-                if (!in_ops) { fprintf(stderr, "out of memory\n"); return 1; }
+                Op *tmp = (Op *)realloc(in_ops, in_cap * sizeof(Op));
+                if (!tmp) { fprintf(stderr, "out of memory\n"); free(in_ops); return 1; }
+                in_ops = tmp;
             }
             if (ad_layer_parse_op(line, &in_ops[in_count])) {
                 in_count++;
@@ -463,37 +216,14 @@ __attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
         }
     }
 
-    /* Handle last hunk if no HUNK_END */
-    if (in_hunk && in_count > 0) {
-        /* Apply cross-hunk line_offset to all ops */
-        for (int j = 0; j < in_count; j++)
-            in_ops[j].line += line_offset;
-
-        Op *out_ops = (Op *)malloc(in_cap * sizeof(Op));
-        if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; }
-
-        ad_layer_dump_ops("L", "input.txt", in_ops, in_count);
-
-        int out_count = layer_func(in_ops, in_count, out_ops, in_cap, old_file);
-
-        ad_layer_dump_ops("L", "output.txt", out_ops, out_count);
-        if (dump_in_f) ad_layer_dump_ops_to_file(dump_in_f, in_ops, in_count);
-        if (dump_out_f) ad_layer_dump_ops_to_file(dump_out_f, out_ops, out_count);
-        if (dump_chg_f) ad_layer_dump_changes_to_file(dump_chg_f, in_ops, in_count, out_ops, out_count);
-        ad_layer_logf("Last hunk: %d ops → %d ops", in_count, out_count);
-
-        ad_layer_write_hunk(&current_hunk);
-        for (int i = 0; i < out_count; i++)
-            ad_layer_write_op(&out_ops[i]);
-        ad_layer_write_hunk_end();
-
-        free(out_ops);
-    }
+    /* Handle last hunk if no HUNK_END was seen */
+    AD_LAYER_FLUSH_HUNK();
 
     printf("\n");  /* trailing blank line */
-    ad_layer_logf("Total: %d hunks", hunk_count);
     free(in_ops);
     return 0;
+
+    #undef AD_LAYER_FLUSH_HUNK
 }
 
 #endif /* AD_LAYER_COMMON_H */
