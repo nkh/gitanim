@@ -158,13 +158,18 @@ for d in "${examples[@]}"; do
     "$ROOT/bin/ad_layer_pace" < "$post" > "$timed" 2>/dev/null
 
     # Run vim headless with the patched engine
-    AD_TIMED_OPS="$timed" \
-    AD_OUTPUT="$out" \
-    AD_SPEED=1000000 \
+    # Write a vimscript config file (replaces env var exports)
+    VIMCONFIG="$WORKDIR/ad_config_$$.vim"
+    cat > "$VIMCONFIG" <<VIMCFG
+let s:output_file = "$out"
+let s:speed_mult_x1000 = 1000000000
+VIMCFG
     timeout -k 5 60 vim -e -s -n -Nu NONE -U NONE \
         -c "let g:diffvim_new_file = '$new'" \
+        -c "let g:ad_config_file = '$VIMCONFIG'" \
         -c "source $ENG" \
         "$old" </dev/null >/dev/null 2>&1
+    rm -f "$VIMCONFIG"
 
     if [[ -f "$out" ]] && diff -q "$new" "$out" >/dev/null 2>&1; then
         pass=$((pass + 1))

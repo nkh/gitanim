@@ -10,14 +10,9 @@
 #
 # Load config file from XDG location ($XDG_CONFIG_HOME/ad/config,
 # defaults to ~/.config/ad/config). No legacy fallbacks.
-if [[ -z "${AD_CONFIG_LOADED:-}" ]]; then
-    cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
-    cfg="$cfg_dir/ad/config"
-    if [[ -f "$cfg" ]]; then
-        source "$cfg"
-        export AD_CONFIG_LOADED=1
-    fi
-fi
+cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+cfg="$cfg_dir/ad/config"
+[[ -f "$cfg" ]] && source "$cfg"
 
 # Unprefixed options (--speed, --output, etc.) go to the animator.
 #
@@ -342,7 +337,7 @@ run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW
 if [[ ${#POSTPROCESS_ARGS[@]} -eq 0 || "${POSTPROCESS_ARGS[0]}" != "--ad-layer=ad_layer_reorder" ]]; then
     POSTPROCESS_ARGS=("--ad-layer=ad_layer_reorder" "${POSTPROCESS_ARGS[@]}")
 fi
-export AD_OLD_FILE="$OLD"
+
 run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 
 # Stage 3: Pace

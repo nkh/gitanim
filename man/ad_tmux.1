@@ -1,20 +1,20 @@
 .TH AD-TMUX 1 "2026-08-16" "ad 1.0" "User Commands"
 .SH NAME
-diffvim-tmux \- animate a code diff in vim inside a tmux pane (bash + tmux variant)
+ad_tmux \- animate a code diff in vim inside a tmux pane (bash + tmux variant)
 .SH SYNOPSIS
-.B diffvim-tmux
+.B ad_tmux
 .RI [ options ]
 .RI <oldfile>
 .RI <newfile>
 .br
-.B diffvim-tmux
+.B ad_tmux
 .RI [ options ]
 .B \-\-multi
 .RI <old1:new1>
 .RI <old2:new2>
 \&...
 .br
-.B diffvim-tmux
+.B ad_tmux
 .RI [ options ]
 .B \-\-replay
 .RI <file>
@@ -23,13 +23,13 @@ diffvim-tmux \- animate a code diff in vim inside a tmux pane (bash + tmux varia
 .RB [ \-\-to
 .IR REV ]
 .br
-.B diffvim-tmux
+.B ad_tmux
 .B \-\-version
 .br
-.B diffvim-tmux
+.B ad_tmux
 .B \-\-help
 .SH DESCRIPTION
-.B diffvim-tmux
+.B ad_tmux
 is the tmux-based variant of
 .BR diffvim (1).
 It runs vim inside a tmux pane and orchestrates the animation from a
@@ -42,14 +42,14 @@ This variant is useful when you want to script or extend the animation in
 bash, or when you need the animation to run in a detachable tmux session.
 
 Because the orchestrator and vim run in separate processes,
-.B diffvim-tmux
+.B ad_tmux
 can exhibit race conditions if bash queues keys faster than vim can
 process them. For race-free animation, use
 .B ad_vim
 instead.
 
 .SH OPTIONS
-.B diffvim-tmux
+.B ad_tmux
 accepts the same options as
 .BR diffvim (1),
 with the same semantics. See
@@ -61,7 +61,7 @@ for the full list. The only differences are:
 Default is
 .B none
 in
-.B diffvim-tmux
+.B ad_tmux
 (because tmux already provides its own scrolling), versus
 .B zz
 in
@@ -98,35 +98,29 @@ Reset speed to 1.0x.
 .B ?
 Show in-vim help.
 
-.SH ENVIRONMENT
-The same environment variables as
-.BR diffvim (1)
-apply. In addition:
-.TP
-.B DIFFVIM_TMUX_BIN
-Path to the
-.BR tmux (1)
-binary (default:
-.BR tmux ).
+.SH CONFIGURATION
+No environment variables. All options are set via CLI flags or the
+config file at $XDG_CONFIG_HOME/ad/config (see
+.BR ad_vim (1)).
 
 .SH FILES
 .TP
-.I /tmp/diffvim-fifo-$$
+.I /tmp/ad-fifo-$$
 Named pipe used for vim \(->bash user input. Cleaned up on exit.
 
 .SH EXAMPLES
 .TP
-.B diffvim-tmux old.py new.py
+.B ad_tmux old.py new.py
 Animate the diff between
 .I old.py
 and
 .I new.py
 inside a fresh tmux session.
 .TP
-.B diffvim-tmux --speed 2 --word-diff a.py b.py
+.B ad_tmux --speed 2 --word-diff a.py b.py
 Animate at 2x speed with word-level diffing.
 .TP
-.B diffvim-tmux --replay main.py --from HEAD~10 --to HEAD
+.B ad_tmux --replay main.py --from HEAD~10 --to HEAD
 Animate the last 10 commits' changes to
 .IR main.py .
 
@@ -141,4 +135,4 @@ Full documentation in
 and the mdBook at
 .IR docs/src/ .
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

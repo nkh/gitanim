@@ -30,7 +30,8 @@ binmode(STDOUT, ':utf8');
 binmode(STDERR, ':utf8');
 
 my $LAYER_NAME = 'ad_layer_line_delete_in_place (Perl)';
-my $DEBUG = ($ENV{AD_DEBUG_LAYERS} // '0') eq '1';
+my $DEBUG = 0;
+for my $arg (@ARGV) { $DEBUG = 1 if $arg eq "--debug"; }
 
 sub debug_log {
     my ($msg) = @_;

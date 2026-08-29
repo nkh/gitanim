@@ -25,7 +25,7 @@ echo ""
 # Test 1: "hallo" → "hplo" (delete 'a', delete 'l', insert 'p')
 printf 'hallo\n' > /tmp/ow_old.txt
 printf 'hplo\n' > /tmp/ow_new.txt
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" /tmp/ow_old.txt /tmp/ow_new.txt /tmp/ow_raw.txt 2>/dev/null
+"$ROOT/bin/ad_compute" /tmp/ow_old.txt /tmp/ow_new.txt /tmp/ow_raw.txt 2>/dev/null
 
 echo "Test 1: Overwrite merges adjacent delete+insert"
 "$ROOT/bin/ad_layer_noop" < /tmp/ow_raw.txt 2>/dev/null | "$ROOT/bin/ad_layer_overwrite" 2>/dev/null > /tmp/ow_v2.txt
@@ -72,7 +72,7 @@ fi
 
 echo "Test 6: Debug logging produces files"
 rm -rf /tmp/ad_debug
-AD_DEBUG_LAYERS=1 "$ROOT/bin/ad_layer_overwrite" < /tmp/ow_v2.txt > /dev/null 2>/dev/null
+"$ROOT/bin/ad_layer_overwrite" --debug < /tmp/ow_v2.txt > /dev/null 2>/dev/null
 if [[ -f /tmp/ad_debug/postprocess.log ]]; then
     ok "Debug log created"
 else
@@ -91,7 +91,7 @@ echo "Test 8: Non-adjacent delete+insert NOT merged"
 # delete and insert are NOT adjacent (keep between them)
 printf 'hello\n' > /tmp/ow3_old.txt
 printf 'helpo\n' > /tmp/ow3_new.txt
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" /tmp/ow3_old.txt /tmp/ow3_new.txt /tmp/ow3_raw.txt 2>/dev/null
+"$ROOT/bin/ad_compute" /tmp/ow3_old.txt /tmp/ow3_new.txt /tmp/ow3_raw.txt 2>/dev/null
 "$ROOT/bin/ad_layer_noop" < /tmp/ow3_raw.txt 2>/dev/null | "$ROOT/bin/ad_layer_overwrite" 2>/dev/null > /tmp/ow3_v2.txt
 n_ow3=$(grep "overwrite_insert" /tmp/ow3_v2.txt 2>/dev/null | wc -l)
 if [[ "$n_ow3" -eq 0 ]]; then
@@ -104,7 +104,7 @@ echo "Test 9: Multiple adjacent pairs merged"
 # "abc" → "xyz": delete a, insert x, delete b, insert y, delete c, insert z
 printf 'abc\n' > /tmp/ow4_old.txt
 printf 'xyz\n' > /tmp/ow4_new.txt
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" /tmp/ow4_old.txt /tmp/ow4_new.txt /tmp/ow4_raw.txt 2>/dev/null
+"$ROOT/bin/ad_compute" /tmp/ow4_old.txt /tmp/ow4_new.txt /tmp/ow4_raw.txt 2>/dev/null
 "$ROOT/bin/ad_layer_noop" < /tmp/ow4_raw.txt 2>/dev/null | "$ROOT/bin/ad_layer_overwrite" 2>/dev/null > /tmp/ow4_v2.txt
 n_ow4=$(grep "overwrite_insert" /tmp/ow4_v2.txt 2>/dev/null | wc -l)
 if [[ "$n_ow4" -ge 1 ]]; then

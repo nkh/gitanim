@@ -23,7 +23,7 @@ open(my $fh, '>', $old) or die; print $fh "def foo():\n    print(\"hello\")\n   
 open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; close($fh);
 
 # Run compute
-system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
+system("./bin/ad_compute '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
 
 # Run postprocess WITHOUT indent-last
 system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");

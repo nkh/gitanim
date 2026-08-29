@@ -47,7 +47,7 @@ for my $ex (@examples) {
     my $post = "/tmp/nb_post.txt";
     my $timed = "/tmp/nb_timed.txt";
     
-    system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' '$raw' 2>/dev/null");
+    system("./bin/ad_compute '$old' '$new' '$raw' 2>/dev/null");
     system("./bin/ad_postprocess < '$raw' > '$post' 2>/dev/null");
     system("./bin/ad_layer_pace < '$post' > '$timed' 2>/dev/null");
     

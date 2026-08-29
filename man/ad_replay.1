@@ -1,23 +1,23 @@
-.TH DV_REPLAY 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.TH AD_REPLAY 1 "2026-08-21" "ad 2.0" "ad scripts"
 .SH NAME
-dv_replay \- 
+ad_replay \- replay a recorded animation
 .SH SYNOPSIS
-.B dv_replay
+.B ad_replay
 [\fIoptions\fR] [\fIargs\fR]
 .SH DESCRIPTION
 NAME\fR
-    dv_replay.sh — Replay a recorded animation\fR
+    ad_replay.sh — Replay a recorded animation\fR
 \fR
 SYNOPSIS\fR
-    dv_replay.sh [-h|--help]\fR
-    dv_replay.sh <oldfile> <recording.dv>\fR
+    ad_replay.sh [-h|--help]\fR
+    ad_replay.sh <oldfile> <recording.dv>\fR
 \fR
 DESCRIPTION\fR
     Replays a timed op stream previously recorded by dv_record.sh.\fR
     Loads the old file into the animator as the initial buffer, then\fR
     feeds the timed op stream through ad (in\fR
     --no-display mode at speed 1000, with --snapshot) so that the\fR
-    final buffer state is written to /tmp/dv_replay_out.txt.\fR
+    final buffer state is written to /tmp/ad_replay_out.txt.\fR
 \fR
     This is the counterpart to dv_record.sh: the recording captures\fR
     the timed ops, and this script replays them.\fR
@@ -29,9 +29,9 @@ OPTIONS\fR
     <recording.dv>      Path to a recording file produced by dv_record.sh.\fR
 \fR
 EXAMPLES\fR
-    dv_replay.sh tests/tests/examples/01_small_python/old.py /tmp/my_recording.dv\fR
+    ad_replay.sh tests/tests/examples/01_small_python/old.py /tmp/my_recording.dv\fR
         Replay the recording, writing the final buffer to\fR
-        /tmp/dv_replay_out.txt.\fR
+        /tmp/ad_replay_out.txt.\fR
 \fR
     dv_record.sh old.py new.py /tmp/my_recording.dv\fR
         (Companion command) record the animation first.\fR

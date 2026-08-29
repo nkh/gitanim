@@ -1,0 +1,61 @@
+# /etc/ad/config — system-wide defaults for the `ad` toolkit.
+#
+# This file is sourced as bash by `ad_vim` and `ad_pipeline` at startup.
+# User config at $XDG_CONFIG_HOME/ad/config (default: ~/.config/ad/config)
+# overrides these values.
+#
+# Every variable below has a corresponding CLI flag. CLI flags override
+# both this file and the user config file. Precedence:
+#   1. /etc/ad/config        (lowest)
+#   2. ~/.config/ad/config
+#   3. CLI flag              (highest)
+#
+# Lines starting with # are comments. Blank lines are ignored.
+
+# ── Pacing ────────────────────────────────────────────────────────────
+# DELETE_PACING=word           # char|word|instant|rapid-eol|rapid-identical|accel|flash
+# INSERT_PACING=char           # char|word|accel
+# PACING=uniform               # uniform|adaptive|gaussian|review
+# DELETE_SPEED=normal          # slow|normal|fast|instant
+# INSERT_SPEED=normal          # slow|normal|fast
+# DELETE_THRESHOLD=3           # integer
+
+# ── Layer chain ────────────────────────────────────────────────────────
+# INDENT_LAST=0                # 1 enables the indent_last layer
+# OVERWRITE_MODE=0             # 1 enables the overwrite layer
+# LINE_DELETE_IN_PLACE=0       # 1 enables the line_delete_in_place layer
+
+# ── Animation behavior ────────────────────────────────────────────────
+# LEFT_TO_RIGHT=0              # 1 enables left-to-right diff mode
+# SPEED=1.0                    # float (speed multiplier)
+# SCROLL=zz                    # zz|zt|zb|none
+# MAX_LINE_LEN=10000           # integer
+# MAX_HUNK_CHARS=0             # integer (0 = no limit)
+
+# ── Cursor movement ────────────────────────────────────────────────────
+# CURSOR_GLIDE_MS=0            # integer (ms; 0 disables glide)
+# CURSOR_GLIDE_SHOW_INTERMEDIATE=1  # 0|1
+# DISTANCE_SPEED=off           # adaptive|off
+# DISTANCE_THRESHOLD=5         # integer (lines)
+# DISTANCE_FAST_MULT=2.0       # float
+# DISTANCE_SLOW_MULT=0.5       # float
+
+# ── Decoration ────────────────────────────────────────────────────────
+# HIGHLIGHT_MODE=none          # none|inline|word|hunk
+# HIGHLIGHT_DURATION_MS=200    # integer (ms)
+# DIM_UNCHANGED=0              # 0|1
+# DIM_UNCHANGED_PCT=60         # integer (0-100)
+# CONTEXT_LINES=0              # integer (lines of context)
+# FOLD_UNCHANGED=0             # 0|1
+# SIGN_COLUMN=0                # 0|1
+# GIT_BLAME=0                  # 0|1
+
+# ── Output ────────────────────────────────────────────────────────────
+# OUTPUT=                      # file path (write final buffer to FILE)
+# SNAPSHOT=                    # file path (write buffer to FILE at end)
+# KEEP_DIRTY=0                 # 0|1 (leave buffer modified after animation)
+
+# ── Misc ──────────────────────────────────────────────────────────────
+# THEME=                       # dark|light|high-contrast
+# LOG_MODE=                    # mode
+# LOG_FILE=                    # file path

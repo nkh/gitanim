@@ -89,7 +89,7 @@ for my $old_path (@examples) {
     my $new_path = $old_path;
     $new_path =~ s/old\./new./;
     next unless -f $new_path;
-    system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old_path' '$new_path' /tmp/lt_ow_raw.txt 2>/dev/null");
+    system("./bin/ad_compute '$old_path' '$new_path' /tmp/lt_ow_raw.txt 2>/dev/null");
     next unless -s "/tmp/lt_ow_raw.txt";
     # Run reorder first to get post-reorder input
     system("./bin/ad_layer_reorder < /tmp/lt_ow_raw.txt > /tmp/lt_ow_reord.txt 2>/dev/null");

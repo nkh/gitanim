@@ -1,6 +1,6 @@
 # Configuration
 
-`ad_vim` reads configuration from a single file at startup. The file is sourced as a bash script, so it can set any environment variable that the launcher recognizes.
+`ad_vim` and `ad_pipeline` read configuration from a single file at startup, with CLI flags overriding per-invocation. **There are no environment variables.**
 
 ## Config file location
 
@@ -16,117 +16,135 @@ If `XDG_CONFIG_HOME` is unset, it defaults to `~/.config/`. So the default confi
 ~/.config/ad/config
 ```
 
-There are no legacy fallback paths. The `~/.config/ad/config` file is no longer read.
+A system-wide defaults file can be installed at `/etc/ad/config` (see `packaging/etc-ad-config` for a template). The user config file overrides system defaults.
+
+## Precedence
+
+1. `/etc/ad/config` — system-wide defaults (lowest priority)
+2. `~/.config/ad/config` — user config
+3. CLI flags — per-invocation (highest priority)
+
+No environment variables. No `~/.diffvimrc` fallback. No `DV_*` or `DIFFVIM_*` vars.
 
 ## Creating the config file
 
 ```bash
 mkdir -p ~/.config/ad
 cat > ~/.config/ad/config <<'EOF'
-# ad configuration
+# ad configuration — sourced as bash by ad_vim and ad_pipeline
 
 # Pacing
-AD_DELETE_PACING=word
-AD_INSERT_PACING=char
-AD_PACING=uniform
+DELETE_PACING=word
+INSERT_PACING=char
+PACING=uniform
 
 # Highlight
-AD_HIGHLIGHT_MODE=inline
-AD_HIGHLIGHT_DURATION_MS=200
+HIGHLIGHT_MODE=inline
+HIGHLIGHT_DURATION_MS=200
 
 # Cursor
-AD_CURSOR_GLIDE_MS=100
+CURSOR_GLIDE_MS=100
 
 # Layer chain (convenience flags)
-AD_INDENT_LAST=1
-AD_OVERWRITE_MODE=1
+INDENT_LAST=1
+OVERWRITE_MODE=1
 EOF
 ```
 
-## Available environment variables
+The config file is sourced as bash, so it can set any variable that the launcher recognizes. Variable names use UPPER_CASE (without the `AD_` prefix — the launcher reads them as plain bash variables).
 
-All environment variables use the `AD_` prefix. There are no `DV_*` or `DIFFVIM_*` variants — those were removed in a hard cut.
+## Available CLI flags
+
+All options can be set via CLI flag OR via the config file. The CLI flag always wins.
 
 ### Pacing
 
-| Variable | Default | Values |
-|----------|---------|--------|
-| `AD_DELETE_PACING` | `word` | `char`, `word`, `instant`, `rapid-eol`, `rapid-identical`, `accel`, `flash` |
-| `AD_INSERT_PACING` | `char` | `char`, `word`, `accel` |
-| `AD_PACING` | `uniform` | `uniform`, `adaptive`, `gaussian`, `review` |
-| `AD_DELETE_SPEED` | `normal` | `slow`, `normal`, `fast`, `instant` |
-| `AD_INSERT_SPEED` | `normal` | `slow`, `normal`, `fast` |
-| `AD_DELETE_THRESHOLD` | `3` | Integer |
-| `AD_GAUSSIAN_JITTER_PCT` | `20` | Integer (0-100) |
+| CLI flag | Config var | Default | Values |
+|----------|-----------|---------|--------|
+| `--delete-pacing MODE` | `DELETE_PACING` | `word` | `char`, `word`, `instant`, `rapid-eol`, `rapid-identical`, `accel`, `flash` |
+| `--insert-pacing MODE` | `INSERT_PACING` | `char` | `char`, `word`, `accel` |
+| `--pacing MODE` | `PACING` | `uniform` | `uniform`, `adaptive`, `gaussian`, `review` |
+| `--delete-speed SPEED` | `DELETE_SPEED` | `normal` | `slow`, `normal`, `fast`, `instant` |
+| `--insert-speed SPEED` | `INSERT_SPEED` | `normal` | `slow`, `normal`, `fast` |
+| `--delete-threshold N` | `DELETE_THRESHOLD` | `3` | integer |
 
 ### Layer chain
 
 These convenience flags enable specific postprocess layers:
 
-| Variable | Default | Effect |
-|----------|---------|--------|
-| `AD_INDENT_LAST` | `0` | `1` enables the `ad_layer_indent_last` layer |
-| `AD_OVERWRITE_MODE` | `0` | `1` enables the `ad_layer_overwrite` layer |
-| `AD_LINE_DELETE_IN_PLACE` | `0` | `1` enables the `ad_layer_line_delete_in_place` layer |
-
-For full control over the layer chain, use the `--ad-layer=<name>` flag on the command line. See [Plugin Layers](plugin-layers.md) for the plugin contract.
-
-### Highlight / decoration
-
-| Variable | Default | Values |
-|----------|---------|--------|
-| `AD_HIGHLIGHT_MODE` | `none` | `none`, `inline`, `word`, `hunk` |
-| `AD_HIGHLIGHT_DURATION_MS` | `200` | Integer (ms) |
-| `AD_DIM_UNCHANGED` | `0` | `1` dims unchanged anchor lines |
-| `AD_DIM_UNCHANGED_PCT` | `60` | Integer (0-100) |
-| `AD_FOLD_UNCHANGED` | `0` | `1` folds unchanged regions |
-| `AD_CONTEXT_LINES` | `0` | Integer (lines of context to keep) |
-| `AD_SIGN_COLUMN` | `0` | `1` places +/- signs in sign column |
-| `AD_GIT_BLAME` | `0` | `1` inserts blame markers |
-
-### Cursor movement
-
-| Variable | Default | Values |
-|----------|---------|--------|
-| `AD_CURSOR_GLIDE_MS` | `0` | Integer (ms); `0` disables glide |
-| `AD_CURSOR_GLIDE_SHOW_INTERMEDIATE` | `1` | `1` shows intermediate positions |
-| `AD_DISTANCE_SPEED` | `off` | `adaptive`, `off` |
-| `AD_DISTANCE_THRESHOLD` | `5` | Integer (lines) |
-| `AD_DISTANCE_FAST_MULT` | `2.0` | Float |
-| `AD_DISTANCE_SLOW_MULT` | `0.5` | Float |
-
-### Timing
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AD_TICK_MS` | `16` | Timer tick interval (~60fps) |
-| `AD_TYPE_DELAY_MS` | `50` | Delay per character insert |
-| `AD_DELETE_DELAY_MS` | `40` | Delay per character delete |
-| `AD_HUNK_PAUSE_MS` | `250` | Pause between hunks |
-| `AD_WORD_PAUSE_MS` | `150` | Pause between words |
+| CLI flag | Config var | Default | Effect |
+|----------|-----------|---------|--------|
+| `--indent-last` | `INDENT_LAST` | `0` | `1` enables the `ad_layer_indent_last` layer |
+| `--overwrite` | `OVERWRITE_MODE` | `0` | `1` enables the `ad_layer_overwrite` layer |
+| `--line-delete-in-place` | `LINE_DELETE_IN_PLACE` | `0` | `1` enables the `ad_layer_line_delete_in_place` layer |
+| `--ad-layer=NAME` | — | — | Add any layer to the chain (see [Plugin Layers](plugin-layers.md)) |
+| `--ad-layer-path=DIR` | — | — | Add a directory to the layer search path |
 
 ### Animation behavior
 
-| Variable | Default | Values |
-|----------|---------|--------|
-| `AD_LEFT_TO_RIGHT`` | `0` | `1` enables left-to-right diff mode |
-| `AD_SPEED` | `1.0` | Float (speed multiplier) |
-| `AD_SCROLL` | `zz` | `zz`, `zt`, `zb`, `none` |
-| `AD_MAX_LINE_LEN` | `10000` | Integer |
-| `AD_MAX_HUNK_CHARS` | `0` | Integer; `0` = no limit |
+| CLI flag | Config var | Default | Values |
+|----------|-----------|---------|--------|
+| `--left-to-right` | `LEFT_TO_RIGHT` | `0` | `1` enables left-to-right diff mode |
+| `--speed N` | `SPEED` | `1.0` | float (speed multiplier) |
+| `--scroll MODE` | `SCROLL` | `zz` | `zz`, `zt`, `zb`, `none` |
+| `--max-line-len N` | `MAX_LINE_LEN` | `10000` | integer |
+| `--max-hunk-chars N` | `MAX_HUNK_CHARS` | `0` | integer; `0` = no limit |
 
-### Debug
+### Cursor movement
 
-| Variable | Default | Effect |
+| CLI flag | Config var | Default | Values |
+|----------|-----------|---------|--------|
+| `--cursor-glide-ms N` | `CURSOR_GLIDE_MS` | `0` | integer (ms); `0` disables glide |
+| `--cursor-glide-show-intermediate 0\|1` | `CURSOR_GLIDE_SHOW_INTERMEDIATE` | `1` | `0` or `1` |
+| `--distance-speed MODE` | `DISTANCE_SPEED` | `off` | `adaptive`, `off` |
+| `--distance-threshold N` | `DISTANCE_THRESHOLD` | `5` | integer (lines) |
+| `--distance-fast-mult N` | `DISTANCE_FAST_MULT` | `2.0` | float |
+| `--distance-slow-mult N` | `DISTANCE_SLOW_MULT` | `0.5` | float |
+
+### Decoration
+
+| CLI flag | Config var | Default | Values |
+|----------|-----------|---------|--------|
+| `--highlight MODE` | `HIGHLIGHT_MODE` | `none` | `none`, `inline`, `word`, `hunk` |
+| `--highlight-duration-ms N` | `HIGHLIGHT_DURATION_MS` | `200` | integer (ms) |
+| `--dim-unchanged` | `DIM_UNCHANGED` | `0` | `0` or `1` |
+| `--dim-unchanged-pct N` | `DIM_UNCHANGED_PCT` | `60` | integer (0-100) |
+| `--context N` | `CONTEXT_LINES` | `0` | integer (lines of context) |
+| `--fold-unchanged` | `FOLD_UNCHANGED` | `0` | `0` or `1` |
+| `--sign-column` | `SIGN_COLUMN` | `0` | `0` or `1` |
+| `--git-blame` | `GIT_BLAME` | `0` | `0` or `1` |
+
+### Output
+
+| CLI flag | Config var | Default | Values |
+|----------|-----------|---------|--------|
+| `--output FILE` | `OUTPUT` | — | file path |
+| `--snapshot FILE` | `SNAPSHOT` | — | file path |
+| `--keep-dirty` | `KEEP_DIRTY` | `0` | `0` or `1` |
+
+### Misc
+
+| CLI flag | Config var | Default | Values |
+|----------|-----------|---------|--------|
+| `--theme MODE` | `THEME` | — | `dark`, `light`, `high-contrast` |
+| `--log-mode MODE` | `LOG_MODE` | — | mode |
+| `--log-file FILE` | `LOG_FILE` | `diffvim.log` | file path |
+| `--debug` | `DEBUG_MODE` | `0` | `0` or `1` |
+
+### Compute (diff engine)
+
+| CLI flag | Default | Effect |
 |----------|---------|--------|
-| `AD_DEBUG_LAYERS` | `0` | `1` enables per-layer debug dumps in `/tmp/ad_debug/` |
-| `AD_DUMP_INPUT` | unset | Path to dump layer input |
-| `AD_DUMP_OUTPUT` | unset | Path to dump layer output |
-| `AD_OLD_FILE` | unset | Path to old file (for layers that need it) |
+| `--semantic-cleanup` | off | Merge adjacent delete+insert pairs that cancel out |
+| `--word-diff` | off | Use word-level diff |
+| `--indent-aware` | off | Normalize indentation before line diff |
+| `--optimize-sequence` | on | Enable op-sequence optimization |
+| `--no-optimize-sequence` | — | Disable op-sequence optimization |
+| `--left-to-right` | off | Sort ops left-to-right by column |
 
 ## Command-line overrides
 
-All environment variables can be overridden on the command line. Common patterns:
+All config variables can be overridden on the command line. Examples:
 
 ```bash
 # Override pacing
@@ -164,3 +182,5 @@ Or source it from their personal config:
 - [Plugin Layers](plugin-layers.md) — the `--ad-layer=<name>` plugin system
 - [Contributing](contributing.md) — how to add a new layer
 - [Command-Line Options](options.md) — full option reference
+- `man ad_vim` — manpage
+- `ad_vim --help` — built-in help

@@ -40,38 +40,36 @@ set -euo pipefail
 # Defaults (can be overridden by env vars or --speed)
 # ---------------------------------------------------------------------------
 
-# Load config file from XDG location ($XDG_CONFIG_HOME/ad/config,
-# defaults to ~/.config/ad/config). No legacy fallbacks.
-if [[ -z "${AD_CONFIG_LOADED:-}" ]]; then
-    cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
-    cfg="$cfg_dir/ad/config"
-    if [[ -f "$cfg" ]]; then
-        source "$cfg"
-        export AD_CONFIG_LOADED=1
-    fi
-fi
+# Defaults — these are the built-in values. The config file (loaded next)
+# and CLI flags (parsed later) override these.
+AD_TICK_MS=16
+AD_TYPE_DELAY_MS=50
+AD_DELETE_DELAY_MS=40
+AD_MOVE_MIN_MS=200
+AD_MOVE_MAX_MS=2000
+AD_MOVE_MS_PER_UNIT=1
+AD_HUNK_PAUSE_MS=250
+AD_WORD_PAUSE_MS=150
+RAPID_EOL_DELAY_MS=80
+RAPID_EOL_MIN_CHARS=3
 
-export AD_TICK_MS=${AD_TICK_MS:-16}
-export AD_TYPE_DELAY_MS=${AD_TYPE_DELAY_MS:-50}
-export AD_DELETE_DELAY_MS=${AD_DELETE_DELAY_MS:-40}
-export AD_MOVE_MIN_MS=${AD_MOVE_MIN_MS:-200}
-export AD_MOVE_MAX_MS=${AD_MOVE_MAX_MS:-2000}
-export AD_MOVE_MS_PER_UNIT=${AD_MOVE_MS_PER_UNIT:-1}
-export AD_HUNK_PAUSE_MS=${AD_HUNK_PAUSE_MS:-250}
-export AD_WORD_PAUSE_MS=${AD_WORD_PAUSE_MS:-150}
-export DIFFVIM_RAPID_EOL_DELAY_MS=${DIFFVIM_RAPID_EOL_DELAY_MS:-80}
-export DIFFVIM_RAPID_EOL_MIN_CHARS=${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}
+# Load config file from XDG location ($XDG_CONFIG_HOME/ad/config,
+# defaults to ~/.config/ad/config). The config file can override any
+# of the defaults above. CLI flags (parsed next) override both.
+cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+cfg="$cfg_dir/ad/config"
+[[ -f "$cfg" ]] && source "$cfg"
 
 # ---------------------------------------------------------------------------
 # Parse CLI options
 # ---------------------------------------------------------------------------
-SPEED_MULT=${DIFFVIM_SPEED:-1.0}
+SPEED_MULT=1.0
 OUTPUT_FILE=""
 CONTEXT_LINES=0
 MAX_HUNK_CHARS=0
 MAX_WORD_CHARS=0
-SCROLL_MODE="${DIFFVIM_SCROLL:-zz}"
-LANGUAGE="${DIFFVIM_LANGUAGE:-auto}"
+SCROLL_MODE="zz"
+LANGUAGE="auto"
 MULTI_MODE=0
 REPLAY_MODE=0
 REPLAY_FROM="HEAD~5"
@@ -84,11 +82,11 @@ WORD_DIFF=0
 STEP_MODE=0
 ADAPTIVE_TIMING=0
 ADAPTIVE_MODE=0
-ADAPTIVE_START_DELAY_MS="${DIFFVIM_ADAPTIVE_START_MS:-80}"
-ADAPTIVE_MAX_DELAY_MS="${DIFFVIM_ADAPTIVE_MAX_MS:-30}"
-ADAPTIVE_ACCEL="${DIFFVIM_ADAPTIVE_ACCEL:-0.92}"
-ADAPTIVE_PAUSE_LINES="${DIFFVIM_ADAPTIVE_PAUSE_LINES:-15}"
-ADAPTIVE_PAUSE_MS="${DIFFVIM_ADAPTIVE_PAUSE_MS:-500}"
+ADAPTIVE_START_DELAY_MS="80"
+ADAPTIVE_MAX_DELAY_MS="30"
+ADAPTIVE_ACCEL="0.92"
+ADAPTIVE_PAUSE_LINES="15"
+ADAPTIVE_PAUSE_MS="500"
 NO_STARTUP_PAUSE=0
 SIGN_COLUMN=0
 GIT_BLAME=0
@@ -96,124 +94,124 @@ HIGHLIGHT_HUNK=0
 # --highlight: unified highlight mode selector.
 # Replaces --highlight-word, --highlight-hunk, --highlight-inline.
 # Old flags still work and override this.
-HIGHLIGHT_MODE="${DIFFVIM_HIGHLIGHT:-none}"
-HIGHLIGHT_COLOR="${DIFFVIM_HIGHLIGHT_COLOR:-DiffChange}"
-HIGHLIGHT_DURATION_MS="${DIFFVIM_HIGHLIGHT_DURATION_MS:-1000}"
-HIGHLIGHT_MIN_CHARS="${DIFFVIM_HIGHLIGHT_MIN_CHARS:-10}"
+HIGHLIGHT_MODE="none"
+HIGHLIGHT_COLOR="DiffChange"
+HIGHLIGHT_DURATION_MS="1000"
+HIGHLIGHT_MIN_CHARS="10"
 GIT_REV=""
 MAX_LINE_LEN=0
 # --delete-pacing: unified deletion strategy selector.
 # Replaces --rapid-eol-delete, --rapid-identical-chars, --accel-delete,
 # --adaptive-word-delete. Old flags still work and override this.
-DELETE_PACING="${DIFFVIM_DELETE_PACING:-word}"
+DELETE_PACING="word"
 # --delete-speed: speed multiplier for deletes (slow|normal|fast|instant)
-DELETE_SPEED="${DIFFVIM_DELETE_SPEED:-normal}"
+DELETE_SPEED="normal"
 # --delete-threshold: min chars to trigger rapid/word modes (was rapid_eol_min_chars)
-DELETE_THRESHOLD="${DIFFVIM_DELETE_THRESHOLD:-3}"
+DELETE_THRESHOLD="3"
 RAPID_EOL_DELETE=1
-RAPID_EOL_DELAY_MS="${DIFFVIM_RAPID_EOL_DELAY_MS:-80}"
-RAPID_EOL_MIN_CHARS="${DIFFVIM_RAPID_EOL_MIN_CHARS:-3}"
+RAPID_EOL_DELAY_MS="80"
+RAPID_EOL_MIN_CHARS="3"
 KEEP_DIRTY=0
 NO_VIMRC=0
 PRECOMPUTED_FILE=""
 # C++ compute is the default. AUTO_PRECOMPUTE defaults to 1 — diffvim will
 # always try the external compute tool first, and fall back to the
 # embedded vimscript LCS (s:LineDiff / s:CharDiff) if the binary is missing.
-AUTO_PRECOMPUTE="${DIFFVIM_AUTO_PRECOMPUTE:-1}"
+AUTO_PRECOMPUTE="1"
 STARTUP_PAUSE=0
-ALGORITHM="${DIFFVIM_ALGORITHM:-lcs}"
+ALGORITHM="lcs"
 HIGHLIGHT_WORD=0
-HIGHLIGHT_WORD_COLOR="${DIFFVIM_HIGHLIGHT_WORD_COLOR:-Search}"
-HIGHLIGHT_WORD_DURATION_MS="${DIFFVIM_HIGHLIGHT_WORD_DURATION_MS:-300}"
-HIGHLIGHT_WORD_MIN_CHARS="${DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS:-2}"
+HIGHLIGHT_WORD_COLOR="Search"
+HIGHLIGHT_WORD_DURATION_MS="300"
+HIGHLIGHT_WORD_MIN_CHARS="2"
 # Accelerated multi-line deletion: delete first lines slowly, accelerate,
 # then decelerate. Prevents large blocks from vanishing in one shot.
 ACCEL_DELETE=0
-ACCEL_DELETE_START_MS="${DIFFVIM_ACCEL_DELETE_START_MS:-80}"
-ACCEL_DELETE_MIN_MS="${DIFFVIM_ACCEL_DELETE_MIN_MS:-10}"
-ACCEL_DELETE_ACCEL="${DIFFVIM_ACCEL_DELETE_ACCEL:-0.85}"
+ACCEL_DELETE_START_MS="80"
+ACCEL_DELETE_MIN_MS="10"
+ACCEL_DELETE_ACCEL="0.85"
 # Overwrite mode: when a word replaces another, overwrite in place rather
 # than delete-all-then-insert-all. Shorter=overwrite+delete-extra;
 # same=overwrite-only; longer=overwrite+insert-remainder.
 OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
-INDENT_LAST="${AD_INDENT_LAST:-0}"
-LINE_DELETE_IN_PLACE="${AD_LINE_DELETE_IN_PLACE:-0}"
+INDENT_LAST="0"
+LINE_DELETE_IN_PLACE="0"
 # Extra layers added via --ad-layer=<name>. Each becomes an --ad-layer
 # flag to the orchestrator. Search path can be extended with
 # --ad-layer-path=<dir>.
 EXTRA_PP_LAYERS=()
 EXTRA_PP_PATHS=()
 # Display options (forwarded to C animator)
-DIFF_STAT="${DIFFVIM_DIFF_STAT:-0}"
-DIFF_HIGHLIGHT="${DIFFVIM_DIFF_HIGHLIGHT:-0}"
-BELL_ON_ERROR="${DIFFVIM_BELL_ON_ERROR:-0}"
+DIFF_STAT="0"
+DIFF_HIGHLIGHT="0"
+BELL_ON_ERROR="0"
 # Flash mode: highlight whole line, pause, delete in one shot
-FLASH_PAUSE_MS="${DIFFVIM_FLASH_PAUSE_MS:-400}"
-FLASH_HIGHLIGHT_MS="${DIFFVIM_FLASH_HIGHLIGHT_MS:-300}"
+FLASH_PAUSE_MS="400"
+FLASH_HIGHLIGHT_MS="300"
 # Cursor glide: ease-in-out interpolation between hunks
-CURSOR_GLIDE_MS="${DIFFVIM_CURSOR_GLIDE_MS:-0}"
-CURSOR_GLIDE_SHOW_INTERMEDIATE="${DIFFVIM_CURSOR_GLIDE_SHOW_INTERMEDIATE:-1}"
+CURSOR_GLIDE_MS="0"
+CURSOR_GLIDE_SHOW_INTERMEDIATE="1"
 # Distance-based speed: adaptive speed based on hunk distance
-DISTANCE_SPEED="${DIFFVIM_DISTANCE_SPEED:-off}"
-DISTANCE_THRESHOLD="${DIFFVIM_DISTANCE_THRESHOLD:-10}"
-DISTANCE_FAST_MULT="${DIFFVIM_DISTANCE_FAST_MULT:-3.0}"
-DISTANCE_SLOW_MULT="${DIFFVIM_DISTANCE_SLOW_MULT:-0.5}"
+DISTANCE_SPEED="off"
+DISTANCE_THRESHOLD="10"
+DISTANCE_FAST_MULT="3.0"
+DISTANCE_SLOW_MULT="0.5"
 # Delete-end-before-insert: when a line has both inserts and end-deletes,
 # delete the end first, then insert.
 DELETE_END_FIRST=0
-DELETE_END_FIRST_DELAY_MS="${DIFFVIM_DELETE_END_FIRST_DELAY_MS:-100}"
-DELETE_END_FIRST_SMART="${DIFFVIM_DELETE_END_FIRST_SMART:-0}"
-DELETE_END_FIRST_HIGHLIGHT_MS="${DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS:-300}"
+DELETE_END_FIRST_DELAY_MS="100"
+DELETE_END_FIRST_SMART="0"
+DELETE_END_FIRST_HIGHLIGHT_MS="300"
 # Startup feedback: show progress in status line during diff computation
 STARTUP_FEEDBACK=0
 # Inline char highlight: paint freshly typed chars green, deleted chars red
 INLINE_HIGHLIGHT=0
-INLINE_HIGHLIGHT_DURATION_MS="${DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS:-200}"
+INLINE_HIGHLIGHT_DURATION_MS="200"
 # --pacing: unified timing/pacing mode selector.
 # Replaces --adaptive, --adaptive-timing, --gaussian-jitter, --pause-after-lines.
 # Old flags still work and override this.
-PACING="${DIFFVIM_PACING:-uniform}"
+PACING="uniform"
 # Gaussian jitter: vary per-char delay for human-like typing
 GAUSSIAN_JITTER=0
-GAUSSIAN_JITTER_PCT="${DIFFVIM_GAUSSIAN_JITTER_PCT:-20}"
+GAUSSIAN_JITTER_PCT="20"
 # Dim unchanged lines: reduce opacity of unchanged anchor lines
 DIM_UNCHANGED=0
-DIM_UNCHANGED_PCT="${DIFFVIM_DIM_UNCHANGED_PCT:-60}"
+DIM_UNCHANGED_PCT="60"
 # Pause after N lines for large hunks
 PAUSE_AFTER_LINES=0
-PAUSE_AFTER_THRESHOLD="${DIFFVIM_PAUSE_AFTER_THRESHOLD:-50}"
-PAUSE_AFTER_MS="${DIFFVIM_PAUSE_AFTER_MS:-500}"
-PAUSE_BEFORE_DELETE_MS="${DIFFVIM_PAUSE_BEFORE_DELETE_MS:-200}"
-PAUSE_AFTER_DELETE_MS="${DIFFVIM_PAUSE_AFTER_DELETE_MS:-200}"
-BLOCK_DELETE_SIZE="${DIFFVIM_BLOCK_DELETE_SIZE:-3}"
+PAUSE_AFTER_THRESHOLD="50"
+PAUSE_AFTER_MS="500"
+PAUSE_BEFORE_DELETE_MS="200"
+PAUSE_AFTER_DELETE_MS="200"
+BLOCK_DELETE_SIZE="3"
 FOLD_UNCHANGED=0
-THEME="${DIFFVIM_THEME:-}"
-OPTIMIZE_SEQUENCE="${DIFFVIM_OPTIMIZE_SEQUENCE:-1}"
-LOG_MODE="${DIFFVIM_LOG_MODE:-}"
-LOG_FILE="${DIFFVIM_LOG_FILE:-diffvim.log}"
-LEFT_TO_RIGHT="${AD_LEFT_TO_RIGHT:-1}"
-ADAPTIVE_WORD_DELETE="${DIFFVIM_ADAPTIVE_WORD_DELETE:-0}"
-ADAPTIVE_WORD_DELETE_THRESHOLD="${DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD:-3}"
-ADAPTIVE_WORD_DELETE_START_CHARS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS:-3}"
-ADAPTIVE_WORD_DELETE_START_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS:-80}"
-ADAPTIVE_WORD_DELETE_MIN_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS:-15}"
-ADAPTIVE_WORD_DELETE_ACCEL="${DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL:-0.85}"
-ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="${DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS:-100}"
-RAPID_IDENTICAL_CHARS="${DIFFVIM_RAPID_IDENTICAL_CHARS:-0}"
-RAPID_IDENTICAL_MIN="${DIFFVIM_RAPID_IDENTICAL_MIN:-5}"
-RAPID_IDENTICAL_ACCEL="${DIFFVIM_RAPID_IDENTICAL_ACCEL:-0.5}"
+THEME=""
+OPTIMIZE_SEQUENCE="1"
+LOG_MODE=""
+LOG_FILE="diffvim.log"
+LEFT_TO_RIGHT="1"
+ADAPTIVE_WORD_DELETE="0"
+ADAPTIVE_WORD_DELETE_THRESHOLD="3"
+ADAPTIVE_WORD_DELETE_START_CHARS="3"
+ADAPTIVE_WORD_DELETE_START_MS="80"
+ADAPTIVE_WORD_DELETE_MIN_MS="15"
+ADAPTIVE_WORD_DELETE_ACCEL="0.85"
+ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="100"
+RAPID_IDENTICAL_CHARS="0"
+RAPID_IDENTICAL_MIN="5"
+RAPID_IDENTICAL_ACCEL="0.5"
 # --insert-pacing: unified insertion strategy selector.
 # Replaces --max-word-chars, --word-accel. Old flags still work.
-INSERT_PACING="${DIFFVIM_INSERT_PACING:-char}"
+INSERT_PACING="char"
 # --insert-speed: speed for inserts (slow|normal|fast)
-INSERT_SPEED="${DIFFVIM_INSERT_SPEED:-normal}"
-WORD_ACCEL="${DIFFVIM_WORD_ACCEL:-0}"
-WORD_ACCEL_DELETE_PCT="${DIFFVIM_WORD_ACCEL_DELETE_PCT:-20}"
-WORD_END_PAUSE_MS="${DIFFVIM_WORD_END_PAUSE_MS:-150}"
-LINE_CHANGE_PAUSE_MS="${DIFFVIM_LINE_CHANGE_PAUSE_MS:-200}"
-PRESET="${AD_PRESET:-}"
-LOG_TIMING="${DIFFVIM_LOG_TIMING:-1}"
+INSERT_SPEED="normal"
+WORD_ACCEL="0"
+WORD_ACCEL_DELETE_PCT="20"
+WORD_END_PAUSE_MS="150"
+LINE_CHANGE_PAUSE_MS="200"
+PRESET=""
+LOG_TIMING="1"
 DEBUG_MODE=0
 DEBUG_LOG="/tmp/diffvim-debug.log"
 
@@ -345,8 +343,8 @@ GIT REPLAY CONTROLS (only with --replay or --git-rev):
   (        previous commit in the replay sequence
 
 ENVIRONMENT VARIABLES:
-  All options can be set via DIFFVIM_<OPTION_NAME> env vars
-  (e.g. DIFFVIM_DELETE_PACING, DIFFVIM_PACING, etc.)
+  All options can be set via AD_<OPTION_NAME> env vars
+  (e.g. AD_DELETE_PACING, AD_PACING, etc.)
   Timing: AD_TICK_MS, AD_TYPE_DELAY_MS, AD_DELETE_DELAY_MS,
   AD_MOVE_MIN_MS, AD_MOVE_MAX_MS, AD_HUNK_PAUSE_MS
 
@@ -358,11 +356,11 @@ PRESETS:
 
 CONFIG FILE:
   ~/.config/ad/config  or  ~/.config/ad/config
-    Sourced as bash. Set DIFFVIM_* env vars to customize defaults.
+    Sourced as bash. Set AD_* env vars to customize defaults.
     Example:
       AD_INDENT_LAST=1
       AD_LINE_DELETE_IN_PLACE=1
-      DIFFVIM_DELETE_PACING=word
+      AD_DELETE_PACING=word
 
 
 SEE ALSO:
@@ -625,7 +623,7 @@ if [[ -n "$PRESET" ]]; then
             custom)
                 # Read custom options from AD_PRESET_CUSTOM env var
                 # Format: space-separated --option value pairs
-                if [[ -n "${AD_PRESET_CUSTOM:-}" ]]; then
+                if [[ -n "" ]]; then
                     eval "set -- $AD_PRESET_CUSTOM"
                     while [[ $# -gt 0 ]]; do
                         case "$1" in
@@ -727,12 +725,11 @@ case "$DELETE_SPEED" in
         ADAPTIVE_WORD_DELETE_MIN_MS=1
         ;;
 esac
-export AD_DELETE_DELAY_MS
 
-export DIFFVIM_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_PACING="$DELETE_PACING"
-export DIFFVIM_DELETE_SPEED="$DELETE_SPEED"
-export DIFFVIM_DELETE_THRESHOLD="$DELETE_THRESHOLD"
+AD_OPTIMIZE_SEQUENCE="$([[ $OPTIMIZE_SEQUENCE -eq 1 ]] && echo 1 || echo '')"
+AD_DELETE_PACING="$DELETE_PACING"
+AD_DELETE_SPEED="$DELETE_SPEED"
+AD_DELETE_THRESHOLD="$DELETE_THRESHOLD"
 
 # Resolve --insert-pacing into the individual insertion-strategy variables.
 # --insert-pacing is the unified selector; the individual flags
@@ -764,16 +761,16 @@ case "$INSERT_SPEED" in
         : ;; # keep defaults
     fast)
         AD_TYPE_DELAY_MS=$((AD_TYPE_DELAY_MS / 2))
-        export AD_TYPE_DELAY_MS
+
         AD_WORD_PAUSE_MS=$((AD_WORD_PAUSE_MS / 2))
-        export AD_WORD_PAUSE_MS
+
         ;;
 esac
 
-export DIFFVIM_INSERT_PACING="$INSERT_PACING"
-export DIFFVIM_INSERT_SPEED="$INSERT_SPEED"
+AD_INSERT_PACING="$INSERT_PACING"
+AD_INSERT_SPEED="$INSERT_SPEED"
 # Re-export MAX_WORD_CHARS since it may have been changed by --insert-pacing word
-export DIFFVIM_MAX_WORD_CHARS="$MAX_WORD_CHARS"
+AD_MAX_WORD_CHARS="$MAX_WORD_CHARS"
 
 # Resolve --pacing into the individual timing variables.
 # --pacing is the unified selector; the individual flags
@@ -802,7 +799,7 @@ case "$PACING" in
         ;;
 esac
 
-export DIFFVIM_PACING="$PACING"
+AD_PACING="$PACING"
 
 # Resolve --highlight into the individual highlight variables.
 # --highlight is the unified selector; the individual flags
@@ -827,101 +824,101 @@ case "$HIGHLIGHT_MODE" in
         ;;
 esac
 
-export DIFFVIM_HIGHLIGHT="$HIGHLIGHT_MODE"
+AD_HIGHLIGHT="$HIGHLIGHT_MODE"
 
 # Export config for vimscript to read
 # Boolean flags: export empty string when off (vim's !empty('0') returns 1,
 # so we must export "" for false, not "0")
-export DIFFVIM_SCROLL="$SCROLL_MODE"
-export DIFFVIM_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
+AD_SCROLL="$SCROLL_MODE"
+AD_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
 # MAX_WORD_CHARS is exported after --insert-pacing resolution (below)
-export DIFFVIM_OUTPUT="$OUTPUT_FILE"
-export DIFFVIM_SYNC="$SYNC_MODE"
-export DIFFVIM_CONTEXT="$CONTEXT_LINES"
-export DIFFVIM_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_NO_STARTUP_PAUSE="$([[ $NO_STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_LANGUAGE="$LANGUAGE"
-export DIFFVIM_ADAPTIVE_MODE="$([[ $ADAPTIVE_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ADAPTIVE_START_MS="$ADAPTIVE_START_DELAY_MS"
-export DIFFVIM_ADAPTIVE_MAX_MS="$ADAPTIVE_MAX_DELAY_MS"
-export DIFFVIM_ADAPTIVE_ACCEL="$ADAPTIVE_ACCEL"
-export DIFFVIM_ADAPTIVE_PAUSE_LINES="$ADAPTIVE_PAUSE_LINES"
-export DIFFVIM_ADAPTIVE_PAUSE_MS="$ADAPTIVE_PAUSE_MS"
-export DIFFVIM_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_HUNK="$([[ $HIGHLIGHT_HUNK -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_COLOR="$HIGHLIGHT_COLOR"
-export DIFFVIM_HIGHLIGHT_DURATION_MS="$HIGHLIGHT_DURATION_MS"
-export DIFFVIM_HIGHLIGHT_MIN_CHARS="$HIGHLIGHT_MIN_CHARS"
-export DIFFVIM_MAX_LINE_LEN="$([[ $MAX_LINE_LEN -gt 0 ]] && echo $MAX_LINE_LEN || echo '')"
-export DIFFVIM_RAPID_EOL_DELETE="$([[ $RAPID_EOL_DELETE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_RAPID_EOL_DELAY_MS="$RAPID_EOL_DELAY_MS"
-export DIFFVIM_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
-export DIFFVIM_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_PRECOMPUTED="$PRECOMPUTED_FILE"
-export DIFFVIM_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ALGORITHM="$ALGORITHM"
-export DIFFVIM_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
-export DIFFVIM_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
-export DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS="$HIGHLIGHT_WORD_MIN_CHARS"
-export DIFFVIM_ACCEL_DELETE="$([[ $ACCEL_DELETE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ACCEL_DELETE_START_MS="$ACCEL_DELETE_START_MS"
-export DIFFVIM_ACCEL_DELETE_MIN_MS="$ACCEL_DELETE_MIN_MS"
-export DIFFVIM_ACCEL_DELETE_ACCEL="$ACCEL_DELETE_ACCEL"
-export AD_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
-export AD_INDENT_LAST="$([[ $INDENT_LAST -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DIFF_STAT="$([[ $DIFF_STAT -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DIFF_HIGHLIGHT="$([[ $DIFF_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_BELL_ON_ERROR="$([[ $BELL_ON_ERROR -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_END_FIRST="$([[ $DELETE_END_FIRST -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_END_FIRST_DELAY_MS="$DELETE_END_FIRST_DELAY_MS"
-export DIFFVIM_DELETE_END_FIRST_SMART="$([[ $DELETE_END_FIRST_SMART -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS="$DELETE_END_FIRST_HIGHLIGHT_MS"
-export DIFFVIM_STARTUP_FEEDBACK="$([[ $STARTUP_FEEDBACK -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INLINE_HIGHLIGHT="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
-export DIFFVIM_GAUSSIAN_JITTER="$([[ $GAUSSIAN_JITTER -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_GAUSSIAN_JITTER_PCT="$GAUSSIAN_JITTER_PCT"
-export DIFFVIM_DIM_UNCHANGED="$([[ $DIM_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DIM_UNCHANGED_PCT="$DIM_UNCHANGED_PCT"
-export DIFFVIM_PAUSE_AFTER_LINES="$PAUSE_AFTER_LINES"
-export DIFFVIM_PAUSE_AFTER_THRESHOLD="$PAUSE_AFTER_THRESHOLD"
-export DIFFVIM_PAUSE_AFTER_MS="$PAUSE_AFTER_MS"
-export DIFFVIM_PAUSE_BEFORE_DELETE_MS="$PAUSE_BEFORE_DELETE_MS"
-export DIFFVIM_PAUSE_AFTER_DELETE_MS="$PAUSE_AFTER_DELETE_MS"
-export DIFFVIM_BLOCK_DELETE_SIZE="$BLOCK_DELETE_SIZE"
-export DIFFVIM_FOLD_UNCHANGED="$([[ $FOLD_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_THEME="$THEME"
+AD_OUTPUT="$OUTPUT_FILE"
+AD_SYNC="$SYNC_MODE"
+AD_CONTEXT="$CONTEXT_LINES"
+AD_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
+AD_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
+AD_NO_STARTUP_PAUSE="$([[ $NO_STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
+AD_LANGUAGE="$LANGUAGE"
+AD_ADAPTIVE_MODE="$([[ $ADAPTIVE_MODE -eq 1 ]] && echo 1 || echo '')"
+AD_ADAPTIVE_START_MS="$ADAPTIVE_START_DELAY_MS"
+AD_ADAPTIVE_MAX_MS="$ADAPTIVE_MAX_DELAY_MS"
+AD_ADAPTIVE_ACCEL="$ADAPTIVE_ACCEL"
+AD_ADAPTIVE_PAUSE_LINES="$ADAPTIVE_PAUSE_LINES"
+AD_ADAPTIVE_PAUSE_MS="$ADAPTIVE_PAUSE_MS"
+AD_ADAPTIVE_TIMING="$([[ $ADAPTIVE_TIMING -eq 1 ]] && echo 1 || echo '')"
+AD_SIGN_COLUMN="$([[ $SIGN_COLUMN -eq 1 ]] && echo 1 || echo '')"
+AD_GIT_BLAME="$([[ $GIT_BLAME -eq 1 ]] && echo 1 || echo '')"
+AD_HIGHLIGHT_HUNK="$([[ $HIGHLIGHT_HUNK -eq 1 ]] && echo 1 || echo '')"
+AD_HIGHLIGHT_COLOR="$HIGHLIGHT_COLOR"
+AD_HIGHLIGHT_DURATION_MS="$HIGHLIGHT_DURATION_MS"
+AD_HIGHLIGHT_MIN_CHARS="$HIGHLIGHT_MIN_CHARS"
+AD_MAX_LINE_LEN="$([[ $MAX_LINE_LEN -gt 0 ]] && echo $MAX_LINE_LEN || echo '')"
+AD_RAPID_EOL_DELETE="$([[ $RAPID_EOL_DELETE -eq 1 ]] && echo 1 || echo '')"
+AD_RAPID_EOL_DELAY_MS="$RAPID_EOL_DELAY_MS"
+AD_RAPID_EOL_MIN_CHARS="$RAPID_EOL_MIN_CHARS"
+AD_KEEP_DIRTY="$([[ $KEEP_DIRTY -eq 1 ]] && echo 1 || echo '')"
+AD_NO_VIMRC="$([[ $NO_VIMRC -eq 1 ]] && echo 1 || echo '')"
+AD_PRECOMPUTED="$PRECOMPUTED_FILE"
+AD_STARTUP_PAUSE="$([[ $STARTUP_PAUSE -eq 1 ]] && echo 1 || echo '')"
+AD_ALGORITHM="$ALGORITHM"
+AD_HIGHLIGHT_WORD="$([[ $HIGHLIGHT_WORD -eq 1 ]] && echo 1 || echo '')"
+AD_HIGHLIGHT_WORD_COLOR="$HIGHLIGHT_WORD_COLOR"
+AD_HIGHLIGHT_WORD_DURATION_MS="$HIGHLIGHT_WORD_DURATION_MS"
+AD_HIGHLIGHT_WORD_MIN_CHARS="$HIGHLIGHT_WORD_MIN_CHARS"
+AD_ACCEL_DELETE="$([[ $ACCEL_DELETE -eq 1 ]] && echo 1 || echo '')"
+AD_ACCEL_DELETE_START_MS="$ACCEL_DELETE_START_MS"
+AD_ACCEL_DELETE_MIN_MS="$ACCEL_DELETE_MIN_MS"
+AD_ACCEL_DELETE_ACCEL="$ACCEL_DELETE_ACCEL"
+AD_OVERWRITE_MODE="$([[ $OVERWRITE_MODE -eq 1 ]] && echo 1 || echo '')"
+AD_INDENT_LAST="$([[ $INDENT_LAST -eq 1 ]] && echo 1 || echo '')"
+AD_DIFF_STAT="$([[ $DIFF_STAT -eq 1 ]] && echo 1 || echo '')"
+AD_DIFF_HIGHLIGHT="$([[ $DIFF_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
+AD_BELL_ON_ERROR="$([[ $BELL_ON_ERROR -eq 1 ]] && echo 1 || echo '')"
+AD_DELETE_END_FIRST="$([[ $DELETE_END_FIRST -eq 1 ]] && echo 1 || echo '')"
+AD_DELETE_END_FIRST_DELAY_MS="$DELETE_END_FIRST_DELAY_MS"
+AD_DELETE_END_FIRST_SMART="$([[ $DELETE_END_FIRST_SMART -eq 1 ]] && echo 1 || echo '')"
+AD_DELETE_END_FIRST_HIGHLIGHT_MS="$DELETE_END_FIRST_HIGHLIGHT_MS"
+AD_STARTUP_FEEDBACK="$([[ $STARTUP_FEEDBACK -eq 1 ]] && echo 1 || echo '')"
+AD_INLINE_HIGHLIGHT="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
+AD_INLINE_HIGHLIGHT_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
+AD_GAUSSIAN_JITTER="$([[ $GAUSSIAN_JITTER -eq 1 ]] && echo 1 || echo '')"
+AD_GAUSSIAN_JITTER_PCT="$GAUSSIAN_JITTER_PCT"
+AD_DIM_UNCHANGED="$([[ $DIM_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
+AD_DIM_UNCHANGED_PCT="$DIM_UNCHANGED_PCT"
+AD_PAUSE_AFTER_LINES="$PAUSE_AFTER_LINES"
+AD_PAUSE_AFTER_THRESHOLD="$PAUSE_AFTER_THRESHOLD"
+AD_PAUSE_AFTER_MS="$PAUSE_AFTER_MS"
+AD_PAUSE_BEFORE_DELETE_MS="$PAUSE_BEFORE_DELETE_MS"
+AD_PAUSE_AFTER_DELETE_MS="$PAUSE_AFTER_DELETE_MS"
+AD_BLOCK_DELETE_SIZE="$BLOCK_DELETE_SIZE"
+AD_FOLD_UNCHANGED="$([[ $FOLD_UNCHANGED -eq 1 ]] && echo 1 || echo '')"
+AD_THEME="$THEME"
 
-export DIFFVIM_LOG_MODE="$LOG_MODE"
-export DIFFVIM_LOG_FILE="$LOG_FILE"
-export AD_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ADAPTIVE_WORD_DELETE="$([[ $ADAPTIVE_WORD_DELETE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD="$ADAPTIVE_WORD_DELETE_THRESHOLD"
-export DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS="$ADAPTIVE_WORD_DELETE_START_CHARS"
-export DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS="$ADAPTIVE_WORD_DELETE_START_MS"
-export DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS="$ADAPTIVE_WORD_DELETE_MIN_MS"
-export DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL="$ADAPTIVE_WORD_DELETE_ACCEL"
-export DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS"
-export DIFFVIM_RAPID_IDENTICAL_CHARS="$([[ $RAPID_IDENTICAL_CHARS -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_RAPID_IDENTICAL_MIN="$RAPID_IDENTICAL_MIN"
-export DIFFVIM_RAPID_IDENTICAL_ACCEL="$RAPID_IDENTICAL_ACCEL"
-export DIFFVIM_WORD_ACCEL="$([[ $WORD_ACCEL -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_WORD_ACCEL_DELETE_PCT="$WORD_ACCEL_DELETE_PCT"
-export DIFFVIM_WORD_END_PAUSE_MS="$WORD_END_PAUSE_MS"
-export DIFFVIM_LINE_CHANGE_PAUSE_MS="$LINE_CHANGE_PAUSE_MS"
-export AD_PRESET="$PRESET"
-export DIFFVIM_LOG_TIMING="$LOG_TIMING"
-export DIFFVIM_HIGHLIGHT_INLINE="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_HIGHLIGHT_INLINE_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
-export DIFFVIM_SPEED="$SPEED_MULT"
-export DIFFVIM_MULTI="$([[ $MULTI_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_REPLAY="$([[ $REPLAY_MODE -eq 1 ]] && echo 1 || echo '')"
-export DIFFVIM_DRY_RUN="$([[ $DRY_RUN -eq 1 ]] && echo 1 || echo '')"
+AD_LOG_MODE="$LOG_MODE"
+AD_LOG_FILE="$LOG_FILE"
+AD_LEFT_TO_RIGHT="$([[ $LEFT_TO_RIGHT -eq 1 ]] && echo 1 || echo '')"
+AD_ADAPTIVE_WORD_DELETE="$([[ $ADAPTIVE_WORD_DELETE -eq 1 ]] && echo 1 || echo '')"
+AD_ADAPTIVE_WORD_DELETE_THRESHOLD="$ADAPTIVE_WORD_DELETE_THRESHOLD"
+AD_ADAPTIVE_WORD_DELETE_START_CHARS="$ADAPTIVE_WORD_DELETE_START_CHARS"
+AD_ADAPTIVE_WORD_DELETE_START_MS="$ADAPTIVE_WORD_DELETE_START_MS"
+AD_ADAPTIVE_WORD_DELETE_MIN_MS="$ADAPTIVE_WORD_DELETE_MIN_MS"
+AD_ADAPTIVE_WORD_DELETE_ACCEL="$ADAPTIVE_WORD_DELETE_ACCEL"
+AD_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS="$ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS"
+AD_RAPID_IDENTICAL_CHARS="$([[ $RAPID_IDENTICAL_CHARS -eq 1 ]] && echo 1 || echo '')"
+AD_RAPID_IDENTICAL_MIN="$RAPID_IDENTICAL_MIN"
+AD_RAPID_IDENTICAL_ACCEL="$RAPID_IDENTICAL_ACCEL"
+AD_WORD_ACCEL="$([[ $WORD_ACCEL -eq 1 ]] && echo 1 || echo '')"
+AD_WORD_ACCEL_DELETE_PCT="$WORD_ACCEL_DELETE_PCT"
+AD_WORD_END_PAUSE_MS="$WORD_END_PAUSE_MS"
+AD_LINE_CHANGE_PAUSE_MS="$LINE_CHANGE_PAUSE_MS"
+AD_PRESET="$PRESET"
+AD_LOG_TIMING="$LOG_TIMING"
+AD_HIGHLIGHT_INLINE="$([[ $INLINE_HIGHLIGHT -eq 1 ]] && echo 1 || echo '')"
+AD_HIGHLIGHT_INLINE_DURATION_MS="$INLINE_HIGHLIGHT_DURATION_MS"
+AD_SPEED="$SPEED_MULT"
+AD_MULTI="$([[ $MULTI_MODE -eq 1 ]] && echo 1 || echo '')"
+AD_REPLAY="$([[ $REPLAY_MODE -eq 1 ]] && echo 1 || echo '')"
+AD_DRY_RUN="$([[ $DRY_RUN -eq 1 ]] && echo 1 || echo '')"
 
 # ---------------------------------------------------------------------------
 # Resolve file pairs
@@ -995,7 +992,7 @@ if [[ ${#FILE_PAIRS[@]} -eq 1 ]]; then
 fi
 
 # Export the file pairs for multi-file mode
-export DIFFVIM_FILE_PAIRS="${FILE_PAIRS[*]}"
+AD_FILE_PAIRS="${FILE_PAIRS[*]}"
 
 # ---------------------------------------------------------------------------
 # Binary file detection: refuse to animate files containing null bytes
@@ -1068,33 +1065,33 @@ if [[ -n "$LOG_MODE" ]]; then
         use strict;
         use warnings;
 
-        my $log_mode = $ENV{DIFFVIM_LOG_MODE};
-        my $log_file = $ENV{DIFFVIM_LOG_FILE} || "diffvim.log";
+        my $log_mode = $ENV{AD_LOG_MODE};
+        my $log_file = $ENV{AD_LOG_FILE} || "diffvim.log";
         my $compute = $ARGV[0];
         my @pairs = @ARGV[1 .. $#ARGV];
 
         # Timing parameters (always included unless --no-log-timing)
-        my $log_timing = ($ENV{DIFFVIM_LOG_TIMING} // "1") ne "0" && $ENV{DIFFVIM_LOG_TIMING} ne "";
-        my $accel_delete = $ENV{DIFFVIM_ACCEL_DELETE} || "";
-        my $accel_start_ms = $ENV{DIFFVIM_ACCEL_DELETE_START_MS} || 80;
-        my $accel_min_ms = $ENV{DIFFVIM_ACCEL_DELETE_MIN_MS} || 10;
-        my $accel_accel = ($ENV{DIFFVIM_ACCEL_DELETE_ACCEL} || 85) / 100.0;
-        my $block_delete_size = $ENV{DIFFVIM_BLOCK_DELETE_SIZE} || 3;
-        my $pause_before = $ENV{DIFFVIM_PAUSE_BEFORE_DELETE_MS} || 200;
-        my $pause_after = $ENV{DIFFVIM_PAUSE_AFTER_DELETE_MS} || 200;
+        my $log_timing = ($ENV{AD_LOG_TIMING} // "1") ne "0" && $ENV{AD_LOG_TIMING} ne "";
+        my $accel_delete = $ENV{AD_ACCEL_DELETE} || "";
+        my $accel_start_ms = $ENV{AD_ACCEL_DELETE_START_MS} || 80;
+        my $accel_min_ms = $ENV{AD_ACCEL_DELETE_MIN_MS} || 10;
+        my $accel_accel = ($ENV{AD_ACCEL_DELETE_ACCEL} || 85) / 100.0;
+        my $block_delete_size = $ENV{AD_BLOCK_DELETE_SIZE} || 3;
+        my $pause_before = $ENV{AD_PAUSE_BEFORE_DELETE_MS} || 200;
+        my $pause_after = $ENV{AD_PAUSE_AFTER_DELETE_MS} || 200;
         my $type_delay = $ENV{AD_TYPE_DELAY_MS} || 50;
         my $delete_delay = $ENV{AD_DELETE_DELAY_MS} || 40;
         my $hunk_pause = $ENV{AD_HUNK_PAUSE_MS} || 250;
-        my $rapid_eol_delay = $ENV{DIFFVIM_RAPID_EOL_DELAY_MS} || 80;
-        my $awd_start_ms = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS} || 80;
-        my $awd_min_ms = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS} || 15;
-        my $awd_accel_raw = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL} || 85;
+        my $rapid_eol_delay = $ENV{AD_RAPID_EOL_DELAY_MS} || 80;
+        my $awd_start_ms = $ENV{AD_ADAPTIVE_WORD_DELETE_START_MS} || 80;
+        my $awd_min_ms = $ENV{AD_ADAPTIVE_WORD_DELETE_MIN_MS} || 15;
+        my $awd_accel_raw = $ENV{AD_ADAPTIVE_WORD_DELETE_ACCEL} || 85;
         my $awd_accel = $awd_accel_raw > 1 ? $awd_accel_raw / 100.0 : $awd_accel_raw;
-        my $awd_word_pause = $ENV{DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS} || 100;
-        my $ric_accel_raw = $ENV{DIFFVIM_RAPID_IDENTICAL_ACCEL} || 50;
+        my $awd_word_pause = $ENV{AD_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS} || 100;
+        my $ric_accel_raw = $ENV{AD_RAPID_IDENTICAL_ACCEL} || 50;
         my $ric_accel = $ric_accel_raw > 1 ? $ric_accel_raw / 100.0 : $ric_accel_raw;
-        my $gaussian_jitter = $ENV{DIFFVIM_GAUSSIAN_JITTER} || "";
-        my $gaussian_pct = $ENV{DIFFVIM_GAUSSIAN_JITTER_PCT} || 20;
+        my $gaussian_jitter = $ENV{AD_GAUSSIAN_JITTER} || "";
+        my $gaussian_pct = $ENV{AD_GAUSSIAN_JITTER_PCT} || 20;
 
         open my $out, ">>", $log_file or die "Cannot write $log_file: $!";
 
@@ -1319,6 +1316,13 @@ fi
 WORKDIR="${WORKDIR:-$(mktemp -d)}"
 trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
+VIMCONFIG="$WORKDIR/ad_config.vim"
+
+# Write the final config values to a vimscript-readable temp file.
+# The vimscript engine sources this file to get its configuration —
+# no env vars are passed to vim.
+source "$(cd "$(dirname "$0")" && pwd)/../../packaging/ad_write_vimconfig.sh"
+ad_write_vimconfig "$VIMCONFIG"
 
 # --- Debug mode: log everything to /tmp/diffvim-debug.log ---
 debug_log() {
@@ -1387,7 +1391,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         # Extra search paths from --ad-layer-path=<dir>.
         [[ ${#EXTRA_PP_PATHS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_PATHS[@]/#/--ad-layer-path=}")
         echo "DEBUG: " && debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
-        export AD_OLD_FILE="$OLD"
+
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 
@@ -1449,10 +1453,10 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
             debug_log "Stage 4: decorate ${DECORATE_ARGS[*]}"
             "$DECORATE_BIN" "${DECORATE_ARGS[@]}" < "$TIMED_OPS" > "$DECORATED_OPS" 2>/dev/null
             debug_log "Stage 4 done: $(wc -l < "$DECORATED_OPS") lines in decorated_ops"
-            export DIFFVIM_TIMED_OPS="$DECORATED_OPS"
+            TIMED_OPS="$DECORATED_OPS"
         else
             # No decorate tool — use timed ops directly
-            export DIFFVIM_TIMED_OPS="$TIMED_OPS"
+            TIMED_OPS="$TIMED_OPS"
         fi
     else
         echo "diffvim: pipeline executables not found (need compute-cpp, postprocess, pace)" >&2
@@ -1477,7 +1481,7 @@ else
         TIMED_OPS="$WORKDIR/timed_ops.txt"
         "$POSTPROCESS_BIN" < "$PRECOMPUTED_FILE" > "$POST_OPS" 2>/dev/null
         "$PACE_BIN" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
-        export DIFFVIM_TIMED_OPS="$TIMED_OPS"
+        TIMED_OPS="$TIMED_OPS"
     fi
 fi
 
@@ -1510,95 +1514,79 @@ if !&modifiable
 endif
 
 " --- Configuration ---------------------------------------------------------
-" Tunables. Priority (highest wins):
-"   1. g:diffvim dictionary in vimrc (set before launching diffvim)
-"   2. DIFFVIM_* environment variables
-"   3. Built-in defaults
-"
-" In Vimscript, $NAME accesses environment variables.  empty($NAME) is true
-" when the var is unset or empty.  str2nr() converts the string to a number.
+" Configuration is read from a temp file written by the bash launcher.
+" The launcher sources the config file (~/.config/ad/config), parses CLI
+" flags, and writes the final values to a vimscript-readable temp file.
+" The temp file path is passed via g:ad_config_file.
+
+" Defaults — overridden by the config file.
+let s:type_delay_ms      = 50
+let s:delete_delay_ms    = 40
+let s:move_min_ms        = 200
+let s:move_max_ms        = 2000
+let s:move_ms_per_unit   = 1
+let s:hunk_pause_ms      = 250
+let s:tick_ms            = 16
+let s:word_pause_ms      = 150
+let s:scroll             = 'zz'
+let s:max_hunk_chars     = 0
+let s:output_file        = ''
+let s:timed_ops_file     = ''
+let s:keep_dirty         = 0
+let s:speed_mult_x1000   = 1000
+let s:highlight_mode     = 'none'
+let s:highlight_duration_ms = 200
+let s:dim_unchanged       = 0
+let s:dim_unchanged_pct   = 60
+let s:context_lines       = 0
+let s:fold_unchanged     = 0
+let s:sign_column        = 0
+let s:git_blame          = 0
+let s:highlight_color    = 'DiffChange'
+let s:highlight_min_chars = 10
+let s:theme              = ''
+let s:log_mode           = ''
+let s:log_file           = 'diffvim.log'
+let s:debug_mode         = 0
+let s:no_vimrc           = 0
+let s:bell_on_error      = 0
+
+" Source the config file written by the launcher.
+if exists('g:ad_config_file') && filereadable(g:ad_config_file)
+    execute 'source ' . g:ad_config_file
+endif
+
 let g:diffvim = extend({
-    \ 'type_delay_ms':      !empty($AD_TYPE_DELAY_MS)    ? str2nr($AD_TYPE_DELAY_MS)    : 50,
-    \ 'delete_delay_ms':    !empty($AD_DELETE_DELAY_MS)  ? str2nr($AD_DELETE_DELAY_MS)  : 40,
-    \ 'move_min_ms':        !empty($AD_MOVE_MIN_MS)      ? str2nr($AD_MOVE_MIN_MS)      : 200,
-    \ 'move_max_ms':        !empty($AD_MOVE_MAX_MS)      ? str2nr($AD_MOVE_MAX_MS)      : 2000,
-    \ 'move_ms_per_unit':   !empty($AD_MOVE_MS_PER_UNIT) ? str2nr($AD_MOVE_MS_PER_UNIT) : 1,
-    \ 'hunk_pause_ms':      !empty($AD_HUNK_PAUSE_MS)    ? str2nr($AD_HUNK_PAUSE_MS)    : 250,
-    \ 'tick_ms':            !empty($AD_TICK_MS)          ? str2nr($AD_TICK_MS)          : 16,
-    \ 'word_pause_ms':      !empty($AD_WORD_PAUSE_MS)    ? str2nr($AD_WORD_PAUSE_MS)    : 150,
-    \ 'scroll':             !empty($DIFFVIM_SCROLL)           ? $DIFFVIM_SCROLL                   : 'zz',
-    \ 'max_hunk_chars':     !empty($DIFFVIM_MAX_HUNK_CHARS)   ? str2nr($DIFFVIM_MAX_HUNK_CHARS)   : 0,
-    \ 'max_word_chars':     !empty($DIFFVIM_MAX_WORD_CHARS)   ? str2nr($DIFFVIM_MAX_WORD_CHARS)   : 0,
-    \ 'output_file':        !empty($DIFFVIM_OUTPUT)           ? $DIFFVIM_OUTPUT                   : '',
-    \ 'word_diff':          !empty($DIFFVIM_WORD_DIFF)        ? 1 : 0,
-    \ 'step_mode':          !empty($DIFFVIM_STEP_MODE)        ? 1 : 0,
-    \ 'adaptive_timing':    !empty($DIFFVIM_ADAPTIVE_TIMING)  ? 1 : 0,
-    \ 'sign_column':        !empty($DIFFVIM_SIGN_COLUMN)      ? 1 : 0,
-    \ 'git_blame':          !empty($DIFFVIM_GIT_BLAME)        ? 1 : 0,
-    \ 'highlight_hunk':     !empty($DIFFVIM_HIGHLIGHT_HUNK)   ? 1 : 0,
-    \ 'highlight_color':    !empty($DIFFVIM_HIGHLIGHT_COLOR)  ? $DIFFVIM_HIGHLIGHT_COLOR          : 'DiffChange',
-    \ 'highlight_duration': !empty($DIFFVIM_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_DURATION_MS) : 1000,
-    \ 'highlight_min_chars':!empty($DIFFVIM_HIGHLIGHT_MIN_CHARS)   ? str2nr($DIFFVIM_HIGHLIGHT_MIN_CHARS)  : 10,
-    \ 'max_line_len':       !empty($DIFFVIM_MAX_LINE_LEN)     ? str2nr($DIFFVIM_MAX_LINE_LEN)    : 0,
-    \ 'fold_unchanged':     !empty($DIFFVIM_FOLD_UNCHANGED)   ? 1 : 0,
-    \ 'no_startup_pause':   !empty($DIFFVIM_NO_STARTUP_PAUSE) ? 1 : 0,
-    \ 'startup_pause':      !empty($DIFFVIM_STARTUP_PAUSE)    ? 1 : 0,
-    \ 'adaptive_mode':     !empty($DIFFVIM_ADAPTIVE_MODE)   ? 1 : 0,
-    \ 'adaptive_start_ms': !empty($DIFFVIM_ADAPTIVE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_START_MS) : 80,
-    \ 'adaptive_max_ms':   !empty($DIFFVIM_ADAPTIVE_MAX_MS)   ? str2nr($DIFFVIM_ADAPTIVE_MAX_MS)   : 30,
-    \ 'adaptive_accel':    !empty($DIFFVIM_ADAPTIVE_ACCEL)    ? str2nr($DIFFVIM_ADAPTIVE_ACCEL) * 1.0 / 100.0 : 0.92,
-    \ 'adaptive_pause_lines': !empty($DIFFVIM_ADAPTIVE_PAUSE_LINES) ? str2nr($DIFFVIM_ADAPTIVE_PAUSE_LINES) : 15,
-    \ 'adaptive_pause_ms': !empty($DIFFVIM_ADAPTIVE_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_PAUSE_MS) : 500,
-    \ 'rapid_eol_delete':   !empty($DIFFVIM_RAPID_EOL_DELETE)  ? 1 : 0,
-    \ 'rapid_eol_delay_ms': !empty($DIFFVIM_RAPID_EOL_DELAY_MS) ? str2nr($DIFFVIM_RAPID_EOL_DELAY_MS) : 80,
-    \ 'rapid_eol_min_chars':!empty($DIFFVIM_RAPID_EOL_MIN_CHARS) ? str2nr($DIFFVIM_RAPID_EOL_MIN_CHARS) : 3,
-    \ 'keep_dirty':         !empty($DIFFVIM_KEEP_DIRTY)        ? 1 : 0,
-    \ 'precomputed':        !empty($DIFFVIM_PRECOMPUTED)       ? $DIFFVIM_PRECOMPUTED             : '',
-    \ 'highlight_word':      !empty($DIFFVIM_HIGHLIGHT_WORD)            ? 1 : 0,
-    \ 'highlight_word_color':!empty($DIFFVIM_HIGHLIGHT_WORD_COLOR)      ? $DIFFVIM_HIGHLIGHT_WORD_COLOR            : 'Search',
-    \ 'highlight_word_duration': !empty($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_DURATION_MS) : 300,
-    \ 'highlight_word_min_chars': !empty($DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS) ? str2nr($DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS) : 2,
-    \ 'accel_delete':       !empty($DIFFVIM_ACCEL_DELETE)        ? 1 : 0,
-    \ 'accel_delete_start_ms': !empty($DIFFVIM_ACCEL_DELETE_START_MS) ? str2nr($DIFFVIM_ACCEL_DELETE_START_MS) : 80,
-    \ 'accel_delete_min_ms':!empty($DIFFVIM_ACCEL_DELETE_MIN_MS) ? str2nr($DIFFVIM_ACCEL_DELETE_MIN_MS) : 10,
-    \ 'accel_delete_accel': !empty($DIFFVIM_ACCEL_DELETE_ACCEL)  ? str2nr($DIFFVIM_ACCEL_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
-    \ 'overwrite_mode':     !empty($AD_OVERWRITE_MODE)      ? 1 : 0,
-    \ 'delete_end_first':   !empty($DIFFVIM_DELETE_END_FIRST)    ? 1 : 0,
-    \ 'delete_end_first_delay_ms': !empty($DIFFVIM_DELETE_END_FIRST_DELAY_MS) ? str2nr($DIFFVIM_DELETE_END_FIRST_DELAY_MS) : 100,
-    \ 'delete_end_first_smart': !empty($DIFFVIM_DELETE_END_FIRST_SMART) ? 1 : 0,
-    \ 'delete_end_first_highlight_ms': !empty($DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS) ? str2nr($DIFFVIM_DELETE_END_FIRST_HIGHLIGHT_MS) : 300,
-    \ 'startup_feedback':   !empty($DIFFVIM_STARTUP_FEEDBACK)    ? 1 : 0,
-    \ 'inline_highlight':   !empty($DIFFVIM_INLINE_HIGHLIGHT)    ? 1 : 0,
-    \ 'inline_highlight_duration': !empty($DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS) ? str2nr($DIFFVIM_INLINE_HIGHLIGHT_DURATION_MS) : 200,
-    \ 'gaussian_jitter':    !empty($DIFFVIM_GAUSSIAN_JITTER)     ? 1 : 0,
-    \ 'gaussian_jitter_pct':!empty($DIFFVIM_GAUSSIAN_JITTER_PCT) ? str2nr($DIFFVIM_GAUSSIAN_JITTER_PCT) : 20,
-    \ 'dim_unchanged':      !empty($DIFFVIM_DIM_UNCHANGED)       ? 1 : 0,
-    \ 'dim_unchanged_pct':  !empty($DIFFVIM_DIM_UNCHANGED_PCT)   ? str2nr($DIFFVIM_DIM_UNCHANGED_PCT) : 60,
-    \ 'pause_after_lines':  !empty($DIFFVIM_PAUSE_AFTER_LINES)   ? str2nr($DIFFVIM_PAUSE_AFTER_LINES) : 0,
-    \ 'pause_after_threshold': !empty($DIFFVIM_PAUSE_AFTER_THRESHOLD) ? str2nr($DIFFVIM_PAUSE_AFTER_THRESHOLD) : 50,
-    \ 'pause_after_ms':     !empty($DIFFVIM_PAUSE_AFTER_MS)      ? str2nr($DIFFVIM_PAUSE_AFTER_MS) : 500,
-    \ 'pause_before_delete_ms': !empty($DIFFVIM_PAUSE_BEFORE_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_BEFORE_DELETE_MS) : 200,
-    \ 'pause_after_delete_ms': !empty($DIFFVIM_PAUSE_AFTER_DELETE_MS) ? str2nr($DIFFVIM_PAUSE_AFTER_DELETE_MS) : 200,
-    \ 'block_delete_size':  !empty($DIFFVIM_BLOCK_DELETE_SIZE)   ? str2nr($DIFFVIM_BLOCK_DELETE_SIZE) : 3,
-    \ 'theme':              !empty($DIFFVIM_THEME)              ? $DIFFVIM_THEME                   : '',
-    \ 'optimize_sequence':  empty($DIFFVIM_OPTIMIZE_SEQUENCE) ? 1 : ($DIFFVIM_OPTIMIZE_SEQUENCE ==# '0' ? 0 : 1),
-    \ 'log_mode':           !empty($DIFFVIM_LOG_MODE)           ? $DIFFVIM_LOG_MODE                : '',
-    \ 'log_file':           !empty($DIFFVIM_LOG_FILE)           ? $DIFFVIM_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      empty($AD_LEFT_TO_RIGHT) ? 1 : ($AD_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
-    \ 'adaptive_word_delete': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE) ? 1 : 0,
-    \ 'adaptive_word_delete_threshold': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_THRESHOLD) : 3,
-    \ 'adaptive_word_delete_start_chars': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
-    \ 'adaptive_word_delete_start_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_START_MS) : 80,
-    \ 'adaptive_word_delete_min_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_MIN_MS) : 15,
-    \ 'adaptive_word_delete_accel': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
-    \ 'adaptive_word_delete_word_pause_ms': !empty($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) ? str2nr($DIFFVIM_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) : 100,
-    \ 'rapid_identical_chars': !empty($DIFFVIM_RAPID_IDENTICAL_CHARS) ? 1 : 0,
-    \ 'rapid_identical_min': !empty($DIFFVIM_RAPID_IDENTICAL_MIN) ? str2nr($DIFFVIM_RAPID_IDENTICAL_MIN) : 5,
-    \ 'rapid_identical_accel': !empty($DIFFVIM_RAPID_IDENTICAL_ACCEL) ? str2nr($DIFFVIM_RAPID_IDENTICAL_ACCEL) * 1.0 / 100.0 : 0.5,
-    \ 'word_accel':          !empty($DIFFVIM_WORD_ACCEL)           ? 1 : 0,
-    \ 'word_accel_delete_pct': !empty($DIFFVIM_WORD_ACCEL_DELETE_PCT) ? str2nr($DIFFVIM_WORD_ACCEL_DELETE_PCT) : 20,
-    \ 'word_end_pause_ms':   !empty($DIFFVIM_WORD_END_PAUSE_MS)   ? str2nr($DIFFVIM_WORD_END_PAUSE_MS) : 150,
-    \ 'line_change_pause_ms': !empty($DIFFVIM_LINE_CHANGE_PAUSE_MS) ? str2nr($DIFFVIM_LINE_CHANGE_PAUSE_MS) : 200,
+    \ 'type_delay_ms':      s:type_delay_ms,
+    \ 'delete_delay_ms':    s:delete_delay_ms,
+    \ 'move_min_ms':        s:move_min_ms,
+    \ 'move_max_ms':        s:move_max_ms,
+    \ 'move_ms_per_unit':   s:move_ms_per_unit,
+    \ 'hunk_pause_ms':      s:hunk_pause_ms,
+    \ 'tick_ms':            s:tick_ms,
+    \ 'word_pause_ms':      s:word_pause_ms,
+    \ 'scroll':             s:scroll,
+    \ 'max_hunk_chars':     s:max_hunk_chars,
+    \ 'output_file':        s:output_file,
+    \ 'timed_ops_file':     s:timed_ops_file,
+    \ 'keep_dirty':         s:keep_dirty,
+    \ 'speed_mult_x1000':   s:speed_mult_x1000,
+    \ 'highlight_mode':     s:highlight_mode,
+    \ 'highlight_duration_ms': s:highlight_duration_ms,
+    \ 'dim_unchanged':      s:dim_unchanged,
+    \ 'dim_unchanged_pct':  s:dim_unchanged_pct,
+    \ 'context_lines':       s:context_lines,
+    \ 'fold_unchanged':     s:fold_unchanged,
+    \ 'sign_column':        s:sign_column,
+    \ 'git_blame':          s:git_blame,
+    \ 'highlight_color':    s:highlight_color,
+    \ 'highlight_min_chars': s:highlight_min_chars,
+    \ 'theme':              s:theme,
+    \ 'log_mode':           s:log_mode,
+    \ 'log_file':           s:log_file,
+    \ 'debug_mode':         s:debug_mode,
+    \ 'no_vimrc':           s:no_vimrc,
+    \ 'bell_on_error':      s:bell_on_error,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters
@@ -1609,10 +1597,11 @@ let g:diffvim = extend({
 "   tick_ms            - animation frame interval (~60fps)
 
 " --- Timed Op Stream Reader (v2 TSV) -----------------------------------------
-" When DIFFVIM_TIMED_OPS is set (by the bash launcher running the external
-" pipeline), this section reads and applies the pre-computed timed op stream.
-" This bypasses ALL the in-vim compute/postprocess/pace code below — the
-" vimscript engine only handles the ANIMATE stage.
+" When s:timed_ops_file is set (by the bash launcher via the config file
+" written by ad_write_vimconfig), this section reads and applies the
+" pre-computed timed op stream. This bypasses ALL the in-vim
+" compute/postprocess/pace code below — the vimscript engine only
+" handles the ANIMATE stage.
 "
 " The timed op stream format (v2 TSV, tab-separated, 1-indexed line/col):
 "   keep\t<line>\t<col>\t<code>\t<char_repr>     — keep a char (advance cursor)
@@ -1630,7 +1619,7 @@ let g:diffvim = extend({
 "   3. Process all ops between delays in one pass, then redraw ONCE
 "   4. Single timer per delay, no polling loop
 
-if exists('$DIFFVIM_TIMED_OPS') && !empty($DIFFVIM_TIMED_OPS) && filereadable($DIFFVIM_TIMED_OPS)
+if exists('s:timed_ops_file') && !empty(s:timed_ops_file) && filereadable(s:timed_ops_file)
 
 let s:timed_ops = []
 let s:timed_idx = 0
@@ -1638,9 +1627,9 @@ let s:cur_l = 1
 let s:cur_c = 1
 let s:timed_stopped = 0
 let s:timed_speed = 1.0
-" Read speed from DIFFVIM_SPEED env var (set by --speed flag)
-if exists('$DIFFVIM_SPEED') && !empty($DIFFVIM_SPEED)
-    let s:timed_speed = str2float($DIFFVIM_SPEED)
+" Read speed from AD_SPEED env var (set by --speed flag)
+if exists('$AD_SPEED') && !empty($AD_SPEED)
+    let s:timed_speed = str2float($AD_SPEED)
     if s:timed_speed <= 0 | let s:timed_speed = 1.0 | endif
 endif
 let s:timed_timer = -1
@@ -1648,23 +1637,23 @@ let s:needs_redraw = 0
 
 " --- Read config from env vars ---
 let s:scroll_mode = 'zz'
-if exists('$DIFFVIM_SCROLL') && !empty($DIFFVIM_SCROLL)
-    let s:scroll_mode = $DIFFVIM_SCROLL
+if exists('$AD_SCROLL') && !empty($AD_SCROLL)
+    let s:scroll_mode = $AD_SCROLL
 endif
 
 let s:step_mode = 0
-if exists('$DIFFVIM_STEP_MODE') && !empty($DIFFVIM_STEP_MODE) && $DIFFVIM_STEP_MODE !=# '0'
+if exists('$AD_STEP_MODE') && !empty($AD_STEP_MODE) && $AD_STEP_MODE !=# '0'
     let s:step_mode = 1
 endif
 
 let s:startup_pause = 0
-if exists('$DIFFVIM_STARTUP_PAUSE') && !empty($DIFFVIM_STARTUP_PAUSE) && $DIFFVIM_STARTUP_PAUSE !=# '0'
+if exists('$AD_STARTUP_PAUSE') && !empty($AD_STARTUP_PAUSE) && $AD_STARTUP_PAUSE !=# '0'
     let s:startup_pause = 1
 endif
 
 let s:theme = ''
-if exists('$DIFFVIM_THEME') && !empty($DIFFVIM_THEME)
-    let s:theme = $DIFFVIM_THEME
+if exists('$AD_THEME') && !empty($AD_THEME)
+    let s:theme = $AD_THEME
 endif
 
 " --- Apply theme ---
@@ -1693,7 +1682,7 @@ function! s:ShowStartup() abort
 endfunction
 
 function! s:LoadTimedOps() abort
-    let s:timed_ops = readfile($DIFFVIM_TIMED_OPS)
+    let s:timed_ops = readfile(s:timed_ops_file)
     let s:timed_idx = 0
 endfunction
 
@@ -2073,7 +2062,7 @@ function! s:StartTimedAnimation() abort
     endif
 
     " --sync mode: run without timers (for testing/headless use)
-    if exists('$DIFFVIM_SYNC') && !empty($DIFFVIM_SYNC) && $DIFFVIM_SYNC !=# '0'
+    if exists('$AD_SYNC') && !empty($AD_SYNC) && $AD_SYNC !=# '0'
         let s:timed_speed = 1000000.0
         while 1
             let l:delay = s:TimedProcessBatch()
@@ -2165,6 +2154,7 @@ MINIRC
     exec vim -f -n -u "$MINI_VIMRC" -U NONE \
         "$OLD" \
         -c "let g:diffvim_new_file = '$NEW'" \
+        -c "let g:ad_config_file = '$VIMCONFIG'" \
         -c "source $VIMSCRIPT" \
         ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
 else
@@ -2174,6 +2164,7 @@ else
         -c "set nomore noswapfile shortmess+=A" \
         -c "syntax enable" \
         -c "let g:diffvim_new_file = '$NEW'" \
+        -c "let g:ad_config_file = '$VIMCONFIG'" \
         -c "source $VIMSCRIPT" \
         ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
 fi

@@ -5,7 +5,7 @@
  *   1. Each layer is a pure function: Op[] → Op[]. No side effects.
  *   2. Each layer can be enabled/disabled.
  *   3. Each layer can dump input/output for debugging.
- *      AD_DEBUG_LAYERS=path → dumps to $path/N_layername_input.txt
+ *      --debug=<dir> flag: dumps to <dir>/N_layername_input.txt
  *      and $path/N_layername_output.txt (TSV format).
  * *   4. No special-case line fixes. The 4-sweep reorder handles ordering.
  *   5. Layers can be piped (standalone) or linked into one executable.
@@ -59,26 +59,18 @@ typedef struct {
 } Hunk;
 
 /* ── Debug/Logging ─────────────────────────────────────────────────── */
-/* ---
- * AD_DEBUG_LAYERS=path  →  dumps to $path/N_layername_input.txt
- *                                and $path/N_layername_output.txt (TSV)
- *
- * If AD_DEBUG_LAYERS=1 (just "1"), uses /tmp/ad_debug/ as the path.
- */
+/* Debug logging is disabled by default. To enable, layers accept
+ * --debug flag (parsed by the layer's main() if it wants to).
+ * No env vars are read. */
 
 static const char *ad_layer_debug_dir = NULL;
 static FILE *ad_layer_log_file = NULL;
 
-/* Initialize debug for a layer. Call at start of main() or layer init. */
-__attribute__((unused)) static void ad_layer_debug_init(const char *layer_id, const char *layer_name) {
-    const char *env = getenv("AD_DEBUG_LAYERS");
-    if (!env || env[0] == 0) return;
-
-    /* "1" means use default path */
-    if (strcmp(env, "1") == 0)
-        ad_layer_debug_dir = "/tmp/ad_debug";
-    else
-        ad_layer_debug_dir = env;
+/* Initialize debug for a layer. Pass the debug directory path (or NULL
+ * to disable). Call at start of main() if --debug was given. */
+__attribute__((unused)) static void ad_layer_debug_init(const char *debug_dir, const char *layer_id, const char *layer_name) {
+    if (!debug_dir || debug_dir[0] == 0) return;
+    ad_layer_debug_dir = debug_dir;
 
     /* Create directory */
     mkdir(ad_layer_debug_dir, 0755);
@@ -287,7 +279,8 @@ __attribute__((unused)) static void ad_layer_dump_changes_to_file(FILE *f,
  *   #endif
  */
 
-__attribute__((unused)) static int ad_layer_run_layer(int (*layer_func)(Op *in, int in_count,
+__attribute__((unused)) static int ad_layer_run_layer(int argc, char **argv,
+                                          int (*layer_func)(Op *in, int in_count,
                                           Op *out, int out_cap,
                                           const char *old_file)) {
     char line[AD_LAYER_MAX_LINE];
@@ -299,12 +292,19 @@ __attribute__((unused)) static int ad_layer_run_layer(int (*layer_func)(Op *in, 
     int hunk_count = 0;
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
 
-    /* Debug flags from env / command line */
-    const char *dump_input  = getenv("AD_DUMP_INPUT");
-    const char *dump_output = getenv("AD_DUMP_OUTPUT");
-    const char *dump_changes = getenv("AD_DUMP_CHANGES");
-    /* int trace_decisions = getenv("AD_TRACE_DECISIONS") != NULL; */
+    /* Debug dump paths — set by the orchestrator via CLI flags (passed
+     * through to layers). No env vars. */
+    const char *dump_input  = NULL;   /* set by --dump-input=PATH */
+    const char *dump_output = NULL;   /* set by --dump-output=PATH */
+    const char *dump_changes = NULL;  /* set by --dump-changes=PATH */
     FILE *dump_in_f = NULL, *dump_out_f = NULL, *dump_chg_f = NULL;
+
+    /* Parse argv for dump flags (passed through by orchestrator) */
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "--dump-input=", 13) == 0) dump_input = argv[i] + 13;
+        else if (strncmp(argv[i], "--dump-output=", 14) == 0) dump_output = argv[i] + 14;
+        else if (strncmp(argv[i], "--dump-changes=", 15) == 0) dump_changes = argv[i] + 15;
+    }
 
     if (dump_input && dump_input[0]) {
         dump_in_f = fopen(dump_input, "w");
@@ -319,9 +319,14 @@ __attribute__((unused)) static int ad_layer_run_layer(int (*layer_func)(Op *in, 
         if (dump_chg_f) fprintf(stderr, "dump-changes: %s\n", dump_changes);
     }
 
-    /* Get old file path from env (layers may need it) */
-    const char *old_file = getenv("AD_OLD_FILE");
-    if (!old_file) old_file = "";
+    /* Old file path — set by --old-file=PATH (passed through by orchestrator) */
+    const char *old_file = "";
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "--old-file=", 11) == 0) {
+            old_file = argv[i] + 11;
+            break;
+        }
+    }
 
     /* Allocate initial capacity */
     in_cap = 4096;

@@ -684,16 +684,12 @@ string normalize_indent(const string& line) {
 int main(int argc, char** argv) {
     auto t_start = Clock::now();
 
-    const char* sem_env = getenv("AD_SEMANTIC_CLEANUP");
-    bool do_semantic = sem_env && sem_env[0] == '1';
-    const char* wd_env = getenv("AD_WORD_DIFF");
-    bool do_word_diff = wd_env && wd_env[0] == '1';
-    const char* ia_env = getenv("AD_INDENT_AWARE");
-    bool do_indent_aware = ia_env && ia_env[0] == '1';
-    const char* opt_env = getenv("AD_OPTIMIZE_SEQUENCE");
-    bool do_optimize = !opt_env || opt_env[0] != '0';  /* default on */
-    const char* l2r_env = getenv("AD_LEFT_TO_RIGHT");
-    bool do_l2r = l2r_env && l2r_env[0] == '1';
+    /* Options — set by CLI flags only (no env vars). */
+    bool do_semantic = false;
+    bool do_word_diff = false;
+    bool do_indent_aware = false;
+    bool do_optimize = true;   /* default on */
+    bool do_l2r = false;
 
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
@@ -725,12 +721,9 @@ int main(int argc, char** argv) {
 "    --no-optimize-sequence Disable op-sequence optimization\n"
 "    --left-to-right        Sort ops left-to-right by column\n"
 "\n"
-"ENVIRONMENT\n"
-"    AD_SEMANTIC_CLEANUP=1   Enable semantic cleanup\n"
-"    AD_WORD_DIFF=1          Enable word-level diff\n"
-"    AD_INDENT_AWARE=1       Enable indent normalization\n"
-"    AD_OPTIMIZE_SEQUENCE=0  Disable op-sequence optimization\n"
-"    AD_LEFT_TO_RIGHT=1      Enable left-to-right sorting\n"
+"CONFIGURATION\n"
+"    No environment variables. Use CLI flags (above) or the config\n"
+"    file at $XDG_CONFIG_HOME/ad/config (defaults to ~/.config/ad/config).\n"
 "\n"
 "OUTPUT FORMAT\n"
 "    # diffvim precomputed diff v1\n"

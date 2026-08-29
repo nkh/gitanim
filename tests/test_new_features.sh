@@ -25,10 +25,10 @@ printf 'X\nb\nc\nd\ne\nf\ng\nh\ni\nY\n' > /tmp/mh_new.txt
 printf 'def foo():\n    print("hello")\n    return None\n' > /tmp/il_old.txt
 printf 'def bar():\n    x = 1\n' > /tmp/il_new.txt
 
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" /tmp/mh_old.txt /tmp/mh_new.txt /tmp/mh_raw.txt 2>/dev/null
+"$ROOT/bin/ad_compute" /tmp/mh_old.txt /tmp/mh_new.txt /tmp/mh_raw.txt 2>/dev/null
 "$ROOT/bin/ad_postprocess" < /tmp/mh_raw.txt > /tmp/mh_post.txt 2>/dev/null
 
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" /tmp/il_old.txt /tmp/il_new.txt /tmp/il_raw.txt 2>/dev/null
+"$ROOT/bin/ad_compute" /tmp/il_old.txt /tmp/il_new.txt /tmp/il_raw.txt 2>/dev/null
 "$ROOT/bin/ad_postprocess" < /tmp/il_raw.txt > /tmp/il_post.txt 2>/dev/null
 
 # --- Test 1: cursor glide emits glide ops ---

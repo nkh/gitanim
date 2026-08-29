@@ -72,13 +72,13 @@ Bash launcher + embedded Vimscript engine. Uses vim's native
 for async animation. No external dependencies beyond vim 8+. Best for
 everyday use.
 .TP
-.B diffvim-tmux
+.B ad_tmux
 Bash orchestrator + vim in a tmux pane. Bash sends Ex commands to vim via
 .BR tmux\ send-keys .
 Requires bash 4+, tmux 3+, vim 8+, diff, sed, awk.
 .TP
 .B diffvim.pl
-Perl orchestrator + vim in a tmux pane. Same architecture as diffvim-tmux
+Perl orchestrator + vim in a tmux pane. Same architecture as ad_tmux
 but with pluggable diff parser modules. Requires Perl 5.10+, tmux 3+, vim 8+.
 
 .SH OPTIONS
@@ -95,9 +95,9 @@ Speed multiplier.
 .B 5
 = 5x speed.
 All timing delays are divided by this value.
-Also settable via
-.B DIFFVIM_SPEED
-environment variable.
+Also settable via the
+.B SPEED
+variable in the config file (see CONFIGURATION section).
 
 .TP
 .BI \-\-output\  FILE
@@ -406,82 +406,53 @@ diffvim: hunk 3/7 (42%) | speed 2.3x | PAUSED
 .fi
 .RE
 
-.SH ENVIRONMENT VARIABLES
-All options can be set via
-.B DIFFVIM_<OPTION_NAME>
-environment variables. Command-line options override environment
-variables, which override built-in defaults.
+.SH CONFIGURATION
+ad_vim reads configuration from a file at startup, with CLI flags
+overriding per-invocation. There are NO environment variables.
 
-.SS Core Timing
-.TP
-.B AD_TICK_MS
-Animation frame interval in milliseconds (default: 16, ~60fps).
-.TP
-.B AD_TYPE_DELAY_MS
-Delay between typed characters in milliseconds (default: 50).
-.TP
-.B AD_DELETE_DELAY_MS
-Delay between deleted characters in milliseconds (default: 40).
-.TP
-.B AD_MOVE_MIN_MS
-Minimum cursor glide duration in milliseconds (default: 250).
-.TP
-.B AD_MOVE_MAX_MS
-Maximum cursor glide duration in milliseconds (default: 1600).
-.TP
-.B AD_MOVE_MS_PER_UNIT
-Milliseconds per unit of glide distance (default: 6). Lines are weighted
-80x more than columns.
-.TP
-.B AD_HUNK_PAUSE_MS
-Pause between hunks in milliseconds (default: 250).
+.SS Config file location
+Following the XDG Base Directory Specification, the config file is at:
+.PP
+.RS
+$XDG_CONFIG_HOME/ad/config
+.RE
+.PP
+(defaults to ~/.config/ad/config when XDG_CONFIG_HOME is unset)
 
-.SS Unified Selectors
-.TP
-.B DIFFVIM_DELETE_PACING
-Deletion strategy (default: word).
-.TP
-.B DIFFVIM_DELETE_SPEED
-Deletion speed (default: normal).
-.TP
-.B DIFFVIM_DELETE_THRESHOLD
-Min chars to trigger rapid/word modes (default: 3).
-.TP
-.B DIFFVIM_INSERT_PACING
-Insertion strategy (default: char).
-.TP
-.B DIFFVIM_INSERT_SPEED
-Insertion speed (default: normal).
-.TP
-.B DIFFVIM_PACING
-Timing mode (default: uniform).
-.TP
-.B DIFFVIM_HIGHLIGHT
-Highlight mode (default: none).
-.TP
-.B DIFFVIM_HIGHLIGHT_COLOR
-Highlight group (default: DiffChange).
-.TP
-.B DIFFVIM_HIGHLIGHT_DURATION_MS
-Highlight duration in ms (default: 1000).
+.SS Precedence
+.PP
+.RS
+.nf
+1. /etc/ad/config        (system-wide defaults, lowest priority)
+2. ~/.config/ad/config   (user config)
+3. CLI flags             (per-invocation, highest priority)
+.fi
+.RE
+.PP
+No environment variables. No ~/.diffvimrc fallback.
 
-.SS Other
-.TP
-.B DIFFVIM_SPEED
-Speed multiplier (default: 1.0). Same as
-.BR \-\-speed .
-.TP
-.B DIFFVIM_MAX_LINE_LEN
-Warn threshold for long lines (default: 10000).
-.TP
-.B DIFFVIM_KEEP_DIRTY
-Set to
-.B 1
-to leave the buffer modified after animation.
-.TP
-.B AD_PRESET
-Default preset to apply (same as
-.BR \-\-preset ).
+.SS Config file format
+The config file is sourced as bash. Set variables using UPPER_CASE names
+(without any AD_ prefix). Example:
+.PP
+.RS
+.nf
+# ~/.config/ad/config
+DELETE_PACING=word
+INSERT_PACING=char
+PACING=uniform
+INDENT_LAST=1
+CURSOR_GLIDE_MS=100
+HIGHLIGHT_MODE=inline
+.fi
+.RE
+
+.SS Available variables
+See
+.B ad_vim --help
+for the full list of CLI flags and their corresponding config variables.
+Every CLI flag has a config variable equivalent (e.g. --delete-pacing
+maps to DELETE_PACING).
 
 .SH EXAMPLES
 
@@ -603,7 +574,7 @@ ad_vim \-\-dry-run old.py new.py
 
 # Verbose logging
 ad_vim \-\-debug old.py new.py
-cat /tmp/diffvim-debug.log
+cat /tmp/ad-debug.log
 
 # Compare parsers
 ad_vim \-\-parser-compare old.py new.py
@@ -742,7 +713,7 @@ Space advances one op at a time (starts paused)
 Show config + help before starting
 .TP
 .B \-\-debug
-Enable verbose logging to /tmp/diffvim-debug.log
+Enable verbose logging to /tmp/ad-debug.log
 .TP
 .BI \-\-log-mode \ 1|2
 Generate a log file without starting vim
@@ -772,7 +743,7 @@ If the only difference between old and new is a trailing newline, the
 animation may not handle it correctly.
 .TP
 tmux send-keys race conditions
-.B diffvim-tmux
+.B ad_tmux
 and
 .B diffvim.pl
 can experience race conditions where Ex command text leaks into normal

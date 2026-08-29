@@ -1,6 +1,6 @@
 .TH AD-COMPUTE 1 "2026-08-18" "ad 1.0" "User Commands"
 .SH NAME
-ad_compute \- external diff computer for diffvim (C++ implementation)
+ad_compute \- external diff computer for the ad toolkit (C++ implementation)
 .SH SYNOPSIS
 .B ad_compute
 .RI <oldfile>
@@ -97,28 +97,10 @@ Read a unified diff instead of two files. Positional args become
 .B \-h, \-\-help
 Show help and exit.
 
-.SH ENVIRONMENT
-.TP
-.B DIFFVIM_ALGORITHM
-Same as
-.B \-\-algorithm.
-.TP
-.B DIFFVIM_WORD_DIFF
-Set to
-.I 1
-to enable by default.
-.TP
-.B DIFFVIM_OPTIMIZE_SEQUENCE
-Default
-.IR 1 ;
-set to
-.I 0
-to disable.
-.TP
-.B AD_LEFT_TO_RIGHT
-Set to
-.I 1
-to enable by default.
+.SH CONFIGURATION
+No environment variables. All options are set via CLI flags (see OPTIONS
+above). For persistent defaults, use the config file at
+$XDG_CONFIG_HOME/ad/config (defaults to ~/.config/ad/config).
 
 .SH OUTPUT FORMAT
 The output file is line-oriented:
@@ -182,7 +164,7 @@ Compute the diff with the C++ tool, then run diffvim with the precomputed file.
 
 .SH SEE ALSO
 .BR diffvim (1),
-.BR diffvim-compare (1)
+.BR ad_compare (1)
 .br
 .I docs/PARALLEL_COMPUTE.md
 covers the architecture, parallelism opportunities, and benchmark

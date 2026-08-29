@@ -87,7 +87,7 @@ OUTPUT
 HELP
 }
 
-export AD_LEFT_TO_RIGHT="${AD_LEFT_TO_RIGHT:-1}"
+
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -138,8 +138,8 @@ while [[ $# -gt 0 ]]; do
         # Compute options
         --word-diff)                     COMPUTE_ARGS+=("--word-diff"); shift ;;
         --no-optimize-sequence)          COMPUTE_ARGS+=("--no-optimize-sequence"); shift ;;
-        --left-to-right)                 export AD_LEFT_TO_RIGHT=1; shift ;;
-        --no-left-to-right)              export AD_LEFT_TO_RIGHT=0; shift ;;
+        --left-to-right)                 COMPUTE_ARGS+=("--left-to-right"); shift ;;
+        --no-left-to-right)              COMPUTE_ARGS+=("--no-left-to-right"); shift ;;
 
         # Pace options
         --delete-pacing)                 PACE_ARGS+=("--delete-pacing" "$2"); shift 2 ;;

@@ -34,7 +34,7 @@ my $old = "/tmp/ld_old.txt";
 my $new = "/tmp/ld_new.txt";
 open(my $fh, '>', $old) or die; print $fh "def foo():\n    print('hello')\n    return None\n\ndef bar():\n    pass\n"; close($fh);
 open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; close($fh);
-system("AD_LEFT_TO_RIGHT=1 ./bin/ad_compute '$old' '$new' /tmp/ld_raw.txt 2>/dev/null");
+system("./bin/ad_compute '$old' '$new' /tmp/ld_raw.txt 2>/dev/null");
 ok "compute produced raw ops";
 
 # --- Test 1: --list-layers lists the default search path ------------------

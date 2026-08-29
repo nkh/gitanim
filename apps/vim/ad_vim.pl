@@ -55,7 +55,7 @@ use Fcntl qw(:flock O_RDWR O_NONBLOCK);
 use Time::HiRes qw(sleep time);
 
 # Ensure we can find our modules
-use lib dirname(__FILE__);
+use lib dirname(__FILE__) . '/../../perl';
 use DiffVim::Parser::Perl qw(parse_diff);
 
 binmode(STDOUT, ':utf8');
@@ -64,22 +64,64 @@ binmode(STDERR, ':utf8');
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-sub _env_or {
+# No env vars. Configuration comes from:
+#   1. Built-in defaults (below)
+#   2. Config file (~/.config/ad/config) — sourced as bash by the wrapper
+#      script that invokes this Perl launcher, OR parsed here if the user
+#      runs the Perl launcher directly.
+#   3. CLI flags (parsed below)
+#
+# The launcher writes the final values to a vimscript-readable temp file
+# (via ad_write_vimconfig) which the vimscript engine sources.
+
+my %config = (
+    tick_ms          => 16,
+    type_delay_ms    => 50,
+    delete_delay_ms  => 40,
+    move_min_ms      => 250,
+    move_max_ms      => 1600,
+    move_ms_per_unit => 6,
+    hunk_pause_ms    => 250,
+    word_pause_ms    => 150,
+);
+
+# Load config file (~/.config/ad/config) if it exists. The file is bash
+# syntax (KEY=value), so we parse it manually here.
+sub _load_config_file {
+    my $cfg_dir = $ENV{XDG_CONFIG_HOME} || "$ENV{HOME}/.config";
+    my $cfg = "$cfg_dir/ad/config";
+    return unless -f $cfg;
+    open(my $fh, '<', $cfg) or return;
+    while (my $line = <$fh>) {
+        chomp $line;
+        $line =~ s/#.*//;
+        $line =~ s/^\s+//;
+        $line =~ s/\s+$//;
+        next unless $line =~ /^([A-Z_]+)=(.*)$/;
+        my ($key, $val) = ($1, $2);
+        $val =~ s/^["']//;
+        $val =~ s/["']$//;
+        $ENV{$key} = $val;  # store temporarily; consumed below
+    }
+    close($fh);
+}
+_load_config_file();
+
+sub _cfg_or {
     my ($name, $default) = @_;
     my $val = $ENV{$name};
     return (defined($val) && length($val) > 0) ? $val : $default;
 }
 
-my %config = (
-    tick_ms          => _env_or('AD_TICK_MS',          16),
-    type_delay_ms    => _env_or('AD_TYPE_DELAY_MS',    50),
-    delete_delay_ms  => _env_or('AD_DELETE_DELAY_MS',  40),
-    move_min_ms      => _env_or('AD_MOVE_MIN_MS',      250),
-    move_max_ms      => _env_or('AD_MOVE_MAX_MS',      1600),
-    move_ms_per_unit => _env_or('AD_MOVE_MS_PER_UNIT', 6),
-    hunk_pause_ms    => _env_or('AD_HUNK_PAUSE_MS',    250),
-    word_pause_ms    => _env_or('AD_WORD_PAUSE_MS',    150),
-);
+# Apply config file values to %config
+$config{tick_ms}          = _cfg_or('AD_TICK_MS', $config{tick_ms});
+$config{type_delay_ms}    = _cfg_or('AD_TYPE_DELAY_MS', $config{type_delay_ms});
+$config{delete_delay_ms}  = _cfg_or('AD_DELETE_DELAY_MS', $config{delete_delay_ms});
+$config{move_min_ms}      = _cfg_or('AD_MOVE_MIN_MS', $config{move_min_ms});
+$config{move_max_ms}      = _cfg_or('AD_MOVE_MAX_MS', $config{move_max_ms});
+$config{move_ms_per_unit} = _cfg_or('AD_MOVE_MS_PER_UNIT', $config{move_ms_per_unit});
+$config{hunk_pause_ms}    = _cfg_or('AD_HUNK_PAUSE_MS', $config{hunk_pause_ms});
+$config{word_pause_ms}    = _cfg_or('AD_WORD_PAUSE_MS', $config{word_pause_ms});
 
 # ---------------------------------------------------------------------------
 # CLI options
@@ -87,12 +129,12 @@ my %config = (
 my $parser_name    = 'perl';
 my $help           = 0;
 my $version_flag   = 0;
-my $speed_mult     = _env_or('AD_SPEED', 1.0);
+my $speed_mult     = _cfg_or('AD_SPEED', 1.0);
 my $output_file    = '';
 my $context_lines  = 0;
 my $max_hunk_chars = 0;
 my $max_word_chars = 0;
-my $scroll_mode    = _env_or('AD_SCROLL', 'zz');
+my $scroll_mode    = _cfg_or('AD_SCROLL', 'zz');
 my $multi_mode     = 0;
 my $replay_mode    = 0;
 my $replay_from    = 'HEAD~5';
@@ -103,19 +145,48 @@ my $sign_column    = 0;
 my $git_blame      = 0;
 my $step_mode      = 0;
 my $git_rev        = '';
-my $max_line_len   = _env_or('AD_MAX_LINE_LEN', 10000);
+my $max_line_len   = _cfg_or('AD_MAX_LINE_LEN', 10000);
 my $adaptive_timing= 0;
 my $word_diff_mode = 0;
 my $diff_input     = '';
 my $diff_algorithm   = 'lcs';
 my $use_remote       = 0;
 my $highlight_hunk   = 0;
-my $highlight_color  = _env_or('AD_HIGHLIGHT_COLOR', 'DiffChange');
-my $highlight_duration_ms = _env_or('AD_HIGHLIGHT_DURATION_MS', 1000);
-my $highlight_min_chars = _env_or('AD_HIGHLIGHT_MIN_CHARS', 10);
+my $highlight_color  = _cfg_or('AD_HIGHLIGHT_COLOR', 'DiffChange');
+my $highlight_duration_ms = _cfg_or('AD_HIGHLIGHT_DURATION_MS', 1000);
+my $highlight_min_chars = _cfg_or('AD_HIGHLIGHT_MIN_CHARS', 10);
 my $fold_unchanged  = 0;
 my $theme           = '';
 my $debug_mode      = 0;
+
+# Internal state — set by CLI flags, written to vimscript config file later.
+my %ad_state = (
+    accel_delete             => 0,
+    accel_delete_start_ms    => 80,
+    accel_delete_min_ms      => 15,
+    accel_delete_accel       => 0.85,
+    overwrite_mode           => 0,
+    delete_end_first         => 0,
+    delete_end_first_delay_ms => 100,
+    startup_feedback         => 0,
+    inline_highlight         => 0,
+    inline_highlight_duration => 200,
+    gaussian_jitter          => 0,
+    gaussian_jitter_pct      => 20,
+    dim_unchanged            => 0,
+    dim_unchanged_pct        => 60,
+    pause_after_lines        => 0,
+    pause_after_threshold    => 50,
+    pause_after_ms           => 500,
+    keep_dirty               => 0,
+    no_vimrc                 => 0,
+    precomputed              => '',
+    startup_pause            => 0,
+    highlight_word           => 0,
+    highlight_word_color     => 'Search',
+    highlight_word_duration  => 300,
+    highlight_word_min_chars => 2,
+);
 
 GetOptions(
     'parser=s'         => \$parser_name,
@@ -149,34 +220,126 @@ GetOptions(
     'fold-unchanged'   => \$fold_unchanged,
     'theme=s'          => \$theme,
     'debug'            => \$debug_mode,
-    'accel-delete'     => sub { $ENV{AD_ACCEL_DELETE} = '1'; },
-    'accel-delete-start-ms=i' => sub { $ENV{AD_ACCEL_DELETE_START_MS} = $_[1]; },
-    'accel-delete-min-ms=i' => sub { $ENV{AD_ACCEL_DELETE_MIN_MS} = $_[1]; },
-    'accel-delete-accel=i' => sub { $ENV{AD_ACCEL_DELETE_ACCEL} = $_[1]; },
-    'overwrite'        => sub { $ENV{AD_OVERWRITE_MODE} = '1'; },
-    'delete-end-first' => sub { $ENV{AD_DELETE_END_FIRST} = '1'; },
-    'delete-end-first-delay-ms=i' => sub { $ENV{AD_DELETE_END_FIRST_DELAY_MS} = $_[1]; },
-    'startup-feedback' => sub { $ENV{AD_STARTUP_FEEDBACK} = '1'; },
-    'inline-highlight' => sub { $ENV{AD_INLINE_HIGHLIGHT} = '1'; },
-    'inline-highlight-duration-ms=i' => sub { $ENV{AD_INLINE_HIGHLIGHT_DURATION_MS} = $_[1]; },
-    'gaussian-jitter'  => sub { $ENV{AD_GAUSSIAN_JITTER} = '1'; },
-    'gaussian-jitter-pct=i' => sub { $ENV{AD_GAUSSIAN_JITTER_PCT} = $_[1]; },
-    'dim-unchanged'    => sub { $ENV{AD_DIM_UNCHANGED} = '1'; },
-    'dim-unchanged-pct=i' => sub { $ENV{AD_DIM_UNCHANGED_PCT} = $_[1]; },
-    'pause-after-lines=i' => sub { $ENV{AD_PAUSE_AFTER_LINES} = $_[1]; },
-    'pause-after-threshold=i' => sub { $ENV{AD_PAUSE_AFTER_THRESHOLD} = $_[1]; },
-    'pause-after-ms=i' => sub { $ENV{AD_PAUSE_AFTER_MS} = $_[1]; },
-    'keep-dirty'       => sub { $ENV{AD_KEEP_DIRTY} = '1'; },
-    'no-vimrc'         => sub { $ENV{AD_NO_VIMRC} = '1'; },
-    'precomputed=s'    => sub { $ENV{AD_PRECOMPUTED} = $_[1]; },
-    'startup-pause'    => sub { $ENV{AD_STARTUP_PAUSE} = '1'; },
-    'highlight-word'   => sub { $ENV{AD_HIGHLIGHT_WORD} = '1'; },
-    'highlight-word-color=s' => sub { $ENV{AD_HIGHLIGHT_WORD_COLOR} = $_[1]; },
-    'highlight-word-duration-ms=i' => sub { $ENV{AD_HIGHLIGHT_WORD_DURATION_MS} = $_[1]; },
-    'highlight-word-min-chars=i' => sub { $ENV{AD_HIGHLIGHT_WORD_MIN_CHARS} = $_[1]; },
+    'accel-delete'     => sub { $ad_state{accel_delete} = 1; },
+    'accel-delete-start-ms=i' => sub { $ad_state{accel_delete_start_ms} = $_[1]; },
+    'accel-delete-min-ms=i' => sub { $ad_state{accel_delete_min_ms} = $_[1]; },
+    'accel-delete-accel=i' => sub { $ad_state{accel_delete_accel} = $_[1] / 100.0; },
+    'overwrite'        => sub { $ad_state{overwrite_mode} = 1; },
+    'delete-end-first' => sub { $ad_state{delete_end_first} = 1; },
+    'delete-end-first-delay-ms=i' => sub { $ad_state{delete_end_first_delay_ms} = $_[1]; },
+    'startup-feedback' => sub { $ad_state{startup_feedback} = 1; },
+    'inline-highlight' => sub { $ad_state{inline_highlight} = 1; },
+    'inline-highlight-duration-ms=i' => sub { $ad_state{inline_highlight_duration} = $_[1]; },
+    'gaussian-jitter'  => sub { $ad_state{gaussian_jitter} = 1; },
+    'gaussian-jitter-pct=i' => sub { $ad_state{gaussian_jitter_pct} = $_[1]; },
+    'dim-unchanged'    => sub { $ad_state{dim_unchanged} = 1; },
+    'dim-unchanged-pct=i' => sub { $ad_state{dim_unchanged_pct} = $_[1]; },
+    'pause-after-lines=i' => sub { $ad_state{pause_after_lines} = $_[1]; },
+    'pause-after-threshold=i' => sub { $ad_state{pause_after_threshold} = $_[1]; },
+    'pause-after-ms=i' => sub { $ad_state{pause_after_ms} = $_[1]; },
+    'keep-dirty'       => sub { $ad_state{keep_dirty} = 1; },
+    'no-vimrc'         => sub { $ad_state{no_vimrc} = 1; },
+    'precomputed=s'    => sub { $ad_state{precomputed} = $_[1]; },
+    'startup-pause'    => sub { $ad_state{startup_pause} = 1; },
+    'highlight-word'   => sub { $ad_state{highlight_word} = 1; },
+    'highlight-word-color=s' => sub { $ad_state{highlight_word_color} = $_[1]; },
+    'highlight-word-duration-ms=i' => sub { $ad_state{highlight_word_duration} = $_[1]; },
+    'highlight-word-min-chars=i' => sub { $ad_state{highlight_word_min_chars} = $_[1]; },
     'version|V'        => \$version_flag,
     'help|h'           => \$help,
 ) or die "Usage: $0 [options] <oldfile> <newfile>\n  Run $0 --help for details.\n";
+
+# Write the vimscript config file (replaces env var exports).
+sub _write_vimconfig {
+    my ($path) = @_;
+    open(my $fh, '>', $path) or die "Cannot write $path: $!";
+    my $vstr = sub { print $fh "let s:$_[0] = \"$_[1]\"\n" };
+    my $vnum = sub { print $fh "let s:$_[0] = $_[1]\n" };
+    my $vbool = sub { print $fh "let s:$_[0] = $_[1]\n" };
+    $vstr->('delete_pacing', 'word');
+    $vstr->('insert_pacing', 'char');
+    $vstr->('pacing', 'uniform');
+    $vstr->('delete_speed', 'normal');
+    $vstr->('insert_speed', 'normal');
+    $vnum->('delete_threshold', 3);
+    $vnum->('tick_ms', $config{tick_ms});
+    $vnum->('type_delay_ms', $config{type_delay_ms});
+    $vnum->('delete_delay_ms', $config{delete_delay_ms});
+    $vnum->('move_min_ms', $config{move_min_ms});
+    $vnum->('move_max_ms', $config{move_max_ms});
+    $vnum->('move_ms_per_unit', $config{move_ms_per_unit});
+    $vnum->('hunk_pause_ms', $config{hunk_pause_ms});
+    $vnum->('word_pause_ms', $config{word_pause_ms});
+    $vbool->('indent_last', 0);
+    $vbool->('overwrite_mode', $ad_state{overwrite_mode});
+    $vbool->('line_delete_in_place', 0);
+    $vbool->('left_to_right', 1);
+    $vnum->('speed_mult_x1000', int($speed_mult * 1000));
+    $vstr->('scroll', $scroll_mode);
+    $vnum->('max_line_len', $max_line_len);
+    $vnum->('max_hunk_chars', $max_hunk_chars);
+    $vnum->('cursor_glide_ms', 0);
+    $vbool->('cursor_glide_show_intermediate', 1);
+    $vstr->('distance_speed', 'off');
+    $vnum->('distance_threshold', 5);
+    $vstr->('distance_fast_mult', '2.0');
+    $vstr->('distance_slow_mult', '0.5');
+    $vstr->('highlight_mode', 'none');
+    $vnum->('highlight_duration_ms', $highlight_duration_ms);
+    $vbool->('dim_unchanged', $ad_state{dim_unchanged});
+    $vnum->('dim_unchanged_pct', $ad_state{dim_unchanged_pct});
+    $vnum->('context_lines', $context_lines);
+    $vbool->('fold_unchanged', $fold_unchanged);
+    $vbool->('sign_column', $sign_column);
+    $vbool->('git_blame', $git_blame);
+    $vstr->('highlight_color', $highlight_color);
+    $vnum->('highlight_min_chars', $highlight_min_chars);
+    $vbool->('accel_delete', $ad_state{accel_delete});
+    $vnum->('accel_delete_start_ms', $ad_state{accel_delete_start_ms});
+    $vnum->('accel_delete_min_ms', $ad_state{accel_delete_min_ms});
+    $vstr->('accel_delete_accel', $ad_state{accel_delete_accel});
+    $vnum->('block_delete_size', 3);
+    $vnum->('pause_before_delete_ms', 200);
+    $vnum->('pause_after_delete_ms', 200);
+    $vnum->('flash_pause_ms', 400);
+    $vnum->('flash_highlight_ms', 300);
+    $vnum->('pause_after_lines', $ad_state{pause_after_lines});
+    $vnum->('pause_after_threshold', $ad_state{pause_after_threshold});
+    $vnum->('pause_after_ms', $ad_state{pause_after_ms});
+    $vbool->('gaussian_jitter', $ad_state{gaussian_jitter});
+    $vnum->('gaussian_jitter_pct', $ad_state{gaussian_jitter_pct});
+    $vbool->('adaptive_mode', 0);
+    $vnum->('adaptive_start_ms', 80);
+    $vnum->('adaptive_max_ms', 250);
+    $vstr->('adaptive_accel', '0.85');
+    $vnum->('adaptive_pause_lines', 0);
+    $vnum->('adaptive_pause_ms', 0);
+    $vbool->('adaptive_timing', $adaptive_timing);
+    $vstr->('output_file', $output_file);
+    $vbool->('keep_dirty', $ad_state{keep_dirty});
+    $vstr->('theme', $theme);
+    $vstr->('log_mode', '');
+    $vstr->('log_file', 'diffvim.log');
+    $vbool->('debug_mode', $debug_mode);
+    $vbool->('no_vimrc', $ad_state{no_vimrc});
+    $vbool->('bell_on_error', 0);
+    $vbool->('diff_stat', 0);
+    $vbool->('diff_highlight', 0);
+    $vbool->('highlight_hunk', $highlight_hunk);
+    $vbool->('highlight_word', $ad_state{highlight_word});
+    $vstr->('highlight_word_color', $ad_state{highlight_word_color});
+    $vnum->('highlight_word_duration', $ad_state{highlight_word_duration});
+    $vnum->('highlight_word_min_chars', $ad_state{highlight_word_min_chars});
+    $vbool->('inline_highlight', $ad_state{inline_highlight});
+    $vnum->('inline_highlight_duration', $ad_state{inline_highlight_duration});
+    $vbool->('startup_feedback', $ad_state{startup_feedback});
+    $vbool->('delete_end_first', $ad_state{delete_end_first});
+    $vnum->('delete_end_first_delay_ms', $ad_state{delete_end_first_delay_ms});
+    $vnum->('delete_end_first_highlight_ms', 300);
+    $vstr->('precomputed', $ad_state{precomputed});
+    $vbool->('startup_pause', $ad_state{startup_pause});
+    close($fh);
+}
 
 # Apply speed multiplier to all timing values
 sub apply_speed {

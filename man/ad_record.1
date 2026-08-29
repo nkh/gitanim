@@ -1,16 +1,16 @@
-.TH DV_RECORD 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.TH AD_RECORD 1 "2026-08-21" "ad 2.0" "ad scripts"
 .SH NAME
-dv_record \- 
+ad_record \- record animation to a file
 .SH SYNOPSIS
-.B dv_record
+.B ad_record
 [\fIoptions\fR] [\fIargs\fR]
 .SH DESCRIPTION
 NAME\fR
-    dv_record.sh — Record an animation's timed op stream for later replay\fR
+    ad_record.sh — Record an animation's timed op stream for later replay\fR
 \fR
 SYNOPSIS\fR
-    dv_record.sh [-h|--help]\fR
-    dv_record.sh <oldfile> <newfile> <recording.dv>\fR
+    ad_record.sh [-h|--help]\fR
+    ad_record.sh <oldfile> <newfile> <recording.dv>\fR
 \fR
 DESCRIPTION\fR
     Runs the diffvim compute + postprocess + pace pipeline on an\fR
@@ -30,7 +30,7 @@ OPTIONS\fR
     <recording.dv>    Path where the timed op stream will be saved.\fR
 \fR
 EXAMPLES\fR
-    dv_record.sh tests/tests/examples/01_small_python/old.py \\fR
+    ad_record.sh tests/tests/examples/01_small_python/old.py \\fR
                 tests/tests/examples/01_small_python/new.py \\fR
                 /tmp/my_recording.dv\fR
         Record the animation that transforms old.py into new.py,\fR

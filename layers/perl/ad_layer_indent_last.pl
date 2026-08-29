@@ -18,7 +18,7 @@
 #
 # Usage:
 #   perl ad_layer_indent_last.pl < post_ops > adjusted_ops
-#   AD_DEBUG_LAYERS=1 perl ad_layer_indent_last.pl < in > out   # debug dump
+#   --debug perl ad_layer_indent_last.pl < in > out   # debug dump
 
 use strict;
 use warnings;
@@ -31,7 +31,8 @@ binmode(STDERR, ':utf8');
 # --- Configuration --------------------------------------------------------
 
 my $LAYER_NAME = 'ad_layer_indent_last (Perl)';
-my $DEBUG = ($ENV{AD_DEBUG_LAYERS} // '0') eq '1';
+my $DEBUG = 0;
+for my $arg (@ARGV) { $DEBUG = 1 if $arg eq "--debug"; }
 
 # --- Debug helpers -------------------------------------------------------
 

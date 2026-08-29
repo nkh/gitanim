@@ -31,7 +31,7 @@ echo ""
 # Test files
 printf 'a\nb\nc\nd\ne\n' > /tmp/pl_old.txt
 printf 'a\nX\ne\n' > /tmp/pl_new.txt
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" /tmp/pl_old.txt /tmp/pl_new.txt /tmp/pl_raw.txt 2>/dev/null
+"$ROOT/bin/ad_compute" /tmp/pl_old.txt /tmp/pl_new.txt /tmp/pl_raw.txt 2>/dev/null
 
 # ── Test 1: Layer 0 (V2 conversion) standalone ──
 echo "Test 1: Layer 0 standalone (V2 passthrough)"
@@ -73,7 +73,7 @@ cmp4 /tmp/pl_piped.txt /tmp/pl_perl.txt >/dev/null 2>&1 && ok "C and Perl pipeli
 # ── Test 8: Debug logging ──
 echo "Test 8: Debug logging"
 rm -rf /tmp/ad_debug
-AD_DEBUG_LAYERS=1 "$ROOT/bin/ad_layer_noop" < /tmp/pl_l0.txt > /dev/null 2>/dev/null
+"$ROOT/bin/ad_layer_noop" --debug < /tmp/pl_l0.txt > /dev/null 2>/dev/null
 if [[ -f /tmp/ad_debug/postprocess.log && -f /tmp/ad_debug/layer_input.txt && -f /tmp/ad_debug/layer_output.txt ]]; then
     ok "Debug logging: log + dumps created"
 else
@@ -97,7 +97,7 @@ diff /tmp/pl_new.txt /tmp/pl_out.txt >/dev/null 2>&1 && ok "Animation output mat
 
 # ── Test 11: Full example 02 ──
 echo "Test 11: Full example 02 through all layers"
-AD_LEFT_TO_RIGHT=1 "$ROOT/bin/ad_compute" \
+"$ROOT/bin/ad_compute" \
     tests/examples/02_large_python/old.py tests/examples/02_large_python/new.py /tmp/pl_02_raw.txt 2>/dev/null
 "$ROOT/bin/ad_layer_noop" < /tmp/pl_02_raw.txt 2>/dev/null | \
 "$ROOT/bin/ad_layer_noop" 2>/dev/null | \

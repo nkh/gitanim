@@ -12,10 +12,10 @@
 #
 # Usage:
 #   perl ad_layer_noop.pl < input.tsv > output.tsv
-#   AD_DEBUG_LAYERS=1 perl ad_layer_noop.pl < input.tsv > output.tsv
+#   --debug perl ad_layer_noop.pl < input.tsv > output.tsv
 #
 # Debug:
-#   When AD_DEBUG_LAYERS=1, writes a log to
+#   When --debug is given, writes a log to
 #   /tmp/ad_debug/postprocess.log and op dumps to
 #   /tmp/ad_debug/perl_layer_input.txt and perl_layer_output.txt
 
@@ -30,7 +30,8 @@ binmode(STDERR, ':utf8');
 # ── Configuration ────────────────────────────────────────────────────
 
 my $LAYER_NAME = 'Perl Layer (no-op)';
-my $DEBUG = ($ENV{AD_DEBUG_LAYERS} // '0') eq '1';
+my $DEBUG = 0;
+for my $arg (@ARGV) { $DEBUG = 1 if $arg eq "--debug"; }
 
 # ── Debug helpers ────────────────────────────────────────────────────
 

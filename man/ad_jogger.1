@@ -1,14 +1,14 @@
 .TH AD-JOGGER 1 "2026-08-16" "ad 1.0" "User Commands"
 .SH NAME
-diffvim-jogger \- exercise diffvim across many option combinations on synthetic test cases
+ad_jogger \- exercise ad across many option combinations on synthetic test cases
 .SH SYNOPSIS
-.B diffvim-jogger
+.B ad_jogger
 .RI [ output_dir ]
 .br
-.B diffvim-jogger
+.B ad_jogger
 .B \-h | \-\-help
 .SH DESCRIPTION
-.B diffvim-jogger
+.B ad_jogger
 generates 18 small synthetic test file pairs covering common
 insertion/deletion patterns (mid-line replacement, insert at start,
 delete at end, block delete, unicode, indent change, etc.), then runs
@@ -26,7 +26,7 @@ animation for the same input.
 .TP
 .I output_dir
 Where to write test cases, logs, and the report (default:
-.IR /tmp/diffvim-jogger ).
+.IR /tmp/ad_jogger ).
 
 .SH OPTIONS
 .TP
@@ -99,32 +99,27 @@ Presets: --preset fast-delete, --preset review, --preset ai-code
 Several combined combos
 .RE
 
-.SH ENVIRONMENT
-.TP
-.B DIFFVIM_BIN
-Override the
-.B ad_vim
-binary to invoke (default:
-.IR <script_dir>/diffvim ).
+.SH CONFIGURATION
+No environment variables. All options are set via CLI flags.
 
 .SH EXAMPLES
 .TP
-.B diffvim-jogger
+.B ad_jogger
 Run with default output directory.
 .TP
-.B diffvim-jogger /tmp/myjog
+.B ad_jogger /tmp/myjog
 Use a custom output directory.
 .TP
-.B diffvim-jogger && open /tmp/diffvim-jogger/REPORT.md
+.B ad_jogger && open /tmp/ad_jogger/REPORT.md
 Run and immediately open the report.
 
 .SH SEE ALSO
 .BR diffvim (1),
-.BR diffvim-compare (1)
+.BR ad_compare (1)
 .br
 .I docs/OPTION_COMBINATIONS.md
 and
 .I docs/POST_PROCESSING.md
 describe the option semantics in detail.
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

@@ -94,10 +94,11 @@ print $out "# word_diff 0\n";
 print $out "# indent_aware 0\n";
 print $out "# optimize_sequence 1\n";
 
-# Check for left_to_right env var (mirror the C++ compute tool)
+# Check for --left-to-right CLI flag (mirror the C++ compute tool).
+# No env vars.
 my $do_l2r = 0;
-if (exists $ENV{AD_LEFT_TO_RIGHT} && $ENV{AD_LEFT_TO_RIGHT} ne '' && $ENV{AD_LEFT_TO_RIGHT} ne '0') {
-    $do_l2r = 1;
+for my $arg (@ARGV) {
+    $do_l2r = 1 if $arg eq '--left-to-right';
 }
 print $out "# left_to_right $do_l2r\n";
 print $out "# hunk_count " . scalar(@hunks) . "\n";

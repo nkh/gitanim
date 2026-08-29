@@ -1,16 +1,16 @@
 .TH AD-DEBUG-BUNDLE 1 "2026-08-21" "diffvim 2.0" "diffvim Manual"
 .SH NAME
-diffvim-debug-bundle \- Generate a debug bundle for reporting diffvim issues
+ad_debug_bundle \- Generate a debug bundle for reporting ad issues
 .SH SYNOPSIS
-.B diffvim-debug-bundle
+.B ad_debug_bundle
 .RB [ \-h | \-\-help ]
 .br
-.B diffvim-debug-bundle
+.B ad_debug_bundle
 .I oldfile
 .I newfile
 .RI [ description ]
 .SH DESCRIPTION
-.B diffvim-debug-bundle
+.B ad_debug_bundle
 runs the full diffvim pipeline (compute \[->] postprocess \[->] pace \[->]
 decorate \[->] animator) on the given old/new file pair, then packages
 every intermediate stage output, the binary MD5s, the active settings,
@@ -84,14 +84,14 @@ stderr captured from each pipeline stage.
 .SH EXAMPLES
 .TP
 Generate a bundle with the default description:
-.B diffvim-debug-bundle old.py new.py
+.B ad_debug_bundle old.py new.py
 .TP
 Generate a bundle with a specific problem description:
-.B diffvim-debug-bundle old.py new.py "Cursor jumps to wrong line after \[rs]n delete"
+.B ad_debug_bundle old.py new.py "Cursor jumps to wrong line after \[rs]n delete"
 .TP
 Reproduce the scattered-LCS bug for the maintainer:
 .br
-.B diffvim-debug-bundle tests/tests/examples/02_large_python/old.py \[rs]
+.B ad_debug_bundle tests/tests/examples/02_large_python/old.py \[rs]
 .br
 .B                         tests/tests/examples/02_large_python/new.py \[rs]
 .br

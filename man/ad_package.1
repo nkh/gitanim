@@ -1,26 +1,26 @@
-.TH DV_PACKAGE 1 "2026-08-21" "diffvim 2.0" "diffvim scripts"
+.TH AD_PACKAGE 1 "2026-08-21" "ad 2.0" "ad scripts"
 .SH NAME
-dv_package \- 
+ad_package \- package the project for distribution
 .SH SYNOPSIS
-.B dv_package
+.B ad_package
 [\fIoptions\fR] [\fIargs\fR]
 .SH DESCRIPTION
 NAME\fR
-    dv_package.sh — Create a release tarball with pre-built binaries\fR
+    ad_package.sh — Create a release tarball with pre-built binaries\fR
 \fR
 SYNOPSIS\fR
-    dv_package.sh [-h|--help]\fR
-    dv_package.sh [version]\fR
+    ad_package.sh [-h|--help]\fR
+    ad_package.sh [version]\fR
 \fR
 DESCRIPTION\fR
     Builds the C binaries (compute, animator-c, postprocess, pace) from\fR
     source, then archives them together with the Perl pipeline, the\fR
-    launcher scripts (diffvim, diffvim.pl, diffvim-tmux, diffvim-compare),\fR
+    launcher scripts (diffvim, diffvim.pl, ad_tmux, ad_compare),\fR
     the Vim plugin (plugin/, autoload/, completion/, man/, DiffVim/),\fR
     the tests/tests/examples/, the scripts/, README, CHANGELOG and LICENSE into a\fR
     single distributable .tar.gz.\fR
 \fR
-    The resulting tarball is written to /tmp/diffvim-<version>.tar.gz.\fR
+    The resulting tarball is written to /tmp/ad-<version>.tar.gz.\fR
 \fR
 OPTIONS\fR
     -h, --help     Show this help message and exit 0.\fR
@@ -28,13 +28,13 @@ OPTIONS\fR
                    Defaults to "2.0" if not supplied.\fR
 \fR
 EXAMPLES\fR
-    dv_package.sh\fR
-        Build the 2.0 release tarball at /tmp/diffvim-2.0.tar.gz.\fR
+    ad_package.sh\fR
+        Build the 2.0 release tarball at /tmp/ad-2.0.tar.gz.\fR
 \fR
-    dv_package.sh 2.3.1\fR
-        Build the 2.3.1 release tarball at /tmp/diffvim-2.3.1.tar.gz.\fR
+    ad_package.sh 2.3.1\fR
+        Build the 2.3.1 release tarball at /tmp/ad-2.3.1.tar.gz.\fR
 \fR
-    dv_package.sh --help\fR
+    ad_package.sh --help\fR
 .SH OPTIONS
 .TP
 .B \-h, \-\-help

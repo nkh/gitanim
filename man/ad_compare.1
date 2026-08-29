@@ -1,16 +1,16 @@
 .TH AD-COMPARE 1 "2026-08-18" "ad 1.0" "User Commands"
 .SH NAME
-diffvim-compare \- benchmark diff algorithms and option combinations
+ad_compare \- benchmark diff algorithms and option combinations
 .SH SYNOPSIS
-.B diffvim-compare
+.B ad_compare
 .RI <oldfile>
 .RI <newfile>
 .RI [ output_dir ]
 .br
-.B diffvim-compare
+.B ad_compare
 .B \-h | \-\-help
 .SH DESCRIPTION
-.B diffvim-compare
+.B ad_compare
 generates a matrix of precomputed diff files using every combination of
 diff algorithm and post-processing option, then prints a comparison
 table so you can pick the most efficient and most readable combination
@@ -32,7 +32,7 @@ New version of the file to compare (required).
 .TP
 .I output_dir
 Where to write the .diff files (default:
-.IR /tmp/diffvim-compare ).
+.IR /tmp/ad_compare ).
 
 .SH OPTIONS
 .TP
@@ -76,37 +76,25 @@ Fewer
 .I hunks
 = more coherent changes (less cursor movement).
 
-.SH ENVIRONMENT
-.TP
-.B AD_COMPUTE_BIN
-Override the path to the compute binary (default:
-.IR bin/ad_compute ).
-Historically this also pointed at the
-.IR c ,
-.IR rust ,
-or
-.I go
-variants, but those were removed in the refactor.
+.SH CONFIGURATION
+No environment variables. All options are set via CLI flags.
 
 .SH EXAMPLES
 .TP
-.B diffvim-compare tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py
+.B ad_compare tests/examples/42_large_huge_python/old.py tests/examples/42_large_huge_python/new.py
 Compare all algorithm/option combinations on a large Python file pair.
 .TP
-.B diffvim-compare a.py b.py /tmp/mycompare
+.B ad_compare a.py b.py /tmp/mycompare
 Write diff files to
 .I /tmp/mycompare
 instead of the default.
-.TP
-.B AD_COMPUTE_BIN=bin/ad_compute diffvim-compare a.py b.py
-Explicitly select the C++ compute tool (the default).
 
 .SH SEE ALSO
-.BR diffvim (1),
+.BR ad_vim (1),
 .BR ad_compute (1),
-.BR diffvim-jogger (1)
+.BR ad_jogger (1)
 .br
-.I docs/OPTION_COMBINATIONS.md
+.I docs/design/OPTION_COMBINATIONS.md
 and
 .I docs/DIFF_STUDY.md
 contain detailed analysis.

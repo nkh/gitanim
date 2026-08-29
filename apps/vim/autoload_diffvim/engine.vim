@@ -26,96 +26,239 @@ if !&modifiable
 endif
 
 " --- Configuration ---------------------------------------------------------
-" Tunables. Priority (highest wins):
-"   1. g:diffvim dictionary in vimrc (set before launching diffvim)
-"   2. AD_* environment variables
-"   3. Built-in defaults
+" Configuration is read from a temp file written by the bash launcher.
+" The launcher sources the config file (~/.config/ad/config), parses CLI
+" flags, and writes the final values to a vimscript-readable temp file
+" (key=value as `let s:foo = "bar"` statements).
 "
-" In Vimscript, $NAME accesses environment variables.  empty($NAME) is true
-" when the var is unset or empty.  str2nr() converts the string to a number.
+" Priority (highest wins):
+"   1. g:diffvim dictionary in vimrc (set before launching)
+"   2. Config file values (written by the launcher)
+"   3. Built-in defaults (below)
+"
+" The launcher passes the temp file path via g:ad_config_file.
+
+" Source the config file written by the launcher. This sets s: variables
+" for every option. If g:ad_config_file is unset (e.g. running the
+" vimscript standalone for debugging), all defaults below apply.
+let s:type_delay_ms      = 50
+let s:delete_delay_ms    = 40
+let s:move_min_ms        = 200
+let s:move_max_ms        = 2000
+let s:move_ms_per_unit   = 1
+let s:hunk_pause_ms      = 250
+let s:tick_ms            = 16
+let s:word_pause_ms      = 150
+let s:scroll             = 'zz'
+let s:max_hunk_chars     = 0
+let s:max_word_chars     = 0
+let s:output_file        = ''
+let s:timed_ops_file     = ''
+let s:word_diff          = 0
+let s:semantic_cleanup   = 0
+let s:indent_aware       = 0
+let s:step_mode          = 0
+let s:adaptive_timing    = 0
+let s:sign_column        = 0
+let s:git_blame          = 0
+let s:highlight_hunk     = 0
+let s:highlight_color    = 'DiffChange'
+let s:highlight_duration = 1000
+let s:highlight_min_chars = 10
+let s:max_line_len       = 0
+let s:fold_unchanged     = 0
+let s:no_startup_pause   = 0
+let s:startup_pause      = 0
+let s:adaptive_mode      = 0
+let s:adaptive_start_ms  = 80
+let s:adaptive_max_ms    = 30
+let s:adaptive_accel     = 0.92
+let s:adaptive_pause_lines = 15
+let s:adaptive_pause_ms  = 500
+let s:rapid_eol_delete   = 0
+let s:rapid_eol_delay_ms = 80
+let s:rapid_eol_min_chars = 3
+let s:keep_dirty         = 0
+let s:precomputed        = ''
+let s:highlight_word     = 0
+let s:highlight_word_color = 'Search'
+let s:highlight_word_duration = 300
+let s:highlight_word_min_chars = 2
+let s:accel_delete       = 0
+let s:accel_delete_start_ms = 80
+let s:accel_delete_min_ms = 10
+let s:accel_delete_accel = 0.85
+let s:overwrite_mode     = 0
+let s:delete_end_first   = 0
+let s:delete_end_first_delay_ms = 100
+let s:delete_end_first_smart = 0
+let s:delete_end_first_highlight_ms = 300
+let s:startup_feedback   = 0
+let s:inline_highlight   = 0
+let s:inline_highlight_duration = 200
+let s:gaussian_jitter    = 0
+let s:gaussian_jitter_pct = 20
+let s:dim_unchanged       = 0
+let s:dim_unchanged_pct   = 60
+let s:pause_after_lines   = 0
+let s:pause_after_threshold = 50
+let s:pause_after_ms      = 500
+let s:pause_before_delete_ms = 200
+let s:pause_after_delete_ms = 200
+let s:block_delete_size  = 3
+let s:theme              = ''
+let s:optimize_sequence  = 1
+let s:log_mode           = ''
+let s:log_file           = 'diffvim.log'
+let s:left_to_right      = 1
+let s:adaptive_word_delete = 0
+let s:adaptive_word_delete_start_chars = 3
+let s:adaptive_word_delete_start_ms = 80
+let s:adaptive_word_delete_min_ms = 15
+let s:adaptive_word_delete_accel = 0.85
+let s:adaptive_word_delete_word_pause_ms = 100
+let s:rapid_identical_chars = 0
+let s:rapid_identical_min = 5
+let s:rapid_identical_accel = 0.5
+let s:word_accel          = 0
+let s:word_accel_delete_pct = 20
+let s:word_end_pause_ms   = 150
+let s:line_change_pause_ms = 200
+let s:cursor_glide_ms     = 0
+let s:cursor_glide_show_intermediate = 1
+let s:distance_speed     = 'off'
+let s:distance_threshold = 5
+let s:distance_fast_mult = 2.0
+let s:distance_slow_mult = 0.5
+let s:bell_on_error      = 0
+let s:diff_stat          = 0
+let s:diff_highlight     = 0
+let s:delete_pacing      = 'word'
+let s:delete_speed       = 'normal'
+let s:delete_threshold   = 3
+let s:insert_pacing      = 'char'
+let s:insert_speed       = 'normal'
+let s:pacing             = 'uniform'
+let s:highlight_mode     = 'none'
+let s:highlight_duration_ms = 200
+let s:context_lines      = 0
+let s:indent_last        = 0
+let s:line_delete_in_place = 0
+let s:speed_mult_x1000   = 1000
+
+" Source the config file written by the launcher. This overrides the
+" defaults above. If g:ad_config_file is unset, the defaults stand.
+if exists('g:ad_config_file') && filereadable(g:ad_config_file)
+    execute 'source ' . g:ad_config_file
+endif
+
+" Build g:diffvim from the s: variables. A user-set g:diffvim dictionary
+" in their vimrc takes precedence (highest priority).
 let g:diffvim = extend({
-    \ 'type_delay_ms':      !empty($AD_TYPE_DELAY_MS)    ? str2nr($AD_TYPE_DELAY_MS)    : 50,
-    \ 'delete_delay_ms':    !empty($AD_DELETE_DELAY_MS)  ? str2nr($AD_DELETE_DELAY_MS)  : 40,
-    \ 'move_min_ms':        !empty($AD_MOVE_MIN_MS)      ? str2nr($AD_MOVE_MIN_MS)      : 200,
-    \ 'move_max_ms':        !empty($AD_MOVE_MAX_MS)      ? str2nr($AD_MOVE_MAX_MS)      : 2000,
-    \ 'move_ms_per_unit':   !empty($AD_MOVE_MS_PER_UNIT) ? str2nr($AD_MOVE_MS_PER_UNIT) : 1,
-    \ 'hunk_pause_ms':      !empty($AD_HUNK_PAUSE_MS)    ? str2nr($AD_HUNK_PAUSE_MS)    : 250,
-    \ 'tick_ms':            !empty($AD_TICK_MS)          ? str2nr($AD_TICK_MS)          : 16,
-    \ 'word_pause_ms':      !empty($AD_WORD_PAUSE_MS)    ? str2nr($AD_WORD_PAUSE_MS)    : 150,
-    \ 'scroll':             !empty($AD_SCROLL)           ? $AD_SCROLL                   : 'zz',
-    \ 'max_hunk_chars':     !empty($AD_MAX_HUNK_CHARS)   ? str2nr($AD_MAX_HUNK_CHARS)   : 0,
-    \ 'max_word_chars':     !empty($AD_MAX_WORD_CHARS)   ? str2nr($AD_MAX_WORD_CHARS)   : 0,
-    \ 'output_file':        !empty($AD_OUTPUT)           ? $AD_OUTPUT                   : '',
-    \ 'word_diff':          !empty($AD_WORD_DIFF)        ? 1 : 0,
-    \ 'semantic_cleanup':   !empty($AD_SEMANTIC_CLEANUP) ? 1 : 0,
-    \ 'indent_aware':       !empty($AD_INDENT_AWARE)     ? 1 : 0,
-    \ 'step_mode':          !empty($AD_STEP_MODE)        ? 1 : 0,
-    \ 'adaptive_timing':    !empty($AD_ADAPTIVE_TIMING)  ? 1 : 0,
-    \ 'sign_column':        !empty($AD_SIGN_COLUMN)      ? 1 : 0,
-    \ 'git_blame':          !empty($AD_GIT_BLAME)        ? 1 : 0,
-    \ 'highlight_hunk':     !empty($AD_HIGHLIGHT_HUNK)   ? 1 : 0,
-    \ 'highlight_color':    !empty($AD_HIGHLIGHT_COLOR)  ? $AD_HIGHLIGHT_COLOR          : 'DiffChange',
-    \ 'highlight_duration': !empty($AD_HIGHLIGHT_DURATION_MS) ? str2nr($AD_HIGHLIGHT_DURATION_MS) : 1000,
-    \ 'highlight_min_chars':!empty($AD_HIGHLIGHT_MIN_CHARS)   ? str2nr($AD_HIGHLIGHT_MIN_CHARS)  : 10,
-    \ 'max_line_len':       !empty($AD_MAX_LINE_LEN)     ? str2nr($AD_MAX_LINE_LEN)    : 0,
-    \ 'fold_unchanged':     !empty($AD_FOLD_UNCHANGED)   ? 1 : 0,
-    \ 'no_startup_pause':   !empty($AD_NO_STARTUP_PAUSE) ? 1 : 0,
-    \ 'startup_pause':      !empty($AD_STARTUP_PAUSE)    ? 1 : 0,
-    \ 'adaptive_mode':     !empty($AD_ADAPTIVE_MODE)   ? 1 : 0,
-    \ 'adaptive_start_ms': !empty($AD_ADAPTIVE_START_MS) ? str2nr($AD_ADAPTIVE_START_MS) : 80,
-    \ 'adaptive_max_ms':   !empty($AD_ADAPTIVE_MAX_MS)   ? str2nr($AD_ADAPTIVE_MAX_MS)   : 30,
-    \ 'adaptive_accel':    !empty($AD_ADAPTIVE_ACCEL)    ? str2nr($AD_ADAPTIVE_ACCEL) * 1.0 / 100.0 : 0.92,
-    \ 'adaptive_pause_lines': !empty($AD_ADAPTIVE_PAUSE_LINES) ? str2nr($AD_ADAPTIVE_PAUSE_LINES) : 15,
-    \ 'adaptive_pause_ms': !empty($AD_ADAPTIVE_PAUSE_MS) ? str2nr($AD_ADAPTIVE_PAUSE_MS) : 500,
-    \ 'rapid_eol_delete':   !empty($AD_RAPID_EOL_DELETE)  ? 1 : 0,
-    \ 'rapid_eol_delay_ms': !empty($AD_RAPID_EOL_DELAY_MS) ? str2nr($AD_RAPID_EOL_DELAY_MS) : 80,
-    \ 'rapid_eol_min_chars':!empty($AD_RAPID_EOL_MIN_CHARS) ? str2nr($AD_RAPID_EOL_MIN_CHARS) : 3,
-    \ 'keep_dirty':         !empty($AD_KEEP_DIRTY)        ? 1 : 0,
-    \ 'precomputed':        !empty($AD_PRECOMPUTED)       ? $AD_PRECOMPUTED             : '',
-    \ 'highlight_word':      !empty($AD_HIGHLIGHT_WORD)            ? 1 : 0,
-    \ 'highlight_word_color':!empty($AD_HIGHLIGHT_WORD_COLOR)      ? $AD_HIGHLIGHT_WORD_COLOR            : 'Search',
-    \ 'highlight_word_duration': !empty($AD_HIGHLIGHT_WORD_DURATION_MS) ? str2nr($AD_HIGHLIGHT_WORD_DURATION_MS) : 300,
-    \ 'highlight_word_min_chars': !empty($AD_HIGHLIGHT_WORD_MIN_CHARS) ? str2nr($AD_HIGHLIGHT_WORD_MIN_CHARS) : 2,
-    \ 'accel_delete':       !empty($AD_ACCEL_DELETE)        ? 1 : 0,
-    \ 'accel_delete_start_ms': !empty($AD_ACCEL_DELETE_START_MS) ? str2nr($AD_ACCEL_DELETE_START_MS) : 80,
-    \ 'accel_delete_min_ms':!empty($AD_ACCEL_DELETE_MIN_MS) ? str2nr($AD_ACCEL_DELETE_MIN_MS) : 10,
-    \ 'accel_delete_accel': !empty($AD_ACCEL_DELETE_ACCEL)  ? str2nr($AD_ACCEL_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
-    \ 'overwrite_mode':     !empty($AD_OVERWRITE_MODE)      ? 1 : 0,
-    \ 'delete_end_first':   !empty($AD_DELETE_END_FIRST)    ? 1 : 0,
-    \ 'delete_end_first_delay_ms': !empty($AD_DELETE_END_FIRST_DELAY_MS) ? str2nr($AD_DELETE_END_FIRST_DELAY_MS) : 100,
-    \ 'delete_end_first_smart': !empty($AD_DELETE_END_FIRST_SMART) ? 1 : 0,
-    \ 'delete_end_first_highlight_ms': !empty($AD_DELETE_END_FIRST_HIGHLIGHT_MS) ? str2nr($AD_DELETE_END_FIRST_HIGHLIGHT_MS) : 300,
-    \ 'startup_feedback':   !empty($AD_STARTUP_FEEDBACK)    ? 1 : 0,
-    \ 'inline_highlight':   !empty($AD_INLINE_HIGHLIGHT)    ? 1 : 0,
-    \ 'inline_highlight_duration': !empty($AD_INLINE_HIGHLIGHT_DURATION_MS) ? str2nr($AD_INLINE_HIGHLIGHT_DURATION_MS) : 200,
-    \ 'gaussian_jitter':    !empty($AD_GAUSSIAN_JITTER)     ? 1 : 0,
-    \ 'gaussian_jitter_pct':!empty($AD_GAUSSIAN_JITTER_PCT) ? str2nr($AD_GAUSSIAN_JITTER_PCT) : 20,
-    \ 'dim_unchanged':      !empty($AD_DIM_UNCHANGED)       ? 1 : 0,
-    \ 'dim_unchanged_pct':  !empty($AD_DIM_UNCHANGED_PCT)   ? str2nr($AD_DIM_UNCHANGED_PCT) : 60,
-    \ 'pause_after_lines':  !empty($AD_PAUSE_AFTER_LINES)   ? str2nr($AD_PAUSE_AFTER_LINES) : 0,
-    \ 'pause_after_threshold': !empty($AD_PAUSE_AFTER_THRESHOLD) ? str2nr($AD_PAUSE_AFTER_THRESHOLD) : 50,
-    \ 'pause_after_ms':     !empty($AD_PAUSE_AFTER_MS)      ? str2nr($AD_PAUSE_AFTER_MS) : 500,
-    \ 'pause_before_delete_ms': !empty($AD_PAUSE_BEFORE_DELETE_MS) ? str2nr($AD_PAUSE_BEFORE_DELETE_MS) : 200,
-    \ 'pause_after_delete_ms': !empty($AD_PAUSE_AFTER_DELETE_MS) ? str2nr($AD_PAUSE_AFTER_DELETE_MS) : 200,
-    \ 'block_delete_size':  !empty($AD_BLOCK_DELETE_SIZE)   ? str2nr($AD_BLOCK_DELETE_SIZE) : 3,
-    \ 'theme':              !empty($AD_THEME)              ? $AD_THEME                   : '',
-    \ 'optimize_sequence':  empty($AD_OPTIMIZE_SEQUENCE) ? 1 : ($AD_OPTIMIZE_SEQUENCE ==# '0' ? 0 : 1),
-    \ 'log_mode':           !empty($AD_LOG_MODE)           ? $AD_LOG_MODE                : '',
-    \ 'log_file':           !empty($AD_LOG_FILE)           ? $AD_LOG_FILE                : 'diffvim.log',
-    \ 'left_to_right':      empty($AD_LEFT_TO_RIGHT) ? 1 : ($AD_LEFT_TO_RIGHT ==# '0' ? 0 : 1),
-    \ 'adaptive_word_delete': !empty($AD_ADAPTIVE_WORD_DELETE) ? 1 : 0,
-    \ 'adaptive_word_delete_start_chars': !empty($AD_ADAPTIVE_WORD_DELETE_START_CHARS) ? str2nr($AD_ADAPTIVE_WORD_DELETE_START_CHARS) : 3,
-    \ 'adaptive_word_delete_start_ms': !empty($AD_ADAPTIVE_WORD_DELETE_START_MS) ? str2nr($AD_ADAPTIVE_WORD_DELETE_START_MS) : 80,
-    \ 'adaptive_word_delete_min_ms': !empty($AD_ADAPTIVE_WORD_DELETE_MIN_MS) ? str2nr($AD_ADAPTIVE_WORD_DELETE_MIN_MS) : 15,
-    \ 'adaptive_word_delete_accel': !empty($AD_ADAPTIVE_WORD_DELETE_ACCEL) ? str2nr($AD_ADAPTIVE_WORD_DELETE_ACCEL) * 1.0 / 100.0 : 0.85,
-    \ 'adaptive_word_delete_word_pause_ms': !empty($AD_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) ? str2nr($AD_ADAPTIVE_WORD_DELETE_WORD_PAUSE_MS) : 100,
-    \ 'rapid_identical_chars': !empty($AD_RAPID_IDENTICAL_CHARS) ? 1 : 0,
-    \ 'rapid_identical_min': !empty($AD_RAPID_IDENTICAL_MIN) ? str2nr($AD_RAPID_IDENTICAL_MIN) : 5,
-    \ 'rapid_identical_accel': !empty($AD_RAPID_IDENTICAL_ACCEL) ? str2nr($AD_RAPID_IDENTICAL_ACCEL) * 1.0 / 100.0 : 0.5,
-    \ 'word_accel':          !empty($AD_WORD_ACCEL)           ? 1 : 0,
-    \ 'word_accel_delete_pct': !empty($AD_WORD_ACCEL_DELETE_PCT) ? str2nr($AD_WORD_ACCEL_DELETE_PCT) : 20,
-    \ 'word_end_pause_ms':   !empty($AD_WORD_END_PAUSE_MS)   ? str2nr($AD_WORD_END_PAUSE_MS) : 150,
-    \ 'line_change_pause_ms': !empty($AD_LINE_CHANGE_PAUSE_MS) ? str2nr($AD_LINE_CHANGE_PAUSE_MS) : 200,
+    \ 'type_delay_ms':      s:type_delay_ms,
+    \ 'delete_delay_ms':    s:delete_delay_ms,
+    \ 'move_min_ms':        s:move_min_ms,
+    \ 'move_max_ms':        s:move_max_ms,
+    \ 'move_ms_per_unit':   s:move_ms_per_unit,
+    \ 'hunk_pause_ms':      s:hunk_pause_ms,
+    \ 'tick_ms':            s:tick_ms,
+    \ 'word_pause_ms':      s:word_pause_ms,
+    \ 'scroll':             s:scroll,
+    \ 'max_hunk_chars':     s:max_hunk_chars,
+    \ 'max_word_chars':     s:max_word_chars,
+    \ 'output_file':        s:output_file,
+    \ 'timed_ops_file':     s:timed_ops_file,
+    \ 'word_diff':          s:word_diff,
+    \ 'semantic_cleanup':   s:semantic_cleanup,
+    \ 'indent_aware':       s:indent_aware,
+    \ 'step_mode':          s:step_mode,
+    \ 'adaptive_timing':    s:adaptive_timing,
+    \ 'sign_column':        s:sign_column,
+    \ 'git_blame':          s:git_blame,
+    \ 'highlight_hunk':     s:highlight_hunk,
+    \ 'highlight_color':    s:highlight_color,
+    \ 'highlight_duration': s:highlight_duration,
+    \ 'highlight_min_chars': s:highlight_min_chars,
+    \ 'max_line_len':       s:max_line_len,
+    \ 'fold_unchanged':     s:fold_unchanged,
+    \ 'no_startup_pause':   s:no_startup_pause,
+    \ 'startup_pause':      s:startup_pause,
+    \ 'adaptive_mode':      s:adaptive_mode,
+    \ 'adaptive_start_ms':  s:adaptive_start_ms,
+    \ 'adaptive_max_ms':    s:adaptive_max_ms,
+    \ 'adaptive_accel':     s:adaptive_accel,
+    \ 'adaptive_pause_lines': s:adaptive_pause_lines,
+    \ 'adaptive_pause_ms':  s:adaptive_pause_ms,
+    \ 'rapid_eol_delete':   s:rapid_eol_delete,
+    \ 'rapid_eol_delay_ms': s:rapid_eol_delay_ms,
+    \ 'rapid_eol_min_chars': s:rapid_eol_min_chars,
+    \ 'keep_dirty':         s:keep_dirty,
+    \ 'precomputed':        s:precomputed,
+    \ 'highlight_word':     s:highlight_word,
+    \ 'highlight_word_color': s:highlight_word_color,
+    \ 'highlight_word_duration': s:highlight_word_duration,
+    \ 'highlight_word_min_chars': s:highlight_word_min_chars,
+    \ 'accel_delete':       s:accel_delete,
+    \ 'accel_delete_start_ms': s:accel_delete_start_ms,
+    \ 'accel_delete_min_ms': s:accel_delete_min_ms,
+    \ 'accel_delete_accel': s:accel_delete_accel,
+    \ 'overwrite_mode':     s:overwrite_mode,
+    \ 'delete_end_first':   s:delete_end_first,
+    \ 'delete_end_first_delay_ms': s:delete_end_first_delay_ms,
+    \ 'delete_end_first_smart': s:delete_end_first_smart,
+    \ 'delete_end_first_highlight_ms': s:delete_end_first_highlight_ms,
+    \ 'startup_feedback':   s:startup_feedback,
+    \ 'inline_highlight':   s:inline_highlight,
+    \ 'inline_highlight_duration': s:inline_highlight_duration,
+    \ 'gaussian_jitter':    s:gaussian_jitter,
+    \ 'gaussian_jitter_pct': s:gaussian_jitter_pct,
+    \ 'dim_unchanged':      s:dim_unchanged,
+    \ 'dim_unchanged_pct':  s:dim_unchanged_pct,
+    \ 'pause_after_lines':  s:pause_after_lines,
+    \ 'pause_after_threshold': s:pause_after_threshold,
+    \ 'pause_after_ms':     s:pause_after_ms,
+    \ 'pause_before_delete_ms': s:pause_before_delete_ms,
+    \ 'pause_after_delete_ms': s:pause_after_delete_ms,
+    \ 'block_delete_size':  s:block_delete_size,
+    \ 'theme':              s:theme,
+    \ 'optimize_sequence':  s:optimize_sequence,
+    \ 'log_mode':           s:log_mode,
+    \ 'log_file':           s:log_file,
+    \ 'left_to_right':      s:left_to_right,
+    \ 'adaptive_word_delete': s:adaptive_word_delete,
+    \ 'adaptive_word_delete_start_chars': s:adaptive_word_delete_start_chars,
+    \ 'adaptive_word_delete_start_ms': s:adaptive_word_delete_start_ms,
+    \ 'adaptive_word_delete_min_ms': s:adaptive_word_delete_min_ms,
+    \ 'adaptive_word_delete_accel': s:adaptive_word_delete_accel,
+    \ 'adaptive_word_delete_word_pause_ms': s:adaptive_word_delete_word_pause_ms,
+    \ 'rapid_identical_chars': s:rapid_identical_chars,
+    \ 'rapid_identical_min': s:rapid_identical_min,
+    \ 'rapid_identical_accel': s:rapid_identical_accel,
+    \ 'word_accel':          s:word_accel,
+    \ 'word_accel_delete_pct': s:word_accel_delete_pct,
+    \ 'word_end_pause_ms':   s:word_end_pause_ms,
+    \ 'line_change_pause_ms': s:line_change_pause_ms,
+    \ 'cursor_glide_ms':    s:cursor_glide_ms,
+    \ 'cursor_glide_show_intermediate': s:cursor_glide_show_intermediate,
+    \ 'distance_speed':      s:distance_speed,
+    \ 'distance_threshold': s:distance_threshold,
+    \ 'distance_fast_mult': s:distance_fast_mult,
+    \ 'distance_slow_mult': s:distance_slow_mult,
+    \ 'bell_on_error':      s:bell_on_error,
+    \ 'diff_stat':          s:diff_stat,
+    \ 'diff_highlight':     s:diff_highlight,
+    \ 'delete_pacing':       s:delete_pacing,
+    \ 'delete_speed':        s:delete_speed,
+    \ 'delete_threshold':   s:delete_threshold,
+    \ 'insert_pacing':       s:insert_pacing,
+    \ 'insert_speed':        s:insert_speed,
+    \ 'pacing':              s:pacing,
+    \ 'highlight_mode':      s:highlight_mode,
+    \ 'highlight_duration_ms': s:highlight_duration_ms,
+    \ 'context_lines':       s:context_lines,
+    \ 'indent_last':         s:indent_last,
+    \ 'line_delete_in_place': s:line_delete_in_place,
+    \ 'speed_mult_x1000':   s:speed_mult_x1000,
     \ }, get(g:, 'diffvim', {}))
 "   type_delay_ms      - delay between typed characters
 "   delete_delay_ms    - delay between deleted characters

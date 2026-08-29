@@ -138,7 +138,9 @@ run_pipeline() {
     local dec="$WORKDIR/decorated.txt"
 
     # Stage 1: Compute
-    "$ROOT/bin/ad_compute" "$OLD" "$NEW" "$raw" 2>/dev/null
+    local compute_args=""
+    [[ "${SETTINGS[left-to-right]}" == "1" ]] && compute_args+=" --left-to-right"
+    "$ROOT/bin/ad_compute" $compute_args "$OLD" "$NEW" "$raw" 2>/dev/null
 
     # Stage 2: Postprocess
     local pp_args=""
@@ -152,7 +154,7 @@ run_pipeline() {
     pace_args+=" --pacing ${SETTINGS[pacing]}"
     [[ "${SETTINGS[accel-delete]}" == "1" ]] && pace_args+=" --accel-delete"
     pace_args+=" --block-delete-size ${SETTINGS[block-delete-size]}"
-    AD_LEFT_TO_RIGHT="${SETTINGS[left-to-right]}" $ROOT/bin/ad_layer_pace $pace_args < "$post" > "$timed" 2>/dev/null
+    $ROOT/bin/ad_layer_pace $pace_args < "$post" > "$timed" 2>/dev/null
 
     # Stage 4: Decorate
     local dec_args=""
