@@ -43,8 +43,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ad_layer_common.h"
+#define MAX_LINE AD_LAYER_MAX_LINE
 
-#define MAX_LINE 1048576
 
 /* Options */
 static char highlight_mode[32] = "none";

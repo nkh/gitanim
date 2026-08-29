@@ -1,283 +1,220 @@
-# Flexibility & Dynamic Layer Architecture
+# Plugin Layers
 
-Diffvim's postprocess pipeline is **plugin-based**. Layers are discovered
-dynamically at runtime — adding a new layer does not require editing the
-diffvim launcher, the ad_pipeline script, the Makefile's layer list,
-or any other code. You drop a binary in place and add one line to a
-manifest.
-
-This document describes the plugin contract, the discovery mechanism, and
-how to add a layer in any language.
+The `ad` postprocess pipeline is **plugin-based**. Layers are standalone executables chained by the orchestrator (`pipeline/ad_postprocess`). The chain is supplied entirely on the command line — there is no manifest, no config file for the chain.
 
 ## At a glance
 
 ```
 compute → ad_postprocess → animator
               │
-              │ reads animator/layers.conf (the manifest)
+              │ chains --ad-layer=<name> plugins in argv order
               │
-              ├─ ad_layer_reorder         (always)        ← order 10
-              ├─ ad_layer_overwrite       (--overwrite)    ← order 20
-              ├─ ad_layer_indent_last     (--indent-last)  ← order 30
-              ├─ ad_layer_line_delete_in_place (--line-delete-in-place) ← order 40
-              ├─ ad_layer_pace            (always)         ← order 100
-              └─ ad_layer_highlight       (always)         ← order 200
+              ├─ ad_layer_reorder      (always first)
+              ├─ ad_layer_overwrite    (--overwrite)
+              ├─ ad_layer_indent_last  (--indent-last)
+              ├─ ad_layer_pace         (always)
+              └─ ad_layer_highlight    (always)
 ```
 
-Each box is a standalone executable. The orchestrator (`animator/bin/
-ad_postprocess`) chains them by piping stdout of one into stdin of
-the next, in the order declared in the manifest.
+Each box is a standalone executable. The orchestrator pipes stdout of one layer into stdin of the next, in the order the `--ad-layer` flags appear on the command line.
 
 ## The plugin contract
 
-A layer is any executable that obeys these four rules:
+A layer is any executable that obeys these rules:
 
-1. **Reads V2 TSV from stdin.** The input format is the diffvim op-stream
-   format: lines like `HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>`,
-   followed by op lines (`type\tline\tcol\tcode\tchar_repr`), followed by
-   `HUNK_END`. Headers (`# ...`) and blank lines may appear before the
-   first HUNK.
+1. **Reads V2 TSV from stdin.** Lines like `HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>`, followed by op lines (`type\tline\tcol\tcode\tchar_repr`), followed by `HUNK_END`. Headers (`# ...`) and blank lines may appear before the first HUNK.
 
-2. **Writes V2 TSV to stdout** in the same format. The layer may transform
-   ops, reorder them, insert new ops, delete ops, or pass them through
-   unchanged.
+2. **Writes V2 TSV to stdout** in the same format. The layer may transform ops, reorder them, insert new ops, delete ops, or pass them through unchanged.
 
 3. **Exits 0 on success.** Non-zero exits abort the pipeline.
 
-4. **(Optional) Accepts `--help`.** Layers that take their own options
-   should print usage on `--help`.
+4. **(Optional) Accepts `--help`.** Layers that take their own options should print usage on `--help`.
 
-That's it. The orchestrator doesn't care what language the layer is written
-in, what libraries it uses, or how it's compiled. If it can be invoked
-from a shell and reads/writes TSV, it's a layer.
+The orchestrator doesn't care what language the layer is written in. If it can be invoked from a shell and reads/writes TSV, it's a layer.
 
 ## Discovery paths
 
-For a layer named `<name>` (e.g. `indent_last`), the orchestrator looks
-for an executable in this order:
+For a layer named `<name>`, the orchestrator looks for an executable in this order:
 
-| # | Path                                          | Language           |
-|---|-----------------------------------------------|--------------------|
-| 1 | `animator/bin/pp_<name>`                      | C (preferred)      |
-| 2 | `animator/perl/pp_<name>.pl`                  | Perl               |
-| 3 | `animator/<lang>/pp_<name>.<ext>`              | Any (Python, Ruby, …) |
-| 4 | `<absolute path>` (if name contains `/`)      | Any                |
+| # | Path | Language |
+|---|------|----------|
+| 1 | `bin/<name>` | C (preferred) |
+| 2 | `layers/perl/<name>.pl` | Perl |
+| 3 | `<--ad-layer-path>/<name>` | Any (search path) |
+| 4 | `<absolute path>` (if name contains `/`) | Any |
 
-Extensions recognized for path 3:
+Extensions recognized:
 
 | Extension | Interpreter |
 |-----------|-------------|
-| `.pl`     | `perl`      |
-| `.py`     | `python3`   |
-| `.rb`     | `ruby`      |
-| `.sh`     | `bash`      |
-| `.js`     | `node`      |
-| (none)    | executed directly |
+| `.pl` | `perl` |
+| `.py` | `python3` |
+| `.rb` | `ruby` |
+| `.sh` | `bash` |
+| `.js` | `node` |
+| (none) | executed directly (must be executable) |
 
-This means you can write a layer in Python, drop it at
-`animator/python/pp_word_split.py`, add a line to the manifest, and it
-will be discovered and run automatically.
+## Orchestrator CLI
 
-## The manifest
+The orchestrator is `pipeline/ad_postprocess`. It accepts:
 
-`animator/layers.conf` is the single source of truth. Format:
+| Flag | Behavior |
+|------|----------|
+| `--ad-layer=<name>` | Add a layer to the chain. Layers run in argv order. The same layer can be passed twice. |
+| `--ad-layer-path=<dir>` | Add a directory to the search path. Repeatable. Default: `bin/` and `layers/perl/`. |
+| `--ad-layer-arg=<L>:<arg>` | Pass `<arg>` to layer `<L>` only (not all layers). Repeatable. |
+| `--ad-layer-passthrough=<a>` | Pass `<a>` to ALL layers. |
+| `--ad-layer-profile` | Print per-layer timing to stderr. |
+| `--ad-layer-dry-run` | Print the chain and exit (no execution). |
+| `--ad-layer-keep-temps` | Keep intermediate files in a temp dir for debugging. |
+| `--list-layers` | Print discovered layers and exit. |
+| `--help` / `-h` | Print usage and exit. |
+| `--` | Everything after this goes to every layer as passthrough args. |
 
+### I/O modes
+
+**Pipe mode (default):** layers are chained via pipes for speed:
 ```
-# <name>  <order>  <flag>  "<description>"
-reorder                10   always                   "4-sweep reorder + position adjust"
-overwrite              20   --overwrite              "Merge delete+insert pairs into overwrite_insert"
-indent_last            30   --indent-last            "Move leading whitespace deletes to end of line"
-line_delete_in_place   40   --line-delete-in-place   "Delete whole lines on their own line"
-pace                   100  always                   "Insert delay ops between ops"
-highlight              200  always                   "Insert highlight/dim/fold ops into timed stream"
+layer1 < input | layer2 | layer3 > output
 ```
 
-Fields (whitespace-separated):
+**Temp mode (`--ad-layer-keep-temps`):** each layer reads/writes a file:
+```
+layer1 < 00_input.tsv > 01_output.tsv
+layer2 < 01_output.tsv > 02_output.tsv
+...
+```
+Files are kept in `/tmp/ad_postprocess_$$` (or `$AD_TEMP_DIR`) for inspection.
 
-| Field        | Meaning                                                            |
-|--------------|--------------------------------------------------------------------|
-| `name`       | Layer identifier. Looked up via the discovery paths above.         |
-| `order`      | Integer sort key. Layers run in ascending order.                   |
-| `flag`       | `"always"` to run unconditionally, or `--flag-name` to enable on demand. |
-| `description`| Human-readable. Shown by `--list-layers`. Double-quoted.          |
-
-### Adding a layer (zero-edit checklist)
-
-1. Write the binary. Save it as `animator/bin/pp_<name>` (compiled C),
-   `animator/perl/pp_<name>.pl` (Perl), `animator/python/pp_<name>.py`
-   (Python), etc. Make it executable.
-2. Add ONE line to `animator/layers.conf`:
-   ```
-   <name>   <order>   <--flag-or-always>   "<description>"
-   ```
-3. Run `diffvim --list-layers` to verify it was discovered.
-4. (Optional) Run `perl tests/test_layers_discovery.pl` to confirm it
-   obeys the plugin contract (parses TSV, writes TSV, exit 0).
-
-You do NOT need to edit:
-
-- `diffvim` (the launcher)
-- `animator/ad_pipeline` (the pipeline driver)
-- `bin/ad_postprocess` (the orchestrator)
-- `Makefile`'s `LAYER_BINS` list (unless you want a build target)
-- Any test file (`test_layers_discovery.pl` is data-driven — it
-  iterates the manifest, so it auto-asserts new layers)
-
-### Removing a layer
-
-Comment out the manifest line. The binary stays on disk (you can still
-invoke it explicitly via `--layers=<name>`).
-
-### Reordering layers
-
-Change the `order` numbers in the manifest. Layers always run in
-ascending order.
-
-### Renaming a flag
-
-Change the `flag` column. (Users now invoke it with the new flag name.)
-
-## Invoking the orchestrator
-
-The orchestrator is `bin/ad_postprocess`. It accepts:
-
-| Flag                       | Behavior                                                |
-|----------------------------|---------------------------------------------------------|
-| `--<flag>`                 | Enable the layer whose manifest flag is `--<flag>`.    |
-| `--pp-<name>`              | Alias for `--<name>` (symmetry with the launcher).     |
-| `--enable=<name>[,name…]`  | Add layers to the default chain (by name).              |
-| `--layers=<name>[,name…]`  | Run ONLY these layers (override default chain).         |
-| `--list-layers`            | Print discovered layers and exit.                       |
-| `--help` / `-h`            | Print usage and exit.                                   |
-| `--`                       | Everything after this goes to every layer as args.      |
-| (unknown `--flag`)         | Passed through to every layer that accepts it.          |
-
-Examples:
+### Examples
 
 ```bash
-# Default chain (always-on layers): reorder → pace → highlight
-ad_postprocess < raw_ops > post_ops
+# Default chain (from ad_vim): reorder → pace → highlight
+ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_pace --ad-layer=ad_layer_highlight < raw_ops
 
-# Enable indent_last
-ad_postprocess --indent-last < raw_ops > post_ops
+# Enable indent_last between reorder and pace
+ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last --ad-layer=ad_layer_pace < raw_ops
 
-# Same thing, using the --pp-<name> convention
-ad_postprocess --pp-indent-last < raw_ops > post_ops
+# Run a custom layer from an absolute path
+ad_postprocess --ad-layer=/path/to/my_layer.sh < raw_ops
 
-# Run only reorder + indent_last (skip pace and highlight)
-ad_postprocess --layers=reorder,indent_last < raw_ops > post_ops
+# Add a custom search path
+ad_postprocess --ad-layer-path=/my/layers --ad-layer=my_layer < raw_ops
 
-# Add indent_last and overwrite to the default chain
-ad_postprocess --enable=indent_last,overwrite < raw_ops > post_ops
+# Pass args to a specific layer only
+ad_postprocess --ad-layer=ad_layer_pace --ad-layer-arg=ad_layer_pace:--delete-pacing --ad-layer-arg=ad_layer_pace:word < raw_ops
 
-# Pass --foo bar to every layer (passthrough args)
-ad_postprocess --indent-last -- --foo bar < raw_ops > post_ops
+# Dry-run: see what would execute
+ad_postprocess --ad-layer-dry-run --ad-layer=ad_layer_reorder --ad-layer=ad_layer_pace
 
-# List all discovered layers
+# Profile: see per-layer timing
+ad_postprocess --ad-layer-keep-temps --ad-layer-profile --ad-layer=ad_layer_reorder --ad-layer=ad_layer_pace < raw_ops
+
+# Keep temp files for debugging
+AD_TEMP_DIR=/tmp/my_debug ad_postprocess --ad-layer-keep-temps --ad-layer=ad_layer_reorder < raw_ops
+# Then inspect: ls /tmp/my_debug/
+
+# List available layers
 ad_postprocess --list-layers
 ```
 
-## Invoking from the diffvim launcher
+## Invoking from ad_vim
 
-The `diffvim` script transparently forwards layer flags to the orchestrator.
-Three equivalent ways to enable the `indent_last` layer:
-
-```bash
-diffvim --indent-last old.py new.py         # explicit (convenience)
-diffvim --pp-indent-last old.py new.py      # generic --pp-<name> form
-diffvim --list-layers                        # see all available layers
-```
-
-The `--pp-<name>` form is the **zero-edit convention**. When you add a
-new layer `pp_foo` with flag `--foo`, you can immediately run:
+The `ad_vim` launcher builds the default chain and adds user-requested layers:
 
 ```bash
-diffvim --pp-foo old.py new.py
+# Default animation
+ad_vim old.py new.py
+
+# Enable indent_last
+ad_vim --indent-last old.py new.py
+
+# Add a custom layer
+ad_vim --ad-layer=my_custom_layer old.py new.py
+
+# List available layers
+ad_vim --list-layers
 ```
 
-No launcher edit required.
+Convenience flags that map to layers:
+- `--indent-last` → `--ad-layer=ad_layer_indent_last`
+- `--overwrite` → `--ad-layer=ad_layer_overwrite`
+- `--line-delete-in-place` → `--ad-layer=ad_layer_line_delete_in_place`
 
-The `ad_pipeline` script honors the same `--pp-<name>` form, plus
-its existing `--postprocess-<name>` prefix.
+## Built-in layers
 
-## Language parity
+| Layer | C source | Perl twin | What it does |
+|-------|----------|-----------|-------------|
+| `ad_layer_reorder` | `layers/c/ad_layer_reorder.c` | `layers/perl/ad_layer_reorder.pl` | 4-sweep reorder + position adjust |
+| `ad_layer_overwrite` | `layers/c/ad_layer_overwrite.c` | `layers/perl/ad_layer_overwrite.pl` | Merge delete+insert into overwrite_insert |
+| `ad_layer_indent_last` | `layers/c/ad_layer_indent_last.c` | `layers/perl/ad_layer_indent_last.pl` | Move whitespace deletes to end of line |
+| `ad_layer_line_delete_in_place` | `layers/c/ad_layer_line_delete_in_place.c` | `layers/perl/ad_layer_line_delete_in_place.pl` | Delete lines on their own line |
+| `ad_layer_pace` | `layers/c/ad_layer_pace.c` | `layers/perl/ad_layer_pace.pl` | Insert delay ops between ops |
+| `ad_layer_highlight` | `layers/c/ad_layer_highlight.c` | `layers/perl/ad_layer_highlight.pl` | Insert highlight/dim/fold ops |
 
-Some layers have both a C implementation (preferred) and a Perl fallback:
+Every layer has both a C implementation (preferred) and a Perl twin that produces byte-identical output. The orchestrator prefers C if both exist; if the C binary is missing, it falls back to Perl. Parity is verified by the per-layer tests.
 
-| Layer            | C source                       | Perl source                       |
-|------------------|--------------------------------|-----------------------------------|
-| `reorder`        | `animator/c/ad_layer_reorder.c`      | (C only)                          |
-| `overwrite`      | `animator/c/ad_layer_overwrite.c`    | (C only)                          |
-| `indent_last`    | `animator/c/ad_layer_indent_last.c`  | `animator/perl/ad_layer_indent_last.pl` |
-| `line_delete_in_place` | `animator/c/ad_layer_line_delete_in_place.c` | (C only) |
-| `pace`           | `animator/c/ad_layer_pace.c`         | `layers/perl/ad_layer_pace.pl`           |
-| `highlight`      | `animator/c/ad_layer_highlight.c`    | `layers/perl/ad_layer_highlight.pl`       |
+## Adding a new layer
 
-The orchestrator prefers C if both exist; if the C binary is missing
-(e.g. `make` hasn't been run, or you're on a platform without a C
-compiler), it transparently falls back to Perl. C and Perl
-implementations of the same layer must produce byte-identical output
-for the same input — this is asserted by `test_layers_discovery.pl`'s
-parity check.
+1. **Write the layer.** Any language. Save as:
+   - `layers/c/ad_layer_<name>.c` (C, compiled to `bin/ad_layer_<name>`)
+   - `layers/perl/ad_layer_<name>.pl` (Perl)
+   - Or anywhere, invoked via `--ad-layer=<path>`
 
-The `ad_layer_noop.pl` file in `animator/perl/` is a template you can
-copy to start a new Perl layer. It implements the full plugin contract
-(hunk parsing, debug dumps, exit codes) with a no-op transform —
-replace `layer_transform` with your own logic and you're done.
+2. **Write a test.** Create `layers/tests/test_<name>.pl`. See `layers/tests/test_reorder.pl` for a template.
 
-## Ad-hoc discovery
+3. **Add Makefile target** (for C layers):
+   ```makefile
+   bin/ad_layer_<name>: layers/c/ad_layer_<name>.c layers/c/ad_layer_common.h
+       $(CC) $(CFLAGS) -I layers/c -o $@ $<
+   ```
 
-If a layer isn't declared in the manifest but the binary exists on disk
-(e.g. `animator/bin/pp_word_split`), you can still run it via:
+4. **Run the test:**
+   ```bash
+   make test-layer-<name>
+   ```
 
-```bash
-ad_postprocess --layers=reorder,word_split,pace < raw > post
-```
+You do NOT need to edit:
+- `pipeline/ad_postprocess` (orchestrator)
+- `apps/vim/ad_vim` (launcher)
+- `pipeline/ad_pipeline` (pipeline driver)
+- Any manifest or config file
 
-The orchestrator resolves the binary, assigns it order 50 (middle of
-the pipeline), and runs it. This lets you prototype a layer before
-adding it to the manifest.
+The `--ad-layer=<name>` mechanism discovers the layer automatically.
 
 ## Testing
 
-| Test                                  | What it verifies                                              |
-|---------------------------------------|---------------------------------------------------------------|
-| `tests/test_layers_discovery.pl`      | Every manifest layer: parses, resolves, runs, parity.        |
-| `tests/test_indent_last.pl`           | `indent_last` layer behavior + C/Perl parity + `--pp-` form.  |
-| `tests/test_pipeline_options.sh`      | End-to-end pipeline with each layer flag.                     |
-| `animator/tests/test_property.pl`     | Generic invariants over random diffs (50 random cases).       |
-
-The discovery test is data-driven: it iterates `animator/layers.conf`
-and emits one assertion per layer. So when you add a new layer to the
-manifest, the test count automatically scales with it — adding a layer
-will show up in the test results.
+| Test | What it verifies |
+|------|-----------------|
+| `layers/tests/test_<name>.pl` | Per-layer: invocable, structure, C/Perl parity |
+| `tests/test_layers_discovery.pl` | Plugin contract: argv order, extensions, paths, parity |
+| `tests/run_all_examples.sh` | 36 examples through the full pipeline |
 
 ## Architecture diagram
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  diffvim (bash launcher)                                          │
+│  ad_vim (bash launcher)                                          │
 │    --indent-last, --overwrite, --line-delete-in-place             │
-│    --pp-<name>      ← generic, zero-edit layer forwarding         │
-│    --list-layers    ← delegates to orchestrator                   │
+│    --ad-layer=<name>      ← generic layer addition               │
+│    --list-layers          ← delegates to orchestrator            │
 └──────────┬───────────────────────────────────────────────────────┘
-           │ POSTPROCESS_ARGS = ["--indent-last", "--pp-foo", …]
+           │ POSTPROCESS_ARGS = ["--ad-layer=ad_layer_reorder", ...]
            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  ad_pipeline (bash)                                          │
+│  ad_pipeline (bash)                                              │
 │    Routes flags by prefix: --compute-*, --postprocess-*,          │
-│    --pace-*, --animator-*. Plus --pp-<name> generic form.         │
+│    --pace-*, --animator-*. Plus --ad-layer=<name>.                │
 └──────────┬───────────────────────────────────────────────────────┘
            │
            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  bin/ad_postprocess (orchestrator, dynamic)         │
-│    1. Reads animator/layers.conf                                  │
-│    2. For each entry (sorted by order):                          │
-│         if flag == "always" OR flag is in argv:                 │
-│             resolve binary (C → Perl → any lang → abs path)      │
-│             run: bin < stdin > tmp; mv tmp stdin                  │
-│    3. Cat final result to stdout                                  │
+│  pipeline/ad_postprocess (orchestrator, dynamic)                  │
+│    1. Parses --ad-layer=<name> flags (argv order)                │
+│    2. Resolves each layer (C → Perl → search path → abs path)     │
+│    3. Chains via pipes (fast) or temp files (--keep-temps)        │
+│    4. On failure: captures stderr, displays last 20 lines         │
+│    5. Optional: --profile (timing), --dry-run (preview)           │
 └──────────┬───────────────────────────────────────────────────────┘
            │
            ▼
@@ -286,22 +223,8 @@ will show up in the test results.
 
 ## Why this design
 
-Earlier versions of the codebase had a hardcoded pipeline: a bash script
-with explicit `[[ -n "$OVERWRITE_MODE" ]] && "$BIN/ad_layer_overwrite" …`
-lines for every layer. Adding a layer meant editing:
+Earlier versions had a hardcoded pipeline: a bash script with explicit lines for every layer. Adding a layer meant editing 4–6 files (orchestrator, launcher, pipeline, Makefile, manpages, completions).
 
-1. The orchestrator bash script (add a `[[ ]] && "$BIN/pp_foo"` line)
-2. The diffvim launcher (add a `--foo` case in the option parser)
-3. The ad_pipeline script (add a routing case)
-4. The Makefile's `LAYER_BINS` variable
-5. The manpages
-6. The completions
+The dynamic `--ad-layer=<name>` model collapses this to **zero edits** — drop a binary in `bin/` or `layers/perl/` and it's immediately usable via `--ad-layer=<name>`.
 
-Every layer addition touched 4–6 files. The dynamic discovery model
-collapses this to **one file** (the manifest) plus the binary itself.
-
-The plugin contract (stdin TSV → stdout TSV) is also language-agnostic:
-the orchestrator never imports or links against layer code. It just
-spawns processes. This means a layer can be prototyped in 10 lines of
-shell, promoted to Perl when it grows complex, and finally rewritten in
-C for performance — all without changing the orchestrator.
+The plugin contract (stdin TSV → stdout TSV) is language-agnostic: the orchestrator never imports or links against layer code. It just spawns processes. A layer can be prototyped in 10 lines of shell, promoted to Perl, and finally rewritten in C — all without changing the orchestrator.

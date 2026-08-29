@@ -360,8 +360,8 @@ apply_speed();
 
 # --version flag: print version and dependency info
 if ($version_flag) {
-    my $version = '1.5.0';
-    print "diffvim.pl version $version\n";
+    my $version = do { open my $vf, '<', dirname(__FILE__) . '/../../VERSION' or '2.0.0'; local $/; my $v = <$vf>; chomp $v; $v };
+    print "ad_vim.pl version $version\n";
     print "  parser: $parser_name\n";
     print "  perl: $]\n";
     for my $cmd (qw(vim tmux diff git)) {
@@ -1056,10 +1056,21 @@ VIMEOF
         $content = <$rfh>;
         close $rfh;
     }
-    $content =~ s/CTRL_FIFO_PLACEHOLDER/$ctrl_fifo/g;
-    $content =~ s/SCROLL_PLACEHOLDER/$scroll_mode/g;
-    $content =~ s/SIGN_COLUMN_PLACEHOLDER/$sign_column/g;
-    $content =~ s/GIT_BLAME_PLACEHOLDER/$git_blame/g;
+    # Escape single quotes in values before substitution (vimscript
+    # uses single-quoted strings — ' must be escaped as '\'')
+    my $esc_ctrl_fifo = $ctrl_fifo;
+    $esc_ctrl_fifo =~ s/'/'\\''/g;
+    my $esc_scroll_mode = $scroll_mode;
+    $esc_scroll_mode =~ s/'/'\\''/g;
+    my $esc_sign_column = $sign_column;
+    $esc_sign_column =~ s/'/'\\''/g;
+    my $esc_git_blame = $git_blame;
+    $esc_git_blame =~ s/'/'\\''/g;
+
+    $content =~ s/CTRL_FIFO_PLACEHOLDER/$esc_ctrl_fifo/g;
+    $content =~ s/SCROLL_PLACEHOLDER/$esc_scroll_mode/g;
+    $content =~ s/SIGN_COLUMN_PLACEHOLDER/$esc_sign_column/g;
+    $content =~ s/GIT_BLAME_PLACEHOLDER/$esc_git_blame/g;
     $content =~ s/FOLD_ENABLED_PLACEHOLDER/$fold_unchanged ? 1 : 0/ge;
     open my $wfh, '>', $engine_vim or die;
     print $wfh $content;

@@ -1,3 +1,4 @@
+#define MAX_LINE AD_LAYER_MAX_LINE
 /* l2r_tool.c — Standalone left_to_right transform (NOT integrated).
  *
  * Reads v2 TSV ops from stdin, applies the NEW left_to_right algorithm,

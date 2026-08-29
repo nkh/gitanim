@@ -1,4 +1,3 @@
-#define MAX_LINE_LEN 1048576  // 1MB — was 8192
 /* ad — Standalone terminal animation application.
  * C implementation.
  *
@@ -21,6 +20,8 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <sys/ioctl.h>
+#include "ad_layer_common.h"
+#define MAX_LINE_LEN AD_LAYER_MAX_LINE
 
 /* --- Forward declarations --- */
 void sleep_ms(int ms);
@@ -643,7 +644,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "ad: dry run — %d lines loaded, reading timed op stream...\n", n_lines);
         /* Count ops */
         int op_count = 0;
-        char dl[1048576];
+        char dl[MAX_LINE_LEN];
         while (fgets(dl, sizeof(dl), stdin)) {
             if (dl[0] && dl[0] != '#' && dl[0] != '\n') op_count++;
         }

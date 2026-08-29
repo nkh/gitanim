@@ -11,46 +11,49 @@
 #     .sh → bash, .js → node. Anything else must be executable on its own.
 #
 # Layer chain:
-#   --ad-layer=<name>     Add a layer to the chain. Layers run in argv
-#                          order (NOT sorted, NOT deduplicated). The same
-#                          layer can be passed twice — it runs twice.
-#   --ad-layer-path=<dir>  Add a directory to the layer search path.
-#                          Repeatable. Default: <project>/layers/c and
-#                          <project>/layers/perl.
+#   --ad-layer=<name>          Add a layer to the chain. Layers run in
+#                              argv order (NOT sorted, NOT deduplicated).
+#   --ad-layer-path=<dir>      Add a directory to the layer search path.
+#                              Repeatable. Default: bin/ and layers/perl/.
+#   --ad-layer-arg=<L>:<arg>   Pass <arg> to layer <L> only (not all
+#                              layers). <L> is the layer name as given
+#                              to --ad-layer. Repeatable.
+#   --ad-layer-passthrough=<a> Pass <a> to ALL layers (legacy behavior).
+#   --ad-layer-profile         Print per-layer timing to stderr.
+#   --ad-layer-dry-run         Print the chain and exit (no execution).
+#   --ad-layer-keep-temps      Keep intermediate files in $AD_TEMP_DIR
+#                              (default: /tmp/ad_postprocess_$$). Useful
+#                              for debugging — you can inspect the input
+#                              and output of each layer.
+#   --list-layers              Print discovered layers and exit.
+#   --help / -h                Print usage and exit.
 #
-# If no --ad-layer is given, the caller (ad_vim, ad_pipeline) is
-# responsible for supplying its own default chain. This orchestrator
-# has no opinion about what runs by default.
-#
-# <name> lookup:
-#   * If <name> contains '/', it's treated as a path (relative to CWD or
-#     absolute). Run it directly.
-#   * Else, search each --ad-layer-path dir in declared order. The first
-#     dir containing a file named <name> (verbatim) wins.
-#   * If no match, error and exit 1.
+# I/O modes:
+#   Default (pipe mode): layers are chained via pipes for speed:
+#     layer1 < input | layer2 | layer3 > output
+#   --ad-layer-keep-temps (temp mode): each layer reads/writes a file:
+#     layer1 < in.0 > out.1; layer2 < out.1 > out.2; ...
+#   Temp mode is slower but lets you inspect each layer's output.
 #
 # Usage:
-#   ad_postprocess [--ad-layer=<name>]... [--ad-layer-path=<dir>]... < in > out
+#   ad_postprocess [--ad-layer=<name>]... [--ad-layer-path=<dir>]... \
+#     [--ad-layer-arg=<L>:<arg>]... [--ad-layer-profile] \
+#     [--ad-layer-dry-run] [--ad-layer-keep-temps] < in > out
 #   ad_postprocess --list-layers [--ad-layer-path=<dir>]...
 #   ad_postprocess --help
 #
 # Environment:
-#   AD_DEBUG_LAYERS=1     Enable per-layer debug dumps in /tmp/ad_debug/
+#   Use --debug flag on each layer to enable debug dumps.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"   # pipeline/ → project root
-# Default search path: compiled binaries (bin/) and Perl scripts
-# (layers/perl/). Source files in layers/c/ are NOT directly executable
-# as layers — they must be compiled first via `make`.
 DEFAULT_LAYER_PATHS=("$ROOT/bin" "$ROOT/layers/perl")
 
 die() { echo "ad_postprocess: $*" >&2; exit 1; }
 
 # ── Layer resolution ────────────────────────────────────────────────────
-# Given a layer name (or path), find an executable that implements it.
-# Echoes the command to run (interpreter + path). Returns 1 on failure.
 resolve_layer() {
     local name="$1"
     # 1. If name contains '/', treat as path.
@@ -59,7 +62,6 @@ resolve_layer() {
             echo "ad_postprocess: layer path does not exist: $name" >&2
             return 1
         fi
-        # Pick interpreter by extension.
         local ext="${name##*.}"
         case "$ext" in
             pl) echo "perl $name" ;;
@@ -79,14 +81,10 @@ resolve_layer() {
         return 0
     fi
     # 2. Search each layer path.
-    local searched=""
     for dir in "${LAYER_PATHS[@]}"; do
         [[ -d "$dir" ]] || continue
-        searched+="  $dir"$'\n'
         if [[ -f "$dir/$name" ]]; then
             local ext="${name##*.}"
-            # Only treat as extension if name has a dot AND the part after
-            # the last dot is short (≤4 chars) and alphanumeric.
             if [[ "$name" == *.* ]] && [[ "${name##*.}" =~ ^[A-Za-z0-9]{1,4}$ ]]; then
                 case "$ext" in
                     pl) echo "perl $dir/$name"; return 0 ;;
@@ -103,7 +101,6 @@ resolve_layer() {
                         ;;
                 esac
             else
-                # No extension — must be executable.
                 if [[ -x "$dir/$name" ]]; then
                     echo "$dir/$name"; return 0
                 fi
@@ -145,7 +142,7 @@ list_layers() {
             elif [[ "$name" == *.js ]]; then
                 status="node"
             fi
-            printf "  %-30s  [%s]  %s\n" "$name" "$status" "$f"
+            printf "  %-35s  [%s]  %s\n" "$name" "$status" "$f"
         done
     done
 }
@@ -153,7 +150,11 @@ list_layers() {
 # ── CLI parsing ─────────────────────────────────────────────────────────
 LAYER_NAMES=()
 LAYER_PATHS=("${DEFAULT_LAYER_PATHS[@]}")
-PASSTHROUGH_ARGS=()
+declare -A LAYER_ARGS     # layer_name -> "arg1 arg2 ..."
+GLOBAL_PASSTHROUGH=()     # args passed to ALL layers
+DO_PROFILE=0
+DO_DRY_RUN=0
+KEEP_TEMPS=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -173,33 +174,72 @@ while [[ $# -gt 0 ]]; do
             LAYER_PATHS+=("$2")
             shift 2
             ;;
+        --ad-layer-arg=*)
+            # Format: --ad-layer-arg=<layer_name>:<arg>
+            # The arg can contain colons — split on first colon only.
+            local_arg="${1#--ad-layer-arg=}"
+            local_arg_layer="${local_arg%%:*}"
+            local_arg_val="${local_arg#*:}"
+            if [[ -z "$local_arg_layer" || "$local_arg_layer" == "$local_arg_val" ]]; then
+                die "--ad-layer-arg format is <layer_name>:<arg> (missing colon in '$local_arg')"
+            fi
+            existing="${LAYER_ARGS[$local_arg_layer]:-}"
+            LAYER_ARGS[$local_arg_layer]="$existing $local_arg_val"
+            shift
+            ;;
+        --ad-layer-passthrough=*)
+            GLOBAL_PASSTHROUGH+=("${1#--ad-layer-passthrough=}")
+            shift
+            ;;
+        --ad-layer-profile)
+            DO_PROFILE=1
+            shift
+            ;;
+        --ad-layer-dry-run)
+            DO_DRY_RUN=1
+            shift
+            ;;
+        --ad-layer-keep-temps)
+            KEEP_TEMPS=1
+            shift
+            ;;
         --list-layers)
             list_layers
             exit 0
             ;;
         --help|-h)
-            cat <<HELP
+            cat <<'HELP'
 ad_postprocess — Dynamic postprocess orchestrator
 
 Usage:
-  ad_postprocess [--ad-layer=<name>]... [--ad-layer-path=<dir>]... < in > out
+  ad_postprocess [options]... < in > out
   ad_postprocess --list-layers [--ad-layer-path=<dir>]...
   ad_postprocess --help
 
 Layer chain:
-  --ad-layer=<name>     Add a layer. Layers run in argv order. The same
-                        layer can be passed twice (it runs twice).
-  --ad-layer-path=<dir> Add a directory to the layer search path.
-                        Repeatable. Default: layers/c and layers/perl.
+  --ad-layer=<name>          Add a layer. Layers run in argv order.
+                              The same layer can be passed twice.
+  --ad-layer-path=<dir>      Add a directory to the search path.
+                              Default: bin/ and layers/perl/.
+  --ad-layer-arg=<L>:<arg>   Pass <arg> to layer <L> only.
+  --ad-layer-passthrough=<a> Pass <a> to ALL layers.
+  --ad-layer-profile         Print per-layer timing to stderr.
+  --ad-layer-dry-run         Print the chain and exit.
+  --ad-layer-keep-temps      Keep intermediate files for debugging.
+                              (uses pipe mode by default for speed)
 
 <name> lookup:
-  * Contains '/' → treated as a path (relative or absolute).
-  * Else → searched in each --ad-layer-path dir, in declared order.
-  * Extensions honored: .pl, .py, .rb, .sh, .js. Otherwise the file
-    must be executable.
+  * Contains '/' → treated as a path.
+  * Else → searched in each --ad-layer-path dir.
+  * Extensions: .pl, .py, .rb, .sh, .js. Otherwise must be executable.
+
+I/O modes:
+  Default (pipe):    layer1 < in | layer2 | layer3 > out   (fast)
+  --keep-temps:      layer1 < in.0 > out.1; layer2 < out.1 > out.2; ...
+                     Files kept in $AD_TEMP_DIR (default: /tmp/ad_postprocess_$$)
 
 Environment:
-  AD_DEBUG_LAYERS=1     Enable per-layer debug dumps in /tmp/ad_debug/
+  Use --debug flag on each layer to enable debug dumps.
 
 See docs/src/plugin-layers.md for the full plugin contract.
 HELP
@@ -207,12 +247,12 @@ HELP
             ;;
         --)
             shift
-            PASSTHROUGH_ARGS+=("$@")
+            GLOBAL_PASSTHROUGH+=("$@")
             break
             ;;
         *)
             # Unknown option — pass through to every layer.
-            PASSTHROUGH_ARGS+=("$1")
+            GLOBAL_PASSTHROUGH+=("$1")
             shift
             ;;
     esac
@@ -222,21 +262,142 @@ if [[ ${#LAYER_NAMES[@]} -eq 0 ]]; then
     die "no layers specified (use --ad-layer=<name>); ad_postprocess has no default chain"
 fi
 
-# ── Resolve each layer and run them in order ────────────────────────────
-T=$(mktemp); cat > "$T"
-trap 'rm -f "$T" "$T.2"' EXIT
-
-echo "ad_postprocess: running ${#LAYER_NAMES[@]} layer(s):" >&2
+# ── Resolve all layers upfront (fail fast) ──────────────────────────────
+declare -a RESOLVED_BINS=()
 for name in "${LAYER_NAMES[@]}"; do
     bin="$(resolve_layer "$name")" || exit 1
-    echo "  → $name  ($bin)" >&2
-    if ! $bin ${PASSTHROUGH_ARGS[@]:-} < "$T" > "$T.2" 2>/dev/null; then
-        echo "ad_postprocess: layer '$name' failed (exit $?)" >&2
-        echo "  bin:  $bin" >&2
-        echo "  args: ${PASSTHROUGH_ARGS[*]:-}" >&2
-        exit 1
-    fi
-    mv "$T.2" "$T"
+    RESOLVED_BINS+=("$bin")
 done
 
-cat "$T"
+# ── Dry-run: print the chain and exit ───────────────────────────────────
+if [[ $DO_DRY_RUN -eq 1 ]]; then
+    echo "ad_postprocess: dry run — would execute:" >&2
+    for i in "${!LAYER_NAMES[@]}"; do
+        name="${LAYER_NAMES[$i]}"
+        bin="${RESOLVED_BINS[$i]}"
+        args="${LAYER_ARGS[$name]:-}"
+        if [[ -n "$args" ]]; then
+            printf "  %d. %s  (%s)  args: %s\n" $((i+1)) "$name" "$bin" "$args" >&2
+        else
+            printf "  %d. %s  (%s)\n" $((i+1)) "$name" "$bin" >&2
+        fi
+    done
+    if [[ ${#GLOBAL_PASSTHROUGH[@]} -gt 0 ]]; then
+        printf "  global args: %s\n" "${GLOBAL_PASSTHROUGH[*]}" >&2
+    fi
+    echo "  (input: stdin, output: stdout)" >&2
+    exit 0
+fi
+
+# ── Run the chain ────────────────────────────────────────────────────────
+# Build per-layer arg arrays. We need to handle spaces in args, so we
+# build proper bash arrays for each layer.
+declare -a LAYER_CMD_PARTS=()
+for i in "${!LAYER_NAMES[@]}"; do
+    name="${LAYER_NAMES[$i]}"
+    bin="${RESOLVED_BINS[$i]}"
+    per_layer_args="${LAYER_ARGS[$name]:-}"
+    # The command is: $bin $per_layer_args ${GLOBAL_PASSTHROUGH[@]}
+    # We store this as a string for pipe mode, or use it directly for temp mode.
+    LAYER_CMD_PARTS+=("$bin $per_layer_args ${GLOBAL_PASSTHROUGH[*]}")
+done
+
+if [[ $KEEP_TEMPS -eq 1 ]]; then
+    # ── Temp file mode: each layer reads/writes a file ─────────────────
+    # Useful for debugging — each layer's output is preserved.
+    TEMP_DIR="${AD_TEMP_DIR:-/tmp/ad_postprocess_$$}"
+    mkdir -p "$TEMP_DIR"
+    if [[ $KEEP_TEMPS -eq 0 ]]; then
+        trap 'rm -rf "$TEMP_DIR"' EXIT
+    fi
+
+    INFILE="$TEMP_DIR/00_input.tsv"
+    cat > "$INFILE"
+
+    echo "ad_postprocess: running ${#LAYER_NAMES[@]} layer(s) (temp mode, dir=$TEMP_DIR):" >&2
+
+    for i in "${!LAYER_NAMES[@]}"; do
+        name="${LAYER_NAMES[$i]}"
+        bin="${RESOLVED_BINS[$i]}"
+        per_layer_args="${LAYER_ARGS[$name]:-}"
+        outfile="$TEMP_DIR/$(printf '%02d' $((i+1)))_${name}_output.tsv"
+        errfile="$TEMP_DIR/$(printf '%02d' $((i+1)))_${name}_stderr.txt"
+
+        if [[ $DO_PROFILE -eq 1 ]]; then
+            t0=$(date +%s.%N 2>/dev/null || echo 0)
+        fi
+
+        # shellcheck disable=SC2086
+        if ! $bin $per_layer_args ${GLOBAL_PASSTHROUGH[@]:-} < "$INFILE" > "$outfile" 2>"$errfile"; then
+            echo "ad_postprocess: layer '$name' failed (exit $?)" >&2
+            echo "  bin:  $bin" >&2
+            echo "  args: $per_layer_args ${GLOBAL_PASSTHROUGH[*]:-}" >&2
+            echo "--- stderr (last 20 lines) ---" >&2
+            tail -20 "$errfile" >&2 2>/dev/null || true
+            exit 1
+        fi
+
+        if [[ $DO_PROFILE -eq 1 ]]; then
+            t1=$(date +%s.%N 2>/dev/null || echo 0)
+            elapsed=$(awk "BEGIN { printf \"%.3f\", $t1 - $t0 }")
+            printf "  → %-30s  %ss\n" "$name" "$elapsed" >&2
+        else
+            echo "  → $name  ($bin)" >&2
+        fi
+
+        INFILE="$outfile"
+    done
+
+    cat "$INFILE"
+    if [[ $KEEP_TEMPS -eq 1 ]]; then
+        echo "ad_postprocess: intermediate files kept in $TEMP_DIR" >&2
+    fi
+else
+    # ── Pipe mode: chain layers via pipes (fast) ───────────────────────
+    # Build the pipe chain: layer1 < input | layer2 | layer3 > /dev/stdout
+    # We capture stderr per-layer to temp files for error reporting.
+    echo "ad_postprocess: running ${#LAYER_NAMES[@]} layer(s) (pipe mode):" >&2
+
+    # Create per-layer stderr capture files
+    TEMP_DIR="${AD_TEMP_DIR:-/tmp/ad_postprocess_$$}"
+    mkdir -p "$TEMP_DIR"
+    trap 'rm -rf "$TEMP_DIR"' EXIT
+
+    # Build the pipeline command
+    PIPE_CMD=""
+    for i in "${!LAYER_NAMES[@]}"; do
+        name="${LAYER_NAMES[$i]}"
+        bin="${RESOLVED_BINS[$i]}"
+        per_layer_args="${LAYER_ARGS[$name]:-}"
+        errfile="$TEMP_DIR/stderr_${i}.txt"
+
+        if [[ $i -eq 0 ]]; then
+            PIPE_CMD="$bin $per_layer_args ${GLOBAL_PASSTHROUGH[*]:-} 2>$errfile"
+        else
+            PIPE_CMD="$PIPE_CMD | $bin $per_layer_args ${GLOBAL_PASSTHROUGH[*]:-} 2>$errfile"
+        fi
+        echo "  → $name  ($bin)" >&2
+    done
+
+    # Execute the pipe chain
+    if ! eval "$PIPE_CMD"; then
+        # Find which layer failed by checking which stderr file is non-empty
+        for i in "${!LAYER_NAMES[@]}"; do
+            name="${LAYER_NAMES[$i]}"
+            errfile="$TEMP_DIR/stderr_${i}.txt"
+            if [[ -s "$errfile" ]]; then
+                echo "ad_postprocess: layer '$name' likely failed" >&2
+                echo "  bin:  ${RESOLVED_BINS[$i]}" >&2
+                echo "--- stderr (last 20 lines) ---" >&2
+                tail -20 "$errfile" >&2 2>/dev/null || true
+                break
+            fi
+        done
+        exit 1
+    fi
+
+    if [[ $DO_PROFILE -eq 1 ]]; then
+        echo "ad_postprocess: profile mode is most accurate with --ad-layer-keep-temps" >&2
+        echo "  (pipe mode doesn't isolate per-layer timing)" >&2
+    fi
+fi

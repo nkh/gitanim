@@ -37,8 +37,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "ad_layer_common.h"
+#define MAX_LINE AD_LAYER_MAX_LINE
 
-#define MAX_LINE 1048576
 
 /* Timing defaults (ms) */
 static int char_delay = 50;      /* normal typing */

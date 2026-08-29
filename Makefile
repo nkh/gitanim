@@ -79,8 +79,8 @@ $(COMPUTE_BIN): diff_engine/cpp/compute.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $<
 
 # Animator (C)
-$(ANIMATOR_BIN): animator/c/ad.c
-	$(CC) $(CFLAGS) -o $@ $<
+$(ANIMATOR_BIN): animator/c/ad.c layers/c/ad_layer_common.h
+	$(CC) $(CFLAGS) -I layers/c -o $@ animator/c/ad.c
 
 # Layer binaries (C). Each depends on its source AND its test file,
 # so touching either triggers a rebuild + test re-run via the test target.

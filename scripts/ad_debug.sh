@@ -116,7 +116,8 @@ cat -n "$NEW"
 echo ""
 
 echo "─── STAGE 1: RAW DIFF OPS (compute) ──────────────────────────"
-"$ROOT/bin/ad_compute" "$OLD" "$NEW" "$RAW" 2>&1
+"$ROOT/bin/ad_compute" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"
+echo ""
 echo ""
 echo "  → $(wc -l < "$RAW") lines written to $RAW"
 echo "  → Header:"

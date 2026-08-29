@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
-# dv_package.sh — Create a release tarball with pre-built binaries.
+# ad_package.sh — Create a release tarball with pre-built binaries.
 show_help() {
 cat <<'HELP'
 NAME
-    dv_package.sh — Create a release tarball with pre-built binaries
+    ad_package.sh — Create a release tarball with pre-built binaries
 
 SYNOPSIS
-    dv_package.sh [-h|--help]
-    dv_package.sh [version]
+    ad_package.sh [-h|--help]
+    ad_package.sh [version]
 
 DESCRIPTION
-    Builds the C binaries (compute, animator-c, postprocess, pace) from
-    source, then archives them together with the Perl pipeline, the
-    launcher scripts (diffvim, diffvim.pl, diffvim-tmux, diffvim-compare),
-    the Vim plugin (plugin/, autoload/, completion/, man/, DiffVim/),
-    the tests/examples/, the scripts/, README, CHANGELOG and LICENSE into a
-    single distributable .tar.gz.
+    Builds all C binaries via `make`, then archives them together with
+    the Perl fallbacks, the pipeline scripts, the vim application,
+    the completion files, manpages, tests/examples/, scripts/, README,
+    CHANGELOG and LICENSE into a single distributable .tar.gz.
 
-    The resulting tarball is written to /tmp/diffvim-<version>.tar.gz.
+    The resulting tarball is written to /tmp/ad-<version>.tar.gz.
 
 OPTIONS
     -h, --help     Show this help message and exit 0.
@@ -25,13 +23,13 @@ OPTIONS
                    Defaults to "2.0" if not supplied.
 
 EXAMPLES
-    dv_package.sh
-        Build the 2.0 release tarball at /tmp/diffvim-2.0.tar.gz.
+    ad_package.sh
+        Build the 2.0 release tarball at /tmp/ad-2.0.tar.gz.
 
-    dv_package.sh 2.3.1
-        Build the 2.3.1 release tarball at /tmp/diffvim-2.3.1.tar.gz.
+    ad_package.sh 2.3.1
+        Build the 2.3.1 release tarball at /tmp/ad-2.3.1.tar.gz.
 
-    dv_package.sh --help
+    ad_package.sh --help
         Show this help message.
 HELP
 }
@@ -46,27 +44,22 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 VERSION="${1:-2.0}"
-TARBALL="/tmp/diffvim-${VERSION}.tar.gz"
+TARBALL="/tmp/ad-${VERSION}.tar.gz"
 
 echo "Building..."
-make -C "$ROOT/diff_engine" clean all
-cd "$ROOT/animator/c"
-cc -O2 -o ../bin/ad animator.c
-cc -O2 -o ../bin/ad_postprocess postprocess.c
-cc -O2 -o ../bin/ad_layer_pace ad_layer_pace.c
 cd "$ROOT"
+make
 
 echo "Packaging..."
 tar czf "$TARBALL" \
-    bin/ad_compute \
-    bin/ad \
-    bin/ad_postprocess \
-    bin/ad_layer_pace \
+    bin/ \
+    diff_engine/perl/ \
+    layers/perl/ \
     animator/perl/ \
-    animator/ad_pipeline \
-    diffvim diffvim.pl diffvim-tmux diffvim-compare \
-    plugin/ autoload/ completion/ man/ \
-    DiffVim/ \
+    pipeline/ \
+    apps/vim/ \
+    completion/ \
+    man/ \
     tests/examples/ \
     scripts/ \
     README.md CHANGELOG.md LICENSE

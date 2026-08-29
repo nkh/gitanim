@@ -121,7 +121,7 @@ Examples:
   ad_pipeline --compute-algorithm patience --postprocess-semantic-cleanup --pace-pacing gaussian old.py new.py
 
 Environment:
-  AD_COMPUTE_BIN    Override compute binary path (advanced)
+  (use --compute-bin=PATH instead)
 HELP
 }
 
@@ -253,10 +253,8 @@ while [[ $# -gt 0 ]]; do
                     [[ -n "$val" ]] && ANIMATOR_ARGS+=("$val")
                     ;;
                 --left-to-right)
-                    export AD_LEFT_TO_RIGHT=1
                     ;;
                 --no-left-to-right)
-                    export AD_LEFT_TO_RIGHT=0
                     ;;
                 *)
                     ANIMATOR_ARGS+=("$opt")
@@ -279,9 +277,9 @@ fi
 OLD="${POSITIONAL[0]}"
 NEW="${POSITIONAL[1]}"
 
-# Optional override via environment (advanced; rarely needed)
-if [[ -n "${AD_COMPUTE_BIN:-}" && -f "$AD_COMPUTE_BIN" ]]; then
-    COMPUTE="$AD_COMPUTE_BIN"
+# Optional override via --compute-bin=PATH CLI flag (advanced; rarely needed)
+if [[ -n "${COMPUTE_BIN_OVERRIDE:-}" && -f "$COMPUTE_BIN_OVERRIDE" ]]; then
+    COMPUTE="$COMPUTE_BIN_OVERRIDE"
 fi
 
 # Create temp files
