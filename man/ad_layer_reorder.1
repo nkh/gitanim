@@ -1,0 +1,51 @@
+.TH AD_LAYER_REORDER 1 "2026-08-30" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_reorder \- 4-sweep reorder layer (normalize op order and positions)
+.SH SYNOPSIS
+.B ad_layer_reorder
+< raw_ops > reordered_ops
+.SH DESCRIPTION
+.B ad_layer_reorder
+is the first layer in the postprocess pipeline. It takes raw char ops from
+.BR ad_compute (1)
+and reorders them for human readability using a 4-sweep algorithm, then sets per-op (line, col) positions.
+.PP
+The 4 sweeps within each change region (consecutive non-keep, non-\\n ops):
+.RS
+.IP 1. 3
+Non-newline DELETE ops (content being removed on this line)
+.IP 2. 3
+Non-newline INSERT ops (content being added on this line)
+.IP 3. 3
+Newline DELETE ops (lines being joined)
+.IP 4. 3
+Newline INSERT ops (lines being split)
+.RE
+.PP
+Keeps and \\n ops stay in place as anchors/boundaries.
+.PP
+This layer also applies cross-hunk line_offset (cumulative \\n_ins - \\n_del from prior hunks) so positions are correct across the entire file.
+.SH OPTIONS
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.TP
+.B \-\-debug
+Enable debug logging to /tmp/ad_debug/.
+.SH INPUT/OUTPUT
+V2 TSV format (see
+.BR ad (1)
+for the format specification).
+.SH CONFIGURATION
+No environment variables. This layer has no user-configurable options.
+.SH EXAMPLES
+.TP
+.B ad_layer_reorder < raw_ops.txt > reordered_ops.txt
+Reorder ops and set positions.
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_compute (1),
+.BR ad (1)
+.PP
+.I docs/src/plugin-layers.md
+\(em plugin contract documentation.

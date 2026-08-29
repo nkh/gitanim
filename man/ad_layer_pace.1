@@ -1,0 +1,154 @@
+.TH AD_LAYER_PACE 1 "2026-08-30" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_pace \- insert delay ops between ops (controls animation speed)
+.SH SYNOPSIS
+.B ad_layer_pace
+.RI [ options ]
+< post_ops > timed_ops
+.SH DESCRIPTION
+.B ad_layer_pace
+reads post-processed V2 TSV from stdin, inserts
+.B delay
+lines between ops, and writes timed V2 TSV to stdout. The animator reads this timed stream and applies delays between ops to control animation speed.
+.PP
+Delay types:
+.RS
+.IP \(bu 3
+char \(em per-character delay (insert/delete)
+.IP \(bu 3
+word \(em pause after words
+.IP \(bu 3
+hunk \(em pause between hunks
+.IP \(bu 3
+awd_slow / awd_fast / awd_skip \(em adaptive word delete phases
+.IP \(bu 3
+accel_delete \(em accelerated multi-line deletion
+.IP \(bu 3
+block_start / block_end \(em pause before/after large block deletes
+.IP \(bu 3
+pause_after \(em periodic pause after N changed lines
+.RE
+.SH OPTIONS
+.TP
+.BI \-\-delete\-pacing  MODE
+Deletion strategy. Default: word.
+.RS
+.IP \(bu 3
+char \(em one char at a time
+.IP \(bu 3
+word \(em group consecutive char deletes on same line
+.IP \(bu 3
+instant \(em no delay between deletes
+.IP \(bu 3
+rapid-eol \(em accelerate trailing char deletes
+.IP \(bu 3
+rapid-identical \(em accelerate runs of same char
+.IP \(bu 3
+accel \(em accelerated multi-line deletion
+.IP \(bu 3
+flash \(em highlight whole line, pause, delete in one shot
+.RE
+.TP
+.BI \-\-insert\-pacing  MODE
+Insertion strategy. Default: char.
+.RS
+.IP \(bu 3
+char \(em one char at a time
+.IP \(bu 3
+word \(em type words instantly, pause after each word
+.IP \(bu 3
+accel \(em accelerated word typing
+.RE
+.TP
+.BI \-\-delete\-speed  SPEED
+Delete speed multiplier: slow, normal, fast, instant. Default: normal.
+.TP
+.BI \-\-insert\-speed  SPEED
+Insert speed: slow, normal, fast. Default: normal.
+.TP
+.BI \-\-delete\-threshold  N
+Min chars to trigger rapid/word modes. Default: 3.
+.TP
+.BI \-\-pacing  MODE
+Timing mode: uniform, adaptive, gaussian, review. Default: uniform.
+.TP
+.BI \-\-gaussian\-jitter\-pct  N
+Jitter percentage for gaussian mode. Default: 20.
+.TP
+.BI \-\-pause\-after\-lines  N
+Pause every N changed lines (for large hunks). Default: 0 (disabled).
+.TP
+.BI \-\-pause\-after\-threshold  N
+Only pause if total ops > N. Default: 50.
+.TP
+.BI \-\-pause\-after\-ms  N
+Pause duration in ms. Default: 500.
+.TP
+.B \-\-accel\-delete
+Enable accelerated multi-line deletion.
+.TP
+.BI \-\-accel\-delete\-start\-ms  N
+Starting delay for accel delete. Default: 80.
+.TP
+.BI \-\-accel\-delete\-min\-ms  N
+Minimum delay for accel delete. Default: 15.
+.TP
+.BI \-\-accel\-delete\-accel  N
+Acceleration factor (0-100). Default: 85.
+.TP
+.BI \-\-block\-delete\-size  N
+Block size for grouped deletes. Default: 3.
+.TP
+.BI \-\-pause\-before\-delete\-ms  N
+Pause before large block deletes. Default: 200.
+.TP
+.BI \-\-pause\-after\-delete\-ms  N
+Pause after large block deletes. Default: 200.
+.TP
+.BI \-\-flash\-pause\-ms  N
+Pause for flash mode. Default: 400.
+.TP
+.BI \-\-flash\-highlight\-ms  N
+Highlight duration for flash mode. Default: 300.
+.TP
+.BI \-\-cursor\-glide\-ms  N
+Cursor glide duration. Default: 0 (disabled).
+.TP
+.B \-\-cursor\-glide\-show\-intermediate
+Show intermediate cursor positions during glide. Default: 1.
+.TP
+.BI \-\-distance\-speed  MODE
+Distance-based speed: adaptive, off. Default: off.
+.TP
+.BI \-\-distance\-threshold  N
+Distance threshold for adaptive speed. Default: 5.
+.TP
+.BI \-\-distance\-fast\-mult  N
+Fast multiplier for adaptive speed. Default: 2.0.
+.TP
+.BI \-\-distance\-slow\-mult  N
+Slow multiplier for adaptive speed. Default: 0.5.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH INPUT/OUTPUT
+V2 TSV format. Input should be post-processed (reorder + optional layers).
+.SH CONFIGURATION
+No environment variables. Use CLI flags or the config file at
+$XDG_CONFIG_HOME/ad/config.
+.SH EXAMPLES
+.TP
+.B ad_layer_pace --delete-pacing word --insert-pacing char < post.txt > timed.txt
+Word-delete pacing, char-insert pacing.
+.TP
+.B ad_layer_pace --pacing gaussian --gaussian-jitter-pct 30 < post.txt > timed.txt
+Gaussian jitter for human-like typing.
+.TP
+.B ad_layer_pace --accel-delete < post.txt > timed.txt
+Accelerated multi-line deletion.
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_layer_reorder (1),
+.BR ad (1)
+.PP
+.I docs/src/plugin-layers.md

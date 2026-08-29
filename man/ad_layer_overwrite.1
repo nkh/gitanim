@@ -1,0 +1,48 @@
+.TH AD_LAYER_OVERWRITE 1 "2026-08-30" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_overwrite \- merge delete+insert pairs into overwrite_insert ops
+.SH SYNOPSIS
+.B ad_layer_overwrite
+< post_ops > overwrite_ops
+.SH DESCRIPTION
+.B ad_layer_overwrite
+detects adjacent delete+insert pairs at the same (line, col) and merges them into a single
+.B overwrite_insert
+op. This produces a more natural "in-place replacement" visual instead of "delete all, then insert all".
+.PP
+A pair is merged when:
+.RS
+.IP \(bu 3
+op[i] is a non-newline DELETE
+.IP \(bu 3
+op[i+1] is a non-newline INSERT
+.IP \(bu 3
+Both have the same (line, col)
+.IP \(bu 3
+The previous op was NOT a delete at the same position (pd flag)
+.IP \(bu 3
+The op after next is NOT an insert at the same line (ni flag)
+.RE
+.PP
+After merging, positions are recomputed by walking the output.
+.SH OPTIONS
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.TP
+.B \-\-debug
+Enable debug logging to /tmp/ad_debug/.
+.SH INPUT/OUTPUT
+V2 TSV format. Input should be post-reorder (see
+.BR ad_layer_reorder (1)).
+.SH CONFIGURATION
+No environment variables. This layer has no user-configurable options.
+.SH EXAMPLES
+.TP
+.B ad_layer_overwrite < reordered_ops.txt > overwrite_ops.txt
+Merge delete+insert pairs.
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_layer_reorder (1)
+.PP
+.I docs/src/plugin-layers.md

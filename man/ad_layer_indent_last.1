@@ -1,0 +1,42 @@
+.TH AD_LAYER_INDENT_LAST 1 "2026-08-30" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_indent_last \- move leading whitespace deletes to end of line segment
+.SH SYNOPSIS
+.B ad_layer_indent_last
+< post_ops > indent_last_ops
+.SH DESCRIPTION
+.B ad_layer_indent_last
+reorders ops so that when a line is entirely deleted, the leading whitespace (spaces/tabs) deletes appear AFTER the content deletes. This prevents the visual problem of text shifting left before disappearing.
+.PP
+Algorithm:
+.RS
+.IP 1. 3
+Walk ops, breaking into segments at \\n ops or line number changes.
+.IP 2. 3
+For each segment, find the leading run of indent deletes (space/tab).
+.IP 3. 3
+If indent deletes exist, emit: content ops (with col += n_indent), then indent deletes (at col 1), then the \\n op.
+.RE
+.PP
+The col adjustment (+n_indent) is because the indent is still in the buffer when content runs first — content starts at col 1+n_indent, not col 1.
+.SH OPTIONS
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.TP
+.B \-\-debug
+Enable debug logging to /tmp/ad_debug/.
+.SH INPUT/OUTPUT
+V2 TSV format. Input should be post-reorder (see
+.BR ad_layer_reorder (1)).
+.SH CONFIGURATION
+No environment variables. This layer has no user-configurable options.
+.SH EXAMPLES
+.TP
+.B ad_layer_indent_last < reordered_ops.txt > indent_last_ops.txt
+Move whitespace deletes to end of line.
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_layer_reorder (1)
+.PP
+.I docs/src/plugin-layers.md

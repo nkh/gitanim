@@ -1,0 +1,123 @@
+.TH AD 1 "2026-08-30" "ad 2.0" "ad animator"
+.SH NAME
+ad \- standalone terminal animation engine (reads timed op stream, animates in terminal)
+.SH SYNOPSIS
+.B ad
+.RI [ options ]
+.I <oldfile>
+< timed_ops
+.SH DESCRIPTION
+.B ad
+is the terminal animation engine. It reads a timed V2 TSV op stream from stdin and applies each op to the buffer, rendering the transformation to the terminal. Every op carries its own (line, col); the animator moves the cursor to that position before applying the op.
+.PP
+This is the C implementation (preferred). A Perl fallback exists at
+animator/perl/ad.pl.
+.SH OPTIONS
+.TP
+.B \-\-no\-display
+Process without rendering (write snapshot only). Useful for testing.
+.TP
+.BI \-\-speed  N
+Speed multiplier (0.5=half, 2=double, 5=5x). Default: 1.0.
+.TP
+.BI \-\-snapshot  FILE
+Write the final buffer state to FILE.
+.TP
+.BI \-\-output  FILE
+Write the buffer to FILE after each op (for debugging).
+.TP
+.BI \-\-colormap\-old  FILE
+Load syntax colors for the old file (from ad_colorize).
+.TP
+.BI \-\-colormap\-new  FILE
+Load syntax colors for the new file.
+.TP
+.BI \-\-scroll  MODE
+Scroll mode: zz (center), zt (top), zb (bottom), none. Default: zz.
+.TP
+.B \-\-diff\-stat
+Show diff stat overlay (X/Y lines changed).
+.TP
+.B \-\-diff\-highlight
+Highlight changed lines green/red.
+.TP
+.B \-\-bell
+Ring terminal bell on error (cursor clamped to buffer bounds).
+.TP
+.BI \-\-tick\-ms  N
+Animation frame interval in ms. Default: 16 (~60fps).
+.TP
+.BI \-\-seek  N
+Start animation at op N (apply ops 0..N silently, then animate from N).
+.TP
+.BI \-\-max\-line\-len  N
+Skip char-level diff for lines > N chars. Default: 1048576 (1MB).
+.TP
+.B \-\-verbose
+Print debug info to stderr.
+.TP
+.B \-\-dry\-run
+Process ops without rendering (for timing tests).
+.TP
+.B \-\-version, \-V
+Print version and exit.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH CONTROLS
+During animation (interactive mode), these keys are active:
+.TP
+.B Space
+Pause / resume.
+.TP
+.B n
+Skip current hunk (apply instantly, move to next).
+.TP
+.B b
+Back to previous hunk (revert and restart).
+.TP
+.B q
+Stop animation (leave buffer in current state).
+.TP
+.B +
+Speed up (x1.5).
+.TP
+.B -
+Slow down (x0.67).
+.TP
+.B =
+Reset speed to 1.0x.
+.TP
+.B ?
+Show in-vim help.
+.SH INPUT FORMAT
+The timed op stream is V2 TSV (tab-separated, 1-indexed line/col):
+.PP
+.RS
+.nf
+# diffvim timed ops v2
+HUNK\\t<target>\\t<del>\\t<ins>\\t<end_ins>\\t<end_del>
+keep\\t<line>\\t<col>\\t<code>\\t<char_repr>
+delete\\t<line>\\t<col>\\t<code>\\t<char_repr>
+insert\\t<line>\\t<col>\\t<code>\\t<char_repr>
+delay\\t<ms>\\t<type>
+HUNK_END
+.fi
+.RE
+.SH CONFIGURATION
+No environment variables. Use CLI flags or the config file at
+$XDG_CONFIG_HOME/ad/config.
+.SH EXAMPLES
+.TP
+.B ad --no-display --speed 1000 --snapshot out.txt old.py < timed.txt
+Animate fast, write result to out.txt.
+.TP
+.B ad --speed 0.5 old.py < timed.txt
+Slow animation for presentations.
+.TP
+.B ad --diff-stat --diff-highlight old.py < timed.txt
+Show diff stats and highlight changed lines.
+.SH SEE ALSO
+.BR ad_pipeline (1),
+.BR ad_vim (1),
+.BR ad_postprocess (1)

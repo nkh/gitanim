@@ -1,0 +1,29 @@
+.TH AD_SUGGEST 1 "2026-08-30" "ad 2.0" "ad scripts"
+.SH NAME
+ad_suggest \- suggest the closest matching CLI option for a typo
+.SH SYNOPSIS
+.B ad_suggest
+.I <wrong_option>
+.SH DESCRIPTION
+.B ad_suggest
+is a helper script that suggests the closest matching CLI option for a mistyped flag. It uses a Hamming-distance-like comparison to find the best match from the known option list.
+.PP
+This script is sourced by
+.BR ad_vim (1)
+and
+.BR ad_pipeline (1)
+when the user passes an unknown option — the "Did you mean?" suggestion.
+.SH OPTIONS
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH EXAMPLES
+.TP
+.B ad_suggest --hlep
+Suggests: --help
+.TP
+.B ad_suggest --indent-lsat
+Suggests: --indent-last
+.SH SEE ALSO
+.BR ad_vim (1),
+.BR ad_pipeline (1)

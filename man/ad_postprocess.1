@@ -1,0 +1,107 @@
+.TH AD_POSTPROCESS 1 "2026-08-30" "ad 2.0" "ad pipeline"
+.SH NAME
+ad_postprocess \- dynamic postprocess layer orchestrator
+.SH SYNOPSIS
+.B ad_postprocess
+.RI [ options ]...
+< raw_ops > post_ops
+.SH DESCRIPTION
+.B ad_postprocess
+is the layer plugin host. It reads V2 TSV from stdin, runs a chain of layer plugins, and writes V2 TSV to stdout. The chain is supplied entirely on the command line — there is no manifest or config file for the chain.
+.PP
+A layer is any executable that reads V2 TSV from stdin and writes V2 TSV to stdout. Layers run in argv order (not sorted, not deduplicated). The same layer can be passed twice.
+.SH LAYER CHAIN
+.TP
+.BI \-\-ad\-layer= NAME
+Add a layer to the chain. Layers run in the order they appear on the command line. The same layer can be passed twice (it runs twice).
+.TP
+.BI \-\-ad\-layer\-path= DIR
+Add a directory to the layer search path. Repeatable. Default: bin/ and layers/perl/.
+.TP
+.BI \-\-ad\-layer\-arg= LAYER : ARG
+Pass ARG to LAYER only (not all layers). Repeatable. The arg can contain colons — split is on the first colon only.
+.TP
+.BI \-\-ad\-layer\-passthrough= ARG
+Pass ARG to ALL layers.
+.TP
+.B \-\-ad\-layer\-profile
+Print per-layer timing to stderr.
+.TP
+.B \-\-ad\-layer\-dry\-run
+Print the chain and exit without executing.
+.TP
+.B \-\-ad\-layer\-keep\-temps
+Keep intermediate files in a temp directory for debugging. Each layer's input and output is preserved as a .tsv file, and stderr as a .txt file. The directory defaults to /tmp/ad_postprocess_$$ (override with $AD_TEMP_DIR).
+.TP
+.B \-\-list\-layers
+List layers available in the search path and exit.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH LAYER RESOLUTION
+For each
+.I NAME
+given to \-\-ad\-layer:
+.RS
+.IP 1. 3
+If NAME contains '/', it is treated as a path (relative or absolute). The interpreter is picked by extension.
+.IP 2. 3
+Otherwise, search each \-\-ad\-layer\-path directory in order. The first directory containing a file named NAME wins.
+.IP 3. 3
+If no match, error and exit 1.
+.RE
+.PP
+Extensions recognized: .pl (perl), .py (python3), .rb (ruby), .sh (bash), .js (node). Files without a recognized extension must be executable.
+.SH I/O MODES
+.TP
+Pipe mode (default)
+Layers are chained via pipes: layer1 < input | layer2 | layer3 > output. Fastest.
+.TP
+Temp mode (\-\-ad\-layer\-keep\-temps)
+Each layer reads/writes a file: layer1 < 00_input.tsv > 01_output.tsv; layer2 < 01_output.tsv > 02_output.tsv; ... Files are kept in $AD_TEMP_DIR for inspection.
+.SH ERROR HANDLING
+If a layer fails (non-zero exit), ad_postprocess:
+.RS
+.IP 1. 3
+Prints "layer 'NAME' likely failed" to stderr.
+.IP 2. 3
+Displays the last 20 lines of the failed layer's stderr.
+.IP 3. 3
+Exits with non-zero status.
+.RE
+.SH CONFIGURATION
+No environment variables. Use CLI flags. See
+.BR ad_vim (1)
+for the config file.
+.SH EXAMPLES
+.TP
+.B ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_pace < raw.txt
+Run reorder then pace.
+.TP
+.B ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last --ad-layer=ad_layer_pace < raw.txt
+Run reorder, indent_last, then pace.
+.TP
+.B ad_postprocess --ad-layer=/path/to/my_layer.sh < raw.txt
+Run a custom layer from an absolute path.
+.TP
+.B ad_postprocess --ad-layer-path=/my/layers --ad-layer=my_layer < raw.txt
+Add a custom search path.
+.TP
+.B ad_postprocess --ad-layer-arg=ad_layer_pace:--delete-pacing --ad-layer-arg=ad_layer_pace:word --ad-layer=ad_layer_pace < raw.txt
+Pass args to the pace layer only.
+.TP
+.B ad_postprocess --ad-layer-dry-run --ad-layer=ad_layer_reorder --ad-layer=ad_layer_pace
+Preview the chain without executing.
+.TP
+.B ad_postprocess --ad-layer-keep-temps --ad-layer-profile --ad-layer=ad_layer_reorder --ad-layer=ad_layer_pace < raw.txt
+Profile timing and keep intermediate files.
+.TP
+.B ad_postprocess --list-layers
+List available layers.
+.SH SEE ALSO
+.BR ad_pipeline (1),
+.BR ad_vim (1),
+.BR ad_compute (1)
+.PP
+.I docs/src/plugin-layers.md
+\(em full plugin contract documentation.

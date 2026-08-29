@@ -1,0 +1,105 @@
+.TH AD_PIPELINE 1 "2026-08-30" "ad 2.0" "ad pipeline"
+.SH NAME
+ad_pipeline \- run the full ad animation pipeline (compute, postprocess, pace, animate)
+.SH SYNOPSIS
+.B ad_pipeline
+.RI [ options ]
+.I <oldfile> <newfile>
+.SH DESCRIPTION
+.B ad_pipeline
+is the end-to-end pipeline driver. It runs all four stages:
+.PP
+.RS
+.nf
+1. compute     — ad_compute (C++; Perl fallback)
+2. postprocess — ad_postprocess (layer orchestrator)
+3. pace        — ad_layer_pace (C; Perl fallback)
+4. animate     — ad (C; Perl fallback)
+.fi
+.RE
+.PP
+Options are routed by prefix:
+.TP
+.B \-\-compute\-*
+Options for ad_compute (e.g. \-\-compute\-algorithm patience)
+.TP
+.B \-\-postprocess\-*
+Options for ad_postprocess (e.g. \-\-postprocess\-indent\-last)
+.TP
+.B \-\-pace\-*
+Options for ad_layer_pace (e.g. \-\-pace\-delete\-pacing word)
+.TP
+.B \-\-animator\-*
+Options for ad (e.g. \-\-animator\-no\-display, \-\-animator\-speed 2.0)
+.PP
+Unprefixed options (e.g. \-\-speed, \-\-no\-display) go to the animator.
+.SH OPTIONS
+.TP
+.B \-\-no\-display
+Process without rendering (write snapshot only).
+.TP
+.B \-\-speed N
+Speed multiplier (0.5=half, 2=double, 5=5x).
+.TP
+.B \-\-snapshot FILE
+Write final buffer to FILE.
+.TP
+.B \-\-output FILE
+Write result to FILE after animation.
+.TP
+.B \-\-indent\-last
+Enable the indent_last layer.
+.TP
+.B \-\-overwrite
+Enable the overwrite layer.
+.TP
+.B \-\-line\-delete\-in\-place
+Enable the line_delete_in_place layer.
+.TP
+.B \-\-ad\-layer=NAME
+Add a layer to the postprocess chain. Repeatable. See
+.BR ad_postprocess (1).
+.TP
+.B \-\-ad\-layer\-path=DIR
+Add a directory to the layer search path. Repeatable.
+.TP
+.B \-\-ad\-layer\-arg=LAYER:ARG
+Pass ARG to LAYER only.
+.TP
+.B \-\-ad\-layer\-profile
+Print per-layer timing to stderr.
+.TP
+.B \-\-ad\-layer\-dry\-run
+Print the layer chain and exit without executing.
+.TP
+.B \-\-ad\-layer\-keep\-temps
+Keep intermediate files for debugging.
+.TP
+.B \-\-list\-layers
+List available layers and exit.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH CONFIGURATION
+No environment variables. Use CLI flags or the config file at
+$XDG_CONFIG_HOME/ad/config (defaults to ~/.config/ad/config).
+.PP
+Precedence: /etc/ad/config < ~/.config/ad/config < CLI flags.
+.SH EXAMPLES
+.TP
+.B ad_pipeline old.py new.py
+Run the full pipeline with defaults.
+.TP
+.B ad_pipeline --no-display --speed 5 --snapshot out.txt old.py new.py
+Run fast, write result to out.txt.
+.TP
+.B ad_pipeline --indent-last --pacing gaussian old.py new.py
+Enable indent_last and gaussian pacing.
+.TP
+.B ad_pipeline --ad-layer=my_custom_layer old.py new.py
+Add a custom layer to the chain.
+.SH SEE ALSO
+.BR ad_vim (1),
+.BR ad_postprocess (1),
+.BR ad_compute (1),
+.BR ad (1)

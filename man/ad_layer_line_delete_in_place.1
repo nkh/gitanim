@@ -1,0 +1,42 @@
+.TH AD_LAYER_LINE_DELETE_IN_PLACE 1 "2026-08-30" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_line_delete_in_place \- delete whole lines on their own line (not joined then deleted)
+.SH SYNOPSIS
+.B ad_layer_line_delete_in_place
+< post_ops > line_delete_ops
+.SH DESCRIPTION
+.B ad_layer_line_delete_in_place
+detects the pattern: \\n delete on line N, followed by content deletes on line N+1, followed by \\n delete on line N+1. It reorders so content is deleted FIRST (on its own line), then the \\n delete joins. This prevents the "join then delete" visual where two lines briefly merge before the second one vanishes.
+.PP
+Pattern matched:
+.PP
+.RS
+.nf
+delete \\n (line N)      delete content (line N+1)
+delete content (line N+1)  →  delete \\n (line N+1)
+delete \\n (line N+1)      delete \\n (line N)
+.fi
+.RE
+.PP
+Positions are passed through unchanged from
+.BR ad_layer_reorder (1).
+.SH OPTIONS
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.TP
+.B \-\-debug
+Enable debug logging to /tmp/ad_debug/.
+.SH INPUT/OUTPUT
+V2 TSV format. Input should be post-reorder.
+.SH CONFIGURATION
+No environment variables. This layer has no user-configurable options.
+.SH EXAMPLES
+.TP
+.B ad_layer_line_delete_in_place < reordered_ops.txt > line_delete_ops.txt
+Reorder line-delete patterns.
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_layer_reorder (1)
+.PP
+.I docs/src/plugin-layers.md
