@@ -286,14 +286,14 @@ void process_awd(char *lines[], int start, int count, int same_line) {
     /* Phase 1: Skip spaces instantly */
     while (i < end) {
         /* Parse the op to get the code */
-        char *toks[8];
+        char *toks[AD_LAYER_MAX_TOKENS];
         char buf[MAX_LINE];
         strncpy(buf, lines[i], MAX_LINE - 1);
         buf[MAX_LINE - 1] = 0;
-        int nt = ad_layer_parse_tsv(buf, toks, 8);
+        int nt = ad_layer_parse_tsv(buf, toks, AD_LAYER_MAX_TOKENS);
         int code = (nt >= 4) ? atoi(toks[3]) : 0;
 
-        if (code == 32 || code == 9) {
+        if (code == AD_LAYER_CHAR_SPACE || code == AD_LAYER_CHAR_TAB) {
             passthrough(lines[i]);
             emit_paced_delay(awd_min_ms, "awd_skip");
             i++;
@@ -328,10 +328,10 @@ void process_awd(char *lines[], int start, int count, int same_line) {
             char buf2[MAX_LINE];
             strncpy(buf2, lines[i + word_len], MAX_LINE - 1);
             buf2[MAX_LINE - 1] = 0;
-            char *t2[8];
-            int n2 = ad_layer_parse_tsv(buf2, t2, 8);
+            char *t2[AD_LAYER_MAX_TOKENS];
+            int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
             int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
-            if (c2 == 32 || c2 == 9) break;
+            if (c2 == AD_LAYER_CHAR_SPACE || c2 == AD_LAYER_CHAR_TAB) break;
             word_len++;
         }
         if (word_len > 0) {
@@ -349,10 +349,10 @@ void process_awd(char *lines[], int start, int count, int same_line) {
                 char buf3[MAX_LINE];
                 strncpy(buf3, lines[i], MAX_LINE - 1);
                 buf3[MAX_LINE - 1] = 0;
-                char *t3[8];
-                int n3 = ad_layer_parse_tsv(buf3, t3, 8);
+                char *t3[AD_LAYER_MAX_TOKENS];
+                int n3 = ad_layer_parse_tsv(buf3, t3, AD_LAYER_MAX_TOKENS);
                 int c3 = (n3 >= 4) ? atoi(t3[3]) : 0;
-                if (c3 != 32 && c3 != 9) break;
+                if (c3 != AD_LAYER_CHAR_SPACE && c3 != AD_LAYER_CHAR_TAB) break;
                 i++;
             }
             for (int k = space_start; k < i; k++)
@@ -368,25 +368,30 @@ void process_awd(char *lines[], int start, int count, int same_line) {
  * delays. They modify the global loop index `i` (advancing it past the
  * ops they consume). */
 
-/* Strategy "char": group consecutive char deletes on the same line,
- * pause before/after if the run exceeds block_delete_size. */
+/* pace_delete_char: Per-character delete pacing — emits each delete op
+ * one at a time with the standard delete_delay, adding block-start /
+ * block-end pauses around runs longer than block_delete_size. Visual
+ * effect: chars disappear one by one (typewriter-like). Used when
+ * --delete-pacing=char. Solves: gives the viewer time to see what was
+ * removed; without pacing, deletes happen so fast the user can't tell
+ * what changed. */
 static void pace_delete_char(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
     int start_idx = i;
     while (i < n_lines) {
         char buf2[MAX_LINE];
         strncpy(buf2, all_lines[i], MAX_LINE - 1);
         buf2[MAX_LINE - 1] = 0;
-        char *t2[8];
-        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
+        char *t2[AD_LAYER_MAX_TOKENS];
+        int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || c2 == AD_LAYER_CHAR_NEWLINE || l2 != start_line)
             break;
         i++;
     }
@@ -406,22 +411,29 @@ static void pace_delete_char(char *line) {
     }
 }
 
-/* Strategy "instant": delete with minimal (1ms) delay. */
+/* pace_delete_instant: Delete each char with a 1ms (essentially 0) delay.
+ * Visual effect: content vanishes immediately, no per-char animation.
+ * Used when --delete-pacing=instant. Solves: for users who find delete
+ * animation distracting or want to skim changes quickly; skips the
+ * per-char overhead entirely. */
 static void pace_delete_instant(char *line) {
     passthrough(line);
     emit_paced_delay(1, "char");
     i++;
 }
 
-/* Strategy "flash": highlight the whole line, pause, then delete all
- * content in one shot. Collects ALL deletes on the same line (including
- * \n deletes) since the collection loop does not skip code==10. */
+/* pace_delete_flash: Highlight the entire line being deleted, pause so
+ * the viewer sees what's about to go, then delete all chars at once.
+ * Visual effect: a brief flash of the doomed line, then it's gone.
+ * Used when --delete-pacing=flash. Solves: per-char deletion of a long
+ * line is tedious; flash shows the user the whole deletion up front so
+ * they understand what was removed without watching it char-by-char. */
 static void pace_delete_flash(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
     int start_idx = i;
     int end_col = 1;
@@ -429,8 +441,8 @@ static void pace_delete_flash(char *line) {
         char buf2[MAX_LINE];
         strncpy(buf2, all_lines[i], MAX_LINE - 1);
         buf2[MAX_LINE - 1] = 0;
-        char *t2[8];
-        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
+        char *t2[AD_LAYER_MAX_TOKENS];
+        int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
         int col2 = (n2 >= 3) ? atoi(t2[2]) : 1;
         if (strcmp(t2[0], "delete") != 0 || l2 != start_line)
@@ -455,25 +467,30 @@ static void pace_delete_flash(char *line) {
     emit_paced_delay(flash_pause_ms / 2, "flash_end");
 }
 
-/* Strategy "rapid-eol": delete trailing chars rapidly. First char slow,
- * then accelerate each subsequent char. */
+/* pace_delete_rapid_eol: Delete trailing chars quickly — first char slow
+ * (so the viewer sees the deletion start), then each subsequent char
+ * accelerates (delay *= awd_accel). Visual effect: chars vanish in a
+ * quick accelerating sweep toward end-of-line. Used when
+ * --delete-pacing=rapid-eol. Solves: long EOL deletions take forever
+ * at uniform speed; acceleration keeps the animation snappy while
+ * still signaling "something is being deleted here". */
 static void pace_delete_rapid_eol(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
     int start_idx = i;
     while (i < n_lines) {
         char buf2[MAX_LINE];
         strncpy(buf2, all_lines[i], MAX_LINE - 1);
         buf2[MAX_LINE - 1] = 0;
-        char *t2[8];
-        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
+        char *t2[AD_LAYER_MAX_TOKENS];
+        int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || c2 == AD_LAYER_CHAR_NEWLINE || l2 != start_line)
             break;
         i++;
     }
@@ -496,15 +513,19 @@ static void pace_delete_rapid_eol(char *line) {
     }
 }
 
-/* Strategy "rapid-identical": delete runs of the same char code rapidly.
- * Detect consecutive deletes of the same char code, delete first slowly,
- * then accelerate. */
+/* pace_delete_rapid_identical: Detect runs of the same char code being
+ * deleted (e.g. "    " or "=====") and delete them with acceleration —
+ * first slow, then faster. Visual effect: identical-char runs vanish
+ * in a quick streak. Used when --delete-pacing=rapid-identical.
+ * Solves: deleting 50 identical chars at uniform speed is boring and
+ * visually noisy; grouping + acceleration makes it feel like a quick
+ * sweep while still showing the user the start of the run. */
 static void pace_delete_rapid_identical(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
     int start_code = (nt >= 4) ? atoi(toks[3]) : 0;
     int start_idx = i;
@@ -512,8 +533,8 @@ static void pace_delete_rapid_identical(char *line) {
         char buf2[MAX_LINE];
         strncpy(buf2, all_lines[i], MAX_LINE - 1);
         buf2[MAX_LINE - 1] = 0;
-        char *t2[8];
-        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
+        char *t2[AD_LAYER_MAX_TOKENS];
+        int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
         if (strcmp(t2[0], "delete") != 0 || c2 != start_code || l2 != start_line)
@@ -537,25 +558,30 @@ static void pace_delete_rapid_identical(char *line) {
     }
 }
 
-/* Strategy "awd" (adaptive word delete): collect consecutive non-newline
- * deletes on the same line and delegate to process_awd(). */
+/* pace_delete_awd: Adaptive Word Delete — collect consecutive non-newline
+ * deletes on a line and delegate to process_awd(), which skips spaces
+ * instantly, types start_chars slowly, then accelerates per word
+ * batch. Visual effect: words vanish as units, accelerating across the
+ * line. Used when --delete-pacing=awd (or "word", the default fallback).
+ * Solves: balance readability (viewer sees words being removed) with
+ * speed (long deletes don't take forever like per-char would). */
 static void pace_delete_awd(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
     int start_idx = i;
     while (i < n_lines) {
         char buf2[MAX_LINE];
         strncpy(buf2, all_lines[i], MAX_LINE - 1);
         buf2[MAX_LINE - 1] = 0;
-        char *t2[8];
-        int n2 = ad_layer_parse_tsv(buf2, t2, 8);
+        char *t2[AD_LAYER_MAX_TOKENS];
+        int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 == 10 || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || c2 == AD_LAYER_CHAR_NEWLINE || l2 != start_line)
             break;
         i++;
     }
@@ -571,11 +597,11 @@ static void pace_delete_awd(char *line) {
 /* HUNK header: emit glide ops if enabled, apply distance-based speed
  * multiplier, then passthrough the HUNK line. */
 static void handle_hunk(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int target_line = (nt >= 2) ? atoi(toks[1]) : 1;
     int distance = abs(target_line - current_line);
 
@@ -609,8 +635,8 @@ static void handle_hunk_end(char *line) {
         char nbuf[MAX_LINE];
         strncpy(nbuf, all_lines[i + 1], MAX_LINE - 1);
         nbuf[MAX_LINE - 1] = 0;
-        char *ntoks[8];
-        int nnt = ad_layer_parse_tsv(nbuf, ntoks, 8);
+        char *ntoks[AD_LAYER_MAX_TOKENS];
+        int nnt = ad_layer_parse_tsv(nbuf, ntoks, AD_LAYER_MAX_TOKENS);
         if (nnt >= 1 && strcmp(ntoks[0], "HUNK") == 0) {
             emit_paced_delay(hunk_pause, "hunk");
         }
@@ -618,35 +644,37 @@ static void handle_hunk_end(char *line) {
     i++;
 }
 
+/* Helper: process an indent_skip marker from ad_layer_skip_indent.
+ *   delay with line==-1, col==0 → start skip mode (0ms delays)
+ *   delay with line==-1, col==1 → end skip mode, emit pause
+ * Called from handle_delay when the early-return indent_skip check fires. */
+static void handle_indent_skip_marker(char *toks[], int nt) {
+    int col = (nt >= 3) ? atoi(toks[2]) : 0;
+    if (col == 0) {
+        /* Start skip mode */
+        skip_indent_mode = 1;
+    } else {
+        /* End skip mode + emit pause */
+        skip_indent_mode = 0;
+        int pause_ms = (nt >= 4) ? atoi(toks[3]) : AD_LAYER_DEFAULT_SKIP_PAUSE_MS;
+        emit_paced_delay(pause_ms, "indent_skip_end");
+    }
+}
+
 /* delay op: passthrough (delay lines in input are forwarded verbatim).
  * Also handles indent_skip markers from ad_layer_skip_indent:
  *   delay with line==-1, col==0 → start skip mode (0ms delays)
  *   delay with line==-1, col==1 → end skip mode, emit pause */
-
 static void handle_delay(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
 
-    /* Check for indent_skip markers (line field == -1). */
+    /* Check for indent_skip markers first (line field == -1, early return). */
     if (nt >= 2 && atoi(toks[1]) == -1) {
-        int col = (nt >= 3) ? atoi(toks[2]) : 0;
-        /* The skip_indent layer emits delay ops as Op structs:
-         *   delay\t<line=-1>\t<col=0 or 1>\t<code=0 or pause_ms>
-         * toks[1]=line (-1), toks[2]=col (0=start, 1=end),
-         * toks[3]=code (0=start, pause_ms=end)
-         */
-        if (col == 0) {
-            /* Start skip mode */
-            skip_indent_mode = 1;
-        } else {
-            /* End skip mode + emit pause */
-            skip_indent_mode = 0;
-            int pause_ms = (nt >= 4) ? atoi(toks[3]) : 300;
-            emit_paced_delay(pause_ms, "indent_skip_end");
-        }
+        handle_indent_skip_marker(toks, nt);
         i++;
         return;
     }
@@ -658,11 +686,11 @@ static void handle_delay(char *line) {
 
 /* keep op: passthrough + minimal char delay, track current line. */
 static void handle_keep(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     passthrough(line);
     emit_paced_delay(1, "char");
     /* Track current line for glide/distance calculations */
@@ -679,10 +707,10 @@ static void handle_delete_newline(char *line) {
             char abuf[MAX_LINE];
             strncpy(abuf, all_lines[i], MAX_LINE - 1);
             abuf[MAX_LINE - 1] = 0;
-            char *at[8];
-            int an = ad_layer_parse_tsv(abuf, at, 8);
+            char *at[AD_LAYER_MAX_TOKENS];
+            int an = ad_layer_parse_tsv(abuf, at, AD_LAYER_MAX_TOKENS);
             int ac = (an >= 4) ? atoi(at[3]) : 0;
-            if (strcmp(at[0], "delete") != 0 || ac != 10) break;
+            if (strcmp(at[0], "delete") != 0 || ac != AD_LAYER_CHAR_NEWLINE) break;
             i++;
         }
         int count = i - start_idx;
@@ -741,11 +769,11 @@ static void handle_delete_char(char *line) {
  * pacing. In word-pacing mode the function returns early (the main loop
  * does not perform the trailing i++ / changed_lines logic in that case). */
 static void handle_insert(char *line) {
-    char *toks[8];
+    char *toks[AD_LAYER_MAX_TOKENS];
     char tbuf[MAX_LINE];
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
-    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+    int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
     int code = (nt >= 4) ? atoi(toks[3]) : 0;
 
     /* Insert delay based on type and insert-pacing mode */
@@ -759,7 +787,7 @@ static void handle_insert(char *line) {
          * a whitespace char or end of inserts, pause. */
         /* Count \n inserts for changed_lines before the word-pacing
          * return skips the check below. */
-        if (code == 10) {
+        if (code == AD_LAYER_CHAR_NEWLINE) {
             changed_lines++;
             if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
                 && n_lines > pause_after_threshold) {
@@ -773,11 +801,11 @@ static void handle_insert(char *line) {
             char ibuf2[MAX_LINE];
             strncpy(ibuf2, all_lines[i], MAX_LINE - 1);
             ibuf2[MAX_LINE - 1] = 0;
-            char *it2[8];
-            int in2 = ad_layer_parse_tsv(ibuf2, it2, 8);
+            char *it2[AD_LAYER_MAX_TOKENS];
+            int in2 = ad_layer_parse_tsv(ibuf2, it2, AD_LAYER_MAX_TOKENS);
             int ic2 = (in2 >= 4) ? atoi(it2[3]) : 0;
             int il2 = (in2 >= 2) ? atoi(it2[1]) : 0;
-            if (strcmp(it2[0], "insert") != 0 || ic2 == 10 || il2 != start_line)
+            if (strcmp(it2[0], "insert") != 0 || ic2 == AD_LAYER_CHAR_NEWLINE || il2 != start_line)
                 break;
             i++;
         }
@@ -792,10 +820,10 @@ static void handle_insert(char *line) {
             char lastbuf[MAX_LINE];
             strncpy(lastbuf, all_lines[start_idx + count - 1], MAX_LINE - 1);
             lastbuf[MAX_LINE - 1] = 0;
-            char *lt2[8];
-            int ln2 = ad_layer_parse_tsv(lastbuf, lt2, 8);
+            char *lt2[AD_LAYER_MAX_TOKENS];
+            int ln2 = ad_layer_parse_tsv(lastbuf, lt2, AD_LAYER_MAX_TOKENS);
             int last_code = (ln2 >= 4) ? atoi(lt2[3]) : 0;
-            if (last_code == 32 || last_code == 9) {
+            if (last_code == AD_LAYER_CHAR_SPACE || last_code == AD_LAYER_CHAR_TAB) {
                 /* Whitespace — pause after word */
                 emit_paced_delay(word_pause, "word");
             }
@@ -809,7 +837,7 @@ static void handle_insert(char *line) {
         emit_paced_delay(char_delay, "char");
     }
 
-    if (code == 10) {
+    if (code == AD_LAYER_CHAR_NEWLINE) {
         /* \n insert — counts as a changed line */
         changed_lines++;
         if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
@@ -880,7 +908,7 @@ int main(int argc, char **argv) {
         }
 
         if (n_lines >= cap_lines) {
-            cap_lines = cap_lines == 0 ? 4096 : cap_lines * 2;
+            cap_lines = cap_lines == 0 ? AD_LAYER_INIT_CAPACITY : cap_lines * 2;
             { char **_tmp = realloc(all_lines, cap_lines * sizeof(char *)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } all_lines = _tmp; }
             if (!all_lines) { fprintf(stderr, "ad_layer_pace: out of memory\n"); exit(1); }
         }
@@ -903,11 +931,11 @@ int main(int argc, char **argv) {
      * For all other ops, track_op_type("keep") is called first, then
      * overridden by "delete"/"insert" as appropriate. */
     while (i < n_lines) {
-        char *toks[8];
+        char *toks[AD_LAYER_MAX_TOKENS];
         char tbuf[MAX_LINE];
         strncpy(tbuf, all_lines[i], MAX_LINE - 1);
         tbuf[MAX_LINE - 1] = 0;
-        int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+        int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
 
         if (strcmp(toks[0], "HUNK") == 0) {
             handle_hunk(all_lines[i]);
@@ -925,7 +953,7 @@ int main(int argc, char **argv) {
         } else if (strcmp(toks[0], "delete") == 0) {
             track_op_type("delete");
             int code = (nt >= 4) ? atoi(toks[3]) : 0;
-            if (code == 10) {
+            if (code == AD_LAYER_CHAR_NEWLINE) {
                 handle_delete_newline(all_lines[i]);
             } else {
                 handle_delete_char(all_lines[i]);

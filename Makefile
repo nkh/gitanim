@@ -177,7 +177,7 @@ docs:
 	test-layer-reorder test-layer-overwrite test-layer-indent-last \
 	test-layer-line_delete_in_place test-layer-pace test-layer-highlight
 
-test: test-layers test-unit test-minimal test-l2r test-property test-indent-last test-pipeline-options test-layers-discovery
+test: test-layers test-unit test-minimal test-l2r test-property test-fuzz test-indent-last test-pipeline-options test-layers-discovery
 	@echo ""
 	@echo "=== All tests passed ==="
 
@@ -254,6 +254,10 @@ test-pipeline-options:
 test-layers-discovery:
 	@echo "=== Layer discovery + plugin contract ==="
 	@perl tests/test_layers_discovery.pl 2>&1 | tail -3
+
+test-fuzz:
+	@echo "=== Fuzz testing (malformed inputs) ==="
+	@perl tests/test_fuzz.pl 2>&1 | tail -3
 
 # --- Debugging -------------------------------------------------------------
 

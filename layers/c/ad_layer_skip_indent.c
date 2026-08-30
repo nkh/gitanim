@@ -24,8 +24,26 @@
  */
 #include "ad_layer_common.h"
 
-static int pause_after_ms = 300;
+static int pause_after_ms = AD_LAYER_DEFAULT_SKIP_PAUSE_MS;
 
+/* layer_skip_indent: Detects indent-only hunks (every delete and insert
+ * op is whitespace or newline) and wraps them with marker delay ops so
+ * that the pace layer can apply them instantly rather than animate them.
+ *
+ * Marker protocol (recognized by ad_layer_pace):
+ *   delay\t0\t-1\t0            (indent_skip_start)  — start instant region
+ *   ... original ops, unchanged ...
+ *   delay\t<N>\t-1\t1           (indent_skip_end)    — end region, pause N ms
+ *
+ * The original ops are NOT modified — they are still applied, so the
+ * final buffer ends up correct. Only the timing/animation is skipped.
+ *
+ * Inputs:  ops[0..n_ops-1]   — ops for one hunk (positions already set).
+ * Outputs: out[0..out_cap-1] — ops with two delay-marker ops prepended
+ *                              and appended if the hunk is indent-only;
+ *                              otherwise a verbatim copy.
+ *          *line_offset       — not modified.
+ * Returns: number of output ops written. */
 static int layer_skip_indent(Op *ops, int n_ops, Op *out, int out_cap,
                              int *line_offset) {
     (void)line_offset;
@@ -39,7 +57,7 @@ static int layer_skip_indent(Op *ops, int n_ops, Op *out, int out_cap,
             strcmp(ops[i].type, "insert") == 0 ||
             strcmp(ops[i].type, "overwrite_insert") == 0) {
             has_change = 1;
-            if (ops[i].code != 32 && ops[i].code != 9 && ops[i].code != 10) {
+            if (ops[i].code != AD_LAYER_CHAR_SPACE && ops[i].code != AD_LAYER_CHAR_TAB && ops[i].code != AD_LAYER_CHAR_NEWLINE) {
                 is_indent_only = 0;
                 break;
             }

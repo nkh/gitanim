@@ -67,7 +67,7 @@ static int cap_lines = 0;
 
 void ensure_capacity(int needed) {
     if (needed <= cap_lines) return;
-    int nc = cap_lines == 0 ? 4096 : cap_lines;
+    int nc = cap_lines == 0 ? AD_LAYER_INIT_CAPACITY : cap_lines;
     while (nc < needed) nc *= 2;
     { char **_tmp = realloc(all_lines, nc * sizeof(char *)); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } all_lines = _tmp; }
     if (!all_lines) { fprintf(stderr, "out of memory\n"); exit(1); }
@@ -136,8 +136,8 @@ int get_op_line(const char *line) {
     char buf[MAX_LINE];
     strncpy(buf, line, MAX_LINE - 1);
     buf[MAX_LINE - 1] = 0;
-    char *toks[8];
-    int n = ad_layer_parse_tsv(buf, toks, 8);
+    char *toks[AD_LAYER_MAX_TOKENS];
+    int n = ad_layer_parse_tsv(buf, toks, AD_LAYER_MAX_TOKENS);
     if (n >= 2) return atoi(toks[1]);
     return 0;
 }
@@ -147,8 +147,8 @@ int get_op_col(const char *line) {
     char buf[MAX_LINE];
     strncpy(buf, line, MAX_LINE - 1);
     buf[MAX_LINE - 1] = 0;
-    char *toks[8];
-    int n = ad_layer_parse_tsv(buf, toks, 8);
+    char *toks[AD_LAYER_MAX_TOKENS];
+    int n = ad_layer_parse_tsv(buf, toks, AD_LAYER_MAX_TOKENS);
     if (n >= 3) return atoi(toks[2]);
     return 0;
 }
@@ -158,8 +158,8 @@ int get_op_code(const char *line) {
     char buf[MAX_LINE];
     strncpy(buf, line, MAX_LINE - 1);
     buf[MAX_LINE - 1] = 0;
-    char *toks[8];
-    int n = ad_layer_parse_tsv(buf, toks, 8);
+    char *toks[AD_LAYER_MAX_TOKENS];
+    int n = ad_layer_parse_tsv(buf, toks, AD_LAYER_MAX_TOKENS);
     if (n >= 4) return atoi(toks[3]);
     return 0;
 }
@@ -259,7 +259,7 @@ void do_highlight_word(int idx) {
         int prev_col = get_op_col(prev);
         int prev_code = get_op_code(prev);
         if (prev_line != op_line) break;  /* different line */
-        if (prev_code == 32 || prev_code == 9 || prev_code == 10) break; /* whitespace */
+        if (prev_code == AD_LAYER_CHAR_SPACE || prev_code == AD_LAYER_CHAR_TAB || prev_code == AD_LAYER_CHAR_NEWLINE) break; /* whitespace */
         word_start = prev_col;
     }
 
@@ -272,7 +272,7 @@ void do_highlight_word(int idx) {
         int next_col = get_op_col(next);
         int next_code = get_op_code(next);
         if (next_line != op_line) break;  /* different line */
-        if (next_code == 32 || next_code == 9 || next_code == 10) break; /* whitespace */
+        if (next_code == AD_LAYER_CHAR_SPACE || next_code == AD_LAYER_CHAR_TAB || next_code == AD_LAYER_CHAR_NEWLINE) break; /* whitespace */
         word_end = next_col;
     }
 

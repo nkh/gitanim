@@ -7,6 +7,22 @@
  */
 #include "ad_layer_common.h"
 
+/* layer_indent_last: For each line segment, if it begins with a run of
+ * leading-whitespace deletes (spaces/tabs), moves them to AFTER the
+ * content deletes. The content deletes are still in the buffer when
+ * they run, so their col is bumped by +n_indent; the indent deletes
+ * are then re-emitted at col 1. A trailing \n op (if present) is kept
+ * in place as the segment terminator.
+ *
+ * Rationale: deleting indent before content makes the line shift left
+ * before its content disappears, which looks visually wrong. Deleting
+ * content first, then indent, gives a cleaner shrink-to-empty effect.
+ *
+ * Inputs:  ops[0..n_ops-1]   — ops for one hunk (positions already set).
+ * Outputs: out[0..out_cap-1] — reordered ops (no position re-walk;
+ *                              only content cols are bumped).
+ *          *line_offset       — not modified.
+ * Returns: number of output ops written. */
 static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line_offset) {
     (void)line_offset;
     int n_out = 0, seg_start = 0;
@@ -14,7 +30,7 @@ static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line
     for (int i = 0; i <= n_ops; i++) {
         int is_boundary = (i == n_ops);
         if (!is_boundary && i > seg_start) {
-            if (ops[i].code == 10 && !ad_layer_is_debug_op(&ops[i]))
+            if (ops[i].code == AD_LAYER_CHAR_NEWLINE && !ad_layer_is_debug_op(&ops[i]))
                 is_boundary = 1;
             if (!is_boundary && !ad_layer_is_debug_op(&ops[i]) && !ad_layer_is_debug_op(&ops[i-1]))
                 if (ops[i].line != ops[i-1].line)
@@ -29,7 +45,7 @@ static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line
                 for (int j = seg_start; j < i; j++) {
                     if (ad_layer_is_debug_op(&ops[j])) continue;
                     if (strcmp(ops[j].type, "delete") == 0 &&
-                        (ops[j].code == 32 || ops[j].code == 9))
+                        (ops[j].code == AD_LAYER_CHAR_SPACE || ops[j].code == AD_LAYER_CHAR_TAB))
                         indent_end = j + 1;
                     else break;
                 }
@@ -43,7 +59,7 @@ static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line
                     /* Find \n op at the tail of the segment. */
                     int nl = -1;
                     for (int j = i - 1; j >= indent_end; j--) {
-                        if (!ad_layer_is_debug_op(&ops[j]) && ops[j].code == 10) {
+                        if (!ad_layer_is_debug_op(&ops[j]) && ops[j].code == AD_LAYER_CHAR_NEWLINE) {
                             nl = j; break;
                         }
                     }

@@ -25,10 +25,30 @@
 #include <string.h>
 #include <stdarg.h>
 
-/* ── Constants ─────────────────────────────────────────────────────── */
+/* ── Constants ───────────────────────────────────────────────────────
+ *
+ * NOTE: C does not have `const` for true compile-time constants usable in
+ * array sizes / switch labels — we use #define macros. In C++ these would
+ * be `constexpr int`. Keep these here so every layer .c file shares the
+ * same values (no magic numbers scattered across files). */
 
 #define AD_LAYER_MAX_LINE   1048576   /* 1MB max line */
 #define AD_LAYER_TYPE_LEN   20        /* max op type string length */
+
+/* Capacity / sizing magic numbers */
+#define AD_LAYER_INIT_CAPACITY  4096  /* initial op array capacity */
+#define AD_LAYER_OUTPUT_SLACK   1024  /* extra slots in output buffer */
+
+/* TSV parsing */
+#define AD_LAYER_MAX_TOKENS     8     /* max TSV tokens per line */
+
+/* ASCII character codes (used for char-code comparisons) */
+#define AD_LAYER_CHAR_SPACE     32    /* ASCII space */
+#define AD_LAYER_CHAR_TAB       9     /* ASCII tab */
+#define AD_LAYER_CHAR_NEWLINE   10    /* ASCII newline */
+
+/* Default pause (ms) after an indent-only hunk is skipped */
+#define AD_LAYER_DEFAULT_SKIP_PAUSE_MS 300
 
 /* ── Op struct ─────────────────────────────────────────────────────── */
 
@@ -161,7 +181,7 @@ __attribute__((unused)) static int ad_layer_run(
     int hunk_count = 0;
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
 
-    in_cap = 4096;
+    in_cap = AD_LAYER_INIT_CAPACITY;
     in_ops = (Op *)malloc(in_cap * sizeof(Op));
     if (!in_ops) { fprintf(stderr, "out of memory\n"); return 1; }
 
@@ -172,10 +192,10 @@ __attribute__((unused)) static int ad_layer_run(
             /* Apply cross-hunk line_offset to all ops */               \
             for (int j = 0; j < in_count; j++)                          \
                 in_ops[j].line += line_offset;                          \
-            Op *out_ops = (Op *)malloc((in_count + 1024) * sizeof(Op)); \
+            Op *out_ops = (Op *)malloc((in_count + AD_LAYER_OUTPUT_SLACK) * sizeof(Op)); \
             if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; } \
             int out_count = layer_func(in_ops, in_count, out_ops,       \
-                                       in_count + 1024, &line_offset);  \
+                                       in_count + AD_LAYER_OUTPUT_SLACK, &line_offset);  \
             ad_layer_write_hunk(&current_hunk);                         \
             for (int i = 0; i < out_count; i++)                         \
                 ad_layer_write_op(&out_ops[i]);                        \
