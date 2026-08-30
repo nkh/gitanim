@@ -40,8 +40,6 @@ binmode(STDERR, ':utf8');
 my $algorithm = 'patience';
 my $do_semantic = 0;
 my $do_word_diff = 0;
-my $do_indent_aware = 0;
-my $do_l2r = 0;
 my @positionals;
 
 for (my $i = 0; $i < @ARGV; $i++) {
@@ -50,13 +48,9 @@ for (my $i = 0; $i < @ARGV; $i++) {
         $do_semantic = 1;
     } elsif ($a eq '--word-diff') {
         $do_word_diff = 1;
-    } elsif ($a eq '--indent-aware') {
-        $do_indent_aware = 1;
-    } elsif ($a eq '--left-to-right') {
-        $do_l2r = 1;
     } elsif ($a eq '-h' || $a eq '--help') {
         print STDERR "Usage: $0 <oldfile> <newfile> <outputfile> [options]\n";
-        print STDERR "Options: --semantic-cleanup --word-diff --indent-aware --left-to-right\n";
+        print STDERR "Options: --semantic-cleanup --word-diff\n";
         exit 0;
     } else {
         push @positionals, $a;
@@ -75,7 +69,6 @@ my $t_start = Time::HiRes::time() if eval { require Time::HiRes; };
 my $result = parse_diff($oldfile, $newfile, {
     algorithm       => $algorithm,
     semantic_cleanup => $do_semantic,
-    indent_aware    => $do_indent_aware,
     word_diff       => $do_word_diff,
 });
 
@@ -99,49 +92,13 @@ print $out "# diffvim raw diff v2\n";
 print $out "# algorithm $algorithm\n";
 print $out "# semantic_cleanup $do_semantic\n";
 print $out "# word_diff $do_word_diff\n";
-print $out "# indent_aware $do_indent_aware\n";
 print $out "# optimize_sequence 1\n";
 
-# --left-to-right is parsed above (in the main CLI loop).
-print $out "# left_to_right $do_l2r\n";
 print $out "# hunk_count " . scalar(@hunks) . "\n";
 
 for my $h (@hunks) {
     print $out "HUNK\t$h->{target_line}\t$h->{deleted_count}\t$h->{inserted_count}\t$h->{is_end_insert}\t$h->{is_end_delete}\n";
 
-    # Apply left_to_right transform if enabled (mirror C++ left_to_right)
-    my @ops = @{$h->{char_ops}};
-    if ($do_l2r && @ops >= 2) {
-        my @out;
-        my $i = 0;
-        while ($i < @ops) {
-            my $code = ($ops[$i]{code} =~ /^\d+$/) ? $ops[$i]{code} : ord($ops[$i]{code});
-            my $type = $ops[$i]{op};
-            if ($type eq 'keep' || $code == 10) {
-                # Keep or \n: stays in place (anchor/line boundary)
-                push @out, $ops[$i];
-                $i++;
-            } else {
-                # Start of change region: collect consecutive non-keep, non-\n ops
-                my $region_start = $i;
-                while ($i < @ops) {
-                    my $c = ($ops[$i]{code} =~ /^\d+$/) ? $ops[$i]{code} : ord($ops[$i]{code});
-                    last if $ops[$i]{op} eq 'keep' || $c == 10;
-                    $i++;
-                }
-                my $region_end = $i;
-                # Emit all DELETEs first
-                for my $k ($region_start .. $region_end - 1) {
-                    push @out, $ops[$k] if $ops[$k]{op} eq 'delete';
-                }
-                # Then all INSERTs
-                for my $k ($region_start .. $region_end - 1) {
-                    push @out, $ops[$k] if $ops[$k]{op} eq 'insert';
-                }
-            }
-        }
-        @ops = @out;
-    }
 
     # Walk the ops and compute (line, col) for each op, mirroring the
     # C++ compute tool: cursor starts at (target, 1). keep/insert
@@ -149,6 +106,8 @@ for my $h (@hunks) {
     # (newline — keep, delete, or insert) advances line, resets col.
     my $cur_line = $h->{target_line};
     my $cur_col = 1;
+
+    my @ops = @{$h->{char_ops}};
 
     for my $op (@ops) {
         my $code = ($op->{code} =~ /^\d+$/) ? $op->{code} : ord($op->{code});

@@ -57,6 +57,7 @@ LAYER_BINS := \
     bin/ad_layer_overwrite \
     bin/ad_layer_indent_last \
     bin/ad_layer_line_delete_in_place \
+    bin/ad_layer_skip_indent \
     bin/ad_layer_pace \
     bin/ad_layer_highlight
 
@@ -95,6 +96,8 @@ bin/ad_layer_overwrite: layers/c/ad_layer_overwrite.c
 bin/ad_layer_indent_last: layers/c/ad_layer_indent_last.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 bin/ad_layer_line_delete_in_place: layers/c/ad_layer_line_delete_in_place.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_skip_indent: layers/c/ad_layer_skip_indent.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 bin/ad_layer_pace: layers/c/ad_layer_pace.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
@@ -203,8 +206,13 @@ test-layer-highlight: bin/ad_layer_highlight
 	@echo "=== Layer: highlight ==="
 	@perl layers/tests/test_highlight.pl 2>&1 | tail -3
 
+test-layer-skip_indent: bin/ad_layer_skip_indent
+	@echo "=== Layer: skip_indent ==="
+	@perl layers/tests/test_skip_indent.pl 2>&1 | tail -3
+
 test-layers: test-layer-reorder test-layer-overwrite test-layer-indent_last \
-	     test-layer-line_delete_in_place test-layer-pace test-layer-highlight
+	     test-layer-line_delete_in_place test-layer-skip_indent \
+	     test-layer-pace test-layer-highlight
 	@echo "=== All layer tests passed ==="
 
 # Cross-cutting tests

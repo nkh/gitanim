@@ -69,7 +69,6 @@ diffvim --precomputed /tmp/diff.txt old.py new.py
 | `--word-diff`                | Batch word runs in char ops                          |
 | `--optimize-sequence`        | Reorder ops within a line (default: on)              |
 | `--no-optimize-sequence`     | Disable op reordering                                |
-| `--left-to-right`            | Emit keeps, then deletes, then inserts per line      |
 | `--diff`                     | Read a unified diff instead of two files             |
 | `-h, --help`                 | Show help and exit                                   |
 
@@ -95,7 +94,6 @@ The compute tool writes a line-oriented diff file that diffvim's
 # algorithm patience
 # word_diff 0
 # optimize_sequence 1
-# left_to_right 0
 # hunk_count 3
 HUNK 2
 keep 32

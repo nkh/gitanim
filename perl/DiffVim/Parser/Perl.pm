@@ -45,22 +45,11 @@ sub parse_diff {
     my $use_word_diff = $options->{word_diff} // 0;
     my $use_semantic_cleanup = $options->{semantic_cleanup} // 0;
     my $algorithm = $options->{algorithm} // 'lcs';
-    my $indent_aware = $options->{indent_aware} // 0;
 
     my $old_lines = _read_lines($old_file);
     my $new_lines = _read_lines($new_file);
 
-    # If indent-aware is enabled, normalize indentation before line diff
-    # so that lines that differ only in indentation are treated as "keep",
-    # and the indent change is handled at the char level.
-    my $line_ops;
-    if ($indent_aware) {
-        my @old_normalized = map { _normalize_indent($_) } @$old_lines;
-        my @new_normalized = map { _normalize_indent($_) } @$new_lines;
-        $line_ops = _line_diff(\@old_normalized, \@new_normalized, $algorithm);
-    } else {
-        $line_ops = _line_diff($old_lines, $new_lines, $algorithm);
-    }
+    my $line_ops = _line_diff($old_lines, $new_lines, $algorithm);
 
     # Group line-level ops into hunks (consecutive non-keep ops).
     my @hunks;
@@ -96,15 +85,6 @@ sub parse_diff {
     }
 
     return { hunks => \@hunks, parser => 'perl' };
-}
-
-# Normalize indentation: strip leading whitespace for line-matching purposes.
-# This allows lines that differ only in indentation to be treated as "keep"
-# at the line level, with the indent change handled at the char level.
-sub _normalize_indent {
-    my ($line) = @_;
-    $line =~ s/^[ \t]*//;
-    return $line;
 }
 
 # ---------------------------------------------------------------------------

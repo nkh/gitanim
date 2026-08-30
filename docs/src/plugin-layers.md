@@ -149,6 +149,7 @@ Convenience flags that map to layers:
 | `ad_layer_overwrite` | `layers/c/ad_layer_overwrite.c` | `layers/perl/ad_layer_overwrite.pl` | Merge delete+insert into overwrite_insert |
 | `ad_layer_indent_last` | `layers/c/ad_layer_indent_last.c` | `layers/perl/ad_layer_indent_last.pl` | Move whitespace deletes to end of line |
 | `ad_layer_line_delete_in_place` | `layers/c/ad_layer_line_delete_in_place.c` | `layers/perl/ad_layer_line_delete_in_place.pl` | Delete lines on their own line |
+| `ad_layer_skip_indent` | `layers/c/ad_layer_skip_indent.c` | `layers/perl/ad_layer_skip_indent.pl` | Skip animation for indent-only hunks |
 | `ad_layer_pace` | `layers/c/ad_layer_pace.c` | `layers/perl/ad_layer_pace.pl` | Insert delay ops between ops |
 | `ad_layer_highlight` | `layers/c/ad_layer_highlight.c` | `layers/perl/ad_layer_highlight.pl` | Insert highlight/dim/fold ops |
 

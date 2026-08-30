@@ -32,7 +32,7 @@ re-typed — surrounding text is never touched.
   pipeline) when the binary is missing.
 - **Six built-in presets** — `default`, `fast-delete`, `review`,
   `ai-code`, `demo`, `presentation` for common use cases
-- **Post-processing pipeline** — `optimize_sequence`, `left_to_right`,
+- **Post-processing pipeline** — reorder, overwrite, indent_last,
   `delete_end_first`, `overwrite` to make the
   animation read naturally even on messy diffs
 

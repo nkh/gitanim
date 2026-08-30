@@ -130,8 +130,6 @@ LCS dynamic programming.
 |------|---------|-------------|
 | `--semantic-cleanup` | off | Merge adjacent del/ins pairs that cancel |
 | `--word-diff` | off | Use word-level diff |
-| `--indent-aware` | off | Normalize indentation before line diff |
-| `--left-to-right` | off | Sort ops left-to-right by column |
 
 ### 4.2 Layer Orchestrator (`pipeline/ad_postprocess`)
 
@@ -170,6 +168,7 @@ stdout, exits 0 on success.
 | `ad_layer_overwrite` | `c/ad_layer_overwrite.c` | `perl/ad_layer_overwrite.pl` | Merge del+ins → overwrite_insert |
 | `ad_layer_indent_last` | `c/ad_layer_indent_last.c` | `perl/ad_layer_indent_last.pl` | Move whitespace deletes to end |
 | `ad_layer_line_delete_in_place` | `c/ad_layer_line_delete_in_place.c` | `perl/ad_layer_line_delete_in_place.pl` | Delete lines on their own line |
+| `ad_layer_skip_indent` | `c/ad_layer_skip_indent.c` | `perl/ad_layer_skip_indent.pl` | Skip animation for indent-only hunks |
 | `ad_layer_pace` | `c/ad_layer_pace.c` | `perl/ad_layer_pace.pl` | Insert delay ops (timing) |
 | `ad_layer_highlight` | `c/ad_layer_highlight.c` | `perl/ad_layer_highlight.pl` | Insert highlight/dim/fold ops |
 
@@ -256,13 +255,13 @@ Config file is sourced as bash. Variables use UPPER_CASE names (e.g.
 
 | Suite | Test file | Count | What it verifies |
 |-------|-----------|-------|-------------------|
-| Per-layer | `layers/tests/test_<name>.pl` | 6 files | Invocable, structure, C/Perl parity |
+| Per-layer | `layers/tests/test_<name>.pl` | 7 files | Invocable, structure, C/Perl parity |
 | Minimal cases | `tests/run_minimal_tests.sh` | 25 | One transformation per case |
 | Examples | `tests/run_all_examples.sh` | 36 | Full pipeline on 26 languages |
 | L2R algorithm | `diff_engine/tests/l2r/test_l2r.sh` | 35 | Left-to-right diff mode |
 | Plugin contract | `tests/test_layers_discovery.pl` | 9 | --ad-layer, extensions, paths |
 | Property-based | `tests/test_property.pl` | 50 | Random diffs through pipeline |
-| **Total** | | **161** | All passing |
+| **Total** | | **167** | All passing |
 
 Run: `make test` (all), `make test-layers` (layers only), `make test-examples`
 (examples only).
@@ -318,9 +317,9 @@ make clean      # Remove bin/
 | Bash files | 27 |
 | Vim files | 2 |
 | Manpages | 25 |
-| Test assertions | 161 |
+| Test assertions | 167 |
 | Built binaries | 8 |
-| Layers (C + Perl) | 6 (12 files) |
+| Layers (C + Perl) | 7 (14 files) |
 | Supported languages | 26+ |
 | Environment variables | 0 |
 | LOC (C layers) | 524 (was 866, 40% reduction) |

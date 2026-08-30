@@ -84,7 +84,6 @@ These convenience flags enable specific postprocess layers:
 
 | CLI flag | Config var | Default | Values |
 |----------|-----------|---------|--------|
-| `--left-to-right` | `LEFT_TO_RIGHT` | `0` | `1` enables left-to-right diff mode |
 | `--speed N` | `SPEED` | `1.0` | float (speed multiplier) |
 | `--scroll MODE` | `SCROLL` | `zz` | `zz`, `zt`, `zb`, `none` |
 | `--max-line-len N` | `MAX_LINE_LEN` | `10000` | integer |
@@ -137,10 +136,8 @@ These convenience flags enable specific postprocess layers:
 |----------|---------|--------|
 | `--semantic-cleanup` | off | Merge adjacent delete+insert pairs that cancel out |
 | `--word-diff` | off | Use word-level diff |
-| `--indent-aware` | off | Normalize indentation before line diff |
 | `--optimize-sequence` | on | Enable op-sequence optimization |
 | `--no-optimize-sequence` | — | Disable op-sequence optimization |
-| `--left-to-right` | off | Sort ops left-to-right by column |
 
 ## Command-line overrides
 

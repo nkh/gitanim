@@ -508,44 +508,6 @@ vector<CharOp> semantic_cleanup(vector<CharOp> ops) {
 }
 
 /* --- Op-sequence optimization: consolidate interleaved del/ins --- */
-/* --- Left-to-right: within each change region (consecutive non-keep,
- * non-\n ops between boundaries), emit all DELETEs first, then all
- * INSERTs. Keeps and \n ops stay in place as anchors/line boundaries.
- *
- * This avoids the visual problem of interleaved delete+insert when a
- * word is replaced by another word (e.g., "world" → "there" produces
- * delete w, delete o, insert t, insert h... which looks horrible).
- * With l2r: delete w, delete o, insert t, insert h (deletes grouped
- * before inserts within each change region). */
-vector<CharOp> left_to_right(vector<CharOp> ops) {
-    if (ops.size() < 2) return ops;
-    vector<CharOp> out;
-    out.reserve(ops.size());
-    size_t i = 0;
-    while (i < ops.size()) {
-        if (ops[i].type == OP_KEEP || ops[i].code == 10) {
-            /* Keep or \n: stays in place (anchor/line boundary) */
-            out.push_back(ops[i]);
-            i++;
-        } else {
-            /* Start of change region: collect consecutive non-keep, non-\n ops */
-            size_t region_start = i;
-            while (i < ops.size() && ops[i].type != OP_KEEP && ops[i].code != 10)
-                i++;
-            size_t region_end = i;
-            /* Emit all DELETEs first */
-            for (size_t k = region_start; k < region_end; k++)
-                if (ops[k].type == OP_DELETE) out.push_back(ops[k]);
-            /* Then all INSERTs */
-            for (size_t k = region_start; k < region_end; k++)
-                if (ops[k].type == OP_INSERT) out.push_back(ops[k]);
-        }
-    }
-    /* Positions (line, col) are recomputed at write time by walking the
-     * output. Since keeps stayed in place, positions will be correct. */
-    return out;
-}
-
 /* --- Word-level diff --- */
 /* Splits text into tokens (maximal runs of non-whitespace + maximal runs of
  * whitespace), runs LCS at the token level, then expands each token to
@@ -651,24 +613,12 @@ vector<CharOp> word_diff(const string& a, const string& b) {
     return ops;
 }
 
-/* Strip leading whitespace (spaces and tabs) from a line.
- * Used by --indent-aware so lines that differ only in indentation are
- * treated as "keep" at the line level. */
-string normalize_indent(const string& line) {
-    int start = 0;
-    while (start < (int)line.size() && (line[start] == ' ' || line[start] == '\t')) start++;
-    return line.substr(start);
-}
-
 int main(int argc, char** argv) {
     auto t_start = Clock::now();
 
     /* Options — set by CLI flags only (no env vars). */
     bool do_semantic = false;
     bool do_word_diff = false;
-    bool do_indent_aware = false;
-
-    bool do_l2r = false;
 
     /* Parse args:
      *   Two-file mode: <oldfile> <newfile> <outputfile> [options]
@@ -695,8 +645,8 @@ int main(int argc, char** argv) {
 "OPTIONS\n"
 "    --semantic-cleanup    Merge adjacent delete+insert pairs that cancel out\n"
 "    --word-diff            Use word-level diff (groups changes by word tokens)\n"
-"    --indent-aware         Normalize indentation before line diff\n"
-"    --left-to-right        Sort ops left-to-right by column\n"
+
+
 "\n"
 "CONFIGURATION\n"
 "    No environment variables. Use CLI flags (above) or the config\n"
@@ -718,10 +668,6 @@ int main(int argc, char** argv) {
             do_semantic = true;
         } else if (strcmp(argv[i], "--word-diff") == 0) {
             do_word_diff = true;
-        } else if (strcmp(argv[i], "--indent-aware") == 0) {
-            do_indent_aware = true;
-        } else if (strcmp(argv[i], "--left-to-right") == 0) {
-            do_l2r = true;
         } else if (strcmp(argv[i], "--diff") == 0) {
             diff_mode = true;
         } else {
@@ -732,7 +678,7 @@ int main(int argc, char** argv) {
     string oldfile, newfile, outfile, diff_file;
     if (diff_mode) {
         if (positionals.size() < 2) {
-            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "Usage: %s --diff <patchfile> <outputfile> [--semantic-cleanup] [--word-diff]\n", argv[0]);
             fprintf(stderr, "   or: %s --diff - <outputfile> [options]   (read diff from stdin)\n", argv[0]);
             return 1;
         }
@@ -740,7 +686,7 @@ int main(int argc, char** argv) {
         outfile = positionals[1];
     } else {
         if (positionals.size() < 3) {
-            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--semantic-cleanup] [--word-diff] [--indent-aware]\n", argv[0]);
+            fprintf(stderr, "Usage: %s <oldfile> <newfile> <outputfile> [--semantic-cleanup] [--word-diff]\n", argv[0]);
             fprintf(stderr, "   or: %s --diff <patchfile> <outputfile> [options]\n", argv[0]);
             return 1;
         }
@@ -767,19 +713,8 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    /* If indent_aware, build normalized copies of the lines for the line-level
-     * diff. The indices returned by compute_line_diff are the same (since
-     * normalization doesn't change line count), so we can use them to access
-     * the ORIGINAL (non-normalized) lines when building hunk text. */
-    vector<string> old_norm, new_norm;
-    if (do_indent_aware) {
-        old_norm.reserve(old_lines.size());
-        new_norm.reserve(new_lines.size());
-        for (auto& l : old_lines) old_norm.push_back(normalize_indent(l));
-        for (auto& l : new_lines) new_norm.push_back(normalize_indent(l));
-    }
-    const vector<string>& line_a = do_indent_aware ? old_norm : old_lines;
-    const vector<string>& line_b = do_indent_aware ? new_norm : new_lines;
+    const vector<string>& line_a = old_lines;
+    const vector<string>& line_b = new_lines;
 
     auto t_diff_start = Clock::now();
     auto lops = compute_line_diff(line_a, line_b);
@@ -840,9 +775,6 @@ int main(int argc, char** argv) {
             if (do_semantic) {
                 h.char_ops = semantic_cleanup(move(h.char_ops));
             }
-            if (do_l2r) {
-                h.char_ops = left_to_right(move(h.char_ops));
-            }
             hunks.push_back(move(h));
         }
     }
@@ -855,9 +787,9 @@ int main(int argc, char** argv) {
     out << "# algorithm patience\n";
     out << "# semantic_cleanup " << (do_semantic ? 1 : 0) << "\n";
     out << "# word_diff " << (do_word_diff ? 1 : 0) << "\n";
-    out << "# indent_aware " << (do_indent_aware ? 1 : 0) << "\n";
+    out << "# indent_aware 0\n";
     out << "# optimize_sequence 1\n";
-    out << "# left_to_right " << (do_l2r ? 1 : 0) << "\n";
+    out << "# left_to_right 0\n";
     out << "# hunk_count " << hunks.size() << "\n";
     for (auto& h : hunks) {
         out << "HUNK\t" << h.target_line << "\t" << h.deleted_count << "\t"

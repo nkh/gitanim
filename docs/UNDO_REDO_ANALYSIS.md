@@ -180,85 +180,31 @@ without any layer-specific knowledge.
 
 ---
 
-# Appendix: `--indent-aware` and `--left-to-right` — Can They Be Layers?
-
-## `--indent-aware`
 
 ### What it does
+# Appendix: `--indent-aware` and `--left-to-right` — Removed
 
-`--indent-aware` normalizes leading whitespace before the line-level diff.
-It strips leading spaces/tabs from both old and new lines, runs the Patience
-diff on the **normalized** lines, then uses the resulting line indices to
-extract text from the **original** (non-normalized) lines for char-level
-diffing.
+Both `--indent-aware` and `--left-to-right` have been **removed** from
+`ad_compute`.
 
-**Effect:** Lines that differ only in indentation (e.g. `    foo()` vs
-`        foo()`) are treated as "keep" at the line level — they're not
-flagged as changed. This produces cleaner diffs when code is re-indented.
+## `--indent-aware` (removed)
 
-### Can it be a layer?
+`--indent-aware` normalized indentation before line-level diffing — lines
+that differed only in indentation were treated as "keep". The problem: this
+caused the ops to be skipped, so the new file would be wrong (the indent
+change wasn't applied to the buffer).
 
-**No.** `--indent-aware` affects the **line-level diff** — which lines are
-matched as "same" vs "different". This happens inside `ad_compute` before
-any ops are produced. A layer operates on the **op stream** (after the diff
-is computed), so it can't change which lines were matched.
+**Replaced by:** `ad_layer_skip_indent` — a layer that detects indent-only
+hunks and marks them for instant application (ops are applied but not
+animated). The buffer ends up correct; only the animation is skipped.
 
-A layer could try to post-process the ops: detect that a delete+insert pair
-on the same line differs only in leading whitespace, and convert them to
-keeps. But this would be:
-1. **O(n²)** — comparing every delete against every insert on the same line
-2. **Incomplete** — the line-level anchor would already be wrong (the lines
-   were matched as "different", so they're in separate hunks)
-3. **Wrong** — the char-level diff would have produced char ops for the
-   indentation change, which a layer would have to detect and cancel
+## `--left-to-right` (removed)
 
-**Verdict:** Must stay in `ad_compute`. It's a diff-algorithm option, not a
-post-processing transform.
+`--left-to-right` reordered ops within change regions (deletes before
+inserts). This was **redundant** with `ad_layer_reorder`, which does the
+same thing (and more: handles \n deletes/inserts separately, recomputes
+positions, tracks cross-hunk line_offset).
 
-## `--left-to-right`
-
-### What it does
-
-`--left-to-right` reorders ops within each change region so all DELETEs come
-before all INSERTs, sorted by column. Specifically, within each region of
-consecutive non-keep, non-`\n` ops:
-
-```
-Before:  delete(1,3)  insert(1,3)  delete(1,5)  insert(1,5)  keep(1,6)
-After:   delete(1,3)  delete(1,5)  insert(1,3)  insert(1,5)  keep(1,6)
-```
-
-### Can it be a layer?
-
-**Yes — and it already is.** `ad_layer_reorder` does **exactly this** (and
-more). The reorder layer's "4-sweep" algorithm is a superset of
-`left_to_right`:
-
-| `left_to_right` (in compute) | `ad_layer_reorder` (layer) |
-|-----|------|
-| Within each change region: deletes first, then inserts | Same — Sweep 1 (non-\n deletes), Sweep 2 (non-\n inserts) |
-| Keeps and \n stay as anchors | Same |
-| Does NOT handle \n deletes / \n inserts separately | Does — Sweep 3 (\n deletes), Sweep 4 (\n inserts) |
-| Does NOT handle debug ops | Does — Sweep 5 |
-| Does NOT recompute positions | Does — walks output and sets (line, col) |
-| Does NOT track cross-hunk line_offset | Does — applies cumulative offset |
-
-### Why both exist
-
-`--left-to-right` in compute was the **original** implementation, added before
-the layer system existed. When `ad_layer_reorder` was created, it replicated
-and extended the same logic as a layer.
-
-**Current state:** `ad_layer_reorder` always runs (it's the first layer in
-the default chain). The `--left-to-right` flag in compute is **redundant** —
-the reorder layer already produces the same (or better) ordering.
-
-**Recommendation:** `--left-to-right` in `ad_compute` can be **removed**.
-The reorder layer supersedes it. This would:
-- Remove ~40 lines from `compute.cpp` (the `left_to_right()` function)
-- Remove the `--left-to-right` CLI flag from `ad_compute`
-- Remove the `# left_to_right` header from the raw op stream
-- Eliminate confusion about which one to use
-
-The flag is currently `off` by default in compute, and the reorder layer
-always runs — so the behavior is already "left-to-right" via the layer.
+The reorder layer always runs as the first layer in the default chain, so
+the behavior is already "left-to-right" via the layer. The compute flag
+added nothing and has been removed.

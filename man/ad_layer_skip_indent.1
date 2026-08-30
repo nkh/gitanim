@@ -1,0 +1,76 @@
+.TH AD_LAYER_SKIP_INDENT 1 "2026-08-30" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_skip_indent \- skip animation for indent-only hunks (apply ops instantly)
+.SH SYNOPSIS
+.B ad_layer_skip_indent
+.RI [ options ]
+< post_ops > marked_ops
+.SH DESCRIPTION
+.B ad_layer_skip_indent
+detects hunks where ALL changes are whitespace (spaces, tabs, or newlines).
+These are "indent-only" hunks — the content is unchanged, only the leading
+whitespace changed.
+.PP
+When an indent-only hunk is detected, the layer wraps its ops with special
+delay markers. The pace layer recognizes these markers and sets all delays
+to 0 (instant) within the marked region, then adds a pause after.
+.PP
+The ops are NOT modified — they're all still applied, so the buffer ends up
+correct. Only the animation timing is affected: the viewer sees the indent
+change applied instantly (no character-by-character animation) followed by
+a brief pause.
+.SH HOW IT WORKS
+.PP
+.RS
+.nf
+Input hunk (indent-only):
+  delete space, delete space, insert space x8, keep 'f'
+
+Output (with markers):
+  delay  -1  0  0        ← indent_skip_start (line=-1, col=0)
+  delete space           ← original ops, unchanged
+  delete space
+  insert space x8
+  keep 'f'
+  delay  -1  1  300      ← indent_skip_end (line=-1, col=1, pause=300ms)
+.fi
+.RE
+.PP
+The pace layer sees the start marker, enters "skip mode" (all delays = 0),
+applies the ops instantly, then sees the end marker and emits a 300ms pause.
+.SH OPTIONS
+.TP
+.BI \-\-pause\-after\-ms  N
+Pause duration (ms) after an indent-only hunk. Default: 300.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH INPUT/OUTPUT
+V2 TSV format. Input should be post-reorder (see
+.BR ad_layer_reorder (1)).
+Runs BEFORE pace (it's a postprocess layer, not a pipeline stage).
+.SH EXAMPLES
+.TP
+.B ad_layer_skip_indent < reordered_ops.txt > marked_ops.txt
+Mark indent-only hunks for instant application.
+.TP
+.B ad_layer_skip_indent --pause-after-ms 500 < reordered_ops.txt > marked_ops.txt
+Use 500ms pause after indent-only hunks.
+.SH USAGE IN PIPELINE
+.PP
+Add this layer between reorder and pace:
+.PP
+.RS
+.nf
+ad_postprocess \\
+  --ad-layer=ad_layer_reorder \\
+  --ad-layer=ad_layer_skip_indent \\
+  < raw_ops.txt | ad_layer_pace > timed_ops.txt
+.fi
+.RE
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_layer_reorder (1),
+.BR ad_layer_pace (1)
+.PP
+.I docs/src/plugin-layers.md

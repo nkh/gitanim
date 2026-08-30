@@ -58,6 +58,7 @@ static int awd_start_ms = 80;    /* slow start delay */
 static int awd_min_ms = 15;      /* minimum accelerated delay */
 static double awd_accel = 0.85;  /* acceleration factor */
 static int word_pause = 150;     /* after a word */
+static int skip_indent_mode = 0;  /* set by indent_skip markers */
 static double dist_mult = 1.0;  /* distance-based speed multiplier (applied to delete delays) */
 
 static char delete_pacing[32] = "word";
@@ -143,8 +144,14 @@ static void track_op_type(const char *type) {
     }
 }
 
-/* Emit a delay with pacing applied */
+/* Emit a delay with pacing applied.
+ * When skip_indent_mode is active (from ad_layer_skip_indent), all
+ * delays are set to 0 so ops are applied instantly. */
 static void emit_paced_delay(int ms, const char *type) {
+    if (skip_indent_mode) {
+        emit_delay(0, type);
+        return;
+    }
     int adjusted = apply_pacing(ms);
     emit_delay(adjusted, type);
 }
@@ -152,6 +159,10 @@ static void emit_paced_delay(int ms, const char *type) {
 /* Emit a delete delay, applying the distance-based speed multiplier.
  * Only delete delays are affected (not inserts, keeps, or hunk pauses). */
 static void emit_delete_delay(int ms, const char *type) {
+    if (skip_indent_mode) {
+        emit_delay(0, type);
+        return;
+    }
     int adjusted = (int)(ms * dist_mult);
     if (adjusted < 1) adjusted = 1;
     emit_paced_delay(adjusted, type);
@@ -607,8 +618,40 @@ static void handle_hunk_end(char *line) {
     i++;
 }
 
-/* delay op: passthrough (delay lines in input are forwarded verbatim). */
+/* delay op: passthrough (delay lines in input are forwarded verbatim).
+ * Also handles indent_skip markers from ad_layer_skip_indent:
+ *   delay with line==-1, col==0 → start skip mode (0ms delays)
+ *   delay with line==-1, col==1 → end skip mode, emit pause */
+
 static void handle_delay(char *line) {
+    char *toks[8];
+    char tbuf[MAX_LINE];
+    strncpy(tbuf, line, MAX_LINE - 1);
+    tbuf[MAX_LINE - 1] = 0;
+    int nt = ad_layer_parse_tsv(tbuf, toks, 8);
+
+    /* Check for indent_skip markers (line field == -1). */
+    if (nt >= 2 && atoi(toks[1]) == -1) {
+        int col = (nt >= 3) ? atoi(toks[2]) : 0;
+        /* The skip_indent layer emits delay ops as Op structs:
+         *   delay\t<line=-1>\t<col=0 or 1>\t<code=0 or pause_ms>
+         * toks[1]=line (-1), toks[2]=col (0=start, 1=end),
+         * toks[3]=code (0=start, pause_ms=end)
+         */
+        if (col == 0) {
+            /* Start skip mode */
+            skip_indent_mode = 1;
+        } else {
+            /* End skip mode + emit pause */
+            skip_indent_mode = 0;
+            int pause_ms = (nt >= 4) ? atoi(toks[3]) : 300;
+            emit_paced_delay(pause_ms, "indent_skip_end");
+        }
+        i++;
+        return;
+    }
+
+    /* Normal delay — passthrough. */
     passthrough(line);
     i++;
 }
