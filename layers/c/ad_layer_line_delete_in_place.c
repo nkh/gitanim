@@ -98,8 +98,7 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
         /* No match — emit op[i] unchanged.
          * If this is a \n delete, the animator will join two lines
          * (buffer loses a line) → decrement later ops by 1, but ONLY
-         * for ops that are BELOW this \n's line (ops on the same line
-         * or above are not affected by the join). */
+         * for ops that are BELOW this \n's line. */
         if (n_out < out_cap)
             out[n_out++] = work[i];
         if (strcmp(work[i].type, "delete") == 0
