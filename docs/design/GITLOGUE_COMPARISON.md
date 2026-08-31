@@ -1,8 +1,8 @@
-# diffvim vs gitlogue — detailed comparison
+# ad_vim vs gitlogue — detailed comparison
 
 ## Overview
 
-| | diffvim | gitlogue |
+| | ad_vim | gitlogue |
 |---|---------|----------|
 | Language | C/C++ + Perl + vimscript | Rust |
 | UI | vim (or C terminal animator) | ratatui (TUI framework) |
@@ -14,7 +14,7 @@
 
 ### Diff computation
 
-| Feature | diffvim | gitlogue |
+| Feature | ad_vim | gitlogue |
 |---------|---------|----------|
 | Algorithm | Patience diff (anchored on unique lines) | Uses `git diff` output |
 | Char-level | Yes — every char is a keep/delete/insert op | No — line-level hunks, char-level within |
@@ -25,7 +25,7 @@
 
 ### Op pipeline
 
-| Feature | diffvim | gitlogue |
+| Feature | ad_vim | gitlogue |
 |---------|---------|----------|
 | Pipeline stages | compute → postprocess → pace → animate | generate_steps → animate |
 | Op format | TSV text (human-readable, debuggable) | Rust structs (in-memory) |
@@ -35,7 +35,7 @@
 
 ### Animation
 
-| Feature | diffvim | gitlogue |
+| Feature | ad_vim | gitlogue |
 |---------|---------|----------|
 | Cursor movement | Jump to op position (no smooth scroll) | **Smooth ease-in-out** between hunks |
 | Distance-based speed | No | **Yes** (short=every line, long=jump) |
@@ -50,7 +50,7 @@
 
 ### Visual features
 
-| Feature | diffvim | gitlogue |
+| Feature | ad_vim | gitlogue |
 |---------|---------|----------|
 | Syntax highlighting | **Yes — user's own vim colorscheme** | Yes (syntect — built-in themes) |
 | Color in C animator | Yes (colormap with vim/pygmentize) | Yes (syntect) |
@@ -65,7 +65,7 @@
 | Status bar | No (--progress shows line info) | **Yes** (ratatui status bar) |
 | Commit metadata | No | **Yes** (shows commit hash, author, date) |
 
-### Where diffvim is better
+### Where ad_vim is better
 
 1. **Seeing the diff in vim** — the user sees their OWN vim, with their
    OWN colorscheme, syntax highlighting, plugins, etc. gitlogue uses
@@ -96,10 +96,10 @@
 ### Where gitlogue is better
 
 1. **Smooth cursor movement** — ease-in-out interpolation between
-   hunks. diffvim jumps instantly.
+   hunks. ad_vim jumps instantly.
 
 2. **Distance-based speed** — short distances show every line, long
-   distances jump. diffvim has no cursor movement at all.
+   distances jump. ad_vim has no cursor movement at all.
 
 3. **Terminal simulation** — gitlogue shows the entire git workflow:
    file tree, terminal, git add/commit/push. This is visually

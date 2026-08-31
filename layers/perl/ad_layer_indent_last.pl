@@ -10,7 +10,7 @@
 # byte-identical output for the same input — see test_indent_last.pl and
 # animator/tests/test_layers_discovery.pl for the parity assertion.
 #
-# Protocol (the diffvim layer plugin contract — see FLEXIBILITY.md):
+# Protocol (the ad_vim layer plugin contract — see FLEXIBILITY.md):
 #   * Reads V2 TSV from stdin: HUNK header, op lines, HUNK_END.
 #   * Writes V2 TSV to stdout in the same format.
 #   * Headers (# ...) and blank lines are passed through.

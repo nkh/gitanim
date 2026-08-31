@@ -1,4 +1,4 @@
-# diffvim API Reference
+# ad_vim API Reference
 
 ## Timed Op Stream Format (v2 TSV)
 
@@ -92,9 +92,9 @@ ad_pipeline [options] <oldfile> <newfile>
   -h, --help           Show help
 ```
 
-### diffvim-colorize
+### ad_colorize
 ```
-diffvim-colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
+ad_colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
   --backend    Coloring backend (default: auto)
   --lang       Source language (default: auto-detect from extension)
   -h, --help   Show help

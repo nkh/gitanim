@@ -11,25 +11,25 @@ The repo includes shell completion scripts for bash, zsh, and fish.
 
 ```bash
 # Install system-wide
-sudo cp completion/diffvim.bash /etc/bash_completion.d/diffvim
+sudo cp completion/ad_vim.bash /etc/bash_completion.d/ad_vim
 
 # Or for current user
 mkdir -p ~/.local/share/bash-completion/completions
-cp completion/diffvim.bash ~/.local/share/bash-completion/completions/diffvim
+cp completion/ad_vim.bash ~/.local/share/bash-completion/completions/ad_vim
 
 # Or source directly
-source completion/diffvim.bash
+source completion/ad_vim.bash
 ```
 
 ## Zsh
 
 ```bash
 # Install
-sudo cp completion/_diffvim /usr/local/share/zsh/site-functions/
+sudo cp completion/__ad_vim /usr/local/share/zsh/site-functions/
 
 # Or for current user
 mkdir -p ~/.zsh/completions
-cp completion/_diffvim ~/.zsh/completions/
+cp completion/__ad_vim ~/.zsh/completions/
 
 # Add to fpath in ~/.zshrc
 fpath=(~/.zsh/completions $fpath)
@@ -40,7 +40,7 @@ autoload -Uz compinit && compinit
 
 ```bash
 # Install
-cp completion/diffvim.fish ~/.config/fish/completions/
+cp completion/ad_vim.fish ~/.config/fish/completions/
 ```
 
 ## What Completes
@@ -69,15 +69,15 @@ to update the completion scripts in `completion/`.
 
 ```bash
 # Bash — after sourcing/installing:
-diffvim --<Tab>      # should show all --options
-diffvim --speed <Tab>  # should show 0.5 1 2 3 5
-diffvim --algorithm <Tab>  # should show patience
+ad_vim --<Tab>      # should show all --options
+ad_vim --speed <Tab>  # should show 0.5 1 2 3 5
+ad_vim --algorithm <Tab>  # should show patience
 
 # Zsh — after installing to fpath:
-diffvim --<Tab>
+ad_vim --<Tab>
 
 # Fish — after installing:
-diffvim --<Tab>
+ad_vim --<Tab>
 ```
 
 ## Generating Completions

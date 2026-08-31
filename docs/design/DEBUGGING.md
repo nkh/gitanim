@@ -1,6 +1,6 @@
-# Debugging the diffvim pipeline
+# Debugging the ad_vim pipeline
 
-This document explains how to debug the diffvim pipeline. It covers:
+This document explains how to debug the ad_vim pipeline. It covers:
 - What each stage produces
 - How to run stages separately
 - What to look for in each stage's output
@@ -175,7 +175,7 @@ Run `bash scripts/dv_debug.sh <old> <new>` to get a full breakdown:
 
 ```
 ══════════════════════════════════════════════════════════════
- diffvim pipeline debugger
+ ad_vim pipeline debugger
 ══════════════════════════════════════════════════════════════
 
 ─── INPUT FILES ──────────────────────────────────────────────
@@ -260,7 +260,7 @@ diff /tmp/out.txt new
 
 ## Running the vimscript animator
 
-The `./diffvim old new` launcher uses the vimscript animator. To
+The `./ad_vim old new` launcher uses the vimscript animator. To
 test it headless (no vim window), use:
 
 ```bash
@@ -344,9 +344,9 @@ correct but they're in an order that produces bad visuals. Check:
 See [POSTPROCESS_TRANSFORMS.md](POSTPROCESS_TRANSFORMS.md) for
 what each transformation should look like.
 
-### "diffvim (the launcher) shows wrong output"
+### "ad_vim (the launcher) shows wrong output"
 
-The diffvim launcher uses the vimscript animator, which has its
+The ad_vim launcher uses the vimscript animator, which has its
 own snapshot writer. Check:
 ```bash
 bash tests/test_vimscript_animator.sh tests/tests/examples/<name>

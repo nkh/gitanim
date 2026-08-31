@@ -5,19 +5,19 @@
 *Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
 
 
-Every diffvim executable has a manpage in the
+Every ad_vim executable has a manpage in the
 [`man/`](https://github.com/diffvim/diffvim/tree/main/man) directory.
 Install them to your system manpath to get offline documentation
-from `man diffvim`, `man ad_compute`, etc.
+from `man ad_vim`, `man ad_compute`, etc.
 
 ## Available Manpages
 
 | Manpage                     | Describes                                            |
 | --------------------------- | ---------------------------------------------------- |
-| [`diffvim.1`](../../man/diffvim.1)                  | The main `diffvim` command (bash + vimscript)   |
-| [`diffvim-tmux.1`](../../man/diffvim-tmux.1)        | The `diffvim-tmux` variant (bash + tmux)        |
-| [`diffvim-compare.1`](../../man/diffvim-compare.1)  | The `diffvim-compare` benchmark tool            |
-| [`diffvim-jogger.1`](../../man/diffvim-jogger.1)    | The `diffvim-jogger` test-case exerciser        |
+| [`ad_vim.1`](../../man/ad_vim.1)                  | The main `diffvim` command (bash + vimscript)   |
+| [`ad_tmux.1`](../../man/ad_tmux.1)        | The `ad_tmux` variant (bash + tmux)        |
+| [`ad_compare.1`](../../man/ad_compare.1)  | The `ad_compare` benchmark tool            |
+| [`ad_jogger.1`](../../man/ad_jogger.1)    | The `ad_jogger` test-case exerciser        |
 | [`ad_compute.1`](../../man/ad_compute.1)  | The `ad_compute` tool (the only compute implementation)     |
 
 ## Installing
@@ -33,7 +33,7 @@ cp man/*.1 ~/.local/share/man/man1/
 mandb --user-path
 
 # Verify
-man diffvim
+man ad_vim
 man ad_compute
 ```
 
@@ -45,26 +45,26 @@ are installed automatically.
 You can read the manpages directly from the source tree:
 
 ```bash
-man -l man/diffvim.1
+man -l man/ad_vim.1
 man -l man/ad_compute.1
 ```
 
 Or use `groff` to render to text:
 
 ```bash
-groff -man -Tutf8 man/diffvim.1 | less
+groff -man -Tutf8 man/ad_vim.1 | less
 ```
 
 ## Quick Reference
 
 ```bash
-diffvim --help              # CLI help (always available)
-diffvim -h                  # same as --help
-man diffvim                 # full manpage (if installed)
-man -l man/diffvim.1        # full manpage (from source tree)
+ad_vim --help              # CLI help (always available)
+ad_vim -h                  # same as --help
+man ad_vim                 # full manpage (if installed)
+man -l man/ad_vim.1        # full manpage (from source tree)
 ```
 
-Every executable in the diffvim project supports both `--help` (for
+Every executable in the ad_vim project supports both `--help` (for
 quick CLI reference) and a manpage (for the full reference with
 cross-links to related commands).
 

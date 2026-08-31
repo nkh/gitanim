@@ -1,4 +1,4 @@
-# diffvim vim plugin
+# ad_vim vim plugin
 
 ## Installation
 
@@ -56,7 +56,7 @@ make
 ## Configuration
 
 ```vim
-" Set the diffvim launcher path (if not in PATH)
+" Set the ad_vim launcher path (if not in PATH)
 let g:diffvim_binary = '/path/to/diffvim'
 
 " Set default options

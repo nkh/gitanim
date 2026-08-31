@@ -1,6 +1,6 @@
 # Multi-File Animation
 
-diffvim can animate diffs across multiple files in a single session. This is
+ad_vim can animate diffs across multiple files in a single session. This is
 useful for reviewing a commit that touches several files, or for presenting
 a refactoring that spans multiple modules.
 
@@ -11,27 +11,27 @@ a refactoring that spans multiple modules.
 ### Basic multi-file mode
 
 ```bash
-diffvim --multi old1.py:new1.py old2.py:new2.py old3.py:new3.py
+ad_vim --multi old1.py:new1.py old2.py:new2.py old3.py:new3.py
 ```
 
 Each argument is an `old:new` pair (colon-separated, absolute or relative
-paths). diffvim animates them in order: file 1, then file 2, then file 3.
+paths). ad_vim animates them in order: file 1, then file 2, then file 3.
 
 ### With git replay
 
 ```bash
 # Animate the last 5 commits of multiple files
-diffvim --replay src/main.py src/utils.py src/config.py
+ad_vim --replay src/main.py src/utils.py src/config.py
 
 # Specific commit range
-diffvim --replay src/main.py src/utils.py --from v1.0 --to HEAD
+ad_vim --replay src/main.py src/utils.py --from v1.0 --to HEAD
 ```
 
 ### Mixed options
 
 ```bash
 # Multi-file with speed and highlighting
-diffvim --multi old1.py:new1.py old2.py:new2.py \
+ad_vim --multi old1.py:new1.py old2.py:new2.py \
     --speed 0.8 --highlight-hunk --sign-column
 ```
 
@@ -39,7 +39,7 @@ diffvim --multi old1.py:new1.py old2.py:new2.py \
 
 ## How It Works
 
-1. diffvim resolves all file pairs at startup.
+1. ad_vim resolves all file pairs at startup.
 2. For each pair, it computes the diff and animates it.
 3. Between files, a "next file" message is shown briefly.
 4. State (hunk index, cursor, line offset) is reset between pairs.
@@ -59,7 +59,7 @@ All the normal controls work during multi-file animation:
 | `q` | Stop animation |
 | `+`/`-` | Speed up / slow down |
 
-When you press `n` at the last hunk of the current file, diffvim
+When you press `n` at the last hunk of the current file, ad_vim
 automatically advances to the next file.
 
 ---
@@ -86,15 +86,15 @@ for pair in "${PAIRS[@]}"; do
     PC_FILES+=("$old:$new:$pc")
 done
 
-# Run diffvim with --precomputed for each pair
-# (diffvim --precomputed currently takes a single file; for multi-file,
+# Run ad_vim with --precomputed for each pair
+# (ad_vim --precomputed currently takes a single file; for multi-file,
 #  use the wrapper script or run sequentially)
 for triple in "${PC_FILES[@]}"; do
     old="${triple%%:*}"
     rest="${triple#*:}"
     new="${rest%%:*}"
     pc="${rest##*:}"
-    ./diffvim --precomputed "$pc" "$old" "$new"
+    ./ad_vim --precomputed "$pc" "$old" "$new"
 done
 
 rm -rf "$WORKDIR"
@@ -125,7 +125,7 @@ done
 
 # Now animate (diffs are ready)
 echo "All diffs computed. Starting animation..."
-# ... run diffvim for each pair
+# ... run ad_vim for each pair
 ```
 
 **Speedup**: For N files, parallel pre-computation takes `max(compute_time)`
@@ -138,21 +138,21 @@ instead of 1000ms.
 
 1. **Use `--startup-feedback`** to see which file is being computed:
    ```bash
-   diffvim --multi old1.py:new1.py old2.py:new2.py --startup-feedback
+   ad_vim --multi old1.py:new1.py old2.py:new2.py --startup-feedback
    ```
 
 2. **Use `--output`** to save each result:
    ```bash
    # After each file's animation, the result is written
-   diffvim --multi old1.py:new1.py old2.py:new2.py --output results/
+   ad_vim --multi old1.py:new1.py old2.py:new2.py --output results/
    ```
 
 3. **Use `--speed 2`** for quick multi-file review:
    ```bash
-   diffvim --multi old1.py:new1.py old2.py:new2.py --speed 2
+   ad_vim --multi old1.py:new1.py old2.py:new2.py --speed 2
    ```
 
 4. **Use `--dim-unchanged`** to focus on changed lines across files:
    ```bash
-   diffvim --multi old1.py:new1.py old2.py:new2.py --dim-unchanged
+   ad_vim --multi old1.py:new1.py old2.py:new2.py --dim-unchanged
    ```

@@ -6,7 +6,7 @@
 # the export block, so AD_HIGHLIGHT_WORD/HUNK/INLINE were exported
 # as empty (0) before the resolution set the shell variables to 1.
 #
-# We verify this by checking the line numbers in the diffvim script:
+# We verify this by checking the line numbers in the ad_vim script:
 # the resolution block must come BEFORE the export lines.
 
 use strict;
@@ -21,8 +21,8 @@ sub ok {
     else       { print "FAIL: $name\n"; $fail++; }
 }
 
-# Read the diffvim script
-open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
+# Read the ad_vim script
+open my $fh, '<', 'diffvim' or die "Cannot open ad_vim: $!";
 my @lines = <$fh>;
 close $fh;
 

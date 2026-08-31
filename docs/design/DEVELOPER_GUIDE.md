@@ -14,7 +14,7 @@ layout, development workflow, and how to extend the project.
 4. [Building from Source](#4-building-from-source)
 5. [The Pipeline Stages](#5-the-pipeline-stages)
 6. [The Timed Op Stream Format (v2 TSV)](#6-the-timed-op-stream-format-v2-tsv)
-7. [How diffvim (vimscript) Works](#7-how-diffvim-vimscript-works)
+7. [How ad_vim (vimscript) Works](#7-how-diffvim-vimscript-works)
 8. [How ad_pipeline (standalone) Works](#8-how-ad_pipeline-standalone-works)
 9. [The Coloring System](#9-the-coloring-system)
 10. [Testing](#10-testing)
@@ -86,11 +86,11 @@ The project has two modes:
 
 ```
 gitanim/
-├── diffvim                       # Bash launcher (loads vimscript engine)
-├── diffvim.pl                    # Perl launcher
-├── diffvim-tmux                  # tmux variant
-├── diffvim-compare               # Diff algorithm benchmark tool
-├── diffvim-jogger                # Test-case exerciser
+├── ad_vim                       # Bash launcher (loads vimscript engine)
+├── ad_vim.pl                    # Perl launcher
+├── ad_tmux                  # tmux variant
+├── ad_compare               # Diff algorithm benchmark tool
+├── ad_jogger                # Test-case exerciser
 │
 ├── compute/
 │   ├── cpp/ad_compute.cpp   # C++ Patience diff (the only compute tool)
@@ -166,7 +166,7 @@ bash tests/verify_md5.sh
 - **C++17 compiler** (g++ 14+) — for the compute tool
 - **C compiler** (gcc 14+) — for the animator tools
 - **Perl 5** — for the Perl animator, postprocess, pace, colorize, and tests
-- **vim 9** — for the vimscript animator (diffvim)
+- **vim 9** — for the vimscript animator (ad_vim)
 - **pygmentize** (optional) — for syntax coloring via Pygments
 - **fzf** (optional) — for `:DiffvimPick` commit picker
 
@@ -285,7 +285,7 @@ Key points:
 
 ---
 
-## 7. How diffvim (vimscript) Works
+## 7. How ad_vim (vimscript) Works
 
 The `diffvim` bash launcher:
 
@@ -350,7 +350,7 @@ The C animator avoids flashing by:
 
 ## 9. The Coloring System
 
-### diffvim-colorize tool
+### ad_colorize tool
 
 `animator/perl/colorize.pl` produces color map files — one ANSI-colored
 line per source line.
@@ -363,7 +363,7 @@ line per source line.
 Auto-detection: `vim > pygmentize > none`
 
 ```bash
-diffvim-colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
+ad_colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
 ```
 
 ### How coloring integrates with the pipeline
@@ -440,7 +440,7 @@ perl tests/test_delete_pacing.pl
 
 ## 11. Adding a New Language
 
-diffvim auto-detects language from file extension. To add a new one:
+ad_vim auto-detects language from file extension. To add a new one:
 
 1. **Add to the extension map** in:
    - `compute/cpp/ad_compute.cpp` (not needed — compute is language-agnostic)
@@ -449,7 +449,7 @@ diffvim auto-detects language from file extension. To add a new one:
 
 2. **Add example files**: Create `tests/tests/examples/NN_lang_name/old.ext` and `new.ext`
 
-3. **Add completion** (optional): Add the extension to `completion/diffvim.bash`
+3. **Add completion** (optional): Add the extension to `completion/ad_vim.bash`
    in the `--language` completion.
 
 ---
@@ -495,12 +495,12 @@ diffvim auto-detects language from file extension. To add a new one:
 ### Enable debug logging
 
 ```bash
-# diffvim launcher:
-diffvim --debug old.py new.py
+# ad_vim launcher:
+ad_vim --debug old.py new.py
 # Writes to /tmp/diffvim-debug.log
 
 # See the timed op stream:
-WORKDIR=/tmp/ad_debug diffvim --no-vimrc old.py new.py
+WORKDIR=/tmp/ad_debug ad_vim --no-vimrc old.py new.py
 # Stream is at /tmp/ad_debug/timed_ops.txt
 ```
 

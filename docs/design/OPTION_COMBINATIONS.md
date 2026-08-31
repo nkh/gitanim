@@ -1,6 +1,6 @@
 # Option Combinations
 
-Practical recipes for common diffvim use cases. Each recipe shows
+Practical recipes for common ad_vim use cases. Each recipe shows
 the exact command line to run — copy and paste.
 
 ---
@@ -10,14 +10,14 @@ the exact command line to run — copy and paste.
 **Goal:** See every change slowly, with highlighting.
 
 ```bash
-diffvim --preset review old.py new.py
+ad_vim --preset review old.py new.py
 # or explicitly:
-diffvim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --speed 0.7 old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --speed 0.7 old.py new.py
 ```
 
 **With smooth cursor movement:**
 ```bash
-diffvim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --cursor-glide-ms 300 --speed 0.7 old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --cursor-glide-ms 300 --speed 0.7 old.py new.py
 ```
 
 ---
@@ -27,14 +27,14 @@ diffvim --pacing review --highlight hunk --dim-unchanged --op-order left-to-righ
 **Goal:** Show off the diff in a presentation or demo video.
 
 ```bash
-diffvim --preset demo old.py new.py
+ad_vim --preset demo old.py new.py
 # or explicitly:
-diffvim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 old.py new.py
+ad_vim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 old.py new.py
 ```
 
 **With distance-based speed (skip far-away changes):**
 ```bash
-diffvim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 --distance-speed adaptive old.py new.py
+ad_vim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 --distance-speed adaptive old.py new.py
 ```
 
 ---
@@ -44,14 +44,14 @@ diffvim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 -
 **Goal:** Get through a large diff quickly.
 
 ```bash
-diffvim --preset fast old.py new.py
+ad_vim --preset fast old.py new.py
 # or explicitly:
-diffvim --speed 3 --delete-pacing instant --distance-speed adaptive old.py new.py
+ad_vim --speed 3 --delete-pacing instant --distance-speed adaptive old.py new.py
 ```
 
 **Even faster (skip animation entirely):**
 ```bash
-diffvim --speed 10 --delete-pacing instant --insert-pacing word --distance-speed adaptive old.py new.py
+ad_vim --speed 10 --delete-pacing instant --insert-pacing word --distance-speed adaptive old.py new.py
 ```
 
 ---
@@ -62,12 +62,12 @@ diffvim --speed 10 --delete-pacing instant --insert-pacing word --distance-speed
 sees what's being removed.
 
 ```bash
-diffvim --delete-pacing flash --flash-pause-ms 500 --flash-highlight-ms 400 old.py new.py
+ad_vim --delete-pacing flash --flash-pause-ms 500 --flash-highlight-ms 400 old.py new.py
 ```
 
 **With indent-last (delete indentation last):**
 ```bash
-diffvim --delete-pacing flash --indent-last old.py new.py
+ad_vim --delete-pacing flash --indent-last old.py new.py
 ```
 
 ---
@@ -77,12 +77,12 @@ diffvim --delete-pacing flash --indent-last old.py new.py
 **Goal:** See exactly what's happening, with stats and highlights.
 
 ```bash
-diffvim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highlight --bell old.py new.py
+ad_vim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highlight --bell old.py new.py
 ```
 
 **With step mode (Space advances one op):**
 ```bash
-diffvim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highlight --bell --step-mode old.py new.py
+ad_vim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highlight --bell --step-mode old.py new.py
 ```
 
 ---
@@ -92,12 +92,12 @@ diffvim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highl
 **Goal:** Handle Python indentation correctly.
 
 ```bash
-diffvim --indent-aware --indent-last old.py new.py
+ad_vim --indent-aware --indent-last old.py new.py
 ```
 
 **With overwrite (in-place replacement):**
 ```bash
-diffvim --indent-aware --indent-last --overwrite old.py new.py
+ad_vim --indent-aware --indent-last --overwrite old.py new.py
 ```
 
 ---
@@ -122,7 +122,7 @@ ad_pipeline --animator-colormap-old old.colormap --animator-colormap-new new.col
 **Goal:** All new features at once.
 
 ```bash
-diffvim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3 --distance-slow-mult 0.5 --indent-last --delete-pacing flash --highlight hunk --dim-unchanged --diff-stat --diff-highlight old.py new.py
+ad_vim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3 --distance-slow-mult 0.5 --indent-last --delete-pacing flash --highlight hunk --dim-unchanged --diff-stat --diff-highlight old.py new.py
 ```
 
 ---
@@ -135,7 +135,7 @@ diffvim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 
 # Basic
 bash scripts/dv_snapshot.sh old.py new.py
 
-# With all the same options as diffvim
+# With all the same options as ad_vim
 bash scripts/dv_snapshot.sh --op-order left-to-right --delete-pacing flash --highlight inline --indent-last --cursor-glide-ms 300 old.py new.py
 
 # With trace UI (click ops to collect them)
@@ -154,8 +154,8 @@ bash scripts/dv_snapshot.sh --trace --diff-stat --diff-highlight old.py new.py
 | fast | 2.0x | adaptive | none | optimize |
 
 ```bash
-diffvim --preset default old.py new.py
-diffvim --preset review old.py new.py
-diffvim --preset demo old.py new.py
-diffvim --preset fast old.py new.py
+ad_vim --preset default old.py new.py
+ad_vim --preset review old.py new.py
+ad_vim --preset demo old.py new.py
+ad_vim --preset fast old.py new.py
 ```

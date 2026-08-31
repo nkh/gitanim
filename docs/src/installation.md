@@ -7,7 +7,7 @@
 
 ## Prerequisites
 
-### diffvim (Bash + Vimscript)
+### ad_vim (Bash + Vimscript)
 
 - **Vim 8+** with `+timers` and `+float` features
 - **Bash 4+**
@@ -17,14 +17,14 @@ Check your vim:
 vim --version | grep -E 'timers|float'
 ```
 
-### diffvim-tmux (Bash + tmux)
+### ad_tmux (Bash + tmux)
 
 - **Bash 4+**
 - **tmux 3+**
 - **Vim 8+**
 - **diff**, **sed**, **awk** (standard Unix tools)
 
-### diffvim.pl (Perl + tmux)
+### ad_vim.pl (Perl + tmux)
 
 - **Perl 5.10+**
 - **tmux 3+**
@@ -42,17 +42,17 @@ git clone https://github.com/nkh/gitanim.git
 cd gitanim
 
 # Make scripts executable
-chmod +x diffvim diffvim-tmux diffvim.pl
+chmod +x ad_vim ad_tmux ad_vim.pl
 
 # Copy to your PATH
-cp diffvim diffvim-tmux /usr/local/bin/      # or ~/.local/bin
-cp diffvim.pl /usr/local/bin/
-cp -r DiffVim /usr/local/lib/perl5/          # for diffvim.pl
+cp ad_vim ad_tmux /usr/local/bin/      # or ~/.local/bin
+cp ad_vim.pl /usr/local/bin/
+cp -r DiffVim /usr/local/lib/perl5/          # for ad_vim.pl
 
 # Install the man page
-cp diffvim.1 /usr/local/share/man/man1/
+cp ad_vim.1 /usr/local/share/man/man1/
 mandb
-man diffvim
+man ad_vim
 ```
 
 ### Vim Plugin (for `:Diffvim` command)
@@ -72,23 +72,23 @@ Plug 'nkh/gitanim', {'rtp': '.'}
 
 ```bash
 # Bash
-cp completion/diffvim.bash /etc/bash_completion.d/diffvim
+cp completion/ad_vim.bash /etc/bash_completion.d/ad_vim
 # or
-source completion/diffvim.bash
+source completion/ad_vim.bash
 
 # Zsh
-cp completion/_diffvim /usr/local/share/zsh/site-functions/
+cp completion/__ad_vim /usr/local/share/zsh/site-functions/
 
 # Fish
-cp completion/diffvim.fish ~/.config/fish/completions/
+cp completion/ad_vim.fish ~/.config/fish/completions/
 ```
 
 ## Verification
 
 ```bash
-diffvim --help
-diffvim-tmux --help
-perl diffvim.pl --version
+ad_vim --help
+ad_tmux --help
+perl ad_vim.pl --version
 ```
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

@@ -12,7 +12,7 @@
 # This test verifies:
 # 1. The final buffer content is correct (round-trip)
 # 2. The intermediate state after each \n delete is correct (no content pull-up)
-# 3. The diffvim engine produces correct output with multi-line deletions
+# 3. The ad_vim engine produces correct output with multi-line deletions
 
 use strict;
 use warnings;

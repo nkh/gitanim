@@ -1,6 +1,6 @@
 # Option audit: what works, what's ignored, what's broken
 
-## How diffvim works after refactoring
+## How ad_vim works after refactoring
 
 The launcher runs the external pipeline:
 ```

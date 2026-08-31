@@ -5,9 +5,9 @@
 This document is for the next AI session working on diffvim/gitanim.
 The project has undergone a major refactor. Read this first.
 
-## What diffvim IS
+## What ad_vim IS
 
-diffvim animates a code diff (old file → new file) as if a human were
+ad_vim animates a code diff (old file → new file) as if a human were
 typing it. The pipeline is: compute → postprocess → pace → animate.
 All four stages are external executables. The vimscript engine only
 handles the animate stage.
@@ -33,12 +33,12 @@ compute (C++ Patience diff) → postprocess (C/Perl) → pace (C/Perl) → anima
 - 96 Perl tests pass
 - Cross-language parity (C == Perl) for postprocess and pace
 - No flashing (incremental rendering in both animators)
-- Syntax coloring via `diffvim-colorize` (vim/pygmentize backends, runs
+- Syntax coloring via `ad_colorize` (vim/pygmentize backends, runs
   in parallel with the pipeline)
 - `--stream` mode in postprocess (true Unix pipes)
 - `--transform NAME` flags in postprocess (composable transformations)
 - Typed delays (11 types: type, keep, delete, hunk_pause, etc.)
-- diffvim uses the external pipeline (old vimscript code removed, ~2800
+- ad_vim uses the external pipeline (old vimscript code removed, ~2800
   lines deleted, launcher is now ~1800 lines)
 
 ## What NOT to do

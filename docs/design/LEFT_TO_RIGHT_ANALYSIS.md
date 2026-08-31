@@ -138,7 +138,7 @@ echo "Expected:"; cat /tmp/new.txt
 
 ## Current default
 
-The launcher currently exports `AD_LEFT_TO_RIGHT=1` by default. This means the diffvim launcher produces **wrong output** for any mid-line insert.
+The launcher currently exports `AD_LEFT_TO_RIGHT=1` by default. This means the ad_vim launcher produces **wrong output** for any mid-line insert.
 
 The `dv_debug.sh` script and `verify_md5.sh` set `AD_LEFT_TO_RIGHT` to 0 (or don't set it, and the compute tool defaults to 0), which is why those tests pass but the launcher fails.
 

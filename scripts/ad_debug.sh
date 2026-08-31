@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dv_debug.sh — Debugging tool for the diffvim pipeline.
+# dv_debug.sh — Debugging tool for the ad_vim pipeline.
 #
 # Takes old and new files, displays each pipeline stage AND writes
 # the stage files to disk so you can inspect them with any tool:
@@ -20,14 +20,14 @@
 show_help() {
 cat <<'HELP'
 NAME
-    dv_debug.sh — Debugging tool for the diffvim pipeline
+    dv_debug.sh — Debugging tool for the ad_vim pipeline
 
 SYNOPSIS
     dv_debug.sh [-h|--help]
     dv_debug.sh [--keep] <oldfile> <newfile>
 
 DESCRIPTION
-    Takes an old and new file, runs the full diffvim pipeline (compute →
+    Takes an old and new file, runs the full ad_vim pipeline (compute →
     postprocess → pace → animator) stage by stage, prints diagnostic
     information to the terminal, AND writes the intermediate output of
     each stage to disk under /tmp/ad_debug/ so you can inspect it with
@@ -97,7 +97,7 @@ TIMED="$OUTDIR/timed.txt"
 SNAP="$OUTDIR/snap.txt"
 
 echo "══════════════════════════════════════════════════════════════"
-echo " diffvim pipeline debugger"
+echo " ad_vim pipeline debugger"
 echo "══════════════════════════════════════════════════════════════"
 echo ""
 echo "Stage files written to: $OUTDIR/"

@@ -24,7 +24,7 @@ sub ok {
 my $engine_test = '/tmp/dv_engine_test.vim';
 sub ensure_engine {
     return if -f $engine_test;
-    # Extract engine from diffvim
+    # Extract engine from ad_vim
     open my $fh, '<', 'diffvim' or die;
     my $in = 0; my @lines;
     while (my $line = <$fh>) {
@@ -142,19 +142,19 @@ print "\n=== Tests 11-15: Feature tests ===\n";
 
 # Test 11: --fold-unchanged flag accepted
 ok("Test 11: --fold-unchanged accepted",
-   `perl diffvim.pl --fold-unchanged --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl ad_vim.pl --fold-unchanged --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 12: --theme flag accepted
 ok("Test 12: --theme accepted",
-   `perl diffvim.pl --theme dark --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl ad_vim.pl --theme dark --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 13: --debug flag accepted
 ok("Test 13: --debug accepted",
-   `perl diffvim.pl --debug --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl ad_vim.pl --debug --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 14: --highlight-hunk flag accepted
 ok("Test 14: --highlight-hunk accepted",
-   `perl diffvim.pl --highlight-hunk --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
+   `perl ad_vim.pl --highlight-hunk --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1` =~ /Dry run/);
 
 # Test 15: Benchmark suite runs
 ok("Test 15: benchmark suite runs",
@@ -166,30 +166,30 @@ print "\n=== Tests 16-20: Edge cases ===\n";
 # Test 16: All 3 diff algorithms produce correct results
 my $all_algos_ok = 1;
 for my $algo ('lcs', 'myers', 'patience') {
-    my $out = `perl diffvim.pl --algorithm $algo --dry-run tests/examples/13_java/old.java tests/examples/13_java/new.java 2>&1`;
+    my $out = `perl ad_vim.pl --algorithm $algo --dry-run tests/examples/13_java/old.java tests/examples/13_java/new.java 2>&1`;
     if ($out !~ /Dry run/) { $all_algos_ok = 0; last; }
 }
 ok("Test 16: all 3 algorithms work on Java", $all_algos_ok);
 
 # Test 17: --word-diff produces different op count
-my $char_ops = `perl diffvim.pl --dry-run tests/examples/14_kotlin/old.kt tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
-my $word_ops = `perl diffvim.pl --word-diff --dry-run tests/examples/14_kotlin/old.kt tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
+my $char_ops = `perl ad_vim.pl --dry-run tests/examples/14_kotlin/old.kt tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
+my $word_ops = `perl ad_vim.pl --word-diff --dry-run tests/examples/14_kotlin/old.kt tests/examples/14_kotlin/new.kt 2>&1 | grep -c 'insert\\|delete'` || 0;
 ok("Test 17: word-diff produces valid output", $word_ops > 0);
 
 # Test 18: Binary file detection rejects binary files
 open my $fh, '>:raw', '/tmp/dv_binary.dat'; print $fh "binary\x00data"; close $fh;
 open $fh, '>', '/tmp/dv_text.txt'; print $fh "hello\n"; close $fh;
-my $bin_out = `perl diffvim.pl /tmp/dv_binary.dat /tmp/dv_text.txt 2>&1`;
+my $bin_out = `perl ad_vim.pl /tmp/dv_binary.dat /tmp/dv_text.txt 2>&1`;
 ok("Test 18: binary file detection works", $bin_out =~ /binary/i);
 unlink '/tmp/dv_binary.dat', '/tmp/dv_text.txt';
 
 # Test 19: --semantic-cleanup doesn't increase op count
-my $plain_ops = `perl diffvim.pl --dry-run tests/examples/15_swift/old.swift tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
-my $clean_ops = `perl diffvim.pl --semantic-cleanup --dry-run tests/examples/15_swift/old.swift tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
+my $plain_ops = `perl ad_vim.pl --dry-run tests/examples/15_swift/old.swift tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
+my $clean_ops = `perl ad_vim.pl --semantic-cleanup --dry-run tests/examples/15_swift/old.swift tests/examples/15_swift/new.swift 2>&1 | grep -c 'insert\\|delete\\|keep'` || 0;
 ok("Test 19: semantic cleanup ops <= plain ops", $clean_ops <= $plain_ops);
 
 # Test 20: --parser perl is accepted (the only parser now)
-my $parser_out = `perl diffvim.pl --parser perl --dry-run tests/examples/16_ruby/old.rb tests/examples/16_ruby/new.rb 2>&1`;
+my $parser_out = `perl ad_vim.pl --parser perl --dry-run tests/examples/16_ruby/old.rb tests/examples/16_ruby/new.rb 2>&1`;
 ok("Test 20: --parser perl works", $parser_out =~ /Parser: perl/i);
 
 # Cleanup

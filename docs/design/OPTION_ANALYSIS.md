@@ -1,15 +1,15 @@
-# diffvim Option Analysis & Refactoring Proposal
+# ad_vim Option Analysis & Refactoring Proposal
 
 **Date:** 2026-08-16
 **Status:** Analysis and design only — no code changes proposed for
 implementation yet.
-**Scope:** All 95+ CLI options across `diffvim`, `diffvim-tmux`,
-`diffvim.pl`, and the `ad_compute` tool.
+**Scope:** All 95+ CLI options across `diffvim`, `ad_tmux`,
+`ad_vim.pl`, and the `ad_compute` tool.
 
 > **Update (Phase A–C refactor):** Several of the proposals below were
 > overtaken by events. The `--tool`/`--compute-tool` flags and the
 > `--auto-precompute` flag were **removed** entirely (only the C++
-> compute tool remains; diffvim searches for it automatically).
+> compute tool remains; ad_vim searches for it automatically).
 > `--algorithm myers` was also removed. See the [Unreleased] entry in
 > `CHANGELOG.md` for the full list of changes.
 
@@ -314,11 +314,11 @@ Remove `--fold-unchanged` (it's `--context 0`).
 into a single **input mode**:
 
 ```
-diffvim <old> <new>                           # two-file mode (default)
-diffvim --git REV..REV <file>                 # git history
-diffvim --precomputed FILE <old> <new>        # precomputed diff
-diffvim --diff FILE                           # unified diff input
-diffvim --multi <o1:n1> <o2:n2> ...           # multi-file
+ad_vim <old> <new>                           # two-file mode (default)
+ad_vim --git REV..REV <file>                 # git history
+ad_vim --precomputed FILE <old> <new>        # precomputed diff
+ad_vim --diff FILE                           # unified diff input
+ad_vim --multi <o1:n1> <o2:n2> ...           # multi-file
 ```
 
 Remove `--auto-precompute` (just use `diffvim-precomputed` wrapper).

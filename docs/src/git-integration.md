@@ -13,13 +13,13 @@ to the next commit, ending with the working copy.
 
 ```bash
 # Animate last 5 commits of a file
-diffvim --replay src/main.py
+ad_vim --replay src/main.py
 
 # Specific commit range
-diffvim --replay src/main.py --from v1.0 --to HEAD
+ad_vim --replay src/main.py --from v1.0 --to HEAD
 
 # Multiple files
-diffvim --replay src/main.py src/utils.py
+ad_vim --replay src/main.py src/utils.py
 ```
 
 ### How It Works
@@ -36,9 +36,9 @@ diffvim --replay src/main.py src/utils.py
 The `--git-rev` flag accepts `REV..REV` syntax:
 
 ```bash
-diffvim --git-rev HEAD~3..HEAD src/main.py
-diffvim --git-rev v1.0..v2.0 src/main.py
-diffvim --git-rev abc123..def456 src/main.py
+ad_vim --git-rev HEAD~3..HEAD src/main.py
+ad_vim --git-rev v1.0..v2.0 src/main.py
+ad_vim --git-rev abc123..def456 src/main.py
 ```
 
 This is equivalent to `--replay --from REV1 --to REV2`.
@@ -48,7 +48,7 @@ This is equivalent to `--replay --from REV1 --to REV2`.
 The `--git-blame` flag shows git blame for each changed line:
 
 ```bash
-diffvim --git-blame old.py new.py
+ad_vim --git-blame old.py new.py
 ```
 
 During animation, the commit hash and author are displayed for each
@@ -60,14 +60,14 @@ To animate the diff between the current working copy and the last commit:
 
 ```bash
 git show HEAD:file.py > /tmp/old.py
-diffvim /tmp/old.py file.py
+ad_vim /tmp/old.py file.py
 ```
 
 Or for a specific commit:
 
 ```bash
 git show abc123:file.py > /tmp/old.py
-diffvim /tmp/old.py file.py
+ad_vim /tmp/old.py file.py
 ```
 
 ## Multi-File Git Replay
@@ -75,10 +75,10 @@ diffvim /tmp/old.py file.py
 Animate multiple files' git history in sequence:
 
 ```bash
-diffvim --replay src/main.py src/utils.py src/config.py
+ad_vim --replay src/main.py src/utils.py src/config.py
 ```
 
 Each file's history is animated separately, with a "next file" message
 between them.
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

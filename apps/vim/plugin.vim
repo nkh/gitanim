@@ -14,7 +14,7 @@
 "      Copy plugin/diffvim.vim to ~/.vim/plugin/
 "      Copy autoload/diffvim/ to ~/.vim/autoload/diffvim/
 "      Build the C tools: make
-"      Ensure diffvim is in your PATH (or set g:diffvim_binary)
+"      Ensure ad_vim is in your PATH (or set g:diffvim_binary)
 "
 " Configuration:
 "   let g:diffvim_binary = '/path/to/diffvim'  " Override launcher path
@@ -25,10 +25,10 @@
 "   :DiffVim --speed 2 old.py new.py
 "   :DiffVim --highlight inline old.py new.py
 
-if exists('g:loaded_diffvim')
+if exists('g:loaded__ad_vim')
     finish
 endif
-let g:loaded_diffvim = 1
+let g:loaded__ad_vim = 1
 
 " Default configuration
 let g:diffvim = extend({
@@ -36,8 +36,8 @@ let g:diffvim = extend({
     \ 'defaults': {},
     \ }, get(g:, 'diffvim', {}))
 
-" Find the diffvim launcher
-function! s:find_diffvim() abort
+" Find the ad_vim launcher
+function! s:find__ad_vim() abort
     if !empty(g:diffvim.binary) && executable(g:diffvim.binary)
         return g:diffvim.binary
     endif
@@ -61,9 +61,9 @@ command! -nargs=+ -complete=file DiffVim call diffvim#run(<f-args>)
 
 " Main entry point
 function! diffvim#run(...) abort
-    let l:binary = s:find_diffvim()
+    let l:binary = s:find__ad_vim()
     if empty(l:binary)
-        echoerr 'diffvim: launcher not found. Install with: make install'
+        echoerr 'ad_vim: launcher not found. Install with: make install'
         echoerr '  Or set g:diffvim_binary to the full path'
         return
     endif
@@ -96,9 +96,9 @@ endfunction
 " Helper: animate git diff for current file
 function! diffvim#git(rev) abort
     let l:current = expand('%:p')
-    let l:binary = s:find_diffvim()
+    let l:binary = s:find__ad_vim()
     if empty(l:binary)
-        echoerr 'diffvim: launcher not found'
+        echoerr 'ad_vim: launcher not found'
         return
     endif
     let l:cmd = l:binary . ' --git-rev ' . a:rev . ' ' . shellescape(l:current)

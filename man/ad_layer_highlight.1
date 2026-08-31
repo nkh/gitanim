@@ -1,4 +1,4 @@
-.TH AD-DECORATE 1 "2026-08-20" "diffvim 2.0" "diffvim pipeline"
+.TH AD-DECORATE 1 "2026-08-20" "ad_vim 2.0" "ad_vim pipeline"
 .SH NAME
 ad_layer_highlight \- insert decoration ops into the timed op stream
 .SH SYNOPSIS
@@ -6,7 +6,7 @@ ad_layer_highlight \- insert decoration ops into the timed op stream
 [\fIoptions\fR] < \fItimed_ops\fR > \fIdecorated_ops\fR
 .SH DESCRIPTION
 .B ad_layer_highlight
-is stage 4 of the diffvim pipeline. It reads a timed op stream from
+is stage 4 of the ad_vim pipeline. It reads a timed op stream from
 stdin and inserts decoration ops (highlight, dim, fold, sign, marker)
 based on the options. Both the vimscript animator and the C animator
 interpret the decoration ops the same way.
@@ -83,7 +83,7 @@ Show text at the given position (e.g., git blame).
 .B skip_hunk
 Signal the renderer to apply the hunk instantly without animation.
 .SH "SEE ALSO"
-.BR diffvim (1),
+.BR ad_vim (1),
 .BR ad_compute (1),
 .BR ad_postprocess (1),
 .BR ad_layer_pace (1)

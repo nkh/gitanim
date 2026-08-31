@@ -1,4 +1,4 @@
-.TH AD-DEBUG-BUNDLE 1 "2026-08-21" "diffvim 2.0" "diffvim Manual"
+.TH AD-DEBUG-BUNDLE 1 "2026-08-21" "ad_vim 2.0" "ad_vim Manual"
 .SH NAME
 ad_debug_bundle \- Generate a debug bundle for reporting ad issues
 .SH SYNOPSIS
@@ -11,7 +11,7 @@ ad_debug_bundle \- Generate a debug bundle for reporting ad issues
 .RI [ description ]
 .SH DESCRIPTION
 .B ad_debug_bundle
-runs the full diffvim pipeline (compute \[->] postprocess \[->] pace \[->]
+runs the full ad_vim pipeline (compute \[->] postprocess \[->] pace \[->]
 decorate \[->] animator) on the given old/new file pair, then packages
 every intermediate stage output, the binary MD5s, the active settings,
 system info, and the user-supplied problem description into a single
@@ -68,7 +68,7 @@ Diff between expected (newfile) and actual.
 MD5 checksums of all pipeline binaries.
 .TP
 .I settings.conf
-Default diffvim launcher settings.
+Default ad_vim launcher settings.
 .TP
 .I system_info.txt
 OS, vim, perl, gcc, git commit/branch.
@@ -106,7 +106,7 @@ Bundle created successfully.
 1
 Invalid arguments or pipeline failure.
 .SH "SEE ALSO"
-.BR diffvim (1),
+.BR ad_vim (1),
 .BR ad_compute (1),
 .BR ad (1),
 .BR snapshot_per_op (1)

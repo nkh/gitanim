@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# diffvim-colorize — Produce a color map file for the animator.
+# ad_colorize — Produce a color map file for the animator.
 #
 # Given a source file and a language, produces a color map file where
 # each line is the ANSI-colored version of the corresponding source line.
@@ -11,7 +11,7 @@
 #   none        No coloring (plain text)
 #
 # Usage:
-#   diffvim-colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
+#   ad_colorize [--backend vim|pygmentize|none] [--lang LANG] FILE OUTPUT
 #
 # The output file has one line per source line. Each line contains the
 # ANSI-escaped colored version of that source line. Lines are separated
@@ -38,9 +38,9 @@ GetOptions(
 
 if ($help) {
     print STDERR <<USAGE;
-diffvim-colorize — Produce a color map file for the animator
+ad_colorize — Produce a color map file for the animator
 
-Usage: diffvim-colorize [options] FILE OUTPUT
+Usage: ad_colorize [options] FILE OUTPUT
 
 Options:
   --backend vim|pygmentize|none   Coloring backend (default: auto)
@@ -61,9 +61,9 @@ Output format:
   rendering.
 
 Examples:
-  diffvim-colorize old.py old.colormap
-  diffvim-colorize --backend vim --lang python old.py old.colormap
-  diffvim-colorize --backend pygmentize new.py new.colormap
+  ad_colorize old.py old.colormap
+  ad_colorize --backend vim --lang python old.py old.colormap
+  ad_colorize --backend pygmentize new.py new.colormap
 USAGE
     exit 0;
 }
@@ -125,7 +125,7 @@ sub colorize_with_vim {
     # name in vim. Use 'synid' without scope prefix instead.
     my ($vim_fh, $vim_script) = tempfile(UNLINK => 1, SUFFIX => '.vim');
     print $vim_fh <<'VIM';
-" diffvim-colorize — extract ANSI colors per line using vim's syntax highlighting
+" ad_colorize — extract ANSI colors per line using vim's syntax highlighting
 
 " Map vim syntax group names to ANSI escape sequences (defined first!)
 function! SynToAnsi(name) abort
@@ -336,4 +336,4 @@ for my $line (@colored) {
 }
 close $ofh;
 
-print STDERR "diffvim-colorize: $backend backend, " . scalar(@colored) . " lines → $outfile\n";
+print STDERR "ad_colorize: $backend backend, " . scalar(@colored) . " lines → $outfile\n";

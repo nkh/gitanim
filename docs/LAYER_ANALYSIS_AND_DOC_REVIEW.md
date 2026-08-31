@@ -375,8 +375,8 @@ The audit lists 58 design docs with relevance scores. 28 were marked LOW relevan
 
 ### Should fix (cosmetic but confusing)
 
-9. **`scripts/ad_compare`** — Help text still says `diffvim-compare`
-10. **`scripts/ad_jogger`** — Help text still says `diffvim-jogger`
+9. **`scripts/ad_compare`** — Help text still says `ad_compare`
+10. **`scripts/ad_jogger`** — Help text still says `ad_jogger`
 11. **`scripts/ad_record.sh` / `ad_replay.sh`** — Comments say `dv_record.sh` / `dv_replay.sh`
 12. **`apps/vim/ad_vim`** — Line 1 comment says `# diffvim` (should be `# ad_vim`)
 13. **Version string** — Hardcoded in 3 places (P3-12 regressed)

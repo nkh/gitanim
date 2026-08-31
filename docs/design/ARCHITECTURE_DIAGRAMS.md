@@ -40,7 +40,7 @@ new.py ──┘                              │
                                          │
                     ┌────────────────────┤
                     ▼                    ▼
-           ad      diffvim (vim)
+           ad      ad_vim (vim)
            (terminal render)       (vim render)
                     │                    │
                     ▼                    ▼
@@ -51,7 +51,7 @@ new.py ──┘                              │
 
 ```
                     ┌─────────────────┐
-                    │ diffvim-colorize│
+                    │ ad_colorize│
                     │ (vim/pygmentize)│
                     └────────┬────────┘
                              │

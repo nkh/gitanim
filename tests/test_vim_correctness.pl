@@ -3,7 +3,7 @@
 # and compare with the expected new file. This catches bugs that Perl-only
 # tests miss (e.g. UTF-8 cursor tracking, vim buffer manipulation issues).
 #
-# This test extracts the engine from the diffvim script, runs it
+# This test extracts the engine from the ad_vim script, runs it
 # synchronously in vim (no timers), writes the result, and compares.
 #
 # Usage: perl tests/test_vim_correctness.pl
@@ -18,9 +18,9 @@ my $fail = 0;
 # Path to the extracted engine test file
 my $engine_test = '/tmp/dv_engine_test.vim';
 
-# Extract the engine from the diffvim bash script
+# Extract the engine from the ad_vim bash script
 sub extract_engine {
-    open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
+    open my $fh, '<', 'diffvim' or die "Cannot open ad_vim: $!";
     my $in_engine = 0;
     my @lines;
     while (my $line = <$fh>) {

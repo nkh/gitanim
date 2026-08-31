@@ -22,14 +22,14 @@
 show_help() {
 cat <<'HELP'
 NAME
-    verify_md5.sh — Round-trip MD5 verification of the diffvim pipelines
+    verify_md5.sh — Round-trip MD5 verification of the ad_vim pipelines
 
 SYNOPSIS
     verify_md5.sh [-h|--help]
 
 DESCRIPTION
     For every example pair under tests/examples/ (matching [0-9]*_*), runs
-    TWO diffvim pipelines in parallel (8 concurrent via xargs -P):
+    TWO ad_vim pipelines in parallel (8 concurrent via xargs -P):
 
       1. C pipeline:        compute-cpp → C postprocess → C pace → C animator
                             (via animator/ad_pipeline --no-display ...)

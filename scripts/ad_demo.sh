@@ -9,7 +9,7 @@ SYNOPSIS
     dv_demo.sh [-h|--help]
 
 DESCRIPTION
-    Runs three pre-configured diffvim animations end-to-end through the
+    Runs three pre-configured ad_vim animations end-to-end through the
     ad_pipeline driver (compute → postprocess → pace → animator)
     in --no-display mode, so no terminal animator UI is shown — the
     pipeline simply runs to completion and prints progress.

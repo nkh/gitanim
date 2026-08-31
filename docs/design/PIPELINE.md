@@ -1,8 +1,8 @@
-# diffvim Pipeline Architecture
+# ad_vim Pipeline Architecture
 
 ## Overview
 
-diffvim animates a code diff — the transformation of an old file into a
+ad_vim animates a code diff — the transformation of an old file into a
 new file — as if a human were typing it in real time. The pipeline has
 four stages: compute, postprocess, pace, animate. Each stage transforms
 the data closer to what the viewer sees on screen.
@@ -191,7 +191,7 @@ The animator maintains a virtual buffer (list of lines) and a cursor
   instead of full-screen clear (`\033[2J`).
 
 **Syntax coloring:**
-The pipeline runs `diffvim-colorize` in parallel with the processing
+The pipeline runs `ad_colorize` in parallel with the processing
 stages. Color maps (ANSI-colored lines) are passed to the animator via
 `--colormap-old`/`--colormap-new`. Unmodified lines are rendered with
 syntax colors; modified lines fall back to plain text (progressive
@@ -211,7 +211,7 @@ decoloring).
 ### What works:
 - **42/42 examples pass** MD5 verification with the C animator
 - Cross-language parity: C and Perl postprocess/pace produce identical output
-- Syntax coloring via `diffvim-colorize` (vim/pygmentize backends)
+- Syntax coloring via `ad_colorize` (vim/pygmentize backends)
 - Streaming mode (`--stream`) in postprocess for true Unix pipes
 - `--transform NAME` flags in postprocess for composable transformations
 - Typed delays for future per-type dynamic pacing
@@ -221,9 +221,9 @@ decoloring).
 
 ```
 gitanim/
-├── diffvim                  # bash launcher + embedded vimscript engine
-├── diffvim.pl               # Perl launcher
-├── diffvim-tmux             # tmux variant
+├── ad_vim                  # bash launcher + embedded vimscript engine
+├── ad_vim.pl               # Perl launcher
+├── ad_tmux             # tmux variant
 ├── compute/
 │   ├── cpp/                 # C++ Patience diff (the only compute impl)
 │   ├── perl/                # Pure-Perl fallback (byte-identical to C++)

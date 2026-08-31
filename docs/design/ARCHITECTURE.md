@@ -126,7 +126,7 @@ s:SkipCurrent() called
 
 ---
 
-## Implementation 2: `diffvim-tmux` (Bash + tmux)
+## Implementation 2: `ad_tmux` (Bash + tmux)
 
 ### Architecture
 
@@ -242,16 +242,16 @@ op_idx++
 
 ---
 
-## Implementation 3: `diffvim.pl` (Perl + tmux)
+## Implementation 3: `ad_vim.pl` (Perl + tmux)
 
 ### Architecture
 
-Same as `diffvim-tmux`, but written in Perl with a modular parser
+Same as `ad_tmux`, but written in Perl with a modular parser
 architecture:
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Perl orchestrator (diffvim.pl)            │
+│  Perl orchestrator (ad_vim.pl)            │
 │  ┌────────────────────────────────────────┐ │
 │  │  1. Parse arguments (--parser)         │ │
 │  │  2. Compute diff via parser module     │ │
@@ -278,7 +278,7 @@ architecture:
                       ▼
 ┌─────────────────────────────────────────────┐
 │  Vim (in tmux pane)                         │
-│  (same vimscript engine as diffvim-tmux)    │
+│  (same vimscript engine as ad_tmux)    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -289,7 +289,7 @@ architecture:
 - **Better data structures** — Perl's arrays-of-hashes are more natural
   for hunk data than bash's parallel associative arrays
 - **Same tmux+FIFO communication** — and the same race condition issues
-  as `diffvim-tmux`
+  as `ad_tmux`
 - **Fork-based architecture** — child process runs the animation loop,
   parent attaches to tmux; when tmux detaches, the parent waits for the
   child to finish
@@ -331,14 +331,14 @@ Returns:
 
 ### Cons
 
-- Same tmux race conditions as `diffvim-tmux`
+- Same tmux race conditions as `ad_tmux`
 - Perl is less commonly available than bash
 
 ---
 
 ## Comparison Table
 
-| Feature                    | `diffvim`        | `diffvim-tmux`   | `diffvim.pl`     |
+| Feature                    | `diffvim`        | `ad_tmux`   | `ad_vim.pl`     |
 | -------------------------- | ---------------- | ---------------- | ---------------- |
 | **Language**               | Bash + Vimscript | Bash             | Perl             |
 | **Vim communication**      | Native (timer)   | tmux send-keys   | tmux send-keys   |
@@ -359,10 +359,10 @@ Returns:
 - **`diffvim`** — use when you want a self-contained tool with no
   external dependencies. Best for everyday use. No race conditions.
 
-- **`diffvim-tmux`** — use when you want to script or extend the
+- **`ad_tmux`** — use when you want to script or extend the
   animation in bash, or when you need the animation to run in a
   detachable tmux session.
 
-- **`diffvim.pl`** — use when you want to experiment with different
+- **`ad_vim.pl`** — use when you want to experiment with different
   diff parsers, or when you prefer Perl over Bash. The modular parser
   architecture makes it easy to add new diff algorithms.

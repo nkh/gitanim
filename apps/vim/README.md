@@ -14,7 +14,7 @@ that animates a diff inside vim.
 ## Usage
 
     ./apps/vim/ad_vim old.py new.py
-    ./apps/vim/diffvim old.py new.py   # backward-compat wrapper
+    ./apps/vim/ad_vim old.py new.py   # backward-compat wrapper
 
 ## Configuration
 

@@ -185,46 +185,46 @@ echo "=== Category C: Bash launcher features ==="
 
 # C1: --log-mode 1
 rm -f "$TMPDIR/test.log"
-$ROOT/diffvim --log-mode 1 --log-file "$TMPDIR/test.log" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" >/dev/null 2>&1
+$ROOT/ad_vim --log-mode 1 --log-file "$TMPDIR/test.log" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" >/dev/null 2>&1
 ok "log-mode 1 produces log file" "[[ -f '$TMPDIR/test.log' ]]"
 ok "log-mode 1 has HUNK headers" "grep -q 'HUNK' '$TMPDIR/test.log'"
 ok "log-mode 1 has line info" "grep -q 'Line' '$TMPDIR/test.log'"
 
 # C1: --log-mode 2
 rm -f "$TMPDIR/test2.log"
-$ROOT/diffvim --log-mode 2 --log-file "$TMPDIR/test2.log" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" >/dev/null 2>&1
+$ROOT/ad_vim --log-mode 2 --log-file "$TMPDIR/test2.log" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" >/dev/null 2>&1
 ok "log-mode 2 produces log file" "[[ -f '$TMPDIR/test2.log' ]]"
 
 # C1: --no-log-timing — fix: check the "# timing:" header
 rm -f "$TMPDIR/test3.log"
-$ROOT/diffvim --log-mode 1 --log-file "$TMPDIR/test3.log" --no-log-timing "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" >/dev/null 2>&1
+$ROOT/ad_vim --log-mode 1 --log-file "$TMPDIR/test3.log" --no-log-timing "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" >/dev/null 2>&1
 TIMING_COUNT=$(grep "^# timing:" "$TMPDIR/test3.log" | wc -l)
 ok "no-log-timing suppresses timing header" "[[ $TIMING_COUNT -eq 0 ]]"
 
 # C2: --debug
 rm -f /tmp/diffvim-debug.log
-$ROOT/diffvim --debug --sync --output "$TMPDIR/dbg_out.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
+$ROOT/ad_vim --debug --sync --output "$TMPDIR/dbg_out.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
 ok "debug produces log file" "[[ -f /tmp/diffvim-debug.log ]]"
 ok "debug log has stage info" "grep -q 'Stage' /tmp/diffvim-debug.log"
 
 # C3: --max-line-len
-MAX_LEN_OUT=$($ROOT/diffvim --max-line-len 10 --sync --output "$TMPDIR/ml_out.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null 2>&1 | grep "warning" | wc -l)
+MAX_LEN_OUT=$($ROOT/ad_vim --max-line-len 10 --sync --output "$TMPDIR/ml_out.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null 2>&1 | grep "warning" | wc -l)
 ok "max-line-len produces warnings" "[[ $MAX_LEN_OUT -gt 0 ]]"
 
-MAX_LEN_NONE=$($ROOT/diffvim --max-line-len 0 --sync --output "$TMPDIR/ml_out.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null 2>&1 | grep "warning" | wc -l)
+MAX_LEN_NONE=$($ROOT/ad_vim --max-line-len 0 --sync --output "$TMPDIR/ml_out.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null 2>&1 | grep "warning" | wc -l)
 ok "max-line-len 0 = no warnings" "[[ $MAX_LEN_NONE -eq 0 ]]"
 
 # C4: presets
-$ROOT/diffvim --preset fast-delete --sync --output "$TMPDIR/p1.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
+$ROOT/ad_vim --preset fast-delete --sync --output "$TMPDIR/p1.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
 ok "preset fast-delete: correct output" "diff -q '$TMPDIR/new1.txt' '$TMPDIR/p1.txt'"
 
-$ROOT/diffvim --preset review --sync --output "$TMPDIR/p2.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
+$ROOT/ad_vim --preset review --sync --output "$TMPDIR/p2.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
 ok "preset review: correct output" "diff -q '$TMPDIR/new1.txt' '$TMPDIR/p2.txt'"
 
-$ROOT/diffvim --preset demo --sync --output "$TMPDIR/p3.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
+$ROOT/ad_vim --preset demo --sync --output "$TMPDIR/p3.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
 ok "preset demo: correct output" "diff -q '$TMPDIR/new1.txt' '$TMPDIR/p3.txt'"
 
-$ROOT/diffvim --preset ai-code --sync --output "$TMPDIR/p4.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
+$ROOT/ad_vim --preset ai-code --sync --output "$TMPDIR/p4.txt" "$TMPDIR/old1.txt" "$TMPDIR/new1.txt" </dev/null >/dev/null 2>&1
 ok "preset ai-code: correct output" "diff -q '$TMPDIR/new1.txt' '$TMPDIR/p4.txt'"
 
 echo ""

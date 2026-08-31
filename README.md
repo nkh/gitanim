@@ -108,7 +108,7 @@ ad/
 │   └── vim/
 │       ├── ad_vim              #   the vim application launcher (bash)
 │       ├── ad_vim.pl           #   Perl parallel launcher (duplicate)
-│       ├── diffvim             #   backward-compat wrapper (exec's ad_vim)
+│       ├── ad_vim             #   backward-compat wrapper (exec's ad_vim)
 │       ├── plugin.vim          #   vim plugin entry point (:DiffVim command)
 │       ├── autoload_diffvim/   #   vimscript animation engine
 │       └── README.md

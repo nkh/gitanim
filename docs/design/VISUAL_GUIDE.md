@@ -1,21 +1,21 @@
-# Visual Guide — How diffvim Works
+# Visual Guide — How ad_vim Works
 
-This document graphically explains what diffvim does, using ASCII
+This document graphically explains what ad_vim does, using ASCII
 drawings. It is the canonical "explain it to a newcomer in 5 minutes"
 reference. If you only read one document in this repo, read this one.
 
-> **Audience:** developers who want to understand what diffvim produces
+> **Audience:** developers who want to understand what ad_vim produces
 > on screen, what happens under the hood, and why the animation looks
 > the way it does.
 >
-> **Status:** up to date with diffvim 1.4 (rapid-EOL delete, keep-dirty,
+> **Status:** up to date with ad_vim 1.4 (rapid-EOL delete, keep-dirty,
 > post-processing pipeline, presets, external compute).
 
 ---
 
 ## 1. The One-Sentence Pitch
 
-> diffvim opens the **old** version of a file in vim and animates the
+> ad_vim opens the **old** version of a file in vim and animates the
 > transformation into the **new** version character by character, as if
 > a human were typing it.
 
@@ -29,13 +29,13 @@ feels.
 ```
    ┌──────────────┐                     ┌──────────────┐
    │   old.py     │     ──────────▶     │   new.py     │
-   │  (on disk)   │   diffvim a.py b.py │  (on disk)   │
+   │  (on disk)   │   ad_vim a.py b.py │  (on disk)   │
    └──────────────┘                     └──────────────┘
           │                                     │
           │                                     │
           ▼                                     │
    ┌────────────────────────────────────────────────────┐
-   │                  diffvim                            │
+   │                  ad_vim                            │
    │                                                     │
    │   1. Read old.py and new.py                         │
    │   2. Compute the line-level diff                    │
@@ -268,11 +268,11 @@ new char at the cursor and advances.
 
 ---
 
-## 6. The Three diffvim Flavours
+## 6. The Three ad_vim Flavours
 
 ```
    ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
-   │     diffvim      │   │  diffvim-tmux    │   │   diffvim.pl     │
+   │     ad_vim      │   │  ad_tmux    │   │   ad_vim.pl     │
    │  (bash+vimscrip) │   │  (bash + tmux)   │   │  (Perl + tmux)   │
    └────────┬─────────┘   └────────┬─────────┘   └────────┬─────────┘
             │                      │                      │
@@ -297,7 +297,7 @@ new char at the cursor and advances.
 ```
 
 **Recommendation for newcomers:** start with `diffvim`. Switch to
-`diffvim --precomputed` (with an external compute tool) for large files (>1000 lines) where the in-vim
+`ad_vim --precomputed` (with an external compute tool) for large files (>1000 lines) where the in-vim
 Patience becomes slow.
 
 ---
@@ -306,19 +306,19 @@ Patience becomes slow.
 
 ```
    ┌────────────────────────────────────────────────────────────────┐
-   │                  diffvim --precomputed                          │
+   │                  ad_vim --precomputed                          │
    │                                                                │
    │   1. Calls bin/ad_compute-<c|cpp|rust|go>         │
    │      to pre-compute the diff into a temp file.                 │
    │                                                                │
-   │   2. Calls diffvim --precomputed <tempfile>                    │
+   │   2. Calls ad_vim --precomputed <tempfile>                    │
    │      which skips the in-vim Patience step entirely.                 │
    └────────────────────────────────────────────────────────────────┘
                           │             │
               ┌───────────┘             └────────────┐
               ▼                                       ▼
    ┌──────────────────────┐                ┌──────────────────────┐
-   │  ad_compute │                │       diffvim        │
+   │  ad_compute │                │       ad_vim        │
    │                      │                │   (loads precomputed │
    │  10-100x faster      │                │    diff, just anims) │
    │  than vimscript Patience  │                │                      │
@@ -329,7 +329,7 @@ Patience becomes slow.
    └──────────────────────┘                └──────────────────────┘
 ```
 
-Use `bin/ad_compute` (then `diffvim --precomputed`) — it's
+Use `bin/ad_compute` (then `ad_vim --precomputed`) — it's
 the only compute implementation. When the C++ binary is missing,
 `diffvim` falls back to the in-vim Patience and `ad_pipeline` falls
 back to `compute/perl/compute_builtin.pl` (a Perl wrapper around
@@ -468,9 +468,9 @@ for common use cases.
    └──────────────────┴──────────────────────────────────────────────┘
 
    Usage:
-       diffvim --preset review old.py new.py
-       diffvim --preset ai-code old.py new.py
-       AD_PRESET="review --highlight-word" diffvim old.py new.py
+       ad_vim --preset review old.py new.py
+       ad_vim --preset ai-code old.py new.py
+       AD_PRESET="review --highlight-word" ad_vim old.py new.py
 ```
 
 ---
@@ -479,7 +479,7 @@ for common use cases.
 
 ```
    ┌─────────────────────────────────────────────────────────────────┐
-   │                     diffvim cheat sheet                         │
+   │                     ad_vim cheat sheet                         │
    │                                                                 │
    │   During the animation (normal mode):                          │
    │                                                                 │
@@ -509,7 +509,7 @@ for common use cases.
 
 ```
    ┌────────────────────────────────────────────────────────────────┐
-   │   diffvim --multi old1:new1 old2:new2 old3:new3                │
+   │   ad_vim --multi old1:new1 old2:new2 old3:new3                │
    │                                                                │
    │  vim loads file 1   ──▶  animate  ──▶  ]  ──▶  vim loads file 2│
    │                                                                │
@@ -525,7 +525,7 @@ for common use cases.
 ```
 
 For multi-file on large repos, use
-the compute tools to pre-compute all diffs, then `diffvim --multi --precomputed`
+the compute tools to pre-compute all diffs, then `ad_vim --multi --precomputed`
 before animating.
 
 ---
@@ -534,7 +534,7 @@ before animating.
 
 ```
    ┌────────────────────────────────────────────────────────────────┐
-   │   diffvim --replay main.py --from HEAD~5 --to HEAD             │
+   │   ad_vim --replay main.py --from HEAD~5 --to HEAD             │
    │                                                                │
    │   HEAD~5      HEAD~4      HEAD~3      HEAD~2      HEAD~1     HEAD│
    │   ●───────────●───────────●───────────●───────────●──────────●  │
@@ -542,14 +542,14 @@ before animating.
    │                                                                │
    │   For each pair (v_i, v_{i+1}):                                │
    │     1. Extract the file content at both revs.                  │
-   │     2. Run the diffvim animation.                              │
+   │     2. Run the ad_vim animation.                              │
    │     3. Pause between commits (hunk_pause_ms).                  │
    │                                                                │
    │   Status line shows "commit 3/5: a1b2c3d — fix parser bug".    │
    └────────────────────────────────────────────────────────────────┘
 ```
 
-Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
+Shorthand: `ad_vim --git-rev HEAD~5..HEAD main.py`.
 
 ---
 
@@ -596,7 +596,7 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
 ```
    REFERENCE REVIEW                     AI-GENERATED CODE
    ────────────────────                 ──────────────────
-   diffvim \                            diffvim \
+   ad_vim \                            ad_vim \
      --preset review \                    --preset ai-code \
      --git-blame \                        --speed 0.5 \
      --sign-column \                      --highlight-word \
@@ -611,7 +611,7 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
    ──────────────────────────────────────
    LIVE DEMO                            SCREENCAST RECORDING
    ──────────────────────────────────────
-   diffvim \                            diffvim \
+   ad_vim \                            ad_vim \
      --preset demo \                      --preset presentation \
      --speed 0.7 \                        --output result.py \
      --max-line-len 120 \                 old.py new.py
@@ -628,7 +628,7 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
 
 | If you want to...                    | Read this                                   |
 | ------------------------------------ | ------------------------------------------- |
-| Install diffvim                      | `docs/src/installation.md`                  |
+| Install ad_vim                      | `docs/src/installation.md`                  |
 | See every CLI option                 | `docs/src/options.md`                       |
 | Understand the architecture          | `docs/ARCHITECTURE.md`                      |
 | Tune timing and pacing               | `docs/CONFIGURATION.md`                     |
@@ -637,8 +637,8 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
 | Use the external compute tools       | `docs/PARALLEL_COMPUTE.md`                  |
 | Diff AI-generated code well          | `docs/AI_CODE_DIFFING.md`                   |
 | Reduce cognitive load while watching | `docs/FOLLOW_IMPROVEMENTS.md`               |
-| Bring diffvim to your team           | `docs/ADOPTION_GUIDE.md`                    |
-| Read the manpages                    | `man/diffvim.1`, `man/ad_compute.1`    |
+| Bring ad_vim to your team           | `docs/ADOPTION_GUIDE.md`                    |
+| Read the manpages                    | `man/ad_vim.1`, `man/ad_compute.1`    |
 | Show a one-page overview             | `docs/presentation.html`                    |
 
 ---
@@ -647,4 +647,4 @@ Shorthand: `diffvim --git-rev HEAD~5..HEAD main.py`.
 
 | Date       | Change                                                   |
 | ---------- | -------------------------------------------------------- |
-| 2026-08-16 | Initial version. Covers diffvim 1.4 (rapid-EOL, presets, external compute, post-processing pipeline). |
+| 2026-08-16 | Initial version. Covers ad_vim 1.4 (rapid-EOL, presets, external compute, post-processing pipeline). |

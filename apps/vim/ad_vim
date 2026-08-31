@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# diffvim - Animate a code diff as if a human were typing it.
+# ad_vim - Animate a code diff as if a human were typing it.
 #
 # Usage:
-#   diffvim [options] <oldfile> <newfile>
-#   diffvim [options] --multi <old1:new1> <old2:new2> ...
-#   diffvim [options] --replay <file>
-#   diffvim [options] --git-rev REV..REV <file> [<file> ...]
+#   ad_vim [options] <oldfile> <newfile>
+#   ad_vim [options] --multi <old1:new1> <old2:new2> ...
+#   ad_vim [options] --replay <file>
+#   ad_vim [options] --git-rev REV..REV <file> [<file> ...]
 #
 # Opens <oldfile> in vim and animates the transformation into <newfile>.
 # The cursor glides between change locations with ease-in-out acceleration
@@ -16,7 +16,7 @@
 # quits cleanly. Use --keep-dirty to leave the buffer modified (':q!' then
 # required to quit).
 #
-# Unified option selectors (run 'diffvim --help' for full list):
+# Unified option selectors (run 'ad_vim --help' for full list):
 #   --delete-pacing MODE     Deletion strategy (char|rapid-eol|word|instant|...)
 #   --insert-pacing MODE     Insertion strategy (char|word|accel)
 #   --pacing MODE            Timing mode (uniform|adaptive|gaussian|review)
@@ -114,7 +114,7 @@ RAPID_EOL_MIN_CHARS="3"
 KEEP_DIRTY=0
 NO_VIMRC=0
 PRECOMPUTED_FILE=""
-# C++ compute is the default. AUTO_PRECOMPUTE defaults to 1 — diffvim will
+# C++ compute is the default. AUTO_PRECOMPUTE defaults to 1 — ad_vim will
 # always try the external compute tool first, and fall back to the
 # embedded vimscript LCS (s:LineDiff / s:CharDiff) if the binary is missing.
 AUTO_PRECOMPUTE="1"
@@ -250,7 +250,7 @@ CORE OPTIONS:
   --keep-dirty             Leave buffer modified; require :q! to quit (default: off)
   --no-vimrc (-N)          Don't load user's ~/.vimrc (isolated vim, default: off)
   --precomputed FILE       Use pre-computed diff from FILE (see compute/ dir)
-                           By default diffvim uses bin/ad_compute
+                           By default ad_vim uses bin/ad_compute
                            and falls back to the built-in vimscript LCS if not found.
   --startup-pause          Show config + help before starting (default: off)
   --startup-feedback (-F)  Show progress in status line during diff computation
@@ -364,7 +364,7 @@ CONFIG FILE:
 
 
 SEE ALSO:
-  man diffvim, man ad_compute
+  man ad_vim, man ad_compute
   docs/VISUAL_GUIDE.md, docs/ADOPTION_GUIDE.md
 USAGE
 }
@@ -375,6 +375,8 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --speed|-s)         SPEED_MULT="$2"; shift 2 ;;
         --output|-o)        OUTPUT_FILE="$2"; shift 2 ;;
+        --snapshot)         OUTPUT_FILE="$2"; shift 2 ;;
+        --no-display)       NO_DISPLAY=1; shift ;;
         --context|-c)       CONTEXT_LINES="$2"; shift 2 ;;
         --max-hunk-chars) MAX_HUNK_CHARS="$2"; shift 2 ;;
         --insert-pacing)
@@ -382,7 +384,7 @@ while [[ $# -gt 0 ]]; do
             case "$INSERT_PACING" in
                 char|word|accel) : ;;
                 *)
-                    echo "diffvim: invalid --insert-pacing value '$INSERT_PACING'" >&2
+                    echo "ad_vim: invalid --insert-pacing value '$INSERT_PACING'" >&2
                     echo "  valid: char | word | accel" >&2
                     exit 1 ;;
             esac
@@ -392,7 +394,7 @@ while [[ $# -gt 0 ]]; do
             case "$INSERT_SPEED" in
                 slow|normal|fast) : ;;
                 *)
-                    echo "diffvim: invalid --insert-speed value '$INSERT_SPEED'" >&2
+                    echo "ad_vim: invalid --insert-speed value '$INSERT_SPEED'" >&2
                     echo "  valid: slow | normal | fast" >&2
                     exit 1 ;;
             esac
@@ -412,7 +414,7 @@ while [[ $# -gt 0 ]]; do
             case "$PACING" in
                 uniform|adaptive|gaussian|review) : ;;
                 *)
-                    echo "diffvim: invalid --pacing value '$PACING'" >&2
+                    echo "ad_vim: invalid --pacing value '$PACING'" >&2
                     echo "  valid: uniform | adaptive | gaussian | review" >&2
                     exit 1 ;;
             esac
@@ -423,7 +425,7 @@ while [[ $# -gt 0 ]]; do
             case "$DELETE_PACING" in
                 char|rapid-eol|rapid-identical|accel|word|instant|flash) : ;;
                 *)
-                    echo "diffvim: invalid --delete-pacing value '$DELETE_PACING'" >&2
+                    echo "ad_vim: invalid --delete-pacing value '$DELETE_PACING'" >&2
                     echo "  valid: char | rapid-eol | rapid-identical | accel | word | instant | flash" >&2
                     exit 1 ;;
             esac
@@ -433,7 +435,7 @@ while [[ $# -gt 0 ]]; do
             case "$DELETE_SPEED" in
                 slow|normal|fast|instant) : ;;
                 *)
-                    echo "diffvim: invalid --delete-speed value '$DELETE_SPEED'" >&2
+                    echo "ad_vim: invalid --delete-speed value '$DELETE_SPEED'" >&2
                     echo "  valid: slow | normal | fast | instant" >&2
                     exit 1 ;;
             esac
@@ -459,7 +461,7 @@ while [[ $# -gt 0 ]]; do
             case "$HIGHLIGHT_MODE" in
                 none|inline|word|hunk) : ;;
                 *)
-                    echo "diffvim: invalid --highlight value '$HIGHLIGHT_MODE'" >&2
+                    echo "ad_vim: invalid --highlight value '$HIGHLIGHT_MODE'" >&2
                     echo "  valid: none | inline | word | hunk" >&2
                     exit 1 ;;
             esac
@@ -517,7 +519,7 @@ while [[ $# -gt 0 ]]; do
             case "$DISTANCE_SPEED" in
                 adaptive|off) : ;;
                 *)
-                    echo "diffvim: invalid --distance-speed value '$DISTANCE_SPEED'" >&2
+                    echo "ad_vim: invalid --distance-speed value '$DISTANCE_SPEED'" >&2
                     echo "  valid: adaptive | off" >&2
                     exit 1 ;;
             esac
@@ -1046,7 +1048,7 @@ if [[ $MAX_LINE_LEN -gt 0 ]]; then
         for f in "${pair%%:*}" "${pair##*:}"; do
             awk -v maxlen="$MAX_LINE_LEN" -v fname="$f" '
                 length($0) > maxlen {
-                    printf "diffvim: warning: %s line %d has %d chars (max %d)\n", \
+                    printf "ad_vim: warning: %s line %d has %d chars (max %d)\n", \
                         fname, NR, length($0), maxlen
                 }
             ' "$f" >&2 || true
@@ -1061,10 +1063,10 @@ if [[ $DRY_RUN -eq 1 ]]; then
     for pair in "${FILE_PAIRS[@]}"; do
         old_f="${pair%%:*}"
         new_f="${pair##*:}"
-        echo "=== diffvim dry-run: $old_f -> $new_f ==="
+        echo "=== ad_vim dry-run: $old_f -> $new_f ==="
         diff -u "$old_f" "$new_f" || true
         hunk_count=$(diff -u "$old_f" "$new_f" 2>/dev/null | grep -c '^@@' || true)
-        echo "diffvim: $hunk_count hunk(s)"
+        echo "ad_vim: $hunk_count hunk(s)"
     done
     exit 0
 fi
@@ -1185,7 +1187,7 @@ if [[ -n "$LOG_MODE" ]]; then
             unlink $pc_file;
         }
 
-        print STDERR "diffvim: log written to $log_file\n";
+        print STDERR "ad_vim: log written to $log_file\n";
 
         sub process_hunk {
             my ($out, $mode, $old_lines, $target, $ops) = @_;
@@ -1364,7 +1366,7 @@ debug_log() {
 }
 
 if [[ $DEBUG_MODE -eq 1 ]]; then
-    echo "=== diffvim debug log $(date) ===" > "$DEBUG_LOG"
+    echo "=== ad_vim debug log $(date) ===" > "$DEBUG_LOG"
     debug_log "OLD=$OLD NEW=$NEW"
     debug_log "WORKDIR=$WORKDIR"
     debug_log "SPEED_MULT=$SPEED_MULT"
@@ -1401,7 +1403,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         POST_OPS="$WORKDIR/post_ops.txt"
         TIMED_OPS="$WORKDIR/timed_ops.txt"
 
-        echo "diffvim: running external pipeline (compute → postprocess → pace)..." >&2
+        echo "ad_vim: running external pipeline (compute → postprocess → pace)..." >&2
 
         # Stage 1: Compute (Patience diff)
         debug_log "Stage 1: compute $COMPUTE_BIN $OLD $NEW $RAW_OPS"
@@ -1486,12 +1488,10 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
             "$DECORATE_BIN" "${DECORATE_ARGS[@]}" < "$TIMED_OPS" > "$DECORATED_OPS" 2>/dev/null
             debug_log "Stage 4 done: $(wc -l < "$DECORATED_OPS") lines in decorated_ops"
             TIMED_OPS="$DECORATED_OPS"
-        else
-            # No decorate tool — use timed ops directly
         fi
     else
-        echo "diffvim: pipeline executables not found (need compute-cpp, postprocess, pace)" >&2
-        echo "  Run 'make -C compute' and rebuild the animator tools." >&2
+        echo "ad_vim: pipeline executables not found (need ad_compute, ad_postprocess, ad_layer_pace)" >&2
+        echo "  Run 'make' to build them." >&2
         exit 1
     fi
 else
@@ -1524,22 +1524,22 @@ cat > "$VIMSCRIPT" <<'__DIFFVIM_VIMSCRIPT_EOF__'
 set nocp
 
 if !exists('g:diffvim_new_file')
-    echoerr 'diffvim: g:diffvim_new_file not set'
+    echoerr 'ad_vim: g:diffvim_new_file not set'
     finish
 endif
 
 if !has('timers') || !has('float')
-    echoerr 'diffvim: requires vim compiled with +timers and +float'
+    echoerr 'ad_vim: requires vim compiled with +timers and +float'
     finish
 endif
 
 if !filereadable(g:diffvim_new_file)
-    echoerr 'diffvim: cannot read new file: ' . g:diffvim_new_file
+    echoerr 'ad_vim: cannot read new file: ' . g:diffvim_new_file
     finish
 endif
 
 if !&modifiable
-    echoerr 'diffvim: buffer is not modifiable'
+    echoerr 'ad_vim: buffer is not modifiable'
     finish
 endif
 
@@ -1562,6 +1562,7 @@ let s:scroll             = 'zz'
 let s:max_hunk_chars     = 0
 let s:output_file        = ''
 let s:timed_ops_file     = ''
+let s:no_display         = 0  " When 1, skip all rendering (headless mode)
 let s:keep_dirty         = 0
 let s:speed_mult_x1000   = 1000
 let s:highlight_mode     = 'none'
@@ -1598,6 +1599,7 @@ let g:diffvim = extend({
     \ 'scroll':             s:scroll,
     \ 'max_hunk_chars':     s:max_hunk_chars,
     \ 'output_file':        s:output_file,
+    \ 'no_display':         s:no_display,
     \ 'timed_ops_file':     s:timed_ops_file,
     \ 'keep_dirty':         s:keep_dirty,
     \ 'speed_mult_x1000':   s:speed_mult_x1000,
@@ -1706,7 +1708,7 @@ endfunction
 " --- Startup pause ---
 function! s:ShowStartup() abort
     if !s:startup_pause | return | endif
-    echo "diffvim: press Enter to start animation..."
+    echo "ad_vim: press Enter to start animation..."
     call getchar()
     echo ""
 endfunction
@@ -1865,7 +1867,7 @@ function! s:TimedProcessBatch() abort
             " delay\t<ms>\t<type> — render now, then return delay
             if s:needs_redraw
                 call s:TimedPlaceCursor()
-                redraw
+                if !s:no_display | redraw | endif
                 let s:needs_redraw = 0
             endif
             let l:ms = str2nr(l:parts[1])
@@ -1890,7 +1892,7 @@ function! s:TimedProcessBatch() abort
             let l:match_id = matchadd(l:hi_group, l:pattern)
             if s:needs_redraw
                 call s:TimedPlaceCursor()
-                redraw
+                if !s:no_display | redraw | endif
                 let s:needs_redraw = 0
             endif
             " Schedule removal after duration (simplified: remove on next delay)
@@ -1921,14 +1923,14 @@ function! s:TimedProcessBatch() abort
             let l:sign_type = l:parts[2]
             if !exists('s:sign_counter')
                 let s:sign_counter = 100
-                sign define diffvim_add text=+ texthl=DiffAdd
-                sign define diffvim_del text=- texthl=DiffDelete
+                sign define ad_add text=+ texthl=DiffAdd
+                sign define ad_del text=- texthl=DiffDelete
             endif
             let s:sign_counter += 1
             if l:sign_type ==# 'add'
-                execute 'sign place ' . s:sign_counter . ' line=' . l:line . ' name=diffvim_add buffer=' . bufnr('')
+                execute 'sign place ' . s:sign_counter . ' line=' . l:line . ' name=ad_add buffer=' . bufnr('')
             elseif l:sign_type ==# 'del'
-                execute 'sign place ' . s:sign_counter . ' line=' . l:line . ' name=diffvim_del buffer=' . bufnr('')
+                execute 'sign place ' . s:sign_counter . ' line=' . l:line . ' name=ad_del buffer=' . bufnr('')
             endif
 
         elseif l:cmd ==# 'marker' && len(l:parts) >= 4
@@ -1960,7 +1962,7 @@ function! s:TimedProcessBatch() abort
             let s:timed_stopped = 1
             if s:needs_redraw
                 call s:TimedPlaceCursor()
-                redraw
+                if !s:no_display | redraw | endif
                 let s:needs_redraw = 0
             endif
             return -1
@@ -1970,7 +1972,7 @@ function! s:TimedProcessBatch() abort
     let s:timed_stopped = 1
     if s:needs_redraw
         call s:TimedPlaceCursor()
-        redraw
+        if !s:no_display | redraw | endif
         let s:needs_redraw = 0
     endif
     return -1
@@ -2051,7 +2053,7 @@ function! s:TimedTick(timer) abort
         endwhile
         let s:needs_redraw = 1
         call s:TimedPlaceCursor()
-        redraw
+        if !s:no_display | redraw | endif
         let s:needs_redraw = 0
     endif
 
@@ -2081,7 +2083,7 @@ function! s:StartTimedAnimation() abort
 
     call s:LoadTimedOps()
     if empty(s:timed_ops)
-        echoerr 'diffvim: timed op stream is empty'
+        echoerr 'ad_vim: timed op stream is empty'
         return
     endif
 

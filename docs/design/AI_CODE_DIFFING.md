@@ -18,7 +18,7 @@ diff, they face unique challenges:
 5. **Comment quality** — AI comments can be verbose, redundant, or
    misleading.
 
-**Note:** Asking an AI to analyze each hunk in real-time during diffvim
+**Note:** Asking an AI to analyze each hunk in real-time during ad_vim
 animation is NOT acceptable — it costs money, takes time (seconds per API
 call), and breaks the flow of the animation. The goal of this document is
 to find things that can be done WITHOUT real-time AI calls.
@@ -62,9 +62,9 @@ to find things that can be done WITHOUT real-time AI calls.
 
 ---
 
-## 100 Things AI and/or diffvim Could Do
+## 100 Things AI and/or ad_vim Could Do
 
-### A. diffvim Engine Improvements (no AI needed)
+### A. ad_vim Engine Improvements (no AI needed)
 
 1. **Semantic diff mode** — compare AST nodes, not characters, so
    `if not x` and `if x == False` show as equivalent (no diff).
@@ -120,9 +120,9 @@ to find things that can be done WITHOUT real-time AI calls.
 24. **Hunk documentation** — ask the AI to generate a one-line summary
     of each hunk, stored as metadata in the diff.
 25. **Risk scoring** — ask the AI to rate the risk of each change
-    (low/medium/high) so diffvim can highlight high-risk changes.
+    (low/medium/high) so ad_vim can highlight high-risk changes.
 26. **Change categorization** — ask the AI to categorize each change
-    (bugfix, refactor, optimization, style, new feature) so diffvim
+    (bugfix, refactor, optimization, style, new feature) so ad_vim
     can use different animation speeds per category.
 27. **Dependency mapping** — ask the AI to list which other parts of
     the codebase are affected by each change.
@@ -143,7 +143,7 @@ to find things that can be done WITHOUT real-time AI calls.
 35. **Review priority** — ask the AI to prioritize which changes need
     the most careful review.
 
-### C. diffvim + AI Integration (offline, not real-time)
+### C. ad_vim + AI Integration (offline, not real-time)
 
 36. **Pre-computed AI annotations** — run AI analysis OFFLINE before
     animation, store results in the precomputed diff file, display
@@ -177,7 +177,7 @@ to find things that can be done WITHOUT real-time AI calls.
 50. **AI dead code warning** — highlight unused code with a
     "UNREFERENCED" annotation.
 
-### D. diffvim Visualization Improvements for AI Code
+### D. ad_vim Visualization Improvements for AI Code
 
 51. **Side-by-side old/new view** — show the goal (new file) alongside
     the animation so the viewer knows where it's heading.
@@ -210,7 +210,7 @@ to find things that can be done WITHOUT real-time AI calls.
 65. **Large file detection** — for files > 500 lines, offer to show a
     summary instead of full animation.
 
-### E. diffvim Post-Processing for AI Code
+### E. ad_vim Post-Processing for AI Code
 
 66. **AI noise reduction** — post-process the diff to remove
     formatting-only changes, import reordering, and docstring whitespace.
@@ -236,14 +236,14 @@ to find things that can be done WITHOUT real-time AI calls.
 ### F. AI Tooling Integration (offline)
 
 76. **Pre-commit hook** — run AI analysis as a pre-commit hook, store
-    results in a `.diffvim-annotations` file, diffvim reads it.
-77. **CI/CD integration** — generate annotations in CI, diffvim reads
+    results in a `.diffvim-annotations` file, ad_vim reads it.
+77. **CI/CD integration** — generate annotations in CI, ad_vim reads
     them during animation.
 78. **Git notes** — store AI annotations as git notes on the commit.
 79. **Diff metadata format** — extend the precomputed diff format with
     `# AI_SUMMARY: ...`, `# AI_RISK: high`, `# AI_CATEGORY: bugfix`
-    lines that diffvim reads and displays.
-80. **Annotation cache** — cache AI annotations so re-running diffvim
+    lines that ad_vim reads and displays.
+80. **Annotation cache** — cache AI annotations so re-running ad_vim
     on the same diff doesn't require re-analysis.
 81. **Batch analysis** — analyze all hunks in one AI call (not per-hunk)
     to minimize cost.
@@ -318,24 +318,24 @@ to find things that can be done WITHOUT real-time AI calls.
 
 ## Note on Real-Time AI
 
-Asking an AI for each hunk during diffvim animation is **not acceptable**
+Asking an AI for each hunk during ad_vim animation is **not acceptable**
 because:
 1. **Cost**: Each API call costs $0.01-0.10. A 20-hunk diff = $0.20-2.00.
 2. **Latency**: Each call takes 1-5 seconds. A 20-hunk diff = 20-100
    seconds of waiting.
 3. **Flow**: The animation is meant to be continuous. Pausing for AI
    calls breaks the viewer's concentration.
-4. **Offline**: diffvim should work without internet access.
+4. **Offline**: ad_vim should work without internet access.
 
 **Solution**: All AI analysis should be done **offline**, before the
 animation starts. Results are stored in the precomputed diff file as
-metadata comments. diffvim reads and displays them during animation
+metadata comments. ad_vim reads and displays them during animation
 without any API calls.
 
 ```bash
 # Example workflow:
 diffvim-ai-annotate old.py new.py > annotated.diff  # offline AI call
-diffvim --precomputed annotated.diff old.py new.py   # animation with annotations
+ad_vim --precomputed annotated.diff old.py new.py   # animation with annotations
 ```
 
 The annotated diff file would look like:
@@ -352,4 +352,4 @@ keep 32
 ...
 ```
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

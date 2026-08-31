@@ -12,7 +12,7 @@
 
 ### 1.1 Problem Statement
 
-The current diffvim animation engine is embedded inside vim. This creates
+The current ad_vim animation engine is embedded inside vim. This creates
 fundamental limitations that cannot be fixed within the vim buffer model:
 
 1. **The `\n` merge problem:** When a whole line is deleted, vim's buffer
@@ -55,7 +55,7 @@ A **standalone terminal application** (`ad`) that:
 
 ### 1.3 Key Architectural Principle: Separation of Concerns
 
-The current diffvim crams everything into one vimscript engine:
+The current ad_vim crams everything into one vimscript engine:
 diff computation, post-processing, pacing decisions, animation rendering,
 user input, and buffer management.
 
@@ -772,7 +772,7 @@ ad/
     ├── PACING.md                # Pacing algorithm reference
     ├── RENDERING.md             # Terminal rendering guide
     ├── TESTING.md               # Testing strategy
-    └── MIGRATION.md             # Migrating from vim-based diffvim
+    └── MIGRATION.md             # Migrating from vim-based ad_vim
 ```
 
 ---

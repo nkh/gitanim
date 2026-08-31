@@ -2,7 +2,7 @@
 
 ## Overview
 
-By default, diffvim animates every character deletion and insertion one
+By default, ad_vim animates every character deletion and insertion one
 at a time. For large changes, this can be slow and tedious. This document
 describes all the options that make deletions and insertions faster,
 batched, or non-character-based.
@@ -42,7 +42,7 @@ take too long (e.g., > 500 chars).
 
 **Example:**
 ```bash
-diffvim --max-hunk-chars 200 old.py new.py
+ad_vim --max-hunk-chars 200 old.py new.py
 ```
 
 ### 2. `--max-word-chars N` (instant short words)
@@ -59,7 +59,7 @@ appear instantly but longer words (`calculate_total`) to be animated.
 
 **Example:**
 ```bash
-diffvim --max-word-chars 5 old.py new.py
+ad_vim --max-word-chars 5 old.py new.py
 # Words <= 5 chars: typed instantly + 150ms pause
 # Words > 5 chars: char by char
 ```
@@ -81,7 +81,7 @@ of "typing characters".
 
 **Example:**
 ```bash
-diffvim --word-diff old.py new.py
+ad_vim --word-diff old.py new.py
 # "hello" is deleted as one unit, "world" is inserted as one unit
 ```
 
@@ -138,7 +138,7 @@ The transition from accelerate to decelerate happens when `remaining < total * 0
 
 **Example:**
 ```bash
-diffvim --accel-delete --block-delete-size 3 \
+ad_vim --accel-delete --block-delete-size 3 \
   --pause-before-delete-ms 200 --pause-after-delete-ms 200 \
   --accel-delete-start-ms 80 --accel-delete-min-ms 10 --accel-delete-accel 85 \
   old.py new.py
@@ -245,16 +245,16 @@ For the best viewer experience, combine options:
 
 ```bash
 # Natural word-based animation
-diffvim --word-diff --semantic-cleanup --optimize-sequence old.py new.py
+ad_vim --word-diff --semantic-cleanup --optimize-sequence old.py new.py
 
 # Fast review of large files
-diffvim --max-hunk-chars 500 --accel-delete --speed 2 old.py new.py
+ad_vim --max-hunk-chars 500 --accel-delete --speed 2 old.py new.py
 
 # Precise, coherent animation
-diffvim --left-to-right --optimize-sequence --overwrite --highlight-inline old.py new.py
+ad_vim --left-to-right --optimize-sequence --overwrite --highlight-inline old.py new.py
 
 # Everything on (kitchen sink)
-diffvim --word-diff --semantic-cleanup --optimize-sequence --left-to-right \
+ad_vim --word-diff --semantic-cleanup --optimize-sequence --left-to-right \
   --overwrite --accel-delete --highlight-inline --highlight-hunk \
   old.py new.py
 ```
@@ -267,7 +267,7 @@ Use `--log-mode 2` to see exactly what happens to each line, including
 acceleration delays:
 
 ```bash
-diffvim --log-mode 2 --log-file analysis.txt --accel-delete old.py new.py
+ad_vim --log-mode 2 --log-file analysis.txt --accel-delete old.py new.py
 cat analysis.txt
 ```
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 # verify_md5_parallel.pl — Round-trip MD5 verification of:
 #   1. new file (expected)
-#   2. diffvim saved buffer — simple-loop test (test_vim_correctness.pl style)
-#   3. diffvim saved buffer — ProcessCharOp test (test_vim_roundtrip.pl style)
+#   2. ad_vim saved buffer — simple-loop test (test_vim_correctness.pl style)
+#   3. ad_vim saved buffer — ProcessCharOp test (test_vim_roundtrip.pl style)
 #   4. ad_pipeline snapshot
 #
 # All run in parallel via fork+exec. Total runtime ~30s for all 42 examples.
@@ -389,7 +389,7 @@ print "Round-trip MD5 verification — all 42 example pairs\n";
 print "=" x 130, "\n";
 printf "%-22s | %-32s | %-32s | %-32s | %-32s\n",
        'example', 'new-file MD5',
-       'diffvim (simple loop)', 'diffvim (ProcessCharOp)', 'ad_pipeline';
+       'ad_vim (simple loop)', 'ad_vim (ProcessCharOp)', 'ad_pipeline';
 print "-" x 130, "\n";
 my ($s_ok, $s_bad, $r_ok, $r_bad, $p_ok, $p_bad) = (0,0,0,0,0,0);
 for my $d (@dirs) {
@@ -406,7 +406,7 @@ for my $d (@dirs) {
 }
 print "=" x 130, "\n";
 printf "\nSummary:\n";
-printf "  diffvim (simple loop / primitives only):    %2d OK / %2d bad\n", $s_ok, $s_bad;
-printf "  diffvim (ProcessCharOp / full engine):      %2d OK / %2d bad\n", $r_ok, $r_bad;
+printf "  ad_vim (simple loop / primitives only):    %2d OK / %2d bad\n", $s_ok, $s_bad;
+printf "  ad_vim (ProcessCharOp / full engine):      %2d OK / %2d bad\n", $r_ok, $r_bad;
 printf "  ad_pipeline (Go animator):             %2d OK / %2d bad\n", $p_ok, $p_bad;
 print "\n";

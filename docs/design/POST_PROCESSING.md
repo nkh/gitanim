@@ -102,7 +102,7 @@ The order is:
 
 ```bash
 # Use --no-optimize-sequence to get the raw Patience output
-diffvim --no-optimize-sequence old.py new.py
+ad_vim --no-optimize-sequence old.py new.py
 ```
 
 This is useful for debugging or when you want to see the "raw" diff

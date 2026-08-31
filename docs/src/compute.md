@@ -26,13 +26,13 @@ vimscript engine, but compiled to native code. It is 10-100x faster.
 # Build the C++ tool
 make -C compute
 
-# Compute the diff, then run diffvim with --precomputed
+# Compute the diff, then run ad_vim with --precomputed
 bin/ad_compute old.py new.py /tmp/diff.txt
-diffvim --precomputed /tmp/diff.txt old.py new.py
+ad_vim --precomputed /tmp/diff.txt old.py new.py
 
 # Or in one line:
 bin/ad_compute old.py new.py /tmp/diff.txt && \
-    diffvim --precomputed /tmp/diff.txt old.py new.py
+    ad_vim --precomputed /tmp/diff.txt old.py new.py
 ```
 
 `diffvim` and `ad_pipeline` look for the C++ binary automatically
@@ -60,10 +60,10 @@ bin/ad_compute --diff - /tmp/diff.txt < patch.diff
 bin/ad_compute --help
 ```
 
-Then run diffvim with the precomputed file:
+Then run ad_vim with the precomputed file:
 
 ```bash
-diffvim --precomputed /tmp/diff.txt old.py new.py
+ad_vim --precomputed /tmp/diff.txt old.py new.py
 ```
 
 ## Options
@@ -134,7 +134,7 @@ startup: 0.4 ms (process start to first byte read)
 ```
 
 Use `bin/ad_compute old.py new.py /tmp/diff.txt 2>&1`
-to see the compute time, then run diffvim to see the animation startup.
+to see the compute time, then run ad_vim to see the animation startup.
 
 ## Fallback
 

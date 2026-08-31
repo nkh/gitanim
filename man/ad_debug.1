@@ -6,14 +6,14 @@ ad_debug \- interactive pipeline debugger
 [\fIoptions\fR] [\fIargs\fR]
 .SH DESCRIPTION
 NAME\fR
-    ad_debug.sh — Debugging tool for the diffvim pipeline\fR
+    ad_debug.sh — Debugging tool for the ad_vim pipeline\fR
 \fR
 SYNOPSIS\fR
     ad_debug.sh [-h|--help]\fR
     ad_debug.sh [--keep] <oldfile> <newfile>\fR
 \fR
 DESCRIPTION\fR
-    Takes an old and new file, runs the full diffvim pipeline (compute →\fR
+    Takes an old and new file, runs the full ad_vim pipeline (compute →\fR
     postprocess → pace → animator) stage by stage, prints diagnostic\fR
     information to the terminal, AND writes the intermediate output of\fR
     each stage to disk under /tmp/ad_debug/ so you can inspect it with\fR
@@ -40,4 +40,4 @@ OPTIONS\fR
 .B \-h, \-\-help
 Show detailed help and exit
 .SH "SEE ALSO"
-.BR diffvim (1)
+.BR ad_vim (1)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # dv_tune.sh — Interactive workbench for tuning postprocessing and pacing.
 #
-# Provides a menu-driven interface for testing diffvim options on short
+# Provides a menu-driven interface for testing ad_vim options on short
 # files. Can stream ops to an animator running in another terminal via
 # file descriptor 5 (fd 5).
 #
@@ -216,7 +216,7 @@ generate_debug_bundle() {
     {
         echo "OS: $(uname -a)"
         echo "Vim: $(vim --version 2>/dev/null | head -1)"
-        echo "diffvim: $(cd "$ROOT" && git log --oneline -1 2>/dev/null)"
+        echo "ad_vim: $(cd "$ROOT" && git log --oneline -1 2>/dev/null)"
         echo "Date: $(date)"
     } > "$bundle_dir/system_info.txt"
 

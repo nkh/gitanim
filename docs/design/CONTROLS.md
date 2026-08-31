@@ -26,16 +26,16 @@ Toggles the animation between paused and running states.
 
 **When paused:**
 - The animation freezes at the current position
-- A message is displayed: `diffvim: PAUSED (Space=resume n=skip b=back q=quit)`
+- A message is displayed: `ad_vim: PAUSED (Space=resume n=skip b=back q=quit)`
 - The cursor stays where it was when pause was pressed
 - User input is still processed (you can press `n`, `b`, `q` while paused)
 
 **When resumed:**
 - The animation continues from where it was paused
-- A message is displayed: `diffvim: resumed`
+- A message is displayed: `ad_vim: resumed`
 
 **Implementation detail:** In `diffvim` (Vimscript), pause sets a flag
-that the timer callback checks. In `diffvim-tmux` and `diffvim.pl`,
+that the timer callback checks. In `ad_tmux` and `ad_vim.pl`,
 pause sets a `$paused` variable that the animation loop checks; when
 paused, the loop sleeps in 50ms increments instead of advancing the
 animation.
@@ -55,7 +55,7 @@ one hunk at a time, pausing between each.
 2. All remaining char ops in the current hunk are applied with no
    delay between them (they're sent as a batch of Ex commands).
 3. The hunk index advances.
-4. A message is displayed: `diffvim: hunk applied — paused (Space=resume,
+4. A message is displayed: `ad_vim: hunk applied — paused (Space=resume,
    n=next hunk, b=back)`.
 5. The animation pauses. Press `n` again to apply the next hunk, or
    `Space` to resume full-speed animation.
@@ -67,7 +67,7 @@ instantly and pauses again.
 applies it instantly, and pauses again.
 
 **When animation is done:** `n` has no effect. A message is displayed:
-`diffvim: already done`.
+`ad_vim: already done`.
 
 ---
 
@@ -83,7 +83,7 @@ then restarts the current hunk's animation from the beginning.
 3. The cursor is restored to its position at the snapshot time.
 4. The phase is set to `idle`, so the animation loop will start the
    hunk again (with cursor glide, char-by-char typing, etc.).
-5. A message is displayed: `diffvim: back to hunk 2/7`
+5. A message is displayed: `ad_vim: back to hunk 2/7`
 
 **At the first hunk:** If you press `b` at the first hunk (hunk index
 0), it restores the snapshot taken before hunk 0 — effectively
@@ -93,7 +93,7 @@ restarting the entire animation from the beginning.
 - `diffvim` (Vimscript): snapshots are stored in vimscript list
   variables (`s:state.snapshots`). Each snapshot contains the buffer
   lines, cursor position, hunk index, and line offset.
-- `diffvim-tmux` / `diffvim.pl`: snapshots are saved to temp files
+- `ad_tmux` / `ad_vim.pl`: snapshots are saved to temp files
   (`$WORKDIR/snaps/N`). Each snapshot contains the buffer lines
   (written by `DvSaveSnap`). Cursor position and line offset are
   stored in the orchestrator's variables.
@@ -114,9 +114,9 @@ Stops the animation and leaves the buffer in its current state.
 2. The user-input mappings (`Space`, `n`, `b`, `q`) are removed
    (`diffvim` only; in tmux implementations, the mappings remain but
    are harmless).
-3. By default, diffvim runs `:set nomodified` on the buffer so that
+3. By default, ad_vim runs `:set nomodified` on the buffer so that
    `:q` quits cleanly without complaining about unsaved changes.
-4. A message is displayed: `diffvim: animation stopped. Buffer left in
+4. A message is displayed: `ad_vim: animation stopped. Buffer left in
    current state — :q to quit.`
 
 **Keeping the buffer dirty:** If you want vim's normal "unsaved changes"
@@ -126,17 +126,17 @@ and you must type `:q!` to quit:
 
 ```bash
 # Default: ':q' quits cleanly
-diffvim old.py new.py
+ad_vim old.py new.py
 
 # Keep buffer modified; ':q!' required to quit
-diffvim --keep-dirty old.py new.py
+ad_vim --keep-dirty old.py new.py
 ```
 
 **After quitting:**
 - In `diffvim`: vim remains open with the buffer. You can quit vim
   with `:q` (default) or `:q!` (with `--keep-dirty`), or continue
   editing.
-- In `diffvim-tmux` / `diffvim.pl`: vim remains open in the tmux
+- In `ad_tmux` / `ad_vim.pl`: vim remains open in the tmux
   pane. The orchestrator process waits for vim to exit (detected via
   the `VimLeave` autocmd writing `vimleft` to the FIFO).
 
@@ -151,7 +151,7 @@ Displays the current hunk index and a summary of available keys.
 
 **Output:**
 ```
-diffvim: hunk 3/7  | Space=pause  n=next  b=back  q=quit  ?=help
+ad_vim: hunk 3/7  | Space=pause  n=next  b=back  q=quit  ?=help
 ```
 
 This is useful for checking progress without pausing the animation.
@@ -208,11 +208,11 @@ nnoremap <buffer> <silent> q       :call <SID>Quit()<CR>
 nnoremap <buffer> <silent> ?       :call <SID>ShowHelp()<CR>
 ```
 
-The `<buffer>` flag ensures the mappings only apply to the diffvim
+The `<buffer>` flag ensures the mappings only apply to the ad_vim
 buffer, not other buffers. The `<silent>` flag prevents the command
 from being echoed to the status line.
 
-### `diffvim-tmux` / `diffvim.pl` (FIFO-based)
+### `ad_tmux` / `ad_vim.pl` (FIFO-based)
 
 Mappings write single-character commands to a named pipe (FIFO):
 
@@ -226,7 +226,7 @@ nnoremap <buffer> <silent> q       :call writefile(['q'], g:dv_ctrl, 'a')<CR>
 The orchestrator reads the FIFO non-blocking between animation steps:
 
 ```bash
-# Bash (diffvim-tmux):
+# Bash (ad_tmux):
 while IFS= read -t 0.001 -u 3 -r cmd; do
     case "$cmd" in
         p) paused=$(( 1 - paused )) ;;
@@ -238,7 +238,7 @@ done
 ```
 
 ```perl
-# Perl (diffvim.pl):
+# Perl (ad_vim.pl):
 my $buf = '';
 while (1) {
     my $data = '';
@@ -272,7 +272,7 @@ mappings in vim:
 :nnoremap <buffer> <F5> :call <SID>TogglePause()<CR>
 ```
 
-### `diffvim-tmux` / `diffvim.pl` (FIFO-based)
+### `ad_tmux` / `ad_vim.pl` (FIFO-based)
 
 The mappings are defined in the vimscript engine file (`engine.vim`).
 To customize, modify the `write_engine()` function in the bash/perl
@@ -281,4 +281,4 @@ script and change the `nnoremap` lines.
 You can also add custom mappings that write different commands to the
 FIFO, then extend the `handle_user_input()` function to handle them.
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

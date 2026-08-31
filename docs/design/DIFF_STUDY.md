@@ -11,7 +11,7 @@ cognitive load theory to propose evaluation criteria.
 
 ## The Problem
 
-diffvim now supports:
+ad_vim now supports:
 - **2 algorithms**: Patience (default), Patience. Myers was removed (OOM on large files, same op count as Patience)
 - **4 option flags**: `--word-diff`, `--semantic-cleanup`, `--indent-aware`,
   and the new `--accel-delete`, `--overwrite`, `--inline-highlight`, etc.
@@ -86,13 +86,13 @@ Based on the research, a good diff animation should:
 
 ---
 
-## Using `diffvim-compare` to Evaluate
+## Using `ad_compare` to Evaluate
 
-The `diffvim-compare` tool generates all combinations and prints a
+The `ad_compare` tool generates all combinations and prints a
 comparison table:
 
 ```bash
-./diffvim-compare tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py
+./ad_compare tests/tests/examples/42_large_huge_python/old.py tests/tests/examples/42_large_huge_python/new.py
 ```
 
 Output:
@@ -221,6 +221,6 @@ The best combination depends on the use case, but the research suggests:
 5. **Pause-after-lines** for large hunks (prevents cognitive overload)
 6. **Word-diff** for presentations (groups changes into readable units)
 
-Use `diffvim-compare` to evaluate your specific files and choose the
+Use `ad_compare` to evaluate your specific files and choose the
 combination that produces the fewest changed ops with the most coherent
 hunk structure.

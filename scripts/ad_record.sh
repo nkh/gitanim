@@ -11,7 +11,7 @@ SYNOPSIS
     dv_record.sh <oldfile> <newfile> <recording.dv>
 
 DESCRIPTION
-    Runs the diffvim compute + postprocess + pace pipeline on an
+    Runs the ad_vim compute + postprocess + pace pipeline on an
     old/new file pair and writes the resulting TIMED op stream (with
     delay, keep, delete, insert ops) to a recording file. The
     recording can then be replayed by dv_replay.sh without needing

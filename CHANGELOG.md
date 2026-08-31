@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed — Flashing in both animators
 
-**Vimscript animator (diffvim):**
+**Vimscript animator (ad_vim):**
 - Removed `redraw!` (full screen clear) from every op
 - Added `needs_redraw` flag: only render at delay boundaries
 - `keep` ops don't trigger rendering at all (only advance cursor)
@@ -90,7 +90,7 @@ animator parses both formats (typed and untyped) for backward compat.
 and `--list-transforms` flags. Old flags (`--op-order`, `--semantic-cleanup`,
 `--indent-aware`, `--overwrite`) are kept as shorthand.
 
-### Coloring (diffvim-colorize)
+### Coloring (ad_colorize)
 
 New `animator/perl/colorize.pl` tool with 3 backends:
 - **vim**: Uses vim's syntax highlighting via `synID()` per char
@@ -105,7 +105,7 @@ The C animator supports `--colormap-old FILE` and `--colormap-new FILE`
 flags. Unmodified lines are rendered with the old file's colors; modified
 lines fall back to plain text (progressive decoloring).
 
-### diffvim Uses External Pipeline
+### ad_vim Uses External Pipeline
 
 The `diffvim` bash launcher now runs the full external pipeline:
   compute (C++) → postprocess (C) → pace (C) → timed op stream
@@ -157,7 +157,7 @@ Survivors:
 - compute: `compute/cpp/ad_compute.cpp` → `bin/ad_compute`
 - animator: `animator/c/{animator,pace,postprocess}.c` and
   `animator/perl/{animator,pace,postprocess}.pl`
-- launchers: `diffvim`, `diffvim.pl`, `diffvim-tmux`, `diffvim-compare`,
+- launchers: `diffvim`, `ad_vim.pl`, `ad_tmux`, `ad_compare`,
   `animator/ad_pipeline`
 - vimscript: `autoload/diffvim/engine.vim`, `plugin/diffvim.vim`
 
@@ -174,7 +174,7 @@ The `--tool c|cpp|rust|go` option is gone from both `diffvim` and
 
 Default behaviour:
 
-- `diffvim` (and `diffvim-tmux`, `diffvim.pl` via shared flag parsing)
+- `diffvim` (and `ad_tmux`, `ad_vim.pl` via shared flag parsing)
   now look for `bin/ad_compute` in `bin/ad_compute `,
   `/usr/local/bin/`, and `~/.local/bin/`. If found, the diff is
   pre-computed before launching vim (10-100x faster than the in-vim
@@ -268,11 +268,11 @@ animator. The Go versions no longer exist.
 
 - `README.md`, `docs/PIPELINE.md`, `docs/NEXT_SESSION.md` rewritten to
   describe the new single-C++-tool reality and the v2 timed op stream.
-- `man/diffvim.1`, `man/ad_compute.1`, `man/diffvim-compare.1`
+- `man/ad_vim.1`, `man/ad_compute.1`, `man/ad_compare.1`
   updated: removed `--tool`, removed `myers`, replaced 4-impl tables
   with the C++-only story, documented the Perl fallback.
-- `completion/diffvim.bash`, `completion/diffvim.fish`,
-  `completion/_diffvim`: removed `--tool` completion and `myers` from
+- `completion/ad_vim.bash`, `completion/ad_vim.fish`,
+  `completion/__ad_vim`: removed `--tool` completion and `myers` from
   `--algorithm` candidates.
 - `compute/README.md`, `compute/PARALLELISM.md`: rewritten for the
   C++-only world (with Perl fallback).
@@ -306,7 +306,7 @@ animator. The Go versions no longer exist.
 
 ## [Pre-refactor] — 2026-08-18
 
-### Fixed — ghost-line regression in diffvim
+### Fixed — ghost-line regression in ad_vim
 
 Commit 758c8c7 introduced a "deferred joins" mechanism to fix a
 hallucinated "ghost line" visual problem. The mechanism was later
@@ -363,7 +363,7 @@ Fix: when `cursorL >= len(lines)`, set `cursorC` to
 ### Added — verify_md5.sh script
 
 `tests/verify_md5.sh`: parallel round-trip MD5 verification script.
-Tests diffvim (simple-loop + ProcessCharOp) and ad_pipeline
+Tests ad_vim (simple-loop + ProcessCharOp) and ad_pipeline
 against all 42 example pairs. Runs 8 concurrent vim instances via
 `xargs -P` for speed. Outputs MD5 comparison table.
 
@@ -454,11 +454,11 @@ Updated presets to use only unified options:
 
 Updated all documentation:
 - README.md: options table now shows only unified options
-- man/diffvim.1: removed Animation Options and Utility Options sections,
+- man/ad_vim.1: removed Animation Options and Utility Options sections,
   rewrote Environment Variables and Examples sections
 - docs/src/options.md: completely rewritten with only unified options
-- completion/diffvim.bash, .fish, _diffvim: rewritten with only unified options
-- diffvim --help: rewritten with categorized sections (Core, Diff, Op Order,
+- completion/ad_vim.bash, .fish, __ad_vim: rewritten with only unified options
+- ad_vim --help: rewritten with categorized sections (Core, Diff, Op Order,
   Deletion, Insertion, Timing, Highlighting)
 
 Updated tests:
@@ -489,9 +489,9 @@ tests/test_viewport.pl (23), tests/test_input_source.pl (14) — 165 new asserti
 The `diff2html-cli` Node.js dependency has been completely removed.
 
 - Deleted `DiffVim/Parser/Diff2Html.pm` (the parser module).
-- Removed `--parser diff2html` from `diffvim.pl` (only `--parser perl`
+- Removed `--parser diff2html` from `ad_vim.pl` (only `--parser perl`
   is accepted now, and it's a no-op for backwards compatibility).
-- Removed `--parser-compare` subcommand from `diffvim.pl`.
+- Removed `--parser-compare` subcommand from `ad_vim.pl`.
 - Removed `diff2html` from the `--version` dependency list.
 - Updated `tests/test_parsers.pl` to only test the Perl parser
   (was 18 assertions, now 9).
@@ -515,7 +515,7 @@ installed.
 
 ### Removed — Input source options (Phase 8)
 
-Removed 4 input-source options from the bash diffvim:
+Removed 4 input-source options from the bash ad_vim:
 - `--from REV` — use `--git-rev REV..REV` instead
 - `--to REV` — use `--git-rev REV..REV` instead
 - `--auto-precompute` — use the compute tools directly with `--precomputed`
@@ -535,32 +535,32 @@ removed. Users should now use the compute tools directly:
 
   # After:
   bin/ad_compute old.py new.py /tmp/diff.txt
-  diffvim --precomputed /tmp/diff.txt old.py new.py
+  ad_vim --precomputed /tmp/diff.txt old.py new.py
 
 ### Added — Documentation overhaul
 
 #### `-h` / `--help` on every executable
 Every binary in the project now responds to `-h` and `--help` with a
 full usage message, options, environment variables, examples, and
-cross-references. Previously only `diffvim`, `diffvim-tmux`, and
-`diffvim.pl` had it; now `diffvim-compare`, `diffvim-jogger`,
+cross-references. Previously only `diffvim`, `ad_tmux`, and
+`ad_vim.pl` had it; now `ad_compare`, `ad_jogger`,
 `diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
 `set_config`, and all four `ad_compute` variants
 support it too.
 
 #### Manpages for every executable
 New `man/` directory with six manpages:
-- `man/diffvim.1` (moved from repo root)
-- `man/diffvim-tmux.1` (new)
-- `man/diffvim-compare.1` (new)
-- `man/diffvim-jogger.1` (new)
+- `man/ad_vim.1` (moved from repo root)
+- `man/ad_tmux.1` (new)
+- `man/ad_compare.1` (new)
+- `man/ad_jogger.1` (new)
 - `man/diffvim-precomputed.1` (new)
 - `man/ad_compute.1` (new — covers all four language variants)
 
 Install with `sudo cp man/*.1 /usr/local/share/man/man1/ && sudo mandb`.
 
 #### Visual Guide
-New `docs/VISUAL_GUIDE.md` — the canonical "explain diffvim in 5
+New `docs/VISUAL_GUIDE.md` — the canonical "explain ad_vim in 5
 minutes" reference with ASCII art. Covers the input → diff → hunks →
 char ops → animation → output pipeline, the three implementations,
 the post-processing pipeline, the cursor glide geometry, presets,
@@ -605,7 +605,7 @@ license).
 - `README.md` "Project Structure" section rewritten with the full
   file tree (now includes `compute/`, `man/`, and all new docs).
 - `README.md` manpage install instructions updated to copy
-  `man/*.1` instead of just `diffvim.1`.
+  `man/*.1` instead of just `ad_vim.1`.
 - `README.md` new "Where to Start Reading" table linking to the
   visual guide, adoption guide, presentation, mdBook, manpages, and
   option combinations.
@@ -691,7 +691,7 @@ viewer from losing context in very large hunks.
 - `docs/MULTI_FILE.md` — multi-file animation + external tools for multi-file
 - `compute/PARALLELISM.md` — parallelism analysis + C OpenMP plan
 - `docs/DIFF_STUDY.md` — human reading behavior research + recommended combos
-- `diffvim-compare` — tool to generate all algorithm×option combinations
+- `ad_compare` — tool to generate all algorithm×option combinations
 
 ### Tests
 - `tests/test_new_features.pl` (9 assertions) — new features correctness
@@ -756,7 +756,7 @@ applied in a single batch followed by the rapid delay.
 
 #### `--keep-dirty` (default off)
 By default, after the animation completes (or the user presses `q`),
-diffvim runs `:set nomodified` on the buffer so that `:q` quits cleanly
+ad_vim runs `:set nomodified` on the buffer so that `:q` quits cleanly
 — no more need to type `:q!` every time. With `--keep-dirty`, the buffer
 stays modified and `:q!` is required (useful when you want vim's normal
 "unsaved changes" protection to remain active).
@@ -866,9 +866,9 @@ and diff presentation. Each item is framed from the viewer's perspective.
 - Available in all three implementations.
 
 #### #86 Comprehensive man page
-- Created `diffvim.1` in roff/man format.
+- Created `ad_vim.1` in roff/man format.
 - Documents all flags, env vars, controls, and architecture with examples.
-- Install: `cp diffvim.1 /usr/local/share/man/man1/ && man diffvim`
+- Install: `cp ad_vim.1 /usr/local/share/man/man1/ && man ad_vim`
 
 #### #98 `--replay` from git history
 - Animate a file's git history: `--replay FILE [--from REV] [--to REV]`
@@ -876,8 +876,8 @@ and diff presentation. Each item is framed from the viewer's perspective.
   transformation to the next commit, ending with the working copy.
 - Multiple files: `--replay FILE1 FILE2`
 - Default range: HEAD~5..HEAD
-- Available in all three implementations (diffvim-tmux and diffvim.pl
-  support `--from`/`--to` flags; diffvim uses env vars for the range).
+- Available in all three implementations (ad_tmux and ad_vim.pl
+  support `--from`/`--to` flags; ad_vim uses env vars for the range).
 
 ### Changed
 - All three scripts now share the same CLI option syntax (`--speed`,
@@ -892,7 +892,7 @@ and diff presentation. Each item is framed from the viewer's perspective.
 ### Fixed
 - Removed broken `Algorithm::Diff` integration that caused "Argument isn't
   numeric" warnings (in v1.0.1).
-- Fixed `diffvim-tmux` error messages going to stderr only (now go to
+- Fixed `ad_tmux` error messages going to stderr only (now go to
   stdout with install hints).
 - Fixed `diffvim` bash launcher typo where `AD_HUNK_PAUSE_MS` export
   was glued to `OLD=` assignment.
@@ -910,16 +910,16 @@ and diff presentation. Each item is framed from the viewer's perspective.
 ### Fixed
 - Removed broken `Algorithm::Diff` integration in `DiffVim/Parser/Perl.pm`
   that caused "Argument isn't numeric in array or hash lookup" warnings.
-- Improved `diffvim-tmux` error messages (now go to stdout with install hints).
-- Made `diffvim.pl` and `diffvim-tmux` executable.
+- Improved `ad_tmux` error messages (now go to stdout with install hints).
+- Made `ad_vim.pl` and `ad_tmux` executable.
 
 ---
 
 ## [1.0.0] — 2026-08-09
 
 ### Added
-- Three implementations: `diffvim` (Bash+Vimscript), `diffvim-tmux` (Bash+tmux),
-  `diffvim.pl` (Perl+tmux).
+- Three implementations: `diffvim` (Bash+Vimscript), `ad_tmux` (Bash+tmux),
+  `ad_vim.pl` (Perl+tmux).
 - Two diff parsers: `DiffVim::Parser::Perl` (pure-Perl LCS) and
   `DiffVim::Parser::Diff2Html` (diff2html CLI). The diff2html parser
   was later removed in [Unreleased] — only the pure-Perl parser

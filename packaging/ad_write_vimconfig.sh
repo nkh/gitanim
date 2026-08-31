@@ -121,6 +121,7 @@ ad_write_vimconfig() {
 
         # ── Output ──────────────────────────────────────────────────
         _ad_vstr output_file   "${OUTPUT_FILE:-}"
+        _ad_vbool no_display   "${NO_DISPLAY:-0}"
         _ad_vstr snapshot_file "${SNAPSHOT_FILE:-}"
         _ad_vbool keep_dirty   "${KEEP_DIRTY:-0}"
         _ad_vstr timed_ops_file "${TIMED_OPS:-}"

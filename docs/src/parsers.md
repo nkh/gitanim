@@ -5,7 +5,7 @@
 *Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
 
 
-The `diffvim.pl` implementation uses a single built-in diff parser.
+The `ad_vim.pl` implementation uses a single built-in diff parser.
 
 ## Parser API
 
@@ -61,13 +61,13 @@ was the only value even before the diff2html removal):
 
 ```bash
 # Default (perl)
-perl diffvim.pl old.py new.py
+perl ad_vim.pl old.py new.py
 
 # Explicit (same as default)
-perl diffvim.pl --parser perl old.py new.py
+perl ad_vim.pl --parser perl old.py new.py
 
 # With word-level diff
-perl diffvim.pl --word-diff old.py new.py
+perl ad_vim.pl --word-diff old.py new.py
 ```
 
 ## Writing a Custom Parser
@@ -89,5 +89,5 @@ sub parse_diff {
 1;
 ```
 
-Then add it to `diffvim.pl`'s `compute_diff` function. See
+Then add it to `ad_vim.pl`'s `compute_diff` function. See
 `docs/PARSERS.md` for the full reference.

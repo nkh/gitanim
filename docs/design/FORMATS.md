@@ -1,6 +1,6 @@
 # Intermediary File Formats
 
-All intermediary files in the diffvim pipeline use **TSV (tab-separated values)**. Every file ends with a blank line.
+All intermediary files in the ad_vim pipeline use **TSV (tab-separated values)**. Every file ends with a blank line.
 
 ## 1. Raw Diff Format (compute output)
 

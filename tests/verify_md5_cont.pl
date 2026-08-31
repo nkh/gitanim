@@ -63,7 +63,7 @@ for my $d (@dirs) {
 
     my $new_md5 = md5_file($new);
 
-    # --- diffvim run ------------------------------------------------------
+    # --- ad_vim run ------------------------------------------------------
     my $dv_out = "$tmpdir/dv_$d.out";
     unlink $dv_out if -f $dv_out;
     my $cmd = "env $env AD_OUTPUT='$dv_out' timeout 8 vim -u NONE -N -n -es " .

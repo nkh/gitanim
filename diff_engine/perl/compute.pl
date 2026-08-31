@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # compute_builtin.pl — Pure-Perl fallback for ad_compute.
 #
-# Used by ad_pipeline (and the diffvim bash launcher, if desired) when
+# Used by ad_pipeline (and the ad_vim bash launcher, if desired) when
 # the C++ compute binary is not available. Produces v2 TSV output that is
 # byte-identical to bin/ad_compute via the DiffVim::Parser::Perl
 # module.

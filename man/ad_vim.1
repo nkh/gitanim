@@ -77,7 +77,7 @@ Bash orchestrator + vim in a tmux pane. Bash sends Ex commands to vim via
 .BR tmux\ send-keys .
 Requires bash 4+, tmux 3+, vim 8+, diff, sed, awk.
 .TP
-.B diffvim.pl
+.B ad_vim.pl
 Perl orchestrator + vim in a tmux pane. Same architecture as ad_tmux
 but with pluggable diff parser modules. Requires Perl 5.10+, tmux 3+, vim 8+.
 
@@ -146,8 +146,8 @@ is the default and is searched for in
 .IR /usr/local/bin/ ,
 and
 .IR ~/.local/bin/ .
-If found, diffvim pre-computes the diff before launching vim (10-100x
-faster than the in-vim patience diff for large files). If not found, diffvim
+If found, ad_vim pre-computes the diff before launching vim (10-100x
+faster than the in-vim patience diff for large files). If not found, ad_vim
 falls back to the embedded vimscript patience diff
 .RI ( s:LineDiff / s:CharDiff )
 with a warning on stderr. (The
@@ -261,7 +261,7 @@ Unified highlight mode (default:
 
 .TP
 .BR \-\-parser\  perl
-(diffvim.pl only) Diff parser to use. Only
+(ad_vim.pl only) Diff parser to use. Only
 .B perl
 is supported (pure-Perl Patience algorithm, no external dependencies).
 The flag is accepted for backwards compatibility but has no effect
@@ -402,7 +402,7 @@ A progress message is shown in the vim status line:
 .RS
 .PP
 .nf
-diffvim: hunk 3/7 (42%) | speed 2.3x | PAUSED
+ad_vim: hunk 3/7 (42%) | speed 2.3x | PAUSED
 .fi
 .RE
 
@@ -459,7 +459,7 @@ maps to DELETE_PACING).
 .SS Basic Usage
 .PP
 .nf
-diffvim old.py new.py
+ad_vim old.py new.py
 .fi
 
 .SS Speed Control
@@ -528,7 +528,7 @@ ad_vim \-\-highlight hunk old.py new.py
 .PP
 .nf
 # Default: ':q' quits cleanly (buffer marked not modified)
-diffvim old.py new.py
+ad_vim old.py new.py
 
 # Keep buffer modified; ':q!' required to quit
 ad_vim \-\-keep-dirty old.py new.py
@@ -591,7 +591,7 @@ ad_vim \-\-parser-compare old.py new.py
 .SH FILES
 .TP
 .I DiffVim/Parser/Perl.pm
-Pure-Perl Patience diff parser module (used by diffvim.pl).
+Pure-Perl Patience diff parser module (used by ad_vim.pl).
 .TP
 .I plugin/diffvim.vim
 Vim plugin providing the
@@ -601,13 +601,13 @@ command for running inside an existing vim session.
 .I autoload/diffvim/engine.vim
 Standalone vimscript engine (sourced by the plugin).
 .TP
-.I completion/diffvim.bash
+.I completion/ad_vim.bash
 Bash shell completion script.
 .TP
-.I completion/_diffvim
+.I completion/__ad_vim
 Zsh shell completion script.
 .TP
-.I completion/diffvim.fish
+.I completion/ad_vim.fish
 Fish shell completion script.
 .TP
 .I packaging/diffvim.rb
@@ -745,13 +745,13 @@ animation may not handle it correctly.
 tmux send-keys race conditions
 .B ad_tmux
 and
-.B diffvim.pl
+.B ad_vim.pl
 can experience race conditions where Ex command text leaks into normal
 mode when commands are sent faster than vim processes them. The
 .B ad_vim
 implementation does not have this issue. Use
 .B \-\-remote
-(diffvim.pl) for an alternative that avoids tmux.
+(ad_vim.pl) for an alternative that avoids tmux.
 .TP
 Large files
 The Patience diff is O(N\(muM) in memory. For files with
@@ -760,7 +760,7 @@ more than 10,000 lines, use
 to skip large hunks.
 
 .SH AUTHOR
-Written by the diffvim contributors.
+Written by the ad_vim contributors.
 
 .SH COPYRIGHT
-Copyright (c) 2026 diffvim contributors. MIT License.
+Copyright (c) 2026 ad_vim contributors. MIT License.

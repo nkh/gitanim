@@ -39,7 +39,7 @@ advances the animation. At 16ms, this is approximately 60fps.
 - **Lower** = smoother animation but higher CPU usage
 - **Higher** = coarser animation but lower CPU usage
 
-Only used by `diffvim-tmux` and `diffvim.pl`. The `diffvim`
+Only used by `ad_tmux` and `ad_vim.pl`. The `diffvim`
 (Vimscript) implementation uses vim's `timer_start()` which has its
 own tick interval (also configurable via this variable).
 
@@ -109,7 +109,7 @@ effectively disable rapid EOL without using `--no-rapid-eol-delete`.
 #### `DIFFVIM_KEEP_DIRTY` (default: unset)
 
 Set to `1` to leave the buffer marked as modified after the animation
-finishes. By default diffvim runs `:set nomodified` so that `:q` quits
+finishes. By default ad_vim runs `:set nomodified` so that `:q` quits
 cleanly; with `DIFFVIM_KEEP_DIRTY=1` the user must type `:q!` to quit.
 Equivalent to the `--keep-dirty` command-line flag.
 
@@ -205,10 +205,10 @@ unset AD_TICK_MS AD_TYPE_DELAY_MS AD_DELETE_DELAY_MS \
 ## Command-Line Options
 
 All three implementations share a common set of CLI options. Run
-`diffvim --help` for the full list. Key options include:
+`ad_vim --help` for the full list. Key options include:
 
 ```bash
-diffvim [--speed N] [--output FILE] [--scroll zz|zt|zb|none]
+ad_vim [--speed N] [--output FILE] [--scroll zz|zt|zb|none]
         [--multi] [--replay] [--from REV] [--to REV] [--git-rev REV..REV]
         [--step-mode] [--adaptive-timing] [--rapid-eol-delete]
         [--no-rapid-eol-delete] [--rapid-eol-delay-ms N] [--rapid-eol-min-chars N]
@@ -226,7 +226,7 @@ leaves the buffer modified so `:q!` is required to quit. See
 
 ## Tmux Configuration
 
-`diffvim-tmux` and `diffvim.pl` create tmux sessions/windows. The
+`ad_tmux` and `ad_vim.pl` create tmux sessions/windows. The
 session name is `diffvim-<PID>` (e.g., `diffvim-12345`).
 
 ### Window size
@@ -235,13 +235,13 @@ When running outside an existing tmux session, the window size defaults
 to the terminal size (`$COLUMNS` x `$LINES`). To override:
 
 ```bash
-COLUMNS=120 LINES=40 ./diffvim-tmux old.py new.py
+COLUMNS=120 LINES=40 ./ad_tmux old.py new.py
 ```
 
 ### Inside tmux
 
-If you're already inside a tmux session, `diffvim-tmux` and
-`diffvim.pl` create a new **window** in the current session (instead
+If you're already inside a tmux session, `ad_tmux` and
+`ad_vim.pl` create a new **window** in the current session (instead
 of a new session). This means:
 
 - The animation runs in a new window you can switch to/from
@@ -292,7 +292,7 @@ be aware that conflicts may occur.
 If you remove `-u NONE`, add these to your vimrc for best results:
 
 ```vim
-" Don't show mode in status line (diffvim manages it)
+" Don't show mode in status line (ad_vim manages it)
 set noshowmode
 
 " Show partial commands
@@ -315,14 +315,14 @@ syntax on
 To debug issues, set these environment variables:
 
 ```bash
-# Enable bash debugging (diffvim-tmux)
-bash -x ./diffvim-tmux old.py new.py
+# Enable bash debugging (ad_tmux)
+bash -x ./ad_tmux old.py new.py
 
-# Enable Perl warnings (diffvim.pl)
-perl -w diffvim.pl old.py new.py
+# Enable Perl warnings (ad_vim.pl)
+perl -w ad_vim.pl old.py new.py
 
 # Enable Perl trace
-PERL5OPT=-d:Trace perl diffvim.pl old.py new.py
+PERL5OPT=-d:Trace perl ad_vim.pl old.py new.py
 ```
 
 ### Capturing the vim pane
@@ -342,11 +342,11 @@ done
 The vimscript engine is written to a temp file. To inspect it:
 
 ```bash
-# For diffvim-tmux, the engine is at $WORKDIR/engine.vim
+# For ad_tmux, the engine is at $WORKDIR/engine.vim
 # Find it:
 find /tmp/diffvim.* -name engine.vim 2>/dev/null
 
-# For diffvim.pl, the engine is at $workdir/engine.vim (tempdir)
+# For ad_vim.pl, the engine is at $workdir/engine.vim (tempdir)
 find /tmp/dv* -name engine.vim 2>/dev/null
 ```
 
@@ -363,7 +363,7 @@ tmux list-sessions
 
 #### Ex command text appears in the buffer
 
-This is the known race condition in `diffvim-tmux` and `diffvim.pl`.
+This is the known race condition in `ad_tmux` and `ad_vim.pl`.
 See [Architecture > Known Limitations](../README.md#known-limitations)
 and [Improvement #1](../IMPROVEMENTS.md).
 
@@ -373,7 +373,7 @@ Workaround: increase `AD_TICK_MS` and the type/delete delays:
 AD_TICK_MS=50 \
 AD_TYPE_DELAY_MS=100 \
 AD_DELETE_DELAY_MS=100 \
-./diffvim-tmux old.py new.py
+./ad_tmux old.py new.py
 ```
 
 #### "Found a swap file"
@@ -385,7 +385,7 @@ Fix: use `-n` (no swap), or delete the swap file:
 rm /path/to/.filename.swp
 ```
 
-The `diffvim.pl` implementation already uses `-n`. For `diffvim-tmux`,
+The `ad_vim.pl` implementation already uses `-n`. For `ad_tmux`,
 add `-n` to the vim command in the script.
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

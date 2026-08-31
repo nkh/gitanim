@@ -3,7 +3,7 @@
 **Standalone terminal animation for code diffs — no vim required.**
 
 ad is a pipeline of independent tools that animate code
-diffs in any terminal. It replaces the vim-based diffvim engine with a
+diffs in any terminal. It replaces the vim-based ad_vim engine with a
 simpler, faster, more correct architecture.
 
 ---
@@ -21,7 +21,7 @@ simpler, faster, more correct architecture.
 9. [Options Reference](#9-options-reference)
 10. [Language Implementations](#10-language-implementations)
 11. [Testing](#11-testing)
-12. [Comparison with vim-based diffvim](#12-comparison-with-vim-based-diffvim)
+12. [Comparison with vim-based ad_vim](#12-comparison-with-vim-based-ad_vim)
 13. [Migration Path](#13-migration-path)
 
 ---
@@ -450,9 +450,9 @@ testing without a terminal.
 
 ---
 
-## 12. Comparison with vim-based diffvim
+## 12. Comparison with vim-based ad_vim
 
-| Aspect | diffvim (vim) | animator (standalone) |
+| Aspect | ad_vim (vim) | animator (standalone) |
 |--------|---------------|----------------------|
 | `\n` delete | Mechanical join (Phase F pending) | ✅ Same behavior |
 | Dependencies | vim 8+ | ✅ None (C static binary) |
@@ -471,7 +471,7 @@ testing without a terminal.
 
 ```bash
 # Current (vim-based)
-diffvim old.py new.py
+ad_vim old.py new.py
 
 # New (standalone)
 ad_pipeline old.py new.py
@@ -482,12 +482,12 @@ ad_pipeline old.py new.py
 Add `--animator` flag to the bash `diffvim` wrapper:
 
 ```bash
-diffvim --animator old.py new.py
+ad_vim --animator old.py new.py
 ```
 
 ### Phase 3: Animator becomes default
 
 ```bash
-diffvim old.py new.py        # uses animator
-diffvim --vim old.py new.py  # falls back to vim
+ad_vim old.py new.py        # uses animator
+ad_vim --vim old.py new.py  # falls back to vim
 ```

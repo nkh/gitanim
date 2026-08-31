@@ -4,14 +4,14 @@
 #
 # Accepts ALL diffvim/pipeline options and passes them through to the
 # appropriate pipeline stage (compute, postprocess, pace, decorate).
-# This makes it a full debugging tool — you can reproduce any diffvim
+# This makes it a full debugging tool — you can reproduce any ad_vim
 # animation setting and inspect the buffer state after every op.
 #
 # Usage:
 #   bash scripts/dv_snapshot.sh [options] <oldfile> <newfile>
 #
 # Options:
-#   ALL diffvim options are accepted (see 'diffvim --help' for the full list).
+#   ALL ad_vim options are accepted (see 'ad_vim --help' for the full list).
 #   The script routes each option to the appropriate pipeline stage:
 #     --op-order, --semantic-cleanup, --indent-aware, --overwrite,
 #     --indent-last → postprocess
@@ -36,21 +36,21 @@
 show_help() {
 cat <<'HELP'
 NAME
-    dv_snapshot.sh — Per-op HTML snapshot visualizer for diffvim
+    dv_snapshot.sh — Per-op HTML snapshot visualizer for ad_vim
 
 SYNOPSIS
     dv_snapshot.sh [-h|--help]
     dv_snapshot.sh [options] <oldfile> <newfile>
 
 DESCRIPTION
-    Runs the full diffvim pipeline (compute → postprocess → pace →
+    Runs the full ad_vim pipeline (compute → postprocess → pace →
     decorate → animator) on an old/new file pair, then takes a snapshot
     of the animator's buffer after every keep / delete / insert op and
     renders all those snapshots into a single browsable HTML page.
 
-    Accepts ALL diffvim options and routes them to the appropriate
+    Accepts ALL ad_vim options and routes them to the appropriate
     pipeline stage. This makes it a full debugging tool — reproduce
-    any diffvim animation setting and inspect the buffer state op-by-op.
+    any ad_vim animation setting and inspect the buffer state op-by-op.
 
 SNAPSHOT-SPECIFIC OPTIONS (not passed to the pipeline)
     -h, --help              Show this help message and exit 0.
@@ -63,7 +63,7 @@ SNAPSHOT-SPECIFIC OPTIONS (not passed to the pipeline)
     --trace                 Enable the op-tracing debugging UI.
 
 PIPELINE OPTIONS (routed to the appropriate stage)
-    All diffvim options are accepted. Examples:
+    All ad_vim options are accepted. Examples:
       --op-order left-to-right    --delete-pacing flash
       --indent-last               --insert-pacing word
       --semantic-cleanup          --pacing gaussian
@@ -308,7 +308,7 @@ fi
     echo '<!DOCTYPE html>'
     echo '<html><head><meta charset="utf-8">'
     echo '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%226%22%20fill%3D%22%231e1e1e%22%2F%3E%3Ctext%20x%3D%224%22%20y%3D%2223%22%20font-family%3D%22monospace%22%20font-size%3D%2218%22%20font-weight%3D%22bold%22%3E%3Ctspan%20fill%3D%22%236a9955%22%3E%2B%3C%2Ftspan%3E%3Ctspan%20fill%3D%22%23f44747%22%3E-%3C%2Ftspan%3E%3Ctspan%20fill%3D%22%23569cd6%22%3E%E2%86%92%3C%2Ftspan%3E%3C%2Ftext%3E%3C%2Fsvg%3E">'
-    echo '<title>diffvim snapshots — '"$OLD"' → '"$NEW"'</title>'
+    echo '<title>ad_vim snapshots — '"$OLD"' → '"$NEW"'</title>'
     echo '<style>'
     echo "  body { font-family: \"SF Mono\", \"Monaco\", \"Menlo\", \"Consolas\", monospace; background: #1e1e1e; color: #d4d4d4; margin: 0; padding: 1em; font-size: ${FONT_SIZE}px; }"
     echo "  .entry { ${ENTRY_CSS} }"
@@ -364,7 +364,7 @@ fi
         echo '  .trace-op .op-tsv { color: #d4d4d4; }'
     fi
     echo '</style></head><body>'
-    echo '<h1>diffvim — per-op snapshots</h1>'
+    echo '<h1>ad_vim — per-op snapshots</h1>'
     echo '<div class="summary">'
     echo "  <b>OLD:</b> $OLD<br>"
     echo "  <b>NEW:</b> $NEW<br>"

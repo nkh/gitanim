@@ -31,7 +31,7 @@ ad_tmux \- animate a code diff in vim inside a tmux pane (bash + tmux variant)
 .SH DESCRIPTION
 .B ad_tmux
 is the tmux-based variant of
-.BR diffvim (1).
+.BR ad_vim (1).
 It runs vim inside a tmux pane and orchestrates the animation from a
 separate bash process. The bash orchestrator computes the diff, drives the
 animation state machine, and sends Ex commands to vim via
@@ -51,9 +51,9 @@ instead.
 .SH OPTIONS
 .B ad_tmux
 accepts the same options as
-.BR diffvim (1),
+.BR ad_vim (1),
 with the same semantics. See
-.BR diffvim (1)
+.BR ad_vim (1)
 for the full list. The only differences are:
 
 .TP
@@ -65,7 +65,7 @@ in
 (because tmux already provides its own scrolling), versus
 .B zz
 in
-.BR diffvim .
+.BR ad_vim .
 
 .TP
 .B \-\-tmux-session NAME
@@ -125,8 +125,8 @@ Animate the last 10 commits' changes to
 .IR main.py .
 
 .SH SEE ALSO
-.BR diffvim (1),
-.BR diffvim.pl (1),
+.BR ad_vim (1),
+.BR ad_vim.pl (1),
 .BR ad_compute (1),
 .BR tmux (1)
 .br

@@ -20,7 +20,7 @@ vim /tmp/old.txt /tmp/new.txt
 # Inspect
 less -S /tmp/post.txt
 # Run animation
-./diffvim --speed 2 /tmp/old.txt /tmp/new.txt
+./ad_vim --speed 2 /tmp/old.txt /tmp/new.txt
 # Debug
 bash scripts/dv_debug.sh /tmp/old.txt /tmp/new.txt
 ```

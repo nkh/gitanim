@@ -1,7 +1,7 @@
-# diffvim Vocabulary
+# ad_vim Vocabulary
 
-Think of diffvim as a tiny movie studio for your code. The old file
-is the "before" shot, the new file is the "after" shot, and diffvim
+Think of ad_vim as a tiny movie studio for your code. The old file
+is the "before" shot, the new file is the "after" shot, and ad_vim
 films the transformation — typing, deleting, and rearranging — as if
 a human were doing it live.
 

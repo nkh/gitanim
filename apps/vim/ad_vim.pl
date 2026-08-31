@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# diffvim.pl - Animate a code diff as if a human were typing it.
+# ad_vim.pl - Animate a code diff as if a human were typing it.
 #
 # Architecture:
 #   - Perl is the orchestrator: computes the diff (via one of two parsers),
@@ -13,9 +13,9 @@
 #   --parser perl       Pure-Perl LCS diff (default, no external deps)
 #
 # Usage:
-#   diffvim.pl [options] <oldfile> <newfile>
-#   diffvim.pl [options] --multi <old1:new1> <old2:new2> ...
-#   diffvim.pl [options] --replay <file> [--from REV] [--to REV]
+#   ad_vim.pl [options] <oldfile> <newfile>
+#   ad_vim.pl [options] --multi <old1:new1> <old2:new2> ...
+#   ad_vim.pl [options] --replay <file> [--from REV] [--to REV]
 #
 # Options:
 #   --parser perl            Diff parser (default: perl)
@@ -449,8 +449,8 @@ USAGE
 my @file_pairs;  # list of [old_file, new_file]
 
 # --diff: accept a unified diff file as input (#27)
-# Enables: git diff | diffvim.pl --diff -
-#          diffvim.pl --diff my.patch
+# Enables: git diff | ad_vim.pl --diff -
+#          ad_vim.pl --diff my.patch
 if ($diff_input ne '') {
     # Read the diff content (from file or stdin)
     my $diff_content;
@@ -604,7 +604,7 @@ sub _is_binary {
 for my $pair (@file_pairs) {
     for my $f (@$pair) {
         if (_is_binary($f)) {
-            die "Error: '$f' appears to be a binary file. diffvim cannot animate binary files.\n";
+            die "Error: '$f' appears to be a binary file. ad_vim cannot animate binary files.\n";
         }
     }
 }
@@ -718,7 +718,7 @@ my $runtime_speed = 1.0;
 sub write_engine {
     open my $fh, '>', $engine_vim or die "Cannot write $engine_vim: $!";
     print $fh <<'VIMEOF';
-" diffvim engine - buffer manipulation helpers driven by perl via tmux.
+" ad_vim engine - buffer manipulation helpers driven by perl via tmux.
 let g:dv_ctrl = 'CTRL_FIFO_PLACEHOLDER'
 let g:dv_scroll = 'SCROLL_PLACEHOLDER'
 let g:dv_sign_column = SIGN_COLUMN_PLACEHOLDER
@@ -973,7 +973,7 @@ function! DvToggleHelp() abort
         setlocal buftype=nofile bufhidden=delete noswapfile
         setlocal nowrap
         call setline(1, [
-            \ 'diffvim — Help',
+            \ 'ad_vim — Help',
             \ '',
             \ 'Animation Controls:',
             \ '  <Space>  Pause / resume (or advance one op in --step-mode)',
@@ -1005,7 +1005,7 @@ endfunction
 
 function! DvUndo() abort
     if empty(g:dv_undo_stack)
-        echo 'diffvim: nothing to undo'
+        echo 'ad_vim: nothing to undo'
         return
     endif
     " Move current state to redo stack
@@ -1013,19 +1013,19 @@ function! DvUndo() abort
     if !empty(g:dv_undo_stack)
         let l:snap = g:dv_undo_stack[-1]
         call DvLoadSnap(l:snap)
-        echo 'diffvim: undo'
+        echo 'ad_vim: undo'
     endif
 endfunction
 
 function! DvRedo() abort
     if empty(g:dv_redo_stack)
-        echo 'diffvim: nothing to redo'
+        echo 'ad_vim: nothing to redo'
         return
     endif
     let l:snap = remove(g:dv_redo_stack, -1)
     call add(g:dv_undo_stack, l:snap)
     call DvLoadSnap(l:snap)
-    echo 'diffvim: redo'
+    echo 'ad_vim: redo'
 endfunction
 
 nnoremap <buffer> <silent> <Space> :call writefile(['p'], g:dv_ctrl, 'a')<CR>
@@ -1118,7 +1118,7 @@ sub setup_no_tmux {
 
     # In no-tmux mode, we can't send keys to vim easily.
     # Instead, we launch vim with a startup command that runs the animation
-    # entirely inside vim (like the diffvim bash script does).
+    # entirely inside vim (like the ad_vim bash script does).
     # This is simpler but doesn't support the FIFO-based user input.
     # The animation runs autonomously inside vim.
 
@@ -1130,7 +1130,7 @@ sub setup_no_tmux {
         $extra_cmd .= " | let g:dv_sign_column = 1 | call DvSignSetup()";
     }
 
-    print "diffvim: launching vim directly (no tmux)...\n";
+    print "ad_vim: launching vim directly (no tmux)...\n";
     print "Controls: Space=pause n=skip b=back q=quit +/-=speed u=undo Ctrl-r=redo ?=help\n";
     exec("vim", "-N", "-n", "-u", "NONE", "-T", "dumb",
          "-c", "source $engine_vim",
@@ -1157,7 +1157,7 @@ sub setup_remote {
     }
     $vim_cmd .= " '$old_file_arg' &";
 
-    print "diffvim: launching vim server '$servername'...\n";
+    print "ad_vim: launching vim server '$servername'...\n";
     system($vim_cmd);
 
     # Wait for the server to start
@@ -1332,7 +1332,7 @@ sub load_precomputed {
     }
     if ($cur_hunk) { push @hunks, $cur_hunk; }
     close $fh;
-    print STDERR "diffvim.pl: loaded " . scalar(@hunks) . " precomputed hunk(s) from $path\n";
+    print STDERR "ad_vim.pl: loaded " . scalar(@hunks) . " precomputed hunk(s) from $path\n";
     return \@hunks;
 }
 
@@ -1407,7 +1407,7 @@ sub update_progress {
     my $current = $hunk_idx + 1;
     $current = $total if $current > $total;
     my $pct = $total > 0 ? int($current / $total * 100) : 100;
-    my $msg = "diffvim: hunk $current/$total ($pct%)";
+    my $msg = "ad_vim: hunk $current/$total ($pct%)";
     $msg .= " | pair " . ($pair_idx + 1) . "/" . scalar(@file_pairs) if @file_pairs > 1;
     $msg .= " | speed " . sprintf("%.1f", $runtime_speed) . "x" if abs($runtime_speed - 1.0) > 0.01;
     $msg .= " | PAUSED" if $paused;
@@ -1438,7 +1438,7 @@ sub start_next_hunk {
             $changed++ if $op->{op} ne 'keep';
         }
         if ($changed > $max_hunk_chars) {
-            send_ex("echo 'diffvim: hunk $hunk_idx has $changed changed chars (> $max_hunk_chars), applying instantly'");
+            send_ex("echo 'ad_vim: hunk $hunk_idx has $changed changed chars (> $max_hunk_chars), applying instantly'");
             apply_hunk_instantly();
             return;
         }
@@ -1699,16 +1699,16 @@ sub handle_user_input {
             go_back();
         } elsif ($cmd eq 'q') {
             $stopped = 1;
-            send_ex("echo 'diffvim: animation stopped. Buffer left for editing.'");
+            send_ex("echo 'ad_vim: animation stopped. Buffer left for editing.'");
         } elsif ($cmd eq '+') {
             $runtime_speed *= 1.5;
-            send_ex("echo 'diffvim: speed " . sprintf("%.1f", $runtime_speed) . "x'");
+            send_ex("echo 'ad_vim: speed " . sprintf("%.1f", $runtime_speed) . "x'");
         } elsif ($cmd eq '-') {
             $runtime_speed /= 1.5;
-            send_ex("echo 'diffvim: speed " . sprintf("%.1f", $runtime_speed) . "x'");
+            send_ex("echo 'ad_vim: speed " . sprintf("%.1f", $runtime_speed) . "x'");
         } elsif ($cmd eq '=') {
             $runtime_speed = 1.0;
-            send_ex("echo 'diffvim: speed reset to 1.0x'");
+            send_ex("echo 'ad_vim: speed reset to 1.0x'");
         } elsif ($cmd eq 'u') {
             # Undo (#93)
             send_ex("call DvUndo()");
@@ -1806,7 +1806,7 @@ sub go_back_one_op {
 sub skip_to_next_file {
     # Stop current animation and jump to next pair
     $stopped = 1;
-    send_ex("echo 'diffvim: skipping to next file...'");
+    send_ex("echo 'ad_vim: skipping to next file...'");
 }
 
 # Go to beginning (#40, Ctrl-B)
@@ -1819,7 +1819,7 @@ sub go_to_beginning {
         restore_snapshot(0);
     }
     update_progress();
-    send_ex("echo 'diffvim: rewound to beginning'");
+    send_ex("echo 'ad_vim: rewound to beginning'");
 }
 
 # Skip to end (#41, Ctrl-N)
@@ -1828,7 +1828,7 @@ sub skip_to_end {
         apply_hunk_instantly();
     }
     $phase = 'done';
-    send_ex("echo 'diffvim: skipped to end'");
+    send_ex("echo 'ad_vim: skipped to end'");
 }
 
 sub read_fifo_line {
@@ -1901,7 +1901,7 @@ sub animate {
     }
 
     # Show config
-    my $config_msg = "diffvim config: tick=$config{tick_ms}ms type=$config{type_delay_ms}ms " .
+    my $config_msg = "ad_vim config: tick=$config{tick_ms}ms type=$config{type_delay_ms}ms " .
                      "del=$config{delete_delay_ms}ms move=$config{move_min_ms}-$config{move_max_ms}ms " .
                      "hunk_pause=$config{hunk_pause_ms}ms";
     $config_msg .= " speed=" . sprintf("%.1f", $runtime_speed) . "x" if abs($runtime_speed - 1.0) > 0.01;
@@ -1912,7 +1912,7 @@ sub animate {
     $config_msg .= " theme=$theme" if $theme ne '';
     send_ex("echo '$config_msg'");
 
-    send_ex("echo 'diffvim: Space=pause n=skip b=back q=quit +/-=speed f=fold | hunk 1/" . scalar(@hunks) . " | parser: $parser_used'");
+    send_ex("echo 'ad_vim: Space=pause n=skip b=back q=quit +/-=speed f=fold | hunk 1/" . scalar(@hunks) . " | parser: $parser_used'");
 
     sleep 0.3;
 
@@ -1935,7 +1935,7 @@ sub animate {
     if ($output_file ne '' && !$stopped) {
         send_ex("w! $output_file");
         sleep 0.5;
-        send_ex("echo 'diffvim: result written to $output_file'");
+        send_ex("echo 'ad_vim: result written to $output_file'");
         sleep 1;
         send_ex("qa!");
         sleep 0.5;
@@ -1975,11 +1975,11 @@ sub animate_all_pairs {
         init_buffer_lines($old);
 
         if (@hunks == 0) {
-            print "diffvim: pair " . ($i + 1) . "/" . scalar(@file_pairs) . ": files identical, skipping.\n";
+            print "ad_vim: pair " . ($i + 1) . "/" . scalar(@file_pairs) . ": files identical, skipping.\n";
             next;
         }
 
-        print "diffvim: pair " . ($i + 1) . "/" . scalar(@file_pairs) .
+        print "ad_vim: pair " . ($i + 1) . "/" . scalar(@file_pairs) .
               ": " . scalar(@hunks) . " hunk(s) (parser: $parser_used)\n";
 
         if ($i == 0) {
@@ -1988,7 +1988,7 @@ sub animate_all_pairs {
             # Switch buffer to new file
             send_ex("edit! $old");
             sleep 0.5;
-            send_ex("echo 'diffvim: next file: " . basename($old) . " -> " . basename($new) . "'");
+            send_ex("echo 'ad_vim: next file: " . basename($old) . " -> " . basename($new) . "'");
             sleep 1;
         }
 
@@ -2090,7 +2090,7 @@ if (@file_pairs > 1) {
     # Handle --no-tmux mode (#8): run vim directly
     if ($no_tmux) {
         if (@hunks == 0) {
-            print "diffvim: files are identical, nothing to animate.\n";
+            print "ad_vim: files are identical, nothing to animate.\n";
         }
         setup_no_tmux($old);
         exit 0;
@@ -2105,10 +2105,10 @@ if (@file_pairs > 1) {
     }
 
     if (@hunks == 0) {
-        print "diffvim: files are identical, nothing to animate.\n";
+        print "ad_vim: files are identical, nothing to animate.\n";
         setup_tmux($old);
         sleep 0.5;
-        send_ex("echo 'diffvim: files are identical.'");
+        send_ex("echo 'ad_vim: files are identical.'");
         if (!$attached) {
             system("tmux attach-session -t '$session'");
         }
@@ -2116,7 +2116,7 @@ if (@file_pairs > 1) {
         exit 0;
     }
 
-    print "diffvim: " . scalar(@hunks) . " hunk(s) to animate (parser: $parser_used).\n";
+    print "ad_vim: " . scalar(@hunks) . " hunk(s) to animate (parser: $parser_used).\n";
     print "Launching vim in tmux...\n";
 
     setup_tmux($old);

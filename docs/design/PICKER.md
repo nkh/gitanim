@@ -1,6 +1,6 @@
 # Commit / File Picker
 
-diffvim provides interactive commit and file pickers via **fzf** (or
+ad_vim provides interactive commit and file pickers via **fzf** (or
 built-in fallback) for selecting what to animate.
 
 ## In Vim (`:DiffvimPick`, `:DiffvimCommit`)
@@ -54,19 +54,19 @@ The main command — animate a diff between two files.
 :Diffvim old.py new.py
 ```
 
-## Command Line (diffvim --replay)
+## Command Line (ad_vim --replay)
 
 The `diffvim` launcher supports git history replay:
 
 ```bash
 # Animate all changes to a file between two commits
-diffvim --replay --from HEAD~3 --to HEAD file.py
+ad_vim --replay --from HEAD~3 --to HEAD file.py
 
 # Animate from a commit to working copy
-diffvim --replay HEAD~1 file.py
+ad_vim --replay HEAD~1 file.py
 
 # Animate a range of commits for a file
-diffvim -r HEAD~5..HEAD -- file.py
+ad_vim -r HEAD~5..HEAD -- file.py
 ```
 
 The `--replay` flag uses `git log --reverse` to find all commits in

@@ -1,7 +1,7 @@
 # Complete User Request Log
 
 This document contains every feature request, bug report, and design
-direction the user has given during the diffvim project. It serves as
+direction the user has given during the ad_vim project. It serves as
 a master reference for what was asked and what was implemented.
 
 ---
@@ -13,8 +13,8 @@ a master reference for what was asked and what was implemented.
 3. **Ease-in-out cubic cursor glide** between hunks.
 4. **Timer-based animation engine** using vimscript `timer_start()`.
 5. **Self-contained bash + vimscript** implementation (no Python, no tmux).
-6. **Three implementations**: `diffvim` (bash+vimscript), `diffvim-tmux`
-   (bash+tmux), `diffvim.pl` (Perl+tmux with pluggable parsers).
+6. **Three implementations**: `diffvim` (bash+vimscript), `ad_tmux`
+   (bash+tmux), `ad_vim.pl` (Perl+tmux with pluggable parsers).
 
 ---
 
@@ -179,7 +179,7 @@ a master reference for what was asked and what was implemented.
 76. **`--highlight-hunk` doesn't highlight all changed lines** — sometimes
    whole blocks disappear without highlight. Fix to highlight ALL lines
    that will change.
-77. **`--fold-unchanged` documented but not implemented** — diffvim says
+77. **`--fold-unchanged` documented but not implemented** — ad_vim says
    "unknown option". Implement it.
 78. **In `--word-diff`, characters are deleted one by one** — fix to batch
    word runs.
@@ -239,7 +239,7 @@ extensive documentation.
 
 92. **`--highlight-hunk` doesn't highlight all changed lines** — whole
     blocks disappear without highlight. Fix to highlight ALL lines.
-93. **`--fold-unchanged` documented but not implemented** — diffvim says
+93. **`--fold-unchanged` documented but not implemented** — ad_vim says
     "unknown option". Implement it.
 94. **In `--word-diff`, characters are deleted one by one** — fix to
     batch word runs.
@@ -280,7 +280,7 @@ extensive documentation.
      char. Deletion 20% faster by default (configurable).
 111. **Is the mdbook documentation updated? The manpage?** — update all.
 112. **AI-generated code diffing** — write a thorough, detailed, large
-     document about how diffvim can be made better for AI-generated code.
+     document about how ad_vim can be made better for AI-generated code.
      List 100 things. Note: real-time AI calls per hunk are NOT acceptable.
 113. **`--inline-highlight` should start with `--highlight-`** like other
      highlight options. Rename to `--highlight-inline`.
@@ -301,8 +301,8 @@ extensive documentation.
 ## Session 16: Documentation, Manpages, Visual Guide, Adoption
 
 119. **All executables must have a -h option, a manpage, documentation** —
-     every binary in the project (`diffvim`, `diffvim-tmux`,
-     `diffvim.pl`, `diffvim-compare`, `diffvim-jogger`,
+     every binary in the project (`diffvim`, `ad_tmux`,
+     `ad_vim.pl`, `ad_compare`, `ad_jogger`,
      `diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
      `set_config`, and the four `ad_compute`
      variants) must respond to `-h` / `--help`, must have a manpage in
@@ -312,10 +312,10 @@ extensive documentation.
 121. **mdBook documentation must be complete** — every topic in
      `docs/*.md` must have an entry in `docs/src/SUMMARY.md`; every
      mdBook page must exist and not be a stub.
-122. **A document that graphically explains what diffvim does** —
+122. **A document that graphically explains what ad_vim does** —
      promised earlier with ASCII drawings. Where is it? Is it up to
      date? Create `docs/VISUAL_GUIDE.md` as the canonical "explain
-     diffvim in 5 minutes" reference with ASCII art showing the input
+     ad_vim in 5 minutes" reference with ASCII art showing the input
      → diff → hunks → char ops → animation → output pipeline, the
      three implementations, the post-processing passes, the cursor
      glide geometry, and end-to-end examples.
@@ -323,7 +323,7 @@ extensive documentation.
      six presets, the post-processing pipeline, the four external
      compute tools, the cursor glide geometry, and a documentation
      map. Make it the one-page overview that links to everything else.
-124. **diffvim has become complex; suggest ways to ease its
+124. **ad_vim has become complex; suggest ways to ease its
      introduction to developers** — write `docs/ADOPTION_GUIDE.md`
      with concrete onboarding steps (presets as on-ramp, external
      compute as default, editor integration, shared team config,

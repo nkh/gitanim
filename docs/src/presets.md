@@ -5,7 +5,7 @@
 *Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
 
 
-diffvim ships with **six built-in presets** that bundle a sane
+ad_vim ships with **six built-in presets** that bundle a sane
 combination of post-processing and timing options for common use cases.
 Presets are the easiest way to get a good result without having to
 learn every individual option.
@@ -13,9 +13,9 @@ learn every individual option.
 ## Usage
 
 ```bash
-diffvim --preset NAME <oldfile> <newfile>
-diffvim --preset review --git-blame old.py new.py
-AD_PRESET="review --highlight-word" diffvim old.py new.py
+ad_vim --preset NAME <oldfile> <newfile>
+ad_vim --preset review --git-blame old.py new.py
+AD_PRESET="review --highlight-word" ad_vim old.py new.py
 ```
 
 You can override any preset option by passing additional flags after
@@ -31,7 +31,7 @@ What you get with no `--preset` flag. Raw Patience with
 medium files where you want to see exactly what changed.
 
 ```bash
-diffvim old.py new.py
+ad_vim old.py new.py
 ```
 
 ### `fast-delete`
@@ -41,7 +41,7 @@ blocks of code. Combines `--rapid-eol-delete`, `--accel-delete`,
 and `--word-accel`.
 
 ```bash
-diffvim --preset fast-delete old.py new.py
+ad_vim --preset fast-delete old.py new.py
 ```
 
 Use this when you're reviewing a refactor that deletes whole
@@ -57,8 +57,8 @@ unchanged regions, and top-aligns the cursor so the change is always
 near the top of the screen.
 
 ```bash
-diffvim --preset review --git-blame old.py new.py
-diffvim --preset review --git-rev HEAD~10..HEAD main.py
+ad_vim --preset review --git-blame old.py new.py
+ad_vim --preset review --git-rev HEAD~10..HEAD main.py
 ```
 
 Press `n` to advance to the next hunk. Press `b` to go back.
@@ -71,8 +71,8 @@ interleaved inserts and deletes. Enables `--highlight-inline` and
 Patience is chaotic.
 
 ```bash
-diffvim --preset ai-code old.py new.py
-diffvim --preset ai-code --highlight-word --adaptive-timing old.py new.py
+ad_vim --preset ai-code old.py new.py
+ad_vim --preset ai-code --highlight-word --adaptive-timing old.py new.py
 ```
 
 Use this when reviewing diffs from Copilot, ChatGPT, Claude, or any
@@ -87,8 +87,8 @@ highlights typed/deleted chars, and pauses briefly after each word
 so the audience can follow.
 
 ```bash
-diffvim --preset demo --max-line-len 120 old.py new.py
-diffvim --preset demo --scroll zz --git-blame old.py new.py
+ad_vim --preset demo --max-line-len 120 old.py new.py
+ad_vim --preset demo --scroll zz --git-blame old.py new.py
 ```
 
 ### `presentation`
@@ -97,7 +97,7 @@ For recording screencasts. 1.2x speed, no rapid-EOL delete (so the
 video captures every deletion), cursor centered on screen.
 
 ```bash
-diffvim --preset presentation --output result.py old.py new.py
+ad_vim --preset presentation --output result.py old.py new.py
 ```
 
 ## Comparison Table
@@ -114,16 +114,16 @@ diffvim --preset presentation --output result.py old.py new.py
 ## Custom Presets
 
 Define your own preset via the `AD_PRESET` environment variable.
-The value is split on spaces and prepended to the diffvim command
+The value is split on spaces and prepended to the ad_vim command
 line, so you can include any combination of options:
 
 ```bash
 # Personal review preset
 export AD_PRESET="review --highlight-word --git-blame"
-diffvim old.py new.py     # uses your preset by default
+ad_vim old.py new.py     # uses your preset by default
 
 # Override an option in your preset
-diffvim --no-highlight-word old.py new.py
+ad_vim --no-highlight-word old.py new.py
 ```
 
 Put the `export` line in your `~/.bashrc` or `~/.zshrc` to make it

@@ -8,7 +8,7 @@
 
 ### Problem
 
-diffvim jumps instantly between hunks. When a hunk at line 5 finishes
+ad_vim jumps instantly between hunks. When a hunk at line 5 finishes
 and the next hunk starts at line 50, the cursor teleports from line 5
 to line 50 with no visual transition. This is jarring and makes it
 hard to follow what changed.
@@ -80,7 +80,7 @@ line. If so, insert glide frames before processing the next op.
 
 ### Problem
 
-diffvim shows every line of every change at the same speed. For large
+ad_vim shows every line of every change at the same speed. For large
 diffs (e.g. 100+ changed lines), this takes too long. For small diffs
 (2-3 changed lines), the animation is over too fast to follow.
 

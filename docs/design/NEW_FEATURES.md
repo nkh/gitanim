@@ -22,7 +22,7 @@ updated (no full re-render — faster for large distances).
 
 **Example:**
 ```bash
-diffvim --cursor-glide-ms 300 old.py new.py
+ad_vim --cursor-glide-ms 300 old.py new.py
 ad_pipeline --cursor-glide-ms 300 --cursor-glide-show-intermediate 0 old.py new.py
 ```
 
@@ -47,7 +47,7 @@ affected — insert delays and keep delays are unchanged.
 
 **Example:**
 ```bash
-diffvim --distance-speed adaptive --distance-threshold 10 old.py new.py
+ad_vim --distance-speed adaptive --distance-threshold 10 old.py new.py
 ```
 
 **Env vars:** `DIFFVIM_DISTANCE_SPEED`, `DIFFVIM_DISTANCE_THRESHOLD`,
@@ -70,7 +70,7 @@ on the line, the transform is a no-op.
 
 **Example:**
 ```bash
-diffvim --indent-last old.py new.py
+ad_vim --indent-last old.py new.py
 ad_pipeline --postprocess-indent-last old.py new.py
 ```
 
@@ -91,7 +91,7 @@ Different from `instant` (which just deletes with no highlight/pause).
 
 **Example:**
 ```bash
-diffvim --delete-pacing flash --flash-pause-ms 500 old.py new.py
+ad_vim --delete-pacing flash --flash-pause-ms 500 old.py new.py
 ```
 
 **Env vars:** `DIFFVIM_DELETE_PACING=flash`, `DIFFVIM_FLASH_PAUSE_MS`,
@@ -110,7 +110,7 @@ compared to the default char-by-char pacing.
 
 **Example:**
 ```bash
-diffvim --insert-pacing word old.py new.py
+ad_vim --insert-pacing word old.py new.py
 ```
 
 ---
@@ -127,7 +127,7 @@ Controls how the viewport scrolls to follow the cursor:
 
 **Example:**
 ```bash
-diffvim --scroll zt old.py new.py
+ad_vim --scroll zt old.py new.py
 ```
 
 **Env var:** `DIFFVIM_SCROLL`

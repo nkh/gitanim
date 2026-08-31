@@ -116,7 +116,7 @@ perl tests/test_e2e_perl.pl
 ==================================================
 Testing parser: perl
 ==================================================
-diffvim: 2 hunk(s) to animate (parser: perl).
+ad_vim: 2 hunk(s) to animate (parser: perl).
 Launching vim in tmux...
 Animation done: 1
 RESULT (perl): MATCH
@@ -155,7 +155,7 @@ def greet(name):
 EOF
 
 # Run the animation
-./diffvim /tmp/old.py /tmp/new.py
+./ad_vim /tmp/old.py /tmp/new.py
 ```
 
 **Expected behavior:**
@@ -182,10 +182,10 @@ Run the animation and test each control:
 
 ```bash
 cp /tmp/old.py /tmp/same.py
-./diffvim /tmp/old.py /tmp/same.py
+./ad_vim /tmp/old.py /tmp/same.py
 ```
 
-**Expected behavior:** Message "diffvim: files are identical, nothing
+**Expected behavior:** Message "ad_vim: files are identical, nothing
 to animate." Vim opens with the file for normal editing.
 
 ### Test 4: Empty old file
@@ -196,7 +196,7 @@ cat > /tmp/content.py <<'EOF'
 hello
 world
 EOF
-./diffvim /tmp/empty.py /tmp/content.py
+./ad_vim /tmp/empty.py /tmp/content.py
 ```
 
 **Expected behavior:** Vim opens with an empty buffer, then types in
@@ -211,7 +211,7 @@ seq 1 500 > /tmp/large_new.txt
 seq 501 1000 >> /tmp/large_new.txt
 
 # This should still work, just slower
-./diffvim /tmp/large_old.txt /tmp/large_new.txt
+./ad_vim /tmp/large_old.txt /tmp/large_new.txt
 ```
 
 **Expected behavior:** Animation runs, but the Patience computation may

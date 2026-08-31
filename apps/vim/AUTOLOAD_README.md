@@ -1,6 +1,6 @@
 # autoload/
 
-Vimscript autoload plugin. Contains the diffvim engine that is
+Vimscript autoload plugin. Contains the ad_vim engine that is
 sourced by the `diffvim` bash launcher.
 
 ## Files

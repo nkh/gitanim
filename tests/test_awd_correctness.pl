@@ -20,7 +20,7 @@ my $fail = 0;
 my $engine_test = '/tmp/dv_awd_test.vim';
 
 sub extract_engine {
-    open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
+    open my $fh, '<', 'diffvim' or die "Cannot open ad_vim: $!";
     my $in_engine = 0;
     my @lines;
     while (my $line = <$fh>) {

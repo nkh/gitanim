@@ -17,7 +17,7 @@ my $original_stdout = \*STDOUT;
 *STDOUT = $rfh;
 
 print "=" x 70, "\n";
-print "diffvim Benchmark Suite\n";
+print "ad_vim Benchmark Suite\n";
 print "=" x 70, "\n\n";
 
 # Benchmark function

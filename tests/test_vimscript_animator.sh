@@ -19,7 +19,7 @@ SYNOPSIS
     test_vimscript_animator.sh [example_dir]
 
 DESCRIPTION
-    Tests the vimscript animator (the engine embedded in the diffvim
+    Tests the vimscript animator (the engine embedded in the ad_vim
     launcher) by extracting it, patching s:StartTimedAnimation to run
     synchronously (no timers), and running it headless (vim -e -s -n)
     against pre-computed timed op streams produced by the C pipeline.
@@ -65,7 +65,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     exit 0
 fi
 
-# --- Extract the vimscript engine from the diffvim launcher ---
+# --- Extract the vimscript engine from the ad_vim launcher ---
 ENG="$TMPDIR/engine.vim"
 perl -e '
     open my $fh, "<", "/home/z/my-project/gitanim/diffvim" or die;
@@ -101,7 +101,7 @@ cat >> "$ENG" <<'VIM'
 function! s:StartTimedAnimation() abort
     call s:LoadTimedOps()
     if empty(s:timed_ops)
-        echoerr 'diffvim: timed op stream is empty'
+        echoerr 'ad_vim: timed op stream is empty'
         return
     endif
     let s:timed_speed = 1000000.0  " super fast — delays become ~0ms

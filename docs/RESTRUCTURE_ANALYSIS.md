@@ -19,23 +19,23 @@ The project animates a diff. Diffvim is one application (the vim one) built on t
 
 The top-level bash launcher becomes `ad_vim` — the vim application, first concrete consumer of the `ad_` toolkit. (Was the only file with a real vim dependency.)
 
-#3 Rename `diffvim.pl` → `ad_vim.pl` (or delete)
+#3 Rename `ad_vim.pl` → `ad_vim.pl` (or delete)
 
 The Perl parallel launcher is renamed to match #2. Consider deleting it outright if it duplicates the bash launcher — see #15.
 
-#4 Rename `diffvim-compute` → `ad_compute`
+#4 Rename `ad_compute` → `ad_compute`
 
 The diff engine has no vim dependency. `ad_compute` is the binary name. Affects source files, manpages, completions, install paths.
 
-#5 Rename `diffvim-postprocess` → `ad_postprocess`
+#5 Rename `ad_postprocess` → `ad_postprocess`
 
 The layer orchestrator has no vim dependency. `ad_postprocess` is the binary name. Affects source, manpages, install paths.
 
-#6 Rename `diffvim-pipeline` → `ad_pipeline`
+#6 Rename `ad_pipeline` → `ad_pipeline`
 
 The end-to-end driver has no vim dependency. `ad_pipeline` is the binary name.
 
-#7 Rename `diffvim-animator` → `ad_animator`
+#7 Rename `ad` → `ad_animator`
 
 The animator backend (C + Perl twins) has no vim dependency. `ad_animator` is the binary name.
 
@@ -96,7 +96,7 @@ ad/                           # project root
 
 #12 Create `diff_engine/` and move `compute/` contents
 
-`compute/cpp/` → `diff_engine/cpp/`, `compute/perl/` → `diff_engine/perl/`, `compute/Makefile` → `diff_engine/Makefile`. Delete the empty `compute/` directory. The directory name should describe what's in it (the diff engine), not what calls it (compute was a verb used by diffvim).
+`compute/cpp/` → `diff_engine/cpp/`, `compute/perl/` → `diff_engine/perl/`, `compute/Makefile` → `diff_engine/Makefile`. Delete the empty `compute/` directory. The directory name should describe what's in it (the diff engine), not what calls it (compute was a verb used by ad_vim).
 
 #13 Create `layers/` and move all layer sources
 
@@ -108,11 +108,11 @@ Move `tests/test_indent_last.pl` → `layers/tests/test_indent_last.pl`. Add `te
 
 #15 Keep only animator source in `animator/`
 
-Move `animator/diffvim-pipeline` → `pipeline/bin/ad_pipeline` (per #6). Move `animator/bin/` content into `bin/` at the project root (per #24). What remains in `animator/`: `c/animator.c`, `perl/animator.pl`, `perl/colorize.pl`, the vimscript animator. This is what the directory name says it contains.
+Move `animator/ad_pipeline` → `pipeline/bin/ad_pipeline` (per #6). Move `animator/bin/` content into `bin/` at the project root (per #24). What remains in `animator/`: `c/animator.c`, `perl/animator.pl`, `perl/colorize.pl`, the vimscript animator. This is what the directory name says it contains.
 
 #16 Create `apps/vim/` and move vim-specific files
 
-`diffvim` → `apps/vim/ad_vim` (per #2). `diffvim.pl` → `apps/vim/ad_vim.pl` (per #3). `plugin/diffvim.vim` → `apps/vim/plugin.vim`. The vim application is one consumer of the `ad_` toolkit; it lives in `apps/vim/`, not at the project root.
+`diffvim` → `apps/vim/ad_vim` (per #2). `ad_vim.pl` → `apps/vim/ad_vim.pl` (per #3). `plugin/diffvim.vim` → `apps/vim/plugin.vim`. The vim application is one consumer of the `ad_` toolkit; it lives in `apps/vim/`, not at the project root.
 
 #17 Create `tools/bin/` and move helper scripts
 
@@ -316,11 +316,11 @@ Reflect the new project name (`ad`) and the new directory structure. Drop the vi
 
 #63 Rename `man/*.1` files
 
-Rename per #4 through #9. Update all internal references from `diffvim-*` to `ad_*`. Examples: `man/diffvim-compute.1` → `man/ad_compute.1`, `man/dv_debug.1` → `man/ad_debug.1`, `man/dv_snapshot.1` → `man/ad_snapshot.1`.
+Rename per #4 through #9. Update all internal references from `diffvim-*` to `ad_*`. Examples: `man/ad_compute.1` → `man/ad_compute.1`, `man/dv_debug.1` → `man/ad_debug.1`, `man/dv_snapshot.1` → `man/ad_snapshot.1`.
 
 #64 Rename completion files
 
-`completion/diffvim.bash` → `completion/ad_vim.bash`, `completion/diffvim.fish` → `completion/ad_vim.fish`, `completion/_diffvim` → `completion/_ad_vim`. Update internal command names to match the new `ad_vim` binary name.
+`completion/ad_vim.bash` → `completion/ad_vim.bash`, `completion/ad_vim.fish` → `completion/ad_vim.fish`, `completion/__ad_vim` → `completion/_ad_vim`. Update internal command names to match the new `ad_vim` binary name.
 
 ## I. Migration plan (suggested order)
 

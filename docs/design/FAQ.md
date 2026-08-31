@@ -1,4 +1,4 @@
-# diffvim FAQ
+# ad_vim FAQ
 
 ## Why does my file flash during animation?
 
@@ -17,17 +17,17 @@ During animation in vim, press `-` to slow down or `+` to speed up.
 
 In vim, press `n` to skip the current hunk (apply instantly).
 
-## Why does diffvim use Patience diff instead of LCS?
+## Why does ad_vim use Patience diff instead of LCS?
 
 LCS and Patience produce identical op counts on most files. Patience
 produces more human-readable hunk boundaries (anchored on unique common
 lines). LCS was removed to simplify the codebase.
 
-## Can I use diffvim with git?
+## Can I use ad_vim with git?
 
-Yes! Use `diffvim --replay` to animate git history:
+Yes! Use `ad_vim --replay` to animate git history:
 ```bash
-diffvim --replay --from HEAD~3 --to HEAD file.py
+ad_vim --replay --from HEAD~3 --to HEAD file.py
 ```
 
 Or use `:DiffvimPick` in vim to interactively select a commit.

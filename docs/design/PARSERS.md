@@ -1,13 +1,13 @@
 # Diff Parsers
 
-This document describes the diff parser module used by `diffvim.pl`
+This document describes the diff parser module used by `ad_vim.pl`
 and how to write your own parser.
 
 ---
 
 ## Overview
 
-`diffvim.pl` uses a single built-in parser:
+`ad_vim.pl` uses a single built-in parser:
 
 | Parser                  | File                       | Algorithm                          |
 | ----------------------- | -------------------------- | ---------------------------------- |
@@ -208,9 +208,9 @@ sub parse_diff {
 
 ### Registering a custom parser
 
-To use a custom parser with `diffvim.pl`, either:
+To use a custom parser with `ad_vim.pl`, either:
 
-1. **Modify `diffvim.pl`** to add a new `--parser` option:
+1. **Modify `ad_vim.pl`** to add a new `--parser` option:
 
 ```perl
 if ($parser_name eq 'git') {

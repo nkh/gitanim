@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# Standalone E2E test for diffvim.pl
+# Standalone E2E test for ad_vim.pl
 
 use strict;
 use warnings;
@@ -28,10 +28,10 @@ for my $parser ('perl') {
     $ENV{AD_MOVE_MAX_MS} = 50;
     $ENV{AD_HUNK_PAUSE_MS} = 5;
 
-    # Start diffvim.pl in background
+    # Start ad_vim.pl in background
     my $pid = fork();
     if ($pid == 0) {
-        exec("perl /home/z/my-project/download/diffvim.pl --parser $parser '$test_dir/old.txt' '$test_dir/new.txt' 2>/dev/null");
+        exec("perl /home/z/my-project/download/ad_vim.pl --parser $parser '$test_dir/old.txt' '$test_dir/new.txt' 2>/dev/null");
         exit 1;
     }
 
@@ -48,7 +48,7 @@ for my $parser ('perl') {
     }
 
     unless ($session) {
-        print "FAIL: No diffvim session found for $parser\n";
+        print "FAIL: No ad_vim session found for $parser\n";
         kill 'TERM', $pid;
         waitpid($pid, 0);
         $fail++;

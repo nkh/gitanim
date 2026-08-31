@@ -1,8 +1,8 @@
-# Parallel Compute + diffvim Startup Analysis
+# Parallel Compute + ad_vim Startup Analysis
 
 ## Problem
 
-When diffvim starts, it does two things sequentially:
+When ad_vim starts, it does two things sequentially:
 
 1. **Diff computation** — vimscript patience diff at line level + char level (can take
    100ms–10s for large files)
@@ -18,7 +18,7 @@ diff-computation time.
 ### What's needed
 
 The external compute tools (C++) already produce a precomputed
-diff file. The `--precomputed FILE` option makes diffvim load this file
+diff file. The `--precomputed FILE` option makes ad_vim load this file
 instead of computing the diff in vimscript. So the question is: **can we
 start the compute tool and vim simultaneously, and have vim wait for the
 compute tool to finish before loading the precomputed file?**
@@ -39,7 +39,7 @@ wait $COMPUTE_PID
 ```
 
 **Problem:** vim's `VimEnter` autocmd fires immediately after startup. If
-the precomputed file doesn't exist yet (compute still running), diffvim
+the precomputed file doesn't exist yet (compute still running), ad_vim
 will fall back to inline computation — defeating the purpose.
 
 **Solution:** Add a "wait for file" loop in the engine. Before
@@ -119,7 +119,7 @@ bin/ad_compute "$OLD" "$NEW" "$PC" 2>/dev/null &
 PID=$!
 
 # Start vim with --precomputed; the engine will poll for the file
-diffvim --precomputed "$PC" "$@" "$OLD" "$NEW"
+ad_vim --precomputed "$PC" "$@" "$OLD" "$NEW"
 
 wait $PID 2>/dev/null
 ```
@@ -142,7 +142,7 @@ if !empty(g:diffvim.precomputed)
         return s:LoadPrecomputed(g:diffvim.precomputed)
     endif
     " Timeout — fall back to inline computation
-    echo 'diffvim: precomputed file timeout, falling back to inline'
+    echo 'ad_vim: precomputed file timeout, falling back to inline'
 endif
 ```
 
@@ -172,11 +172,11 @@ runs concurrently with vim startup.
 The infrastructure is in place:
 - External compute tools produce the precomputed file format.
 - `--precomputed FILE` loads the file in the engine.
-- the compute tool computes then diffvim animates sequentially.
+- the compute tool computes then ad_vim animates sequentially.
 
 The **parallel** wrapper (`diffvim-parallel`) with the polling engine
 change is left as a future enhancement — it requires adding a `sleep` loop
 to the vimscript engine, which blocks the UI during the wait. For now, the
-sequential compute+diffvim approach is sufficient because the external
+sequential compute+ad_vim approach is sufficient because the external
 compute is so fast (sub-millisecond for typical files) that the sequential
 overhead is negligible.

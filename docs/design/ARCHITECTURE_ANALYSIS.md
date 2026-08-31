@@ -4,11 +4,11 @@ This document analyses the seven architecture questions you raised. For each, I 
 
 ---
 
-## 1. Can diffvim use the C++ postprocess and pace layers to be faster and smaller?
+## 1. Can ad_vim use the C++ postprocess and pace layers to be faster and smaller?
 
 **Short answer: yes, and it would shrink the codebase dramatically.**
 
-### What diffvim does today
+### What ad_vim does today
 
 The `diffvim` bash launcher embeds a 3,064-line vimscript engine (`autoload/diffvim/engine.vim`) inside itself via a heredoc. That engine **reimplements the entire pipeline**:
 
@@ -305,9 +305,9 @@ Old animators that parse `delay<TAB><ms>` would still work (they'd just see the 
 
 ### Current state
 
-The vimscript diffvim uses vim's own syntax highlighting (the buffer is a normal vim buffer, vim colors it). The standalone C/Perl animators don't do syntax highlighting — they just render plain text with the cursor highlighted via ANSI reverse video.
+The vimscript ad_vim uses vim's own syntax highlighting (the buffer is a normal vim buffer, vim colors it). The standalone C/Perl animators don't do syntax highlighting — they just render plain text with the cursor highlighted via ANSI reverse video.
 
-The `--highlight` option in diffvim does **animation highlighting** (painting freshly typed chars green, deleted chars red) — this is **diff highlighting**, not **syntax highlighting**. Different thing.
+The `--highlight` option in ad_vim does **animation highlighting** (painting freshly typed chars green, deleted chars red) — this is **diff highlighting**, not **syntax highlighting**. Different thing.
 
 ### Proposed approach
 
@@ -328,7 +328,7 @@ The `--highlight` option in diffvim does **animation highlighting** (painting fr
    - This means deletes remove both the char and its color; inserts bring in the new char with its new color. Visually: the old code fades out as it's deleted, new code fades in with proper syntax colors.
 
 4. **Where to put the coloring step**:
-   - Add a `diffvim-colorize` executable that takes old/new files + language, produces two `.colormap` files.
+   - Add a `ad_colorize` executable that takes old/new files + language, produces two `.colormap` files.
    - The pipeline calls it before compute (or in parallel — it's independent).
    - The animator takes `--colormap-old FILE --colormap-new FILE` flags.
 
@@ -360,7 +360,7 @@ But pygmentize is simpler and language-agnostic.
 - **Con**: ANSI escape sequences don't work in all terminals (Windows cmd, dumb terminals). Need a `--no-color` fallback.
 - **Con**: color maps could be large for big files (1 byte per char × 2 files). For a 100KB file, that's 200KB of colormap — acceptable.
 
-**Recommendation: implement as a separate `diffvim-colorize` tool, opt-in via `--colorize` flag. Default off until we know it works well.**
+**Recommendation: implement as a separate `ad_colorize` tool, opt-in via `--colorize` flag. Default off until we know it works well.**
 
 ---
 
@@ -393,7 +393,7 @@ The picker shows commits that touched the current file, with a `git show --stat 
 1. **Documentation**: `:DiffvimPick` and `:DiffvimCommit` are barely mentioned in README.md / docs/. They should be in:
    - `README.md` — quick start section.
    - `docs/src/quick-start.md` — add a "Git workflow" section.
-   - `man/diffvim.1` — document the plugin commands.
+   - `man/ad_vim.1` — document the plugin commands.
    - A new `docs/GIT_INTEGRATION.md` (or expand the existing `docs/src/git-integration.md`).
 
 2. **File picker**: there's a **commit** picker but no **file** picker. A `:DiffvimPickFile` command that uses fzf to pick a file from `git log --name-only` or `git ls-files` would be useful. Then animate that file's history.
@@ -413,19 +413,19 @@ The picker shows commits that touched the current file, with a `git show --stat 
 
 | # | Topic | Recommendation | Work |
 |---|-------|----------------|------|
-| 1 | diffvim uses C++ postprocess+pace | DO IT — biggest win | ~1 day, ~1800 LOC removed from engine |
+| 1 | ad_vim uses C++ postprocess+pace | DO IT — biggest win | ~1 day, ~1800 LOC removed from engine |
 | 2 | synchronous_engine test | FIXED (was a vimscript dict init bug) | done |
 | 3 | Each postprocess option as separate executable | Don't — keep one tool, expose transforms as `--transform NAME` flags | n/a |
 | 4 | Normalize LCS vs Patience output | Add a `diffvim-normalize` layer that re-bundles hunks; keep single-char ops as canonical, add `--batch-keeps` for efficiency | ~2 days |
 | 5 | Streaming pipeline (hunk-by-hunk) | Add `--stream` to postprocess and pace; animator already streams. Big latency win on large files | ~1 day |
 | 6 | Typed delays | Add `--typed-delays` to pace, parse type in animator. Allows dynamic per-type pacing at animation time | ~2 hours |
-| 7 | Coloring via external colorizer | Add `diffvim-colorize` (using pygmentize), opt-in via `--colorize`. Color maps precomputed, op stream unchanged | ~1 day |
+| 7 | Coloring via external colorizer | Add `ad_colorize` (using pygmentize), opt-in via `--colorize`. Color maps precomputed, op stream unchanged | ~1 day |
 | 8 | fzf commit/file picker | Already exists for commits! Add `:DiffvimPickFile`, document everything, expose picker flag to bash launcher | ~2 hours (docs) + ~2 hours (file picker) |
 
 ### Recommended order of implementation
 
 1. **Item 6 (typed delays)** — smallest, isolated change. Quick win.
-2. **Item 1 (diffvim uses external pipeline)** — biggest impact, unblocks item 2 retirement.
+2. **Item 1 (ad_vim uses external pipeline)** — biggest impact, unblocks item 2 retirement.
 3. **Item 5 (streaming pipeline)** — natural follow-up to item 1.
 4. **Item 8 (file picker + docs)** — quick, user-facing, no architectural impact.
 5. **Item 7 (coloring)** — independent, can be done anytime.

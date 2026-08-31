@@ -7,7 +7,7 @@
 
 **diffvim** animates a code diff in vim as if a human were typing it.
 
-Given two versions of a file, diffvim opens the old version in vim and
+Given two versions of a file, ad_vim opens the old version in vim and
 animates the transformation into the new version character by character.
 The cursor glides between change locations with smooth ease-in-out
 acceleration, and only the actually-changed characters are deleted and
@@ -18,8 +18,8 @@ re-typed — surrounding text is never touched.
 | Implementation | Language | Vim Communication | Dependencies |
 |---------------|----------|-------------------|--------------|
 | `diffvim` | Bash + Vimscript | Native (timer_start) | Vim only |
-| `diffvim-tmux` | Bash + tmux | tmux send-keys | tmux, diff, sed, awk |
-| `diffvim.pl` | Perl + tmux | tmux send-keys | Perl, tmux, diff |
+| `ad_tmux` | Bash + tmux | tmux send-keys | tmux, diff, sed, awk |
+| `ad_vim.pl` | Perl + tmux | tmux send-keys | Perl, tmux, diff |
 
 ## Key Features
 
@@ -45,29 +45,29 @@ re-typed — surrounding text is never touched.
 
 ```bash
 # Animate a diff
-./diffvim old.py new.py
+./ad_vim old.py new.py
 
 # Slow down for a presentation
-./diffvim --speed 0.5 --scroll zz old.py new.py
+./ad_vim --speed 0.5 --scroll zz old.py new.py
 
 # Replay git history
-./diffvim --replay src/main.py --from HEAD~5
+./ad_vim --replay src/main.py --from HEAD~5
 
 # Use a preset
-./diffvim --preset review --git-blame old.py new.py
+./ad_vim --preset review --git-blame old.py new.py
 
 # Use the C++ external compute tool for large files
 bin/ad_compute old.py new.py /tmp/diff.txt
-./diffvim --precomputed /tmp/diff.txt old.py new.py
+./ad_vim --precomputed /tmp/diff.txt old.py new.py
 
 # Dry run (print diff without launching vim)
-perl diffvim.pl --dry-run old.py new.py
+perl ad_vim.pl --dry-run old.py new.py
 ```
 
 ## Where to Go Next
 
 - **New to diffvim?** Read the [Visual Guide](../VISUAL_GUIDE.md) —
-  it explains graphically what diffvim does, using ASCII drawings.
+  it explains graphically what ad_vim does, using ASCII drawings.
 - **Want to install?** See [Installation](./installation.md).
 - **Want a quick first run?** See [Quick Start](./quick-start.md).
 - **Confused by all the options?** Try a [preset](./presets.md) first.

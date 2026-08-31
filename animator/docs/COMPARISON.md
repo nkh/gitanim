@@ -1,4 +1,4 @@
-# Comparison: diffvim (vim-based) vs. ad (standalone)
+# Comparison: ad_vim (vim-based) vs. ad (standalone)
 
 **Date:** 2026-08-17 (updated 2026-08-18 after Phase A–C refactor)
 
@@ -6,10 +6,10 @@
 
 ## 1. Architecture Comparison
 
-### Current diffvim (vim-based)
+### Current ad_vim (vim-based)
 
 ```
-User runs:  diffvim old.py new.py
+User runs:  ad_vim old.py new.py
 
 → bash launcher (4,517 lines)
     → parses 40+ CLI options
@@ -31,7 +31,7 @@ Everything in one process, one language, one 4,500-line script.
 ### New animator pipeline (separated tools)
 
 ```
-User runs:  diffvim old.py new.py  (or the pipeline directly)
+User runs:  ad_vim old.py new.py  (or the pipeline directly)
 
 → ad_compute old.py new.py      (existing, C++)
     → computes raw char ops
@@ -64,7 +64,7 @@ replaceable. The animator is ~200 lines (C++) vs. ~4,500 (vimscript).
 
 ## 2. Feature Comparison
 
-| Feature | diffvim (vim) | animator (standalone) |
+| Feature | ad_vim (vim) | animator (standalone) |
 |---------|---------------|----------------------|
 | Diff computation | Inline (vimscript Patience) or external C++ | External (C++ compute tool, Perl fallback) |
 | Post-processing | In vimscript engine | Separate tool (piped) |
@@ -84,7 +84,7 @@ replaceable. The animator is ~200 lines (C++) vs. ~4,500 (vimscript).
 
 ## 3. The `\n` Problem: Pending Phase F
 
-### In vim-based diffvim
+### In vim-based ad_vim
 
 When a whole line is deleted, the `\n` delete joins the current (empty)
 line with the next line. The next line's content appears on the current
@@ -196,7 +196,7 @@ Test cases covered:
   - multiple hunks
   - identical char run
 
-### Current diffvim Tests
+### Current ad_vim Tests
 
 ```
 test_correctness.pl:        91/91 PASS (Perl-only, no vim engine)
@@ -224,7 +224,7 @@ Compute parity:             14/14 PASS (C++ == Perl fallback identical)
 > `tests/test_tool.pl` was deleted in the Phase A refactor — it tested
 > the `--tool` flag, which Phase B removed.
 
-### Known Gaps in Current diffvim Tests
+### Known Gaps in Current ad_vim Tests
 
 - `test_vim_correctness.pl` bypasses `ProcessCharOp` — AWD, pacing,
   and `\n` handling are NOT tested
@@ -248,12 +248,12 @@ Compute parity:             14/14 PASS (C++ == Perl fallback identical)
 
 ### Phase 1 (current): Both systems coexist
 
-The current diffvim (vim-based) is kept as-is. The new animator tools
+The current ad_vim (vim-based) is kept as-is. The new animator tools
 are available alongside it:
 
 ```bash
 # Current (vim-based)
-diffvim old.py new.py
+ad_vim old.py new.py
 
 # New (standalone)
 ad_compute old.py new.py |
@@ -268,24 +268,24 @@ Add `--animator` flag to the bash `diffvim` wrapper that builds the
 pipeline automatically:
 
 ```bash
-diffvim --animator --delete-pacing word old.py new.py
+ad_vim --animator --delete-pacing word old.py new.py
 ```
 
 ### Phase 3: Animator becomes default
 
 ```bash
 # Default uses animator
-diffvim old.py new.py
+ad_vim old.py new.py
 
 # Fall back to vim
-diffvim --vim old.py new.py
+ad_vim --vim old.py new.py
 ```
 
 ---
 
 ## 8. Summary
 
-| Aspect | diffvim (vim) | animator (standalone) |
+| Aspect | ad_vim (vim) | animator (standalone) |
 |--------|---------------|----------------------|
 | Correctness | `\n` join looks bad (Phase F pending) | Same behavior |
 | Performance | Slow (vim overhead) | ✓ 10-100x faster |

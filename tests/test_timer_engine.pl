@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # test_timer_engine.pl - Test the REAL timer-based vimscript engine
-# by setting env vars and running vim with the actual diffvim script.
+# by setting env vars and running vim with the actual ad_vim script.
 #
 # This test catches bugs that the synchronous test misses:
 # - env var reading (step_mode, word_diff, etc.)
@@ -28,10 +28,10 @@ sub ok {
     else       { print "FAIL: $name\n"; $fail++; }
 }
 
-# Extract the engine from the diffvim bash script
+# Extract the engine from the ad_vim bash script
 my $engine_file = '/tmp/dv_timer_engine.vim';
 sub extract_engine {
-    open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
+    open my $fh, '<', 'diffvim' or die "Cannot open ad_vim: $!";
     my $in = 0; my @lines;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in = 1; next; }

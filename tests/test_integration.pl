@@ -39,7 +39,7 @@ for my $old_file (@examples) {
         next;
     }
 
-    my $output = `perl diffvim.pl --dry-run "$old_file" "$new_file" 2>&1`;
+    my $output = `perl ad_vim.pl --dry-run "$old_file" "$new_file" 2>&1`;
     my $name = $dir;
     $name =~ s|tests/examples/||;
     ok("dry-run produces output for $name", $output =~ /Dry run/ && $output =~ /Hunks:/);
@@ -50,7 +50,7 @@ for my $old_file (@examples) {
 # Test 2: --version works
 # ---------------------------------------------------------------------------
 print "\n=== Test: --version ===\n";
-my $ver = `perl diffvim.pl --version 2>&1`;
+my $ver = `perl ad_vim.pl --version 2>&1`;
 ok('version shows version number', $ver =~ /version/);
 ok('version shows perl version', $ver =~ /perl/);
 ok('version shows vim version', $ver =~ /vim/i);
@@ -59,7 +59,7 @@ ok('version shows vim version', $ver =~ /vim/i);
 # Test 3: --help shows all options
 # ---------------------------------------------------------------------------
 print "\n=== Test: --help completeness ===\n";
-my $help = `perl diffvim.pl --help 2>&1`;
+my $help = `perl ad_vim.pl --help 2>&1`;
 my @expected_opts = qw(
     --parser --speed --output --context --max-hunk-chars --max-word-chars
     --word-pause-ms --scroll --multi --replay --from --to --git-rev
@@ -82,7 +82,7 @@ open $fh, '>', '/tmp/dv_text.txt';
 print $fh "hello world\n";
 close $fh;
 
-my $bin_out = `perl diffvim.pl /tmp/dv_binary.dat /tmp/dv_text.txt 2>&1`;
+my $bin_out = `perl ad_vim.pl /tmp/dv_binary.dat /tmp/dv_text.txt 2>&1`;
 ok('binary file rejected', $bin_out =~ /binary/i);
 
 # ---------------------------------------------------------------------------
@@ -95,25 +95,25 @@ open $fh, '>', '/tmp/dv_content.txt';
 print $fh "hello\nworld\n";
 close $fh;
 
-my $empty_out = `perl diffvim.pl --dry-run /tmp/dv_empty.txt /tmp/dv_content.txt 2>&1`;
+my $empty_out = `perl ad_vim.pl --dry-run /tmp/dv_empty.txt /tmp/dv_content.txt 2>&1`;
 ok('empty old file handled', $empty_out =~ /Dry run/ && $empty_out !~ /Error/i);
 
-my $empty_out2 = `perl diffvim.pl --dry-run /tmp/dv_content.txt /tmp/dv_empty.txt 2>&1`;
+my $empty_out2 = `perl ad_vim.pl --dry-run /tmp/dv_content.txt /tmp/dv_empty.txt 2>&1`;
 ok('empty new file handled', $empty_out2 =~ /Dry run/ && $empty_out2 !~ /Error/i);
 
 # ---------------------------------------------------------------------------
 # Test 6: Identical files
 # ---------------------------------------------------------------------------
 print "\n=== Test: Identical files ===\n";
-my $ident_out = `perl diffvim.pl --dry-run /tmp/dv_content.txt /tmp/dv_content.txt 2>&1`;
+my $ident_out = `perl ad_vim.pl --dry-run /tmp/dv_content.txt /tmp/dv_content.txt 2>&1`;
 ok('identical files produce 0 hunks', $ident_out =~ /Hunks: 0/ || $ident_out =~ /identical/i);
 
 # ---------------------------------------------------------------------------
 # Test 7: Word diff produces different output
 # ---------------------------------------------------------------------------
 print "\n=== Test: Word diff ===\n";
-my $char_out = `perl diffvim.pl --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
-my $word_out = `perl diffvim.pl --dry-run --word-diff tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
+my $char_out = `perl ad_vim.pl --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
+my $word_out = `perl ad_vim.pl --dry-run --word-diff tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
 ok('word-diff produces output', $word_out =~ /char_ops/);
 # Word diff and char diff should both produce valid ops
 ok('char-diff produces output', $char_out =~ /char_ops/);
@@ -144,18 +144,18 @@ ok('plugin defines :Diffvim command', `cat plugin/diffvim.vim` =~ /command.*Diff
 # Test 11: Shell completion exists
 # ---------------------------------------------------------------------------
 print "\n=== Test: Shell completion ===\n";
-ok('bash completion exists', -f 'completion/diffvim.bash');
-ok('zsh completion exists', -f 'completion/_diffvim');
-ok('fish completion exists', -f 'completion/diffvim.fish');
+ok('bash completion exists', -f 'completion/ad_vim.bash');
+ok('zsh completion exists', -f 'completion/__ad_vim');
+ok('fish completion exists', -f 'completion/ad_vim.fish');
 
 # ---------------------------------------------------------------------------
 # Test 12: Man page exists and is valid
 # ---------------------------------------------------------------------------
 print "\n=== Test: Man page ===\n";
-ok('man page exists', -f 'diffvim.1');
-ok('man page has NAME section', `head -5 diffvim.1` =~ /\.SH NAME/);
-ok('man page has SYNOPSIS', `grep SYNOPSIS diffvim.1` =~ /SYNOPSIS/);
-ok('man page has OPTIONS', `grep OPTIONS diffvim.1` =~ /OPTIONS/);
+ok('man page exists', -f 'ad_vim.1');
+ok('man page has NAME section', `head -5 ad_vim.1` =~ /\.SH NAME/);
+ok('man page has SYNOPSIS', `grep SYNOPSIS ad_vim.1` =~ /SYNOPSIS/);
+ok('man page has OPTIONS', `grep OPTIONS ad_vim.1` =~ /OPTIONS/);
 
 # ---------------------------------------------------------------------------
 # Test 13: mdbook docs exist

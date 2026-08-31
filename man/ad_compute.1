@@ -25,7 +25,7 @@ ad_compute \- external diff computer for the ad toolkit (C++ implementation)
 .SH DESCRIPTION
 .B ad_compute
 is the external diff computer used by
-.BR diffvim (1)
+.BR ad_vim (1)
 (via the --precomputed flag).
 A single implementation exists in C++:
 
@@ -47,7 +47,7 @@ falls back to the pure-Perl
 
 The tool reads two files (or a unified diff) and writes a precomputed
 diff file in the line-oriented format that
-.B "diffvim --precomputed FILE"
+.B "ad_vim --precomputed FILE"
 consumes.
 
 .SH ARGUMENTS
@@ -154,16 +154,16 @@ Compute the diff and write to
 .IR /tmp/diff.txt .
 .TP
 .B ad_compute --diff patch.diff out.txt
-Read a unified diff and convert to diffvim format.
+Read a unified diff and convert to ad_vim format.
 .TP
 .B ad_compute --diff - out.txt < patch.diff
 Read the diff from stdin.
 .TP
-.B bin/ad_compute old.py new.py /tmp/diff.txt && diffvim --precomputed /tmp/diff.txt old.py new.py
-Compute the diff with the C++ tool, then run diffvim with the precomputed file.
+.B bin/ad_compute old.py new.py /tmp/diff.txt && ad_vim --precomputed /tmp/diff.txt old.py new.py
+Compute the diff with the C++ tool, then run ad_vim with the precomputed file.
 
 .SH SEE ALSO
-.BR diffvim (1),
+.BR ad_vim (1),
 .BR ad_compare (1)
 .br
 .I docs/PARALLEL_COMPUTE.md

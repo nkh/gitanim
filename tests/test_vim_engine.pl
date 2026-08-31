@@ -16,9 +16,9 @@ my $fail = 0;
 
 my $engine_test = '/tmp/dv_engine_test2.vim';
 
-# Extract the engine from the diffvim bash script
+# Extract the engine from the ad_vim bash script
 sub extract_engine {
-    open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
+    open my $fh, '<', 'diffvim' or die "Cannot open ad_vim: $!";
     my $in_engine = 0;
     my @lines;
     while (my $line = <$fh>) {

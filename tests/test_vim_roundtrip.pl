@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # test_vim_roundtrip.pl — Apply ops in REAL VIM, compare result with new file.
 #
-# This test extracts the diffvim engine, runs it synchronously in vim,
+# This test extracts the ad_vim engine, runs it synchronously in vim,
 # writes the buffer, and compares byte-for-byte with the expected new file.
 # This catches ALL bugs: cursor tracking, \n handling, buffer corruption.
 #
@@ -37,10 +37,10 @@ sub ok {
     }
 }
 
-# Extract the engine from diffvim
+# Extract the engine from ad_vim
 sub extract_engine {
     my $engine_file = '/tmp/dv_roundtrip_engine.vim';
-    open my $fh, '<', "$root/diffvim" or die "Cannot open diffvim: $!";
+    open my $fh, '<', "$root/diffvim" or die "Cannot open ad_vim: $!";
     my $in_engine = 0;
     my @lines;
     while (my $line = <$fh>) {

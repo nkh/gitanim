@@ -1,4 +1,4 @@
-" diffvim.vim - animation engine, sourced by the diffvim bash launcher.
+" diffvim.vim - animation engine, sourced by the ad_vim bash launcher.
 " Expects g:diffvim_new_file to be set to the absolute path of the new file.
 
 " Ensure nocompatible mode — required for backslash line continuation.
@@ -6,22 +6,22 @@
 set nocp
 
 if !exists('g:diffvim_new_file')
-    echoerr 'diffvim: g:diffvim_new_file not set'
+    echoerr 'ad_vim: g:diffvim_new_file not set'
     finish
 endif
 
 if !has('timers') || !has('float')
-    echoerr 'diffvim: requires vim compiled with +timers and +float'
+    echoerr 'ad_vim: requires vim compiled with +timers and +float'
     finish
 endif
 
 if !filereadable(g:diffvim_new_file)
-    echoerr 'diffvim: cannot read new file: ' . g:diffvim_new_file
+    echoerr 'ad_vim: cannot read new file: ' . g:diffvim_new_file
     finish
 endif
 
 if !&modifiable
-    echoerr 'diffvim: buffer is not modifiable'
+    echoerr 'ad_vim: buffer is not modifiable'
     finish
 endif
 
@@ -525,7 +525,7 @@ endfunction
 " Returns a list of hunk dictionaries, same structure as s:BuildHunks.
 function! s:LoadPrecomputed(path) abort
     if !filereadable(a:path)
-        echoerr 'diffvim: cannot read precomputed file: ' . a:path
+        echoerr 'ad_vim: cannot read precomputed file: ' . a:path
         return []
     endif
     let l:lines = readfile(a:path)
@@ -569,7 +569,7 @@ function! s:LoadPrecomputed(path) abort
         let l:cur_hunk.char_ops = l:cur_ops
         call add(l:hunks, l:cur_hunk)
     endif
-    echo 'diffvim: loaded ' . len(l:hunks) . ' precomputed hunk(s) from ' . a:path
+    echo 'ad_vim: loaded ' . len(l:hunks) . ' precomputed hunk(s) from ' . a:path
     return l:hunks
 endfunction
 
@@ -1335,7 +1335,7 @@ function! s:StartNextHunk() abort
         " If --output was specified, write the buffer and quit
         if !empty(g:diffvim.output_file)
             execute 'w! ' . g:diffvim.output_file
-            echo 'diffvim: result written to ' . g:diffvim.output_file
+            echo 'ad_vim: result written to ' . g:diffvim.output_file
             qa!
         endif
         " By default, mark the buffer as not modified so ':q' quits cleanly.
@@ -1344,9 +1344,9 @@ function! s:StartNextHunk() abort
             set nomodified
         endif
         if g:diffvim.keep_dirty
-            echo 'diffvim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied) — buffer modified, use :q! to quit'
+            echo 'ad_vim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied) — buffer modified, use :q! to quit'
         else
-            echo 'diffvim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied) — :q to quit'
+            echo 'ad_vim: animation complete (' . len(s:state.hunks) . ' hunk(s) applied) — :q to quit'
         endif
         return
     endif
@@ -1403,7 +1403,7 @@ function! s:StartNextHunk() abort
         endfor
         if l:changed > g:diffvim.max_hunk_chars
             call s:PlaceCursor()
-            echo 'diffvim: hunk ' . (s:state.hunk_idx + 1) . ' has ' . l:changed . ' changed chars (> ' . g:diffvim.max_hunk_chars . '), applying instantly'
+            echo 'ad_vim: hunk ' . (s:state.hunk_idx + 1) . ' has ' . l:changed . ' changed chars (> ' . g:diffvim.max_hunk_chars . '), applying instantly'
             call s:ApplyHunkInstantly()
             return
         endif
@@ -1484,7 +1484,7 @@ function! s:UpdateProgress() abort
     let l:current = s:state.hunk_idx + 1
     if l:current > l:total | let l:current = l:total | endif
     let l:pct = l:total > 0 ? float2nr(l:current * 100 / l:total) : 100
-    let l:msg = 'diffvim: hunk ' . l:current . '/' . l:total . ' (' . l:pct . '%)'
+    let l:msg = 'ad_vim: hunk ' . l:current . '/' . l:total . ' (' . l:pct . '%)'
     if abs(s:state.runtime_speed - 1.0) > 0.01
         let l:msg .= ' | speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
     endif
@@ -1594,7 +1594,7 @@ function! s:ProcessCharOp() abort
         let s:state.phase = 'idle'
         if g:diffvim.adaptive_mode
             let s:state.paused = 1
-            echo 'diffvim: hunk complete — paused (Space=resume, n=next)'
+            echo 'ad_vim: hunk complete — paused (Space=resume, n=next)'
             call s:UpdateProgress()
             return
         endif
@@ -1723,7 +1723,7 @@ function! s:ProcessCharOp() abort
                 let s:state.adaptive_lines_done = 0
                 let s:state.paused = 1
                 call s:UpdateProgress()
-                echo 'diffvim: adaptive pause — press Space to continue'
+                echo 'ad_vim: adaptive pause — press Space to continue'
                 call s:ScheduleNext(g:diffvim.adaptive_pause_ms)
                 return
             endif
@@ -1737,7 +1737,7 @@ function! s:ProcessCharOp() abort
                     let s:state.pause_after_count = 0
                     let s:state.paused = 1
                     call s:UpdateProgress()
-                    echo 'diffvim: pause-after-lines — press Space to continue'
+                    echo 'ad_vim: pause-after-lines — press Space to continue'
                     call s:ScheduleNext(g:diffvim.pause_after_ms)
                     return
                 endif
@@ -2655,7 +2655,7 @@ endfunction
 function! s:ShowGitBlame(line) abort
     " Use the pre-computed blame cache if available.
     if has_key(s:blame_cache, a:line)
-        echo 'diffvim blame: ' . s:blame_cache[a:line]
+        echo 'ad_vim blame: ' . s:blame_cache[a:line]
         return
     endif
     " Fallback: if cache miss (e.g., line beyond file), shell out.
@@ -2664,7 +2664,7 @@ function! s:ShowGitBlame(line) abort
     let l:cmd = 'git blame -L ' . a:line . ',' . a:line . ' -- ' . shellescape(l:file) . ' 2>/dev/null'
     let l:result = system(l:cmd)
     if !empty(l:result) && v:shell_error == 0
-        echo 'diffvim blame: ' . substitute(l:result, '\n\+$', '', '')
+        echo 'ad_vim blame: ' . substitute(l:result, '\n\+$', '', '')
     endif
 endfunction
 
@@ -2780,7 +2780,7 @@ endfunction
 
 function! s:TogglePause() abort
     if s:state.stopped || s:state.phase ==# 'done'
-        echo 'diffvim: nothing to pause'
+        echo 'ad_vim: nothing to pause'
         return
     endif
     " --step-mode: Space advances one step instead of toggling pause.
@@ -2812,7 +2812,7 @@ endfunction
 function! s:SkipCurrent() abort
     if s:state.stopped | return | endif
     if s:state.phase ==# 'done'
-        echo 'diffvim: already done'
+        echo 'ad_vim: already done'
         return
     endif
     call s:StopTimer()
@@ -2874,7 +2874,7 @@ function! s:SkipCurrent() abort
 
     " PAUSE after applying — user must press Space or n to continue
     let s:state.paused = 1
-    echo 'diffvim: hunk applied — paused (Space=resume, n=next hunk, b=back)'
+    echo 'ad_vim: hunk applied — paused (Space=resume, n=next hunk, b=back)'
 endfunction
 
 function! s:Back() abort
@@ -2907,7 +2907,7 @@ function! s:Quit() abort
     " If --output was specified, write the buffer before stopping
     if !empty(g:diffvim.output_file)
         execute 'w! ' . g:diffvim.output_file
-        echo 'diffvim: result written to ' . g:diffvim.output_file
+        echo 'ad_vim: result written to ' . g:diffvim.output_file
     endif
     " By default, mark the buffer as not modified so ':q' quits cleanly.
     " Use --keep-dirty to leave the buffer modified (then ':q!' is required).
@@ -2923,9 +2923,9 @@ function! s:Quit() abort
     silent! nunmap <buffer> -
     silent! nunmap <buffer> =
     if g:diffvim.keep_dirty
-        echo 'diffvim: animation stopped. Buffer is modified — use :q! to quit.'
+        echo 'ad_vim: animation stopped. Buffer is modified — use :q! to quit.'
     else
-        echo 'diffvim: animation stopped. Buffer left in current state — :q to quit.'
+        echo 'ad_vim: animation stopped. Buffer left in current state — :q to quit.'
     endif
 endfunction
 
@@ -2937,26 +2937,26 @@ augroup diffvim_quit
     autocmd QuitPre <buffer> if !g:diffvim.keep_dirty | set nomodified | endif
 
 function! s:ShowHelp() abort
-    echo 'diffvim: hunk ' . (s:state.hunk_idx + 1) . '/' . len(s:state.hunks)
+    echo 'ad_vim: hunk ' . (s:state.hunk_idx + 1) . '/' . len(s:state.hunks)
         \ . '  | Space=pause  n=next  b=back  q=quit  +/-=speed  ?=help'
 endfunction
 
 " Speed up: multiply runtime_speed by 1.5
 function! s:SpeedUp() abort
     let s:state.runtime_speed = s:state.runtime_speed * 1.5
-    echo 'diffvim: speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
+    echo 'ad_vim: speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
 endfunction
 
 " Slow down: divide runtime_speed by 1.5
 function! s:SlowDown() abort
     let s:state.runtime_speed = s:state.runtime_speed / 1.5
-    echo 'diffvim: speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
+    echo 'ad_vim: speed ' . printf('%.1f', s:state.runtime_speed) . 'x'
 endfunction
 
 " Reset speed to 1.0
 function! s:ResetSpeed() abort
     let s:state.runtime_speed = 1.0
-    echo 'diffvim: speed reset to 1.0x'
+    echo 'ad_vim: speed reset to 1.0x'
 endfunction
 
 " --- Multi-file navigation ------------------------------------------------
@@ -2971,11 +2971,11 @@ endfunction
 
 function! s:NextFile() abort
     if empty(s:file_pairs)
-        echo 'diffvim: no multi-file pairs'
+        echo 'ad_vim: no multi-file pairs'
         return
     endif
     if s:cur_file_idx >= len(s:file_pairs) - 1
-        echo 'diffvim: already at last file'
+        echo 'ad_vim: already at last file'
         return
     endif
     " Apply all remaining hunks instantly
@@ -3002,16 +3002,16 @@ function! s:NextFile() abort
     execute 'edit! ' . l:old
     let g:diffvim_new_file = l:new
     call s:StartAnimation()
-    echo 'diffvim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
+    echo 'ad_vim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
 endfunction
 
 function! s:PrevFile() abort
     if empty(s:file_pairs)
-        echo 'diffvim: no multi-file pairs'
+        echo 'ad_vim: no multi-file pairs'
         return
     endif
     if s:cur_file_idx <= 0
-        echo 'diffvim: already at first file'
+        echo 'ad_vim: already at first file'
         return
     endif
     call s:StopTimer()
@@ -3022,7 +3022,7 @@ function! s:PrevFile() abort
     execute 'edit! ' . l:old
     let g:diffvim_new_file = l:new
     call s:StartAnimation()
-    echo 'diffvim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
+    echo 'ad_vim: file ' . (s:cur_file_idx + 1) . '/' . len(s:file_pairs)
 endfunction
 
 " --- Mappings --------------------------------------------------------------
@@ -3046,12 +3046,12 @@ function! s:StartAnimation() abort
     " Pre-compute git blame cache if --git-blame is enabled (batch, not per-hunk)
     call s:LoadBlameCache()
     " Startup feedback: show progress during diff computation
-    call s:ShowStartupFeedback('diffvim: computing diff...')
+    call s:ShowStartupFeedback('ad_vim: computing diff...')
     " Compute the diff.
     let s:state.hunks = s:BuildHunks()
-    call s:ShowStartupFeedback('diffvim: ' . len(s:state.hunks) . ' hunk(s) found')
+    call s:ShowStartupFeedback('ad_vim: ' . len(s:state.hunks) . ' hunk(s) found')
     if empty(s:state.hunks)
-        echo 'diffvim: files are identical, nothing to animate'
+        echo 'ad_vim: files are identical, nothing to animate'
         return
     endif
     " --dim-unchanged: dim unchanged anchor lines
@@ -3079,7 +3079,7 @@ function! s:StartAnimation() abort
         " Silent startup: just start the animation after a minimal tick
         " so vim has time to render the buffer.
         if g:diffvim.step_mode
-            echo 'diffvim: step mode — press Space to advance'
+            echo 'ad_vim: step mode — press Space to advance'
         endif
         call s:ScheduleNext(50)
     endif
@@ -3148,7 +3148,7 @@ endfunction
 
 " Print the active configuration so the user can verify env vars are read.
 function! s:ShowConfig() abort
-    let l:msg = 'diffvim config:'
+    let l:msg = 'ad_vim config:'
         \ . '  tick=' . g:diffvim.tick_ms . 'ms'
         \ . '  type=' . g:diffvim.type_delay_ms . 'ms'
         \ . '  del=' . g:diffvim.delete_delay_ms . 'ms'

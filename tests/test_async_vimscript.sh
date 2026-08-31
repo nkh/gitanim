@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_async_vimscript.sh — Test the vimscript animator in ASYNC mode
-# (with timers, like real diffvim). This catches bugs that the sync
+# (with timers, like real ad_vim). This catches bugs that the sync
 # test misses.
 #
 # Usage: bash tests/test_async_vimscript.sh <example_dir>
@@ -15,14 +15,14 @@ SYNOPSIS
     test_async_vimscript.sh <example_dir>
 
 DESCRIPTION
-    Tests the vimscript animator (the engine embedded in the diffvim
+    Tests the vimscript animator (the engine embedded in the ad_vim
     launcher) in its REAL asynchronous mode — i.e. with timers, exactly
-    as it runs inside Vim during a live diffvim session. This catches
+    as it runs inside Vim during a live ad_vim session. This catches
     bugs that the synchronous variant (test_vimscript_animator.sh)
     cannot, such as timer-related state issues.
 
     Pipeline per example:
-      1. Extracts the vimscript engine from the diffvim launcher.
+      1. Extracts the vimscript engine from the ad_vim launcher.
       2. Runs compute-cpp + postprocess + pace to get the timed ops.
       3. Runs headless Vim (vim -e -s -n) with the engine sourced,
          AD_SPEED=1000000 (delays become ~0ms), and a 60s timeout.

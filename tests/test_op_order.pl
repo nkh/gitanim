@@ -37,7 +37,7 @@ ok('--help lists all 6 modes', $help =~ /natural.*optimize.*left-to-right.*end-f
 # Test 2: All 6 modes are accepted (use --dry-run to avoid launching vim)
 for my $mode (qw(natural optimize left-to-right end-first end-first-smart overwrite)) {
     my $out = `$DIFFVIM --op-order $mode --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py 2>&1`;
-    ok("--op-order $mode accepted", $out =~ /=== diffvim dry-run/ || $out =~ /---/);
+    ok("--op-order $mode accepted", $out =~ /=== ad_vim dry-run/ || $out =~ /---/);
 }
 
 # Test 3: Invalid mode is rejected

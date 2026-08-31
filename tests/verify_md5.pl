@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
-# verify_md5.pl — Round-trip MD5 verification of diffvim AND ad_pipeline
+# verify_md5.pl — Round-trip MD5 verification of ad_vim AND ad_pipeline
 #                  on every example pair under tests/examples/.
 #
 # For each (old, new) pair:
 #   1. compute md5 of the new file
-#   2. run diffvim synchronously (extracted engine, like test_vim_roundtrip.pl),
+#   2. run ad_vim synchronously (extracted engine, like test_vim_roundtrip.pl),
 #      capture md5 of saved buffer (--output FILE)
 #   3. run ad_pipeline --no-display --snapshot FILE,
 #      capture md5 of snapshot
@@ -29,10 +29,10 @@ my $tmpdir   = tempdir(CLEANUP => 1);
 
 mkdir $outdir unless -d $outdir;
 
-# --- extract the vimscript engine from diffvim (same approach as
+# --- extract the vimscript engine from ad_vim (same approach as
 #     tests/test_vim_roundtrip.pl) ----------------------------------------
 sub extract_engine {
-    open my $fh, '<', "$root/diffvim" or die "open diffvim: $!";
+    open my $fh, '<', "$root/diffvim" or die "open ad_vim: $!";
     my $in = 0; my @L;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }
@@ -249,7 +249,7 @@ for my $d (@dirs) {
 
     my $new_md5 = md5_file($new);
 
-    # --- diffvim run ------------------------------------------------------
+    # --- ad_vim run ------------------------------------------------------
     my $dv_out = "$tmpdir/dv_$d.out";
     unlink $dv_out if -f $dv_out;
     my $cmd = "env $env AD_OUTPUT='$dv_out' timeout 8 vim -u NONE -N -n -es " .
@@ -282,7 +282,7 @@ print "\n";
 print "Round-trip MD5 verification on every example pair\n";
 print "=" x 110, "\n";
 printf "%-28s | %-32s | %-32s | %-32s | %-10s | %-10s\n",
-       'example', 'new-file MD5', 'diffvim buffer MD5', 'pipeline snapshot MD5', 'dv', 'pipe';
+       'example', 'new-file MD5', 'ad_vim buffer MD5', 'pipeline snapshot MD5', 'dv', 'pipe';
 print "-" x 110, "\n";
 for my $r (@rows) {
     my ($name, $nm, $dm, $ds, $pm, $ps, $pe) = @$r;
@@ -295,14 +295,14 @@ print "=" x 110, "\n";
 my $total = scalar @rows;
 my $dv_ok    = grep { $_->[3] eq 'OK' } @rows;
 my $pipe_ok  = grep { $_->[5] eq 'OK' } @rows;
-printf "\ndiffvim:        %d/%d match\n",        $dv_ok,   $total;
+printf "\nad_vim:        %d/%d match\n",        $dv_ok,   $total;
 printf "ad_pipeline: %d/%d match\n", $pipe_ok, $total;
 
 # list mismatches
 my @dv_bad = grep { $_->[3] ne 'OK' } @rows;
 my @pp_bad = grep { $_->[5] ne 'OK' } @rows;
 if (@dv_bad) {
-    print "\ndiffvim mismatches:\n";
+    print "\nad_vim mismatches:\n";
     for my $r (@dv_bad) {
         printf "  %-28s new=%s buffer=%s\n", $r->[0], $r->[1], $r->[2];
     }

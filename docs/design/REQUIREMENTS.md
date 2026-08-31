@@ -1,4 +1,4 @@
-# diffvim — Requirements Specification
+# ad_vim — Requirements Specification
 
 **Document version:** 2.0
 **Date:** 2026-08-17
@@ -27,10 +27,10 @@ architecture, interfaces, and documentation structure.
 
 ## 1. Executive Summary
 
-### 1.1 What diffvim Is
+### 1.1 What ad_vim Is
 
-diffvim is a command-line tool that animates code diffs in vim as if a
-human were typing them. Given two versions of a file, diffvim opens the
+ad_vim is a command-line tool that animates code diffs in vim as if a
+human were typing them. Given two versions of a file, ad_vim opens the
 old version in vim and animates the transformation into the new version
 character by character, with the cursor gliding smoothly between change
 locations.
@@ -60,8 +60,8 @@ locations.
 | Implementation | Language | Vim Communication | Dependencies |
 |----------------|----------|-------------------|--------------|
 | `diffvim` | Bash + Vimscript | Native (`timer_start`) | Vim 8+ only |
-| `diffvim-tmux` | Bash + tmux | `tmux send-keys` | tmux, vim, diff, sed, awk |
-| `diffvim.pl` | Perl + tmux | `tmux send-keys` | Perl 5.10+, tmux, diff |
+| `ad_tmux` | Bash + tmux | `tmux send-keys` | tmux, vim, diff, sed, awk |
+| `ad_vim.pl` | Perl + tmux | `tmux send-keys` | Perl 5.10+, tmux, diff |
 
 The primary implementation is `diffvim` (bash + vimscript). It is the
 only one that has no race conditions (single-process, timer-driven) and
@@ -98,7 +98,7 @@ INPUT                    PROCESSING                     OUTPUT
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         diffvim (bash)                           │
+│                         ad_vim (bash)                           │
 │                                                                 │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
 │  │ CLI      │  │ Config   │  │ Preset   │  │ Compute  │       │
@@ -162,7 +162,7 @@ INPUT                    PROCESSING                     OUTPUT
 The application SHALL accept two file paths as positional arguments:
 
 ```
-diffvim [options] <oldfile> <newfile>
+ad_vim [options] <oldfile> <newfile>
 ```
 
 The old file is opened in vim; the new file is the animation target.
@@ -177,26 +177,26 @@ The diff is computed either inline (vimscript patience) or externally
 #### FR-1.2: Precomputed Diff Mode
 
 ```
-diffvim --precomputed FILE <oldfile> <newfile>
+ad_vim --precomputed FILE <oldfile> <newfile>
 ```
 
 The application SHALL accept a precomputed diff file (produced by
 `ad_compute`) and skip the in-vim patience computation. When the
 C++ binary is on `$PATH` (or in `bin/ad_compute `, `/usr/local/bin/`, or
-`~/.local/bin/`), diffvim pre-computes automatically; otherwise it
+`~/.local/bin/`), ad_vim pre-computes automatically; otherwise it
 falls back to the in-vim patience with a warning on stderr. (The `--tool`
 flag was removed in the refactor — only the C++ compute tool remains.)
 
 **Acceptance criteria:**
-- The precomputed file must be in the diffvim diff format (see §7.1).
+- The precomputed file must be in the ad_vim diff format (see §7.1).
 - If the file is missing or invalid, fall back to inline computation
   with a warning on stderr.
 
 #### FR-1.3: Unified Diff Input
 
 ```
-diffvim --diff FILE
-diffvim --diff - < file.diff
+ad_vim --diff FILE
+ad_vim --diff - < file.diff
 ```
 
 The application SHALL accept a unified diff file as input. The diff is
@@ -206,7 +206,7 @@ in two-file mode.
 #### FR-1.4: Multi-File Mode
 
 ```
-diffvim --multi <old1:new1> <old2:new2> ...
+ad_vim --multi <old1:new1> <old2:new2> ...
 ```
 
 The application SHALL animate multiple file pairs sequentially. After
@@ -221,8 +221,8 @@ line shows "file 2/3: src/parser.rs".
 #### FR-1.5: Git History Replay
 
 ```
-diffvim --replay <file>
-diffvim --git-rev REV..REV <file> [<file> ...]
+ad_vim --replay <file>
+ad_vim --git-rev REV..REV <file> [<file> ...]
 ```
 
 The application SHALL animate a file's git history. For each commit in
@@ -590,8 +590,8 @@ and loaded via `runtime syntax/<filetype>.vim`.
 | Operating systems | Linux, macOS, BSD (any POSIX system) |
 | Vim version | 8.0+ with `+timers` and `+float` features |
 | Bash version | 4.0+ (associative arrays) |
-| Perl version | 5.10+ (for `diffvim.pl`) |
-| tmux version | 3.0+ (for `diffvim-tmux` and `diffvim.pl`) |
+| Perl version | 5.10+ (for `ad_vim.pl`) |
+| tmux version | 3.0+ (for `ad_tmux` and `ad_vim.pl`) |
 | External tools | `diff` (required), `git` (optional), `sed`/`awk` (for tmux) |
 
 ### NFR-3: Correctness
@@ -617,10 +617,10 @@ and loaded via `runtime syntax/<filetype>.vim`.
 ### 5.1 CLI Interface
 
 ```
-Usage: diffvim [options] <oldfile> <newfile>
-       diffvim [options] --multi(-m) <old1:new1> <old2:new2> ...
-       diffvim [options] --replay(-r) <file>
-       diffvim [options] --git-rev(-R) REV..REV <file> [<file> ...]
+Usage: ad_vim [options] <oldfile> <newfile>
+       ad_vim [options] --multi(-m) <old1:new1> <old2:new2> ...
+       ad_vim [options] --replay(-r) <file>
+       ad_vim [options] --git-rev(-R) REV..REV <file> [<file> ...]
 ```
 
 **Short options:** `-s` (speed), `-o` (output), `-c` (context), `-m`
@@ -972,7 +972,7 @@ let g:diffvim = {
 | `test_highlight_word.pl` | 20 | Word highlighting |
 | Compute parity | 14 | C++ == Perl fallback produce identical output |
 
-**Total: 410+ diffvim assertions + 14 compute parity = 424+**
+**Total: 410+ ad_vim assertions + 14 compute parity = 424+**
 
 ### 9.2 Test Categories
 
@@ -1014,12 +1014,12 @@ gitanim/
 ├── LICENSE                          # Artistic 2.0 / GPL 3.0 (dual)
 ├── IMPROVEMENTS.md                  # 100 improvement ideas
 │
-├── diffvim                          # Main script (4,517 lines)
-├── diffvim.1                        # Root manpage (copy of man/diffvim.1)
-├── diffvim-tmux                     # tmux implementation
-├── diffvim.pl                       # Perl implementation
-├── diffvim-compare                  # Diff algorithm benchmark
-├── diffvim-jogger                   # Test-case exerciser
+├── ad_vim                          # Main script (4,517 lines)
+├── ad_vim.1                        # Root manpage (copy of man/ad_vim.1)
+├── ad_tmux                     # tmux implementation
+├── ad_vim.pl                       # Perl implementation
+├── ad_compare                  # Diff algorithm benchmark
+├── ad_jogger                   # Test-case exerciser
 ├── jq_filter                        # difft JSON → text format
 ├── difft_json_to_lcs                # Text format → Patience string
 ├── set_config                       # Timing env var defaults
@@ -1035,9 +1035,9 @@ gitanim/
 │       └── engine.vim              # Standalone engine (sourced by plugin)
 │
 ├── completion/
-│   ├── diffvim.bash                # Bash completion
-│   ├── _diffvim                    # Zsh completion
-│   └── diffvim.fish                # Fish completion
+│   ├── ad_vim.bash                # Bash completion
+│   ├── __ad_vim                    # Zsh completion
+│   └── ad_vim.fish                # Fish completion
 │
 ├── compute/
 │   ├── cpp/ad_compute.cpp     # C++ (only compute implementation)
@@ -1047,10 +1047,10 @@ gitanim/
 │   └── PARALLELISM.md              # Parallelism analysis
 │
 ├── man/
-│   ├── diffvim.1                   # Main manpage
-│   ├── diffvim-tmux.1              # tmux variant manpage
-│   ├── diffvim-compare.1           # Compare tool manpage
-│   ├── diffvim-jogger.1            # Jogger tool manpage
+│   ├── ad_vim.1                   # Main manpage
+│   ├── ad_tmux.1              # tmux variant manpage
+│   ├── ad_compare.1           # Compare tool manpage
+│   ├── ad_jogger.1            # Jogger tool manpage
 │   └── ad_compute.1           # Compute tools manpage
 │
 ├── packaging/
@@ -1151,7 +1151,7 @@ Each documentation file SHALL cover:
 | ARCHITECTURE.md | Three implementations comparison, data flow, vimscript engine functions, compute tools |
 | OPTION_ANALYSIS.md | 10 base operations, overlap analysis, refactoring proposal |
 | CHANGELOG.md | All versions with Added/Changed/Removed/Deprecated sections |
-| man/diffvim.1 | SYNOPSIS, DESCRIPTION, OPTIONS (all), CONTROLS, ENVIRONMENT VARIABLES, EXAMPLES, FILES, SEE ALSO |
+| man/ad_vim.1 | SYNOPSIS, DESCRIPTION, OPTIONS (all), CONTROLS, ENVIRONMENT VARIABLES, EXAMPLES, FILES, SEE ALSO |
 | docs/src/options.md | Every option with description, default, examples, env var equivalent |
 
 ---
@@ -1208,7 +1208,7 @@ The animation requires vim 8+ with `+timers` and `+float`. This excludes:
 - CI/CD pipelines that don't have vim installed
 - Headless environments without a terminal
 
-### 11.5 diffvim.pl and diffvim-tmux Lag Behind
+### 11.5 ad_vim.pl and ad_tmux Lag Behind
 
 The Perl and tmux implementations do not support the unified option
 selectors. They still use the old individual flags. Only the bash

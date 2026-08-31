@@ -1,4 +1,4 @@
-# diffvim Options: Bird's Eye View
+# ad_vim Options: Bird's Eye View
 
 This document shows how all the options influence the animation at a
 high level. It is NOT a reference — it is a visual guide to understand
@@ -47,7 +47,7 @@ op count as Patience.)
 **Example:**
 ```
   # Patience: fewer, more coherent hunks
-  diffvim --algorithm patience old.py new.py
+  ad_vim --algorithm patience old.py new.py
 ```
 
 ### 2. DIFF GRANULARITY (char vs word level)
@@ -255,7 +255,7 @@ op count as Patience.)
   │          ├──► [C++ compute tool] ──► diff.txt ──┐   │
   │  new.py ─┘                                    │   │
   │                                               ▼   │
-  │  diffvim ──► [vim + --precomputed diff.txt] ──► animation
+  │  ad_vim ──► [vim + --precomputed diff.txt] ──► animation
   │                                                   │
   │  Speed: ~1ms (C++) vs 500ms (vimscript)         │
   │  The C++ binary is searched for automatically      │

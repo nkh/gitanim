@@ -22,7 +22,7 @@ Diff Computation → Hunk Grouping → Char-level patience → Animate in Vim
 
 ## Three Implementations
 
-### diffvim (Bash + Vimscript)
+### ad_vim (Bash + Vimscript)
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -52,7 +52,7 @@ Diff Computation → Hunk Grouping → Char-level patience → Animate in Vim
 - User input is native (vim mappings call functions directly)
 - No external dependencies beyond vim
 
-### diffvim-tmux (Bash + tmux)
+### ad_tmux (Bash + tmux)
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -75,16 +75,16 @@ Diff Computation → Hunk Grouping → Char-level patience → Animate in Vim
 └─────────────────────────────────────────────┘
 ```
 
-### diffvim.pl (Perl + tmux)
+### ad_vim.pl (Perl + tmux)
 
-Same architecture as diffvim-tmux but written in Perl with:
+Same architecture as ad_tmux but written in Perl with:
 - Single parser module (`DiffVim::Parser::Perl`, pure-Perl patience, no deps)
 - `IPC::Open3` for vim communication (when using `--no-tmux`)
 - `File::Temp` with `CLEANUP => 1` for automatic temp file cleanup
 
 ## Comparison
 
-| Feature | diffvim | diffvim-tmux | diffvim.pl |
+| Feature | ad_vim | ad_tmux | ad_vim.pl |
 |---------|---------|--------------|------------|
 | Race conditions | No | Yes | Yes |
 | Parser pluggability | No | No | Yes |
@@ -94,7 +94,7 @@ Same architecture as diffvim-tmux but written in Perl with:
 ## When to Use Which
 
 - **diffvim** — everyday use, no external dependencies
-- **diffvim-tmux** — when you want to script/extend in bash
-- **diffvim.pl** — when you want parser pluggability or prefer Perl
+- **ad_tmux** — when you want to script/extend in bash
+- **ad_vim.pl** — when you want parser pluggability or prefer Perl
 
-> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`diffvim-colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.
+> **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

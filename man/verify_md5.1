@@ -6,14 +6,14 @@ verify_md5 \- verify pipeline output via md5 checksums
 [\fIoptions\fR] [\fIargs\fR]
 .SH DESCRIPTION
 NAME\fR
-    verify_md5.sh — Round-trip MD5 verification of the diffvim pipelines\fR
+    verify_md5.sh — Round-trip MD5 verification of the ad_vim pipelines\fR
 \fR
 SYNOPSIS\fR
     verify_md5.sh [-h|--help]\fR
 \fR
 DESCRIPTION\fR
     For every example pair under tests/tests/examples/ (matching [0-9]*_*), runs\fR
-    TWO diffvim pipelines in parallel (8 concurrent via xargs -P):\fR
+    TWO ad_vim pipelines in parallel (8 concurrent via xargs -P):\fR
 \fR
       1. C pipeline:        compute-cpp → C postprocess → C pace → C animator\fR
                             (via animator/ad_pipeline --no-display ...)\fR
@@ -40,4 +40,4 @@ OPTIONS\fR
 .B \-h, \-\-help
 Show detailed help and exit
 .SH "SEE ALSO"
-.BR diffvim (1)
+.BR ad_vim (1)

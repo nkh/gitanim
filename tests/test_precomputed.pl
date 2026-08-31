@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # test_precomputed.pl - Verify that --precomputed FILE produces the same
 # buffer content as inline computation. The external compute tools (C, C++,
-# Rust, Go) produce a file that diffvim consumes via --precomputed; the
+# Rust, Go) produce a file that ad_vim consumes via --precomputed; the
 # resulting animation must produce exactly the same buffer as diffvim's
 # built-in vimscript LCS diff.
 
@@ -13,7 +13,7 @@ my $fail = 0;
 my $engine_file = '/tmp/dv_pc_engine.vim';
 
 sub extract_engine {
-    open my $fh, '<', 'diffvim' or die "Cannot open diffvim: $!";
+    open my $fh, '<', 'diffvim' or die "Cannot open ad_vim: $!";
     my $in_engine = 0;
     my @lines;
     while (my $line = <$fh>) {

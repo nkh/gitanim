@@ -70,7 +70,7 @@ The C++ compute tool `bin/ad_compute` is the default.
 `diffvim` searches for it in `bin/ad_compute `, `/usr/local/bin/`, and
 `~/.local/bin/`. If found, the diff is pre-computed before launching
 vim (10-100x faster than the in-vim Patience for large files). If not
-found, diffvim falls back to the embedded vimscript Patience
+found, ad_vim falls back to the embedded vimscript Patience
 (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`) with a
 warning on stderr. (The `--tool` flag that used to select between
 C/C++/Rust/Go compute tools was removed in the refactor — there's only
@@ -126,8 +126,8 @@ Deletion speed: `slow|normal|fast|instant` (default: `normal`).
 Minimum chars to trigger rapid/word modes (default: 3).
 
 ```bash
-diffvim --delete-pacing word old.py new.py
-diffvim --delete-pacing instant --delete-speed fast old.py new.py
+ad_vim --delete-pacing word old.py new.py
+ad_vim --delete-pacing instant --delete-speed fast old.py new.py
 ```
 
 ---
@@ -147,8 +147,8 @@ Insertion strategy. Default: `char`.
 Insertion speed: `slow|normal|fast` (default: `normal`).
 
 ```bash
-diffvim --insert-pacing word old.py new.py
-diffvim --insert-pacing accel --insert-speed fast old.py new.py
+ad_vim --insert-pacing word old.py new.py
+ad_vim --insert-pacing accel --insert-speed fast old.py new.py
 ```
 
 ---
@@ -166,8 +166,8 @@ Timing mode. Default: `uniform`.
 | `review`   | Pause every 5 lines in large hunks                   |
 
 ```bash
-diffvim --pacing gaussian old.py new.py
-diffvim --pacing review old.py new.py
+ad_vim --pacing gaussian old.py new.py
+ad_vim --pacing review old.py new.py
 ```
 
 ---
@@ -197,8 +197,8 @@ Dim unchanged anchor lines to draw eye to changes.
 Dimming percentage 0-100 (default: 60).
 
 ```bash
-diffvim --highlight inline old.py new.py
-diffvim --highlight hunk --dim-unchanged old.py new.py
+ad_vim --highlight inline old.py new.py
+ad_vim --highlight hunk --dim-unchanged old.py new.py
 ```
 
 ---
@@ -209,9 +209,9 @@ All options can be set via `DIFFVIM_<OPTION_NAME>` environment
 variables. For example:
 
 ```bash
-DIFFVIM_DELETE_PACING=word diffvim old.py new.py
-DIFFVIM_PACING=gaussian diffvim old.py new.py
-DIFFVIM_HIGHLIGHT=inline diffvim old.py new.py
+DIFFVIM_DELETE_PACING=word ad_vim old.py new.py
+DIFFVIM_PACING=gaussian ad_vim old.py new.py
+DIFFVIM_HIGHLIGHT=inline ad_vim old.py new.py
 ```
 
 Core timing env vars:

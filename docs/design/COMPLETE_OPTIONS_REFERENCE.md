@@ -1,4 +1,4 @@
-# diffvim Complete Options Reference
+# ad_vim Complete Options Reference
 
 This document lists every option, what it does, when to use it, and
 the exact command line to run it. Options are grouped by category.
@@ -30,38 +30,38 @@ the exact command line to run it. Options are grouped by category.
 ### --speed N
 Speed multiplier. 0.5 = half speed, 2 = double, 5 = 5x.
 ```bash
-diffvim --speed 2 old.py new.py
-diffvim --speed 0.5 old.py new.py
+ad_vim --speed 2 old.py new.py
+ad_vim --speed 0.5 old.py new.py
 ```
 
 ### --tick-ms N
 Animation frame interval in ms (default: 200).
 ```bash
-diffvim --tick-ms 100 old.py new.py
+ad_vim --tick-ms 100 old.py new.py
 ```
 
 ### --type-delay-ms N
 Delay between typed characters (default: 80).
 ```bash
-diffvim --type-delay-ms 40 old.py new.py
+ad_vim --type-delay-ms 40 old.py new.py
 ```
 
 ### --delete-delay-ms N
 Delay between deleted characters (default: 80).
 ```bash
-diffvim --delete-delay-ms 40 old.py new.py
+ad_vim --delete-delay-ms 40 old.py new.py
 ```
 
 ### --hunk-pause-ms N
 Pause between hunks (default: 200).
 ```bash
-diffvim --hunk-pause-ms 500 old.py new.py
+ad_vim --hunk-pause-ms 500 old.py new.py
 ```
 
 ### --word-pause-ms N
 Pause after a word (default: 150).
 ```bash
-diffvim --word-pause-ms 300 old.py new.py
+ad_vim --word-pause-ms 300 old.py new.py
 ```
 
 ---
@@ -71,33 +71,33 @@ diffvim --word-pause-ms 300 old.py new.py
 ### --pacing MODE
 Overall pacing mode: `uniform|adaptive|gaussian|review` (default: uniform).
 ```bash
-diffvim --pacing gaussian old.py new.py
-diffvim --pacing review old.py new.py
-diffvim --pacing adaptive old.py new.py
+ad_vim --pacing gaussian old.py new.py
+ad_vim --pacing review old.py new.py
+ad_vim --pacing adaptive old.py new.py
 ```
 
 ### --gaussian-jitter-pct N
 Jitter percentage for gaussian mode (default: 20).
 ```bash
-diffvim --pacing gaussian --gaussian-jitter-pct 30 old.py new.py
+ad_vim --pacing gaussian --gaussian-jitter-pct 30 old.py new.py
 ```
 
 ### --pause-after-lines N
 Pause after N changed lines (0 = off, default: 0).
 ```bash
-diffvim --pause-after-lines 5 old.py new.py
+ad_vim --pause-after-lines 5 old.py new.py
 ```
 
 ### --pause-after-threshold N
 Only pause if file has >N lines (default: 50).
 ```bash
-diffvim --pause-after-lines 5 --pause-after-threshold 100 old.py new.py
+ad_vim --pause-after-lines 5 --pause-after-threshold 100 old.py new.py
 ```
 
 ### --pause-after-ms N
 Pause duration (default: 500).
 ```bash
-diffvim --pause-after-lines 5 --pause-after-ms 1000 old.py new.py
+ad_vim --pause-after-lines 5 --pause-after-ms 1000 old.py new.py
 ```
 
 ---
@@ -109,71 +109,71 @@ Deletion strategy: `char|rapid-eol|rapid-identical|word|instant|flash` (default:
 
 ```bash
 # char: delete one char at a time
-diffvim --delete-pacing char old.py new.py
+ad_vim --delete-pacing char old.py new.py
 
 # rapid-eol: accelerate deletion of trailing chars
-diffvim --delete-pacing rapid-eol old.py new.py
+ad_vim --delete-pacing rapid-eol old.py new.py
 
 # rapid-identical: accelerate runs of the same char (e.g. ------)
-diffvim --delete-pacing rapid-identical old.py new.py
+ad_vim --delete-pacing rapid-identical old.py new.py
 
 # word: delete word-by-word (default)
-diffvim --delete-pacing word old.py new.py
+ad_vim --delete-pacing word old.py new.py
 
 # instant: delete everything instantly (no animation)
-diffvim --delete-pacing instant old.py new.py
+ad_vim --delete-pacing instant old.py new.py
 
 # flash: highlight whole line, pause, delete in one shot
-diffvim --delete-pacing flash old.py new.py
+ad_vim --delete-pacing flash old.py new.py
 ```
 
 ### --delete-speed MODE
 Delete speed: `slow|normal|fast|instant` (default: normal).
 ```bash
-diffvim --delete-speed fast old.py new.py
-diffvim --delete-speed instant old.py new.py
+ad_vim --delete-speed fast old.py new.py
+ad_vim --delete-speed instant old.py new.py
 ```
 
 ### --delete-threshold N
 Min chars to trigger rapid/word modes (default: 3).
 ```bash
-diffvim --delete-pacing word --delete-threshold 5 old.py new.py
+ad_vim --delete-pacing word --delete-threshold 5 old.py new.py
 ```
 
 ### --flash-pause-ms N
 Flash mode: pause after highlight (default: 400).
 ```bash
-diffvim --delete-pacing flash --flash-pause-ms 600 old.py new.py
+ad_vim --delete-pacing flash --flash-pause-ms 600 old.py new.py
 ```
 
 ### --flash-highlight-ms N
 Flash mode: highlight duration (default: 300).
 ```bash
-diffvim --delete-pacing flash --flash-highlight-ms 500 old.py new.py
+ad_vim --delete-pacing flash --flash-highlight-ms 500 old.py new.py
 ```
 
 ### --accel-delete
 Enable accelerated multi-line delete.
 ```bash
-diffvim --accel-delete old.py new.py
+ad_vim --accel-delete old.py new.py
 ```
 
 ### --block-delete-size N
 Group deletes into blocks of N (default: 3).
 ```bash
-diffvim --block-delete-size 5 old.py new.py
+ad_vim --block-delete-size 5 old.py new.py
 ```
 
 ### --pause-before-delete-ms N
 Pause before delete block (default: 200).
 ```bash
-diffvim --pause-before-delete-ms 300 old.py new.py
+ad_vim --pause-before-delete-ms 300 old.py new.py
 ```
 
 ### --pause-after-delete-ms N
 Pause after delete block (default: 200).
 ```bash
-diffvim --pause-after-delete-ms 300 old.py new.py
+ad_vim --pause-after-delete-ms 300 old.py new.py
 ```
 
 ---
@@ -184,16 +184,16 @@ diffvim --pause-after-delete-ms 300 old.py new.py
 Insert strategy: `char|word` (default: char).
 ```bash
 # char: type one char at a time (default)
-diffvim --insert-pacing char old.py new.py
+ad_vim --insert-pacing char old.py new.py
 
 # word: type words instantly, pause after whitespace
-diffvim --insert-pacing word old.py new.py
+ad_vim --insert-pacing word old.py new.py
 ```
 
 ### --insert-speed MODE
 Insert speed: `slow|normal|fast` (default: normal).
 ```bash
-diffvim --insert-speed fast old.py new.py
+ad_vim --insert-speed fast old.py new.py
 ```
 
 ---
@@ -205,7 +205,7 @@ Glide duration between hunks in ms (0 = off, default: 0). When >0,
 the cursor animates smoothly from the end of one hunk to the start
 of the next using ease-in-out interpolation.
 ```bash
-diffvim --cursor-glide-ms 300 old.py new.py
+ad_vim --cursor-glide-ms 300 old.py new.py
 ```
 
 ### --cursor-glide-show-intermediate 0|1
@@ -213,7 +213,7 @@ Show intermediate lines during glide (1 = yes, default; 0 = just
 animate cursor position without full re-render — faster for large
 distances).
 ```bash
-diffvim --cursor-glide-ms 300 --cursor-glide-show-intermediate 0 old.py new.py
+ad_vim --cursor-glide-ms 300 --cursor-glide-show-intermediate 0 old.py new.py
 ```
 
 ---
@@ -225,25 +225,25 @@ Adaptive speed based on hunk distance (default: off). When enabled,
 hunks far from the current cursor position animate fast (quick
 glance), while nearby hunks animate slowly (show every char).
 ```bash
-diffvim --distance-speed adaptive old.py new.py
+ad_vim --distance-speed adaptive old.py new.py
 ```
 
 ### --distance-threshold N
 Lines above which speed increases (default: 10).
 ```bash
-diffvim --distance-speed adaptive --distance-threshold 5 old.py new.py
+ad_vim --distance-speed adaptive --distance-threshold 5 old.py new.py
 ```
 
 ### --distance-fast-mult F
 Speed multiplier for long distances (default: 3.0).
 ```bash
-diffvim --distance-speed adaptive --distance-fast-mult 5.0 old.py new.py
+ad_vim --distance-speed adaptive --distance-fast-mult 5.0 old.py new.py
 ```
 
 ### --distance-slow-mult F
 Speed multiplier for short distances (default: 0.5).
 ```bash
-diffvim --distance-speed adaptive --distance-slow-mult 0.3 old.py new.py
+ad_vim --distance-speed adaptive --distance-slow-mult 0.3 old.py new.py
 ```
 
 ---
@@ -253,11 +253,11 @@ diffvim --distance-speed adaptive --distance-slow-mult 0.3 old.py new.py
 ### --op-order MODE
 Op reordering: `natural|optimize|left-to-right|end-first|end-first-smart` (default: optimize).
 ```bash
-diffvim --op-order natural old.py new.py
-diffvim --op-order optimize old.py new.py
-diffvim --op-order left-to-right old.py new.py
-diffvim --op-order end-first old.py new.py
-diffvim --op-order end-first-smart old.py new.py
+ad_vim --op-order natural old.py new.py
+ad_vim --op-order optimize old.py new.py
+ad_vim --op-order left-to-right old.py new.py
+ad_vim --op-order end-first old.py new.py
+ad_vim --op-order end-first-smart old.py new.py
 ```
 
 ---
@@ -267,26 +267,26 @@ diffvim --op-order end-first-smart old.py new.py
 ### --semantic-cleanup
 Merge adjacent delete+insert pairs that cancel out.
 ```bash
-diffvim --semantic-cleanup old.py new.py
+ad_vim --semantic-cleanup old.py new.py
 ```
 
 ### --indent-aware
 Normalize indentation before line diff.
 ```bash
-diffvim --indent-aware old.py new.py
+ad_vim --indent-aware old.py new.py
 ```
 
 ### --indent-last
 Delete leading whitespace LAST when deleting a whole line (prevents
 text from shifting left during animation).
 ```bash
-diffvim --indent-last old.py new.py
+ad_vim --indent-last old.py new.py
 ```
 
 ### --overwrite
 Transform delete+insert into in-place overwrite.
 ```bash
-diffvim --overwrite old.py new.py
+ad_vim --overwrite old.py new.py
 ```
 
 ---
@@ -296,64 +296,64 @@ diffvim --overwrite old.py new.py
 ### --highlight MODE
 Highlight mode: `none|inline|word|hunk` (default: none).
 ```bash
-diffvim --highlight none old.py new.py
-diffvim --highlight inline old.py new.py
-diffvim --highlight word old.py new.py
-diffvim --highlight hunk old.py new.py
+ad_vim --highlight none old.py new.py
+ad_vim --highlight inline old.py new.py
+ad_vim --highlight word old.py new.py
+ad_vim --highlight hunk old.py new.py
 ```
 
 ### --highlight-duration-ms N
 Highlight duration (default: 200).
 ```bash
-diffvim --highlight inline --highlight-duration-ms 500 old.py new.py
+ad_vim --highlight inline --highlight-duration-ms 500 old.py new.py
 ```
 
 ### --highlight-color GROUP
 Highlight group (default: DiffChange).
 ```bash
-diffvim --highlight hunk --highlight-color DiffAdd old.py new.py
+ad_vim --highlight hunk --highlight-color DiffAdd old.py new.py
 ```
 
 ### --dim-unchanged
 Dim unchanged lines.
 ```bash
-diffvim --dim-unchanged old.py new.py
+ad_vim --dim-unchanged old.py new.py
 ```
 
 ### --dim-unchanged-pct N
 Dim percentage (default: 60).
 ```bash
-diffvim --dim-unchanged --dim-unchanged-pct 40 old.py new.py
+ad_vim --dim-unchanged --dim-unchanged-pct 40 old.py new.py
 ```
 
 ### --fold-unchanged
 Fold unchanged regions.
 ```bash
-diffvim --fold-unchanged old.py new.py
+ad_vim --fold-unchanged old.py new.py
 ```
 
 ### --context N
 Show N lines of context around changes (default: 3).
 ```bash
-diffvim --fold-unchanged --context 5 old.py new.py
+ad_vim --fold-unchanged --context 5 old.py new.py
 ```
 
 ### --sign-column
 Show +/- signs in the sign column.
 ```bash
-diffvim --sign-column old.py new.py
+ad_vim --sign-column old.py new.py
 ```
 
 ### --git-blame
 Insert git blame markers.
 ```bash
-diffvim --git-blame old.py new.py
+ad_vim --git-blame old.py new.py
 ```
 
 ### --max-hunk-chars N
 Skip animation for hunks >N chars (0 = off, default: 0).
 ```bash
-diffvim --max-hunk-chars 1000 old.py new.py
+ad_vim --max-hunk-chars 1000 old.py new.py
 ```
 
 ---
@@ -363,19 +363,19 @@ diffvim --max-hunk-chars 1000 old.py new.py
 ### --diff-stat
 Show diff statistics overlay (changed/total line counts).
 ```bash
-diffvim --diff-stat old.py new.py
+ad_vim --diff-stat old.py new.py
 ```
 
 ### --diff-highlight
 Highlight modified lines with a subtle background color.
 ```bash
-diffvim --diff-highlight old.py new.py
+ad_vim --diff-highlight old.py new.py
 ```
 
 ### --bell
 Ring the terminal bell on errors.
 ```bash
-diffvim --bell old.py new.py
+ad_vim --bell old.py new.py
 ```
 
 ### --line-numbers
@@ -459,16 +459,16 @@ ad_pipeline --animator-colormap-old old.colormap \
 Scroll behavior: `zz|zt|zb|none` (default: zz).
 ```bash
 # Center cursor in viewport (default)
-diffvim --scroll zz old.py new.py
+ad_vim --scroll zz old.py new.py
 
 # Cursor at top of viewport
-diffvim --scroll zt old.py new.py
+ad_vim --scroll zt old.py new.py
 
 # Cursor at bottom of viewport
-diffvim --scroll zb old.py new.py
+ad_vim --scroll zb old.py new.py
 
 # No scroll (start at line 1, never move)
-diffvim --scroll none old.py new.py
+ad_vim --scroll none old.py new.py
 ```
 
 ---
@@ -478,10 +478,10 @@ diffvim --scroll none old.py new.py
 ### --preset NAME
 Apply a preset configuration.
 ```bash
-diffvim --preset default old.py new.py
-diffvim --preset review old.py new.py
-diffvim --preset demo old.py new.py
-diffvim --preset fast old.py new.py
+ad_vim --preset default old.py new.py
+ad_vim --preset review old.py new.py
+ad_vim --preset demo old.py new.py
+ad_vim --preset fast old.py new.py
 ```
 
 **Preset details:**
@@ -492,9 +492,9 @@ diffvim --preset fast old.py new.py
 
 Or use directly:
 ```bash
-diffvim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right old.py new.py
-diffvim --pacing gaussian --speed 0.7 --highlight inline old.py new.py
-diffvim --delete-pacing word --delete-speed fast --op-order optimize old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right old.py new.py
+ad_vim --pacing gaussian --speed 0.7 --highlight inline old.py new.py
+ad_vim --delete-pacing word --delete-speed fast --op-order optimize old.py new.py
 ```
 
 ---
@@ -519,33 +519,33 @@ During animation in vim normal mode:
 
 ### Code review (slow, careful)
 ```bash
-diffvim --preset review old.py new.py
+ad_vim --preset review old.py new.py
 # or
-diffvim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --speed 0.7 old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --speed 0.7 old.py new.py
 ```
 
 ### Demo (smooth, visually appealing)
 ```bash
-diffvim --preset demo old.py new.py
+ad_vim --preset demo old.py new.py
 # or
-diffvim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 old.py new.py
+ad_vim --pacing gaussian --speed 0.7 --highlight inline --cursor-glide-ms 300 old.py new.py
 ```
 
 ### Fast overview (quick glance)
 ```bash
-diffvim --preset fast old.py new.py
+ad_vim --preset fast old.py new.py
 # or
-diffvim --speed 3 --delete-pacing instant --distance-speed adaptive old.py new.py
+ad_vim --speed 3 --delete-pacing instant --distance-speed adaptive old.py new.py
 ```
 
 ### Debugging (full control)
 ```bash
-diffvim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highlight --bell old.py new.py
+ad_vim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highlight --bell old.py new.py
 ```
 
 ### Flash delete (highlight before delete)
 ```bash
-diffvim --delete-pacing flash --flash-pause-ms 500 --flash-highlight-ms 400 old.py new.py
+ad_vim --delete-pacing flash --flash-pause-ms 500 --flash-highlight-ms 400 old.py new.py
 ```
 
 ### With colormaps (syntax highlighting)
@@ -559,15 +559,15 @@ ad_pipeline --animator-colormap-old old.colormap \
 
 ### Smooth with distance-based speed
 ```bash
-diffvim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3 --distance-slow-mult 0.5 old.py new.py
+ad_vim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3 --distance-slow-mult 0.5 old.py new.py
 ```
 
 ### Indent-aware + indent-last (Python)
 ```bash
-diffvim --indent-aware --indent-last old.py new.py
+ad_vim --indent-aware --indent-last old.py new.py
 ```
 
 ### Everything at once
 ```bash
-diffvim --cursor-glide-ms 300 --distance-speed adaptive --highlight hunk --dim-unchanged --indent-last --diff-stat --diff-highlight old.py new.py
+ad_vim --cursor-glide-ms 300 --distance-speed adaptive --highlight hunk --dim-unchanged --indent-last --diff-stat --diff-highlight old.py new.py
 ```

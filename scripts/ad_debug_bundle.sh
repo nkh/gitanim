@@ -17,14 +17,14 @@
 show_help() {
 cat <<'HELP'
 NAME
-    dv_debug_bundle.sh — Generate a debug bundle for reporting diffvim issues
+    dv_debug_bundle.sh — Generate a debug bundle for reporting ad_vim issues
 
 SYNOPSIS
     dv_debug_bundle.sh [-h|--help]
     dv_debug_bundle.sh <oldfile> <newfile> [description]
 
 DESCRIPTION
-    Runs the full diffvim pipeline (compute → postprocess → pace →
+    Runs the full ad_vim pipeline (compute → postprocess → pace →
     decorate → animator) on the given old/new file pair, then packages
     every intermediate stage output, the binary MD5s, the active
     settings, system info, and the user-supplied problem description
@@ -56,7 +56,7 @@ BUNDLE CONTENTS
     animator_output.txt     Final animator output buffer.
     output_diff.txt         Diff between expected (newfile) and actual.
     binary_md5s.txt         MD5 checksums of all pipeline binaries.
-    settings.conf           Default diffvim launcher settings.
+    settings.conf           Default ad_vim launcher settings.
     system_info.txt         OS, vim, perl, gcc, git commit/branch.
     description.txt         User-supplied problem description.
     op_counts.txt           Op counts per stage + \\n delete counts.
@@ -158,7 +158,7 @@ fi
 
 # 6. Settings
 {
-    echo "# diffvim launcher default settings"
+    echo "# ad_vim launcher default settings"
     echo "AD_LEFT_TO_RIGHT=1"
     echo "AD_DELETE_PACING=word"
     echo "AD_INSERT_PACING=char"

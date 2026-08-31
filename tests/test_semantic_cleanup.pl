@@ -64,7 +64,7 @@ ok('identical files produce 0 hunks', @{$result->{hunks}} == 0);
 
 # Test 4: --help shows --semantic-cleanup
 print "\n=== Test: help text ===\n";
-my $help = `perl diffvim.pl --help 2>&1`;
+my $help = `perl ad_vim.pl --help 2>&1`;
 ok('--help shows --semantic-cleanup', $help =~ /--semantic-cleanup/);
 
 # Cleanup
