@@ -41,40 +41,40 @@ The orchestrator doesn't care what language the layer is written in. If it can b
 
 For a layer named `<name>`, the orchestrator looks for an executable in this order:
 
-| # | Path | Language |
-|---|------|----------|
-| 1 | `bin/<name>` | C (preferred) |
-| 2 | `layers/perl/<name>.pl` | Perl |
-| 3 | `<--ad-layer-path>/<name>` | Any (search path) |
-| 4 | `<absolute path>` (if name contains `/`) | Any |
+| #   | Path                                     | Language          |
+| --- | ---------------------------------------- | ----------------- |
+| 1   | `bin/<name>`                             | C (preferred)     |
+| 2   | `layers/perl/<name>.pl`                  | Perl              |
+| 3   | `<--ad-layer-path>/<name>`               | Any (search path) |
+| 4   | `<absolute path>` (if name contains `/`) | Any               |
 
 Extensions recognized:
 
-| Extension | Interpreter |
-|-----------|-------------|
-| `.pl` | `perl` |
-| `.py` | `python3` |
-| `.rb` | `ruby` |
-| `.sh` | `bash` |
-| `.js` | `node` |
-| (none) | executed directly (must be executable) |
+| Extension   | Interpreter                            |
+| ----------- | -------------------------------------- |
+| `.pl`       | `perl`                                 |
+| `.py`       | `python3`                              |
+| `.rb`       | `ruby`                                 |
+| `.sh`       | `bash`                                 |
+| `.js`       | `node`                                 |
+| (none)      | executed directly (must be executable) |
 
 ## Orchestrator CLI
 
 The orchestrator is `pipeline/ad_postprocess`. It accepts:
 
-| Flag | Behavior |
-|------|----------|
-| `--ad-layer=<name>` | Add a layer to the chain. Layers run in argv order. The same layer can be passed twice. |
-| `--ad-layer-path=<dir>` | Add a directory to the search path. Repeatable. Default: `bin/` and `layers/perl/`. |
-| `--ad-layer-arg=<L>:<arg>` | Pass `<arg>` to layer `<L>` only (not all layers). Repeatable. |
-| `--ad-layer-passthrough=<a>` | Pass `<a>` to ALL layers. |
-| `--ad-layer-profile` | Print per-layer timing to stderr. |
-| `--ad-layer-dry-run` | Print the chain and exit (no execution). |
-| `--ad-layer-keep-temps` | Keep intermediate files in a temp dir for debugging. |
-| `--list-layers` | Print discovered layers and exit. |
-| `--help` / `-h` | Print usage and exit. |
-| `--` | Everything after this goes to every layer as passthrough args. |
+| Flag                         | Behavior                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| `--ad-layer=<name>`          | Add a layer to the chain. Layers run in argv order. The same layer can be passed twice. |
+| `--ad-layer-path=<dir>`      | Add a directory to the search path. Repeatable. Default: `bin/` and `layers/perl/`.     |
+| `--ad-layer-arg=<L>:<arg>`   | Pass `<arg>` to layer `<L>` only (not all layers). Repeatable.                          |
+| `--ad-layer-passthrough=<a>` | Pass `<a>` to ALL layers.                                                               |
+| `--ad-layer-profile`         | Print per-layer timing to stderr.                                                       |
+| `--ad-layer-dry-run`         | Print the chain and exit (no execution).                                                |
+| `--ad-layer-keep-temps`      | Keep intermediate files in a temp dir for debugging.                                    |
+| `--list-layers`              | Print discovered layers and exit.                                                       |
+| `--help` / `-h`              | Print usage and exit.                                                                   |
+| `--`                         | Everything after this goes to every layer as passthrough args.                          |
 
 ### I/O modes
 
@@ -148,15 +148,15 @@ Convenience flags that map to layers:
 
 ## Built-in layers
 
-| Layer | C source | Perl twin | What it does |
-|-------|----------|-----------|-------------|
-| `ad_layer_reorder` | `layers/c/ad_layer_reorder.c` | `layers/perl/ad_layer_reorder.pl` | 4-sweep reorder + position adjust |
-| `ad_layer_overwrite` | `layers/c/ad_layer_overwrite.c` | `layers/perl/ad_layer_overwrite.pl` | Merge delete+insert into overwrite_insert |
-| `ad_layer_indent_last` | `layers/c/ad_layer_indent_last.c` | `layers/perl/ad_layer_indent_last.pl` | Move whitespace deletes to end of line |
-| `ad_layer_line_delete_in_place` | `layers/c/ad_layer_line_delete_in_place.c` | `layers/perl/ad_layer_line_delete_in_place.pl` | Delete lines on their own line |
-| `ad_layer_skip_indent` | `layers/c/ad_layer_skip_indent.c` | `layers/perl/ad_layer_skip_indent.pl` | Skip animation for indent-only hunks |
-| `ad_layer_pace` | `layers/c/ad_layer_pace.c` | `layers/perl/ad_layer_pace.pl` | Insert delay ops between ops |
-| `ad_layer_highlight` | `layers/c/ad_layer_highlight.c` | `layers/perl/ad_layer_highlight.pl` | Insert highlight/dim/fold ops |
+| Layer                           | C source                                   | Perl twin                                      | What it does                              |
+| ------------------------------- | ------------------------------------------ | ---------------------------------------------- | ----------------------------------------- |
+| `ad_layer_reorder`              | `layers/c/ad_layer_reorder.c`              | `layers/perl/ad_layer_reorder.pl`              | 4-sweep reorder + position adjust         |
+| `ad_layer_overwrite`            | `layers/c/ad_layer_overwrite.c`            | `layers/perl/ad_layer_overwrite.pl`            | Merge delete+insert into overwrite_insert |
+| `ad_layer_indent_last`          | `layers/c/ad_layer_indent_last.c`          | `layers/perl/ad_layer_indent_last.pl`          | Move whitespace deletes to end of line    |
+| `ad_layer_line_delete_in_place` | `layers/c/ad_layer_line_delete_in_place.c` | `layers/perl/ad_layer_line_delete_in_place.pl` | Delete lines on their own line            |
+| `ad_layer_skip_indent`          | `layers/c/ad_layer_skip_indent.c`          | `layers/perl/ad_layer_skip_indent.pl`          | Skip animation for indent-only hunks      |
+| `ad_layer_pace`                 | `layers/c/ad_layer_pace.c`                 | `layers/perl/ad_layer_pace.pl`                 | Insert delay ops between ops              |
+| `ad_layer_highlight`            | `layers/c/ad_layer_highlight.c`            | `layers/perl/ad_layer_highlight.pl`            | Insert highlight/dim/fold ops             |
 
 Every layer has both a C implementation (preferred) and a Perl twin that produces byte-identical output. The orchestrator prefers C if both exist; if the C binary is missing, it falls back to Perl. Parity is verified by the per-layer tests.
 
@@ -190,11 +190,11 @@ The `--ad-layer=<name>` mechanism discovers the layer automatically.
 
 ## Testing
 
-| Test | What it verifies |
-|------|-----------------|
-| `layers/tests/test_<name>.pl` | Per-layer: invocable, structure, C/Perl parity |
+| Test                             | What it verifies                                       |
+| -------------------------------- | ------------------------------------------------------ |
+| `layers/tests/test_<name>.pl`    | Per-layer: invocable, structure, C/Perl parity         |
 | `tests/test_layers_discovery.pl` | Plugin contract: argv order, extensions, paths, parity |
-| `tests/run_all_examples.sh` | 36 examples through the full pipeline |
+| `tests/run_all_examples.sh`      | 36 examples through the full pipeline                  |
 
 ## Architecture diagram
 

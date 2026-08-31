@@ -84,12 +84,12 @@ Same architecture as ad_tmux but written in Perl with:
 
 ## Comparison
 
-| Feature | ad_vim | ad_tmux | ad_vim.pl |
-|---------|---------|--------------|------------|
-| Race conditions | No | Yes | Yes |
-| Parser pluggability | No | No | Yes |
-| External deps | Vim only | tmux, diff, sed, awk | Perl, tmux, diff |
-| Best for | Quick use | Bash scripting | Parser research |
+| Feature             | ad_vim    | ad_tmux              | ad_vim.pl        |
+| ------------------- | --------- | -------------------- | ---------------- |
+| Race conditions     | No        | Yes                  | Yes              |
+| Parser pluggability | No        | No                   | Yes              |
+| External deps       | Vim only  | tmux, diff, sed, awk | Perl, tmux, diff |
+| Best for            | Quick use | Bash scripting       | Parser research  |
 
 ## When to Use Which
 

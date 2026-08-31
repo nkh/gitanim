@@ -195,18 +195,18 @@ The current `--list-layers` output shows filename, status (exec/perl/python3/etc
 
 ## Improvement proposals (prioritized)
 
-| # | Proposal | Effort | Impact |
-|---|----------|--------|--------|
-| L1 | TSV validation between layers | 30 min | High — catches corrupt output |
-| L2 | Capture and display layer stderr on failure | 10 min | High — debugging |
-| L3 | Per-layer args (`--ad-layer-arg=<name>:<arg>`) | 1 hour | Medium — complex chains |
-| L4 | `--ad-layer-profile` timing | 20 min | Medium — perf debugging |
-| L5 | `--ad-layer-dry-run` | 15 min | Medium — verification |
-| L6 | `--ad-layer-info` metadata | 1 hour | Low — nice-to-have |
-| L7 | Layer dependency warnings | 2 hours | Low — most chains are simple |
-| L8 | `--ad-layer-old-file=<path>` passthrough | 10 min | Low — rarely needed |
-| L9 | Pipe chain instead of temp files | 2 hours | Medium — perf for large diffs |
-| L10 | Descriptions in `--list-layers` | 30 min | Low — cosmetic |
+| #   | Proposal                                       | Effort   | Impact                        |
+| --- | ---------------------------------------------- | -------- | ----------------------------- |
+| L1  | TSV validation between layers                  | 30 min   | High — catches corrupt output |
+| L2  | Capture and display layer stderr on failure    | 10 min   | High — debugging              |
+| L3  | Per-layer args (`--ad-layer-arg=<name>:<arg>`) | 1 hour   | Medium — complex chains       |
+| L4  | `--ad-layer-profile` timing                    | 20 min   | Medium — perf debugging       |
+| L5  | `--ad-layer-dry-run`                           | 15 min   | Medium — verification         |
+| L6  | `--ad-layer-info` metadata                     | 1 hour   | Low — nice-to-have            |
+| L7  | Layer dependency warnings                      | 2 hours  | Low — most chains are simple  |
+| L8  | `--ad-layer-old-file=<path>` passthrough       | 10 min   | Low — rarely needed           |
+| L9  | Pipe chain instead of temp files               | 2 hours  | Medium — perf for large diffs |
+| L10 | Descriptions in `--list-layers`                | 30 min   | Low — cosmetic                |
 
 Recommended to implement L1, L2, L4, L5 first (highest impact, lowest effort).
 
@@ -216,16 +216,16 @@ Recommended to implement L1, L2, L4, L5 first (highest impact, lowest effort).
 
 ## Summary
 
-| Document | Status | Action |
-|----------|--------|--------|
-| `RESTRUCTURE_ANALYSIS.md` | 60/64 proposals done | Archive to `docs/design/` |
-| `ENV_VAR_ANALYSIS.md` | Mostly done; ~8 bridge vars remain | Update to note reality |
-| `CODE_ANALYSIS.md` | P0: 6/7, P1: 11/14, P2: 4/8 fixed | Update to mark fixed items |
-| `P3_ISSUES.md` | 0/12 done; 3 regressed | Keep as backlog |
-| `DOCS_AUDIT.md` | 0 deletions executed | Keep; execute deletions |
-| `MANPAGE_OVERVIEW.md` | Accurate | Keep as-is |
-| `PERL_LAUNCHER_EXPLANATION.md` | Accurate | Keep as-is |
-| `docs/src/plugin-layers.md` | **BADLY OUTDATED** | **Rewrite immediately** |
+| Document                       | Status                             | Action                     |
+| ------------------------------ | ---------------------------------- | -------------------------- |
+| `RESTRUCTURE_ANALYSIS.md`      | 60/64 proposals done               | Archive to `docs/design/`  |
+| `ENV_VAR_ANALYSIS.md`          | Mostly done; ~8 bridge vars remain | Update to note reality     |
+| `CODE_ANALYSIS.md`             | P0: 6/7, P1: 11/14, P2: 4/8 fixed  | Update to mark fixed items |
+| `P3_ISSUES.md`                 | 0/12 done; 3 regressed             | Keep as backlog            |
+| `DOCS_AUDIT.md`                | 0 deletions executed               | Keep; execute deletions    |
+| `MANPAGE_OVERVIEW.md`          | Accurate                           | Keep as-is                 |
+| `PERL_LAUNCHER_EXPLANATION.md` | Accurate                           | Keep as-is                 |
+| `docs/src/plugin-layers.md`    | **BADLY OUTDATED**                 | **Rewrite immediately**    |
 
 ---
 
@@ -233,20 +233,20 @@ Recommended to implement L1, L2, L4, L5 first (highest impact, lowest effort).
 
 **Implemented: 60/64**
 
-| Done? | # | Proposal |
-|-------|---|----------|
-| ✅ | #1-16 | Rename project, binaries, directories |
-| ❌ | #17 | scripts/ → tools/bin/ (reversed — scripts/ kept) |
-| ❌ | #19 | Delete DiffVim/ (kept as perl/DiffVim/) |
-| ✅ | #18,20-28 | Delete junk, flatten pipeline, Makefile, install targets |
-| ❌ | #26 | Makefile layer deps on test files (not done) |
-| ✅ | #29-39 | Layer discovery rewrite (--ad-layer, no manifest) |
-| ✅ | #40-46 | Per-layer TDD tests |
-| ✅ | #47-52 | CI workflows + book.toml + contributing |
-| ✅ | #53-57 | Config: XDG, no env vars, no .diffvimrc |
-| ✅ | #58 | FLEXIBILITY.md → plugin-layers.md (but content is stale!) |
-| ❌ | #59 | Delete obsolete design docs (audit done, deletions not executed) |
-| ✅ | #60-64 | Update SUMMARY, README, manpages, completions |
+| Done?   | #         | Proposal                                                         |
+| ------- | --------- | ---------------------------------------------------------------- |
+| ✅       | #1-16     | Rename project, binaries, directories                            |
+| ❌       | #17       | scripts/ → tools/bin/ (reversed — scripts/ kept)                 |
+| ❌       | #19       | Delete DiffVim/ (kept as perl/DiffVim/)                          |
+| ✅       | #18,20-28 | Delete junk, flatten pipeline, Makefile, install targets         |
+| ❌       | #26       | Makefile layer deps on test files (not done)                     |
+| ✅       | #29-39    | Layer discovery rewrite (--ad-layer, no manifest)                |
+| ✅       | #40-46    | Per-layer TDD tests                                              |
+| ✅       | #47-52    | CI workflows + book.toml + contributing                          |
+| ✅       | #53-57    | Config: XDG, no env vars, no .diffvimrc                          |
+| ✅       | #58       | FLEXIBILITY.md → plugin-layers.md (but content is stale!)        |
+| ❌       | #59       | Delete obsolete design docs (audit done, deletions not executed) |
+| ✅       | #60-64    | Update SUMMARY, README, manpages, completions                    |
 
 **Status**: Largely complete. The 4 unimplemented items are either reversed decisions (#17, #19) or deferred (#26, #59).
 
@@ -275,60 +275,60 @@ All user-facing env vars were removed. ~8 internal bridge/debug vars remain:
 
 ### P0 (7 items) — 6/7 fixed
 
-| # | Issue | Status |
-|---|-------|--------|
-| ✅ | #1 ad_demo.sh path | Fixed |
-| ❌ | #2 ad_package.sh paths | **NOT fixed** — still references old paths |
-| ✅ | #3 ad_compare binary name | Fixed |
-| ✅ | #4 ad_jogger path | Fixed |
-| ✅ | #5 ad_pipeline $dp_val | Fixed |
-| ✅ | #6 ad_pipeline DECORATE_ARGS | Fixed |
-| ✅ | #7 ad_debug_bundle export | Fixed |
+| #   | Issue                        | Status                                     |
+| --- | ---------------------------- | ------------------------------------------ |
+| ✅   | #1 ad_demo.sh path           | Fixed                                      |
+| ❌   | #2 ad_package.sh paths       | **NOT fixed** — still references old paths |
+| ✅   | #3 ad_compare binary name    | Fixed                                      |
+| ✅   | #4 ad_jogger path            | Fixed                                      |
+| ✅   | #5 ad_pipeline $dp_val       | Fixed                                      |
+| ✅   | #6 ad_pipeline DECORATE_ARGS | Fixed                                      |
+| ✅   | #7 ad_debug_bundle export    | Fixed                                      |
 
 ### P1 (14 items) — 11/14 fixed
 
-| # | Issue | Status |
-|---|-------|--------|
-| ✅ | #8-12 | ad_tune.sh fixes |
-| ❌ | #13 | Dead preset branch `if [[ -n "" ]]` — **NOT fixed** |
-| ✅ | #14 | Self-assignment removed |
-| ✅ | #15 | compute.pl CLI flags wired through |
-| ✅ | #16 | optimize_sequence removed |
-| ✅ | #17 | --seek fixed (suppress_render) |
-| ✅ | #18 | Dead ternary fixed |
-| ✅ | #19 | last_changed_line reset per hunk |
-| ❌ | #20 | pace.c word-pacing \n changed_lines — **NOT fixed** |
-| ✅ | #21 | Dead Myers diff deleted |
+| #   | Issue   | Status                                              |
+| --- | ------- | --------------------------------------------------- |
+| ✅   | #8-12   | ad_tune.sh fixes                                    |
+| ❌   | #13     | Dead preset branch `if [[ -n "" ]]` — **NOT fixed** |
+| ✅   | #14     | Self-assignment removed                             |
+| ✅   | #15     | compute.pl CLI flags wired through                  |
+| ✅   | #16     | optimize_sequence removed                           |
+| ✅   | #17     | --seek fixed (suppress_render)                      |
+| ✅   | #18     | Dead ternary fixed                                  |
+| ✅   | #19     | last_changed_line reset per hunk                    |
+| ❌   | #20     | pace.c word-pacing \n changed_lines — **NOT fixed** |
+| ✅   | #21     | Dead Myers diff deleted                             |
 
 ### P2 (8 items) — 4/8 fixed
 
-| # | Issue | Status |
-|---|-------|--------|
-| ✅ | #22 | colorize.pl command injection — Fixed (list-form system) |
-| ❌ | #23 | eval on user input in ad_vim:630 — **NOT fixed** |
-| ❌ | #24 | Unescaped placeholder in ad_vim.pl — **NOT fixed** |
-| ❌ | #25 | Unquoted $NEW in vim -c — **NOT fixed** |
-| ⚠️ | #26 | ad_debug.sh stderr — Partially fixed (compute stage still 2>&1) |
-| ⚠️ | #27 | ad_record.sh temp path — Partially fixed ($$ suffix, not mktemp) |
-| ⚠️ | #28 | ad_replay.sh output path — Partially fixed ($$ suffix, no --output flag) |
-| ✅ | #29 | Signal handler — Fixed (async-signal-safe + atexit) |
+| #   | Issue   | Status                                                                   |
+| --- | ------- | ------------------------------------------------------------------------ |
+| ✅   | #22     | colorize.pl command injection — Fixed (list-form system)                 |
+| ❌   | #23     | eval on user input in ad_vim:630 — **NOT fixed**                         |
+| ❌   | #24     | Unescaped placeholder in ad_vim.pl — **NOT fixed**                       |
+| ❌   | #25     | Unquoted $NEW in vim -c — **NOT fixed**                                  |
+| ⚠️  | #26     | ad_debug.sh stderr — Partially fixed (compute stage still 2>&1)          |
+| ⚠️  | #27     | ad_record.sh temp path — Partially fixed ($$ suffix, not mktemp)         |
+| ⚠️  | #28     | ad_replay.sh output path — Partially fixed ($$ suffix, no --output flag) |
+| ✅   | #29     | Signal handler — Fixed (async-signal-safe + atexit)                      |
 
 ### P3 (12 items) — 0/12 done, 3 regressed
 
-| # | Issue | Status |
-|---|-------|--------|
-| ❌ | P3-1 | C layer boilerplate — not done |
-| ❌ | P3-2 | Perl layer boilerplate — not done |
-| ❌ | P3-3 | ad.c 360-line main() — not done |
-| ❌ | P3-4 | pace.c 430-line main() — not done |
-| ❌ | P3-5 | ad_vim 2,170-line monolith — not done (2,169 lines) |
-| ❌ | P3-6 | ad_tmux 1,673-line duplicate — not done |
-| ❌ | P3-7 | Magic 1048576 ×4 — **REGRESSED** (now ×6) |
-| ❌ | P3-8 | TSV tokenizer ×9 — not done |
-| ❌ | P3-9 | char_repr ×3 — **REGRESSED** (now ×9) |
-| ❌ | P3-10 | Option routing ×4 — not done |
-| ❌ | P3-11 | Dead stubs (do_highlight_word, git_blame) — not done |
-| ❌ | P3-12 | Version ×2 — **REGRESSED** (now ×3) |
+| #   | Issue   | Status                                               |
+| --- | ------- | ---------------------------------------------------- |
+| ❌   | P3-1    | C layer boilerplate — not done                       |
+| ❌   | P3-2    | Perl layer boilerplate — not done                    |
+| ❌   | P3-3    | ad.c 360-line main() — not done                      |
+| ❌   | P3-4    | pace.c 430-line main() — not done                    |
+| ❌   | P3-5    | ad_vim 2,170-line monolith — not done (2,169 lines)  |
+| ❌   | P3-6    | ad_tmux 1,673-line duplicate — not done              |
+| ❌   | P3-7    | Magic 1048576 ×4 — **REGRESSED** (now ×6)            |
+| ❌   | P3-8    | TSV tokenizer ×9 — not done                          |
+| ❌   | P3-9    | char_repr ×3 — **REGRESSED** (now ×9)                |
+| ❌   | P3-10   | Option routing ×4 — not done                         |
+| ❌   | P3-11   | Dead stubs (do_highlight_word, git_blame) — not done |
+| ❌   | P3-12   | Version ×2 — **REGRESSED** (now ×3)                  |
 
 **Action**: Update CODE_ANALYSIS.md to mark fixed items. Create a `REMAINING_ISSUES.md` with only the unfixed items.
 
@@ -338,15 +338,15 @@ All user-facing env vars were removed. ~8 internal bridge/debug vars remain:
 
 This user-facing doc still describes the **old manifest-based design** that was completely replaced. Specifically:
 
-| Claim in doc | Reality |
-|---|---|
+| Claim in doc                 | Reality                                        |
+| ---------------------------- | ---------------------------------------------- |
 | "add one line to a manifest" | **Manifest is gone** — use `--ad-layer=<name>` |
-| `animator/layers.conf` | **File does not exist** |
-| `animator/bin/pp_<name>` | Renamed to `bin/ad_layer_<name>` |
-| `--pp-<name>` forwarding | **Removed** — use `--ad-layer=<name>` |
-| `--enable=<name>` | **Removed** |
-| `--layers=<csv>` | **Removed** |
-| "Reads animator/layers.conf" | Orchestrator reads **argv only** |
+| `animator/layers.conf`       | **File does not exist**                        |
+| `animator/bin/pp_<name>`     | Renamed to `bin/ad_layer_<name>`               |
+| `--pp-<name>` forwarding     | **Removed** — use `--ad-layer=<name>`          |
+| `--enable=<name>`            | **Removed**                                    |
+| `--layers=<csv>`             | **Removed**                                    |
+| "Reads animator/layers.conf" | Orchestrator reads **argv only**               |
 
 **Action**: **Rewrite immediately.** The correct documentation is in the `ad_postprocess --help` output and the script's header comment.
 

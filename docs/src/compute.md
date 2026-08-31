@@ -42,9 +42,9 @@ is present they pre-compute before launching vim, so the manual
 
 ## The C++ Variant
 
-| Binary                       | Source                       | Build cmd              | Notes                          |
-| ---------------------------- | ---------------------------- | ---------------------- | ------------------------------ |
-| `bin/ad_compute` | `compute/cpp/ad_compute.cpp` | `make cpp`        | C++17, the only compute implementation |
+| Binary                       | Source                       | Build cmd              | Notes                                  |
+| ---------------------------- | ---------------------------- | ---------------------- | -------------------------------------- |
+| `bin/ad_compute`             | `compute/cpp/ad_compute.cpp` | `make cpp`             | C++17, the only compute implementation |
 
 ## Direct Usage
 
@@ -68,14 +68,14 @@ ad_vim --precomputed /tmp/diff.txt old.py new.py
 
 ## Options
 
-| Option                       | Description                                          |
-| ---------------------------- | ---------------------------------------------------- |
-| `--algorithm patience\|patience`  | Diff algorithm (default: `patience`)                     |
-| `--word-diff`                | Batch word runs in char ops                          |
-| `--optimize-sequence`        | Reorder ops within a line (default: on)              |
-| `--no-optimize-sequence`     | Disable op reordering                                |
-| `--diff`                     | Read a unified diff instead of two files             |
-| `-h, --help`                 | Show help and exit                                   |
+| Option                       | Description                                          |                                      |
+| ---------------------------- | ---------------------------------------------------- | ------------------------------------ |
+| `--algorithm patience\       | patience`                                            | Diff algorithm (default: `patience`) |
+| `--word-diff`                | Batch word runs in char ops                          |                                      |
+| `--optimize-sequence`        | Reorder ops within a line (default: on)              |                                      |
+| `--no-optimize-sequence`     | Disable op reordering                                |                                      |
+| `--diff`                     | Read a unified diff instead of two files             |                                      |
+| `-h, --help`                 | Show help and exit                                   |                                      |
 
 `--algorithm myers` was removed: it OOMs on 15K-line files and
 produces the same op count as patience.
@@ -87,8 +87,8 @@ produces the same op count as patience.
 | `DIFFVIM_ALGORITHM`            | Default `--algorithm` value                     |
 | `DIFFVIM_WORD_DIFF`            | Set to `1` to enable by default                 |
 | `DIFFVIM_OPTIMIZE_SEQUENCE`    | Default `1`; set to `0` to disable              |
-| `AD_LEFT_TO_RIGHT`        | Set to `1` to enable by default                 |
-| `AD_COMPUTE_BIN`          | Override path to the compute binary (advanced)  |
+| `AD_LEFT_TO_RIGHT`             | Set to `1` to enable by default                 |
+| `AD_COMPUTE_BIN`               | Override path to the compute binary (advanced)  |
 
 ## Output Format
 
@@ -156,9 +156,9 @@ On a 1000-line Python file with ~200 changed lines:
 
 | Tool                  | Compute time |
 | --------------------- | ------------ |
-| vimscript patience         | ~3500 ms     |
+| vimscript patience    | ~3500 ms     |
 | Perl fallback         | ~150 ms      |
-| `ad_compute` | 11 ms        |
+| `ad_compute`          | 11 ms        |
 
 The native C++ tool is ~300x faster than the vimscript patience and ~15x
 faster than the Perl fallback.

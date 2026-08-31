@@ -117,12 +117,12 @@ for (int h = 0; h < hunk_count; h++) {
 
 **Expected results** (on a 4-core machine, 1000-line file with 20 hunks):
 
-| Mode | Time | Speedup |
-|------|------|---------|
-| Sequential | 5.2 ms | 1.0x |
-| Parallel (2 threads) | 2.8 ms | 1.9x |
-| Parallel (4 threads) | 1.6 ms | 3.3x |
-| Parallel (8 threads) | 1.2 ms | 4.3x |
+| Mode                 | Time   | Speedup   |
+| -------------------- | ------ | --------- |
+| Sequential           | 5.2 ms | 1.0x      |
+| Parallel (2 threads) | 2.8 ms | 1.9x      |
+| Parallel (4 threads) | 1.6 ms | 3.3x      |
+| Parallel (8 threads) | 1.2 ms | 4.3x      |
 
 ### Phase 2: Thread Pool for Multi-File (Future)
 
@@ -154,12 +154,12 @@ For the 1000-line Python example, expect ~3x speedup with 4 threads.
 
 ## Summary
 
-| Approach | Difficulty | Speedup | Recommended |
-|----------|-----------|---------|-------------|
-| Parallel hunks (OpenMP) | Easy | 3-4x | ✅ Yes |
-| Parallel line-level diff | Hard | 1.5-2x | ❌ No (use a better algorithm instead) |
-| Parallel file reading | Easy | 1.1x | ❌ Negligible |
-| Multi-file parallelism | Easy | Nx (N files) | ✅ Already via bash |
+| Approach                 | Difficulty  | Speedup      | Recommended                           |
+| ------------------------ | ----------- | ------------ | ------------------------------------- |
+| Parallel hunks (OpenMP)  | Easy        | 3-4x         | ✅ Yes                                 |
+| Parallel line-level diff | Hard        | 1.5-2x       | ❌ No (use a better algorithm instead) |
+| Parallel file reading    | Easy        | 1.1x         | ❌ Negligible                          |
+| Multi-file parallelism   | Easy        | Nx (N files) | ✅ Already via bash                    |
 
 **Current answer to "is the tool running in parallel internally?"**: No,
 the C++ tool is single-threaded. It can easily be made parallel using

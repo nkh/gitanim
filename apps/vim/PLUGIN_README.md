@@ -45,13 +45,13 @@ make
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `:DiffVim old new` | Animate the diff from old to new |
-| `:DiffVim --speed 2 old new` | Animate at 2x speed |
-| `:DiffVim --highlight inline old new` | Highlight changed chars |
-| `:DiffVimTo target` | Animate current file → target |
-| `:DiffVimGit REV` | Animate git diff for current file |
+| Command                               | Description                       |
+| ------------------------------------- | --------------------------------- |
+| `:DiffVim old new`                    | Animate the diff from old to new  |
+| `:DiffVim --speed 2 old new`          | Animate at 2x speed               |
+| `:DiffVim --highlight inline old new` | Highlight changed chars           |
+| `:DiffVimTo target`                   | Animate current file → target     |
+| `:DiffVimGit REV`                     | Animate git diff for current file |
 
 ## Configuration
 
@@ -69,15 +69,15 @@ let g:diffvim_defaults = {
 
 ## Keyboard controls (during animation)
 
-| Key | Action |
-|-----|--------|
-| `q` | Stop animation and quit |
-| `Space` / `p` | Pause / resume |
-| `n` | Skip to next hunk |
-| `+` | Speed up (x1.5) |
-| `-` | Slow down (x0.67) |
-| `=` | Reset speed to 1.0 |
-| `?` | Show help |
+| Key           | Action                  |
+| ------------- | ----------------------- |
+| `q`           | Stop animation and quit |
+| `Space` / `p` | Pause / resume          |
+| `n`           | Skip to next hunk       |
+| `+`           | Speed up (x1.5)         |
+| `-`           | Slow down (x0.67)       |
+| `=`           | Reset speed to 1.0      |
+| `?`           | Show help               |
 
 ## After animation
 

@@ -156,13 +156,13 @@ bin/ad-c --syntax 'bat --color=always' old.py < /tmp/timed.txt
 
 `ad_pipeline` routes options by prefix:
 
-| Prefix | Stage | Example |
-|--------|-------|---------|
-| `--compute-*` | compute | `--compute-algorithm patience` |
-| `--postprocess-*` | postprocess | `--postprocess-op-order optimize` |
-| `--pace-*` | pace | `--pace-delete-pacing word` |
-| `--animator-*` | animator | `--animator-no-display` |
-| (none) | animator | `--speed 2.0`, `--syntax 'bat ...'` |
+| Prefix            | Stage       | Example                             |
+| ----------------- | ----------- | ----------------------------------- |
+| `--compute-*`     | compute     | `--compute-algorithm patience`      |
+| `--postprocess-*` | postprocess | `--postprocess-op-order optimize`   |
+| `--pace-*`        | pace        | `--pace-delete-pacing word`         |
+| `--animator-*`    | animator    | `--animator-no-display`             |
+| (none)            | animator    | `--speed 2.0`, `--syntax 'bat ...'` |
 
 > The historical `--tool (removed)` flag (which selected the compute
 > language) was removed in the refactor — only the C++ tool remains,
@@ -273,18 +273,18 @@ done
 
 ### Op Types
 
-| Op | Arguments | Description |
-|----|-----------|-------------|
-| `op` | `<type> <line> <col> <code>` | Apply a char op at `(line, col)` |
-| `delay` | `<ms>` | Wait N milliseconds |
-| `batch_delete` | `<line> <col> <count>` | Delete N chars at `(line, col)` instantly |
-| `batch_insert` | `<line> <col> <codes...>` | Insert multiple chars at `(line, col)` instantly |
-| `newline_delete` | `<line>` | Delete `\n` at end of `<line>` (join with next) |
-| `newline_insert` | `<line> <col>` | Insert `\n` at `(line, col)` (split line) |
-| `snapshot` | `<file>` | Write buffer to file |
-| `hunk_start` | `<del> <ins>` | Mark hunk beginning |
-| `hunk_end` | | Mark hunk end |
-| `done` | | Animation complete |
+| Op               | Arguments                    | Description                                      |
+| ---------------- | ---------------------------- | ------------------------------------------------ |
+| `op`             | `<type> <line> <col> <code>` | Apply a char op at `(line, col)`                 |
+| `delay`          | `<ms>`                       | Wait N milliseconds                              |
+| `batch_delete`   | `<line> <col> <count>`       | Delete N chars at `(line, col)` instantly        |
+| `batch_insert`   | `<line> <col> <codes...>`    | Insert multiple chars at `(line, col)` instantly |
+| `newline_delete` | `<line>`                     | Delete `\n` at end of `<line>` (join with next)  |
+| `newline_insert` | `<line> <col>`               | Insert `\n` at `(line, col)` (split line)        |
+| `snapshot`       | `<file>`                     | Write buffer to file                             |
+| `hunk_start`     | `<del> <ins>`                | Mark hunk beginning                              |
+| `hunk_end`       |                              | Mark hunk end                                    |
+| `done`           |                              | Animation complete                               |
 
 > **v1 → v2 change.** The old v1 format was space-separated and emitted
 > `removed (per-op positioning)` ops between hunks. In v2, every op carries its
@@ -352,29 +352,29 @@ plain rendering.
 
 ### ad_pipeline Options
 
-| Option | Stage | Description |
-|--------|-------|-------------|
-| `--compute-algorithm patience\|patience` | compute | Diff algorithm (Myers removed) |
-| `--postprocess-op-order MODE` | postprocess | Op reordering mode |
-| `--postprocess-semantic-cleanup` | postprocess | Merge canceling ops |
-| `--postprocess-indent-aware` | postprocess | Handle indent changes |
-| `--pace-delete-pacing MODE` | pace | Deletion strategy |
-| `--pace-delete-speed MODE` | pace | Deletion speed |
-| `--pace-delete-threshold N` | pace | Min chars for rapid/word |
-| `--pace-insert-pacing MODE` | pace | Insertion strategy |
-| `--pace-insert-speed MODE` | pace | Insertion speed |
-| `--pace-pacing MODE` | pace | Timing mode |
-| `--animator-no-display` | animator | Process without rendering |
-| `--animator-snapshot FILE` | animator | Write buffer to FILE |
-| `--animator-output FILE` | animator | Write final buffer to FILE |
-| `--animator-speed N` | animator | Speed multiplier |
-| `--animator-syntax CMD` | animator | External syntax highlighter |
-| `--no-display` | animator | (shorthand) Process without rendering |
-| `--speed N` | animator | (shorthand) Speed multiplier |
-| `--output FILE` | animator | (shorthand) Write final buffer |
-| `--snapshot FILE` | animator | (shorthand) Write buffer to FILE |
-| `--syntax CMD` | animator | (shorthand) Syntax highlighter |
-| `--help, -h` | all | Show help |
+| Option                           | Stage       | Description                           |                                |
+| -------------------------------- | ----------- | ------------------------------------- | ------------------------------ |
+| `--compute-algorithm patience\   | patience`   | compute                               | Diff algorithm (Myers removed) |
+| `--postprocess-op-order MODE`    | postprocess | Op reordering mode                    |                                |
+| `--postprocess-semantic-cleanup` | postprocess | Merge canceling ops                   |                                |
+| `--postprocess-indent-aware`     | postprocess | Handle indent changes                 |                                |
+| `--pace-delete-pacing MODE`      | pace        | Deletion strategy                     |                                |
+| `--pace-delete-speed MODE`       | pace        | Deletion speed                        |                                |
+| `--pace-delete-threshold N`      | pace        | Min chars for rapid/word              |                                |
+| `--pace-insert-pacing MODE`      | pace        | Insertion strategy                    |                                |
+| `--pace-insert-speed MODE`       | pace        | Insertion speed                       |                                |
+| `--pace-pacing MODE`             | pace        | Timing mode                           |                                |
+| `--animator-no-display`          | animator    | Process without rendering             |                                |
+| `--animator-snapshot FILE`       | animator    | Write buffer to FILE                  |                                |
+| `--animator-output FILE`         | animator    | Write final buffer to FILE            |                                |
+| `--animator-speed N`             | animator    | Speed multiplier                      |                                |
+| `--animator-syntax CMD`          | animator    | External syntax highlighter           |                                |
+| `--no-display`                   | animator    | (shorthand) Process without rendering |                                |
+| `--speed N`                      | animator    | (shorthand) Speed multiplier          |                                |
+| `--output FILE`                  | animator    | (shorthand) Write final buffer        |                                |
+| `--snapshot FILE`                | animator    | (shorthand) Write buffer to FILE      |                                |
+| `--syntax CMD`                   | animator    | (shorthand) Syntax highlighter        |                                |
+| `--help, -h`                     | all         | Show help                             |                                |
 
 ---
 
@@ -385,12 +385,12 @@ tools. The compute stage is C++ with a Perl fallback.
 
 ### Implementation Status
 
-| Tool | Perl | C |
-|------|------|---|
-| postprocess | ✅ ~380 lines | ✅ ~170 lines |
-| pace | ✅ ~310 lines | ✅ ~210 lines |
-| animator | ✅ ~175 lines | ✅ ~200 lines |
-| (compute) | ✅ `compute_builtin.pl` (~90 lines, fallback) | C++ `ad_compute.cpp` |
+| Tool        | Perl                                         | C                    |
+| ----------- | -------------------------------------------- | -------------------- |
+| postprocess | ✅ ~380 lines                                 | ✅ ~170 lines         |
+| pace        | ✅ ~310 lines                                 | ✅ ~210 lines         |
+| animator    | ✅ ~175 lines                                 | ✅ ~200 lines         |
+| (compute)   | ✅ `compute_builtin.pl` (~90 lines, fallback) | C++ `ad_compute.cpp` |
 
 ### Cross-Language Parity
 
@@ -402,11 +402,11 @@ All implementations produce **byte-for-byte identical output**:
 
 ### Performance
 
-| Tool | Perl | C |
-|------|------|---|
+| Tool                  | Perl   | C     |
+| --------------------- | ------ | ----- |
 | postprocess (68K ops) | ~147ms | ~14ms |
-| pace (68K ops) | ~124ms | ~15ms |
-| animator startup | ~20ms | <1ms |
+| pace (68K ops)        | ~124ms | ~15ms |
+| animator startup      | ~20ms  | <1ms  |
 
 ---
 
@@ -414,13 +414,13 @@ All implementations produce **byte-for-byte identical output**:
 
 ### Test Suite
 
-| Test File | Assertions | What It Tests |
-|-----------|-----------|---------------|
-| `test_all_animators.pl` | round-trip | C and Perl animators produce identical output |
-| `test_cross_language.pl` | 14+ | Postprocess + pace parity (byte-for-byte) |
-| `test_newline_fix.pl` | 7 | `\n` merge handling verification |
-| `test_roundtrip.pl` | 15 | Perl animator round-trip |
-| `test_roundtrip_verify.pl` | 30 | C animator round-trip |
+| Test File                  | Assertions  | What It Tests                                 |
+| -------------------------- | ----------- | --------------------------------------------- |
+| `test_all_animators.pl`    | round-trip  | C and Perl animators produce identical output |
+| `test_cross_language.pl`   | 14+         | Postprocess + pace parity (byte-for-byte)     |
+| `test_newline_fix.pl`      | 7           | `\n` merge handling verification              |
+| `test_roundtrip.pl`        | 15          | Perl animator round-trip                      |
+| `test_roundtrip_verify.pl` | 30          | C animator round-trip                         |
 
 ### Running Tests
 
@@ -452,16 +452,16 @@ testing without a terminal.
 
 ## 12. Comparison with vim-based ad_vim
 
-| Aspect | ad_vim (vim) | animator (standalone) |
-|--------|---------------|----------------------|
-| `\n` delete | Mechanical join (Phase F pending) | ✅ Same behavior |
-| Dependencies | vim 8+ | ✅ None (C static binary) |
-| Architecture | Monolithic (4,500 lines) | ✅ Pipeline (4 tools) |
-| Testability | Hard (timer-based) | ✅ Easy (stdin/stdout, `--no-display`) |
-| Performance | Slow (vim overhead) | ✅ 10-100x faster |
-| Syntax coloring | vim syntax files | ✅ External highlighters (`bat`, etc.) |
-| Lines of code | ~4,500 (vimscript) | ✅ ~1,000 (total across tools) |
-| Languages | Vimscript only | ✅ Perl, C (animator); C++ (compute) |
+| Aspect          | ad_vim (vim)                      | animator (standalone)                 |
+| --------------- | --------------------------------- | ------------------------------------- |
+| `\n` delete     | Mechanical join (Phase F pending) | ✅ Same behavior                       |
+| Dependencies    | vim 8+                            | ✅ None (C static binary)              |
+| Architecture    | Monolithic (4,500 lines)          | ✅ Pipeline (4 tools)                  |
+| Testability     | Hard (timer-based)                | ✅ Easy (stdin/stdout, `--no-display`) |
+| Performance     | Slow (vim overhead)               | ✅ 10-100x faster                      |
+| Syntax coloring | vim syntax files                  | ✅ External highlighters (`bat`, etc.) |
+| Lines of code   | ~4,500 (vimscript)                | ✅ ~1,000 (total across tools)         |
+| Languages       | Vimscript only                    | ✅ Perl, C (animator); C++ (compute)   |
 
 ---
 

@@ -9,42 +9,42 @@ During animation, the following keys are active in vim normal mode.
 
 ## Basic Controls
 
-| Key | Action |
-|-----|--------|
-| `Space` | Pause / resume the animation |
-| `n` | Skip current hunk (apply instantly, then pause for review) |
-| `b` | Back to previous hunk (revert and restart) |
-| `q` | Stop animation — by default `:q` then quits; use `--keep-dirty` to require `:q!` |
+| Key     | Action                                                                           |
+| ------- | -------------------------------------------------------------------------------- |
+| `Space` | Pause / resume the animation                                                     |
+| `n`     | Skip current hunk (apply instantly, then pause for review)                       |
+| `b`     | Back to previous hunk (revert and restart)                                       |
+| `q`     | Stop animation — by default `:q` then quits; use `--keep-dirty` to require `:q!` |
 
 ## Speed Controls
 
-| Key | Action |
-|-----|--------|
-| `+` | Speed up (multiply speed by 1.5) |
-| `-` | Slow down (divide speed by 1.5) |
-| `=` | Reset speed to 1.0x |
+| Key   | Action                           |
+| ----- | -------------------------------- |
+| `+`   | Speed up (multiply speed by 1.5) |
+| `-`   | Slow down (divide speed by 1.5)  |
+| `=`   | Reset speed to 1.0x              |
 
 ## Granular Navigation
 
-| Key | Action |
-|-----|--------|
-| `B` (Shift-B) | Go back one char op |
+| Key           | Action                              |
+| ------------- | ----------------------------------- |
+| `B` (Shift-B) | Go back one char op                 |
 | `N` (Shift-N) | Skip to next file (multi-file mode) |
-| `Ctrl-B` | Go back to the beginning |
-| `Ctrl-N` | Skip to the end |
+| `Ctrl-B`      | Go back to the beginning            |
+| `Ctrl-N`      | Skip to the end                     |
 
 ## Undo/Redo
 
-| Key | Action |
-|-----|--------|
-| `u` | Undo last hunk (revert to previous snapshot) |
-| `Ctrl-r` | Redo hunk |
+| Key      | Action                                       |
+| -------- | -------------------------------------------- |
+| `u`      | Undo last hunk (revert to previous snapshot) |
+| `Ctrl-r` | Redo hunk                                    |
 
 ## Help
 
-| Key | Action |
-|-----|--------|
-| `?` | Toggle full-screen help overlay |
+| Key   | Action                          |
+| ----- | ------------------------------- |
+| `?`   | Toggle full-screen help overlay |
 
 ## Step Mode
 

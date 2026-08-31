@@ -9,12 +9,12 @@ Analysis of all source code in the `ad` project. Covers C, C++, Perl, and Bash f
 
 ## Summary
 
-| Severity | Count | Description |
-|----------|-------|-------------|
-| **P0 — Broken on first use** | 7 | Wrong paths, undefined variables; scripts crash immediately |
-| **P1 — Silent logic bugs** | 14 | Wrong output without erroring |
-| **P2 — Security/robustness** | 8 | Command injection, unquoted paths, unsafe eval |
-| **P3 — Maintainability** | 12 | Duplicated code, overly complex functions, dead code |
+| Severity                     | Count   | Description                                                 |
+| ---------------------------- | ------- | ----------------------------------------------------------- |
+| **P0 — Broken on first use** | 7       | Wrong paths, undefined variables; scripts crash immediately |
+| **P1 — Silent logic bugs**   | 14      | Wrong output without erroring                               |
+| **P2 — Security/robustness** | 8       | Command injection, unquoted paths, unsafe eval              |
+| **P3 — Maintainability**     | 12      | Duplicated code, overly complex functions, dead code        |
 
 Total: ~41 actionable issues across ~16,000 LOC.
 

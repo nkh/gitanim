@@ -64,21 +64,21 @@ replaceable. The animator is ~200 lines (C++) vs. ~4,500 (vimscript).
 
 ## 2. Feature Comparison
 
-| Feature | ad_vim (vim) | animator (standalone) |
-|---------|---------------|----------------------|
-| Diff computation | Inline (vimscript Patience) or external C++ | External (C++ compute tool, Perl fallback) |
-| Post-processing | In vimscript engine | Separate tool (piped) |
-| Pacing decisions | In vimscript engine (lookahead) | Pre-computed (pace tool) |
-| Per-op positioning | Tracked in engine (line_offset) | Owned by postprocess (TSV v2 format) |
-| Animation rendering | vim buffer + redraw | ANSI escape sequences |
-| User input | vim normal-mode mappings | Raw terminal input |
-| Buffer model | vim buffer (list of lines) | Virtual buffer (line array) |
-| `\n` delete | Mechanical join (Phase F pending) | Same behavior |
-| Unicode | vim's strchars() | Native rune handling |
-| Dependencies | vim 8+ | None (C static binary) |
-| Testability | Hard (timer-based) | Easy (stdin/stdout, --no-display) |
-| Lines of code | ~4,500 (vimscript) | ~200 (C animator) + ~380 (Perl postprocess) + ~310 (Perl pace) |
-| Process model | Single vim process | Pipeline of separate tools |
+| Feature             | ad_vim (vim)                                | animator (standalone)                                          |
+| ------------------- | ------------------------------------------- | -------------------------------------------------------------- |
+| Diff computation    | Inline (vimscript Patience) or external C++ | External (C++ compute tool, Perl fallback)                     |
+| Post-processing     | In vimscript engine                         | Separate tool (piped)                                          |
+| Pacing decisions    | In vimscript engine (lookahead)             | Pre-computed (pace tool)                                       |
+| Per-op positioning  | Tracked in engine (line_offset)             | Owned by postprocess (TSV v2 format)                           |
+| Animation rendering | vim buffer + redraw                         | ANSI escape sequences                                          |
+| User input          | vim normal-mode mappings                    | Raw terminal input                                             |
+| Buffer model        | vim buffer (list of lines)                  | Virtual buffer (line array)                                    |
+| `\n` delete         | Mechanical join (Phase F pending)           | Same behavior                                                  |
+| Unicode             | vim's strchars()                            | Native rune handling                                           |
+| Dependencies        | vim 8+                                      | None (C static binary)                                         |
+| Testability         | Hard (timer-based)                          | Easy (stdin/stdout, --no-display)                              |
+| Lines of code       | ~4,500 (vimscript)                          | ~200 (C animator) + ~380 (Perl postprocess) + ~310 (Perl pace) |
+| Process model       | Single vim process                          | Pipeline of separate tools                                     |
 
 ---
 
@@ -121,15 +121,15 @@ NOT YET IMPLEMENTED — see `docs/PIPELINE.md` for the design discussion.
 
 ## 4. Performance Comparison
 
-| Operation | vim-based | animator (C++) | animator (C++) |
-|-----------|-----------|---------------|-----------------|
-| Startup (100-line file) | ~200ms | <1ms | ~20ms |
-| Startup (1000-line file, inline Patience) | ~3500ms | N/A (uses external compute) | N/A |
-| Startup (1000-line file, with compute) | ~200ms | ~15ms | ~30ms |
-| Char op processing | ~1ms/op | ~0.01ms/op | ~0.1ms/op |
-| Full screen redraw | ~5ms | ~1ms | ~5ms |
-| Incremental redraw | ~3ms | ~0.5ms | ~2ms |
-| Memory (1000-line file) | ~50MB (vim) | ~2MB | ~10MB |
+| Operation                                 | vim-based   | animator (C++)              | animator (C++)    |
+| ----------------------------------------- | ----------- | --------------------------- | ----------------- |
+| Startup (100-line file)                   | ~200ms      | <1ms                        | ~20ms             |
+| Startup (1000-line file, inline Patience) | ~3500ms     | N/A (uses external compute) | N/A               |
+| Startup (1000-line file, with compute)    | ~200ms      | ~15ms                       | ~30ms             |
+| Char op processing                        | ~1ms/op     | ~0.01ms/op                  | ~0.1ms/op         |
+| Full screen redraw                        | ~5ms        | ~1ms                        | ~5ms              |
+| Incremental redraw                        | ~3ms        | ~0.5ms                      | ~2ms              |
+| Memory (1000-line file)                   | ~50MB (vim) | ~2MB                        | ~10MB             |
 
 The animator is 10-100x faster because:
 1. No vim startup overhead
@@ -143,27 +143,27 @@ The animator is 10-100x faster because:
 
 ### Postprocess and Pace Tools
 
-| Language | Performance | Maintainability | Dependencies | Recommendation |
-|----------|-------------|-----------------|--------------|----------------|
-| C | ★★★★★ | ★★☆☆☆ | None | Primary |
-| Perl | ★★★☆☆ | ★★★☆☆ | Perl 5.10+ | Fallback (text processing) |
+| Language   | Performance   | Maintainability   | Dependencies   | Recommendation             |
+| ---------- | ------------- | ----------------- | -------------- | -------------------------- |
+| C          | ★★★★★         | ★★☆☆☆             | None           | Primary                    |
+| Perl       | ★★★☆☆         | ★★★☆☆             | Perl 5.10+     | Fallback (text processing) |
 
 ### Animator
 
-| Language | Performance | Terminal Control | Unicode | Dependencies | Recommendation |
-|----------|-------------|-----------------|---------|--------------|----------------|
-| C | ★★★★★ | ★★★☆☆ | ★★☆☆☆ | None | Primary |
-| Perl | ★★★☆☆ | ★★★★☆ | ★★★☆☆ | Perl + CPAN | Fallback |
+| Language   | Performance   | Terminal Control  | Unicode   | Dependencies   | Recommendation   |
+| ---------- | ------------- | ----------------- | --------- | -------------- | ---------------- |
+| C          | ★★★★★         | ★★★☆☆             | ★★☆☆☆     | None           | Primary          |
+| Perl       | ★★★☆☆         | ★★★★☆             | ★★★☆☆     | Perl + CPAN    | Fallback         |
 
 (Go was removed in the Phase A refactor — produced identical output,
 not worth maintaining three implementations.)
 
 ### Compute
 
-| Language | Performance | Binary Size | Recommendation |
-|----------|-------------|-------------|----------------|
-| C++ | ★★★★★ | ~1.4 MB | Primary (only compute implementation) |
-| Perl | ★★★☆☆ | n/a (script) | Fallback (`compute/perl/compute_builtin.pl`) |
+| Language   | Performance   | Binary Size   | Recommendation                               |
+| ---------- | ------------- | ------------- | -------------------------------------------- |
+| C++        | ★★★★★         | ~1.4 MB       | Primary (only compute implementation)        |
+| Perl       | ★★★☆☆         | n/a (script)  | Fallback (`compute/perl/compute_builtin.pl`) |
 
 ---
 
@@ -285,14 +285,14 @@ ad_vim --vim old.py new.py
 
 ## 8. Summary
 
-| Aspect | ad_vim (vim) | animator (standalone) |
-|--------|---------------|----------------------|
-| Correctness | `\n` join looks bad (Phase F pending) | Same behavior |
-| Performance | Slow (vim overhead) | ✓ 10-100x faster |
-| Testability | Hard (timer-based) | ✓ Easy (stdin/stdout) |
-| Dependencies | vim 8+ | ✓ None (C static binary) |
-| Architecture | Monolithic (4,500 lines) | ✓ Separated (4 tools, ~200-400 lines each) |
-| Lines of code | ~4,500 (vimscript) | ✓ ~1,000 (total across tools) |
-| `\n` problem | Pending Phase F | Pending Phase F |
-| Round-trip tests | 91 (Perl-only) | ✓ 45+ (full pipeline) |
-| Status | Production (with known bugs) | Development (all tests pass) |
+| Aspect           | ad_vim (vim)                          | animator (standalone)                      |
+| ---------------- | ------------------------------------- | ------------------------------------------ |
+| Correctness      | `\n` join looks bad (Phase F pending) | Same behavior                              |
+| Performance      | Slow (vim overhead)                   | ✓ 10-100x faster                           |
+| Testability      | Hard (timer-based)                    | ✓ Easy (stdin/stdout)                      |
+| Dependencies     | vim 8+                                | ✓ None (C static binary)                   |
+| Architecture     | Monolithic (4,500 lines)              | ✓ Separated (4 tools, ~200-400 lines each) |
+| Lines of code    | ~4,500 (vimscript)                    | ✓ ~1,000 (total across tools)              |
+| `\n` problem     | Pending Phase F                       | Pending Phase F                            |
+| Round-trip tests | 91 (Perl-only)                        | ✓ 45+ (full pipeline)                      |
+| Status           | Production (with known bugs)          | Development (all tests pass)               |

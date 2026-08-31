@@ -649,18 +649,18 @@ Periodically review what went well and what didn't.
 
 ## Summary
 
-| Category | ✅ Followed | ⚠️ Partial | ❌ Not followed | N/A | Total |
-|----------|------------|------------|-----------------|-----|-------|
-| Architecture & Design (1-15) | 9 | 6 | 0 | 0 | 15 |
-| Code Quality (16-30) | 6 | 8 | 1 | 0 | 15 |
-| Testing (31-45) | 8 | 5 | 2 | 0 | 15 |
-| Version Control & CI (46-55) | 4 | 2 | 4 | 0 | 10 |
-| Documentation (56-65) | 7 | 3 | 0 | 0 | 10 |
-| Security & Robustness (66-75) | 4 | 5 | 0 | 1 | 10 |
-| Performance (76-85) | 3 | 5 | 2 | 0 | 10 |
-| Maintainability (86-95) | 5 | 4 | 1 | 0 | 10 |
-| Process & Team (96-100) | 1 | 2 | 2 | 0 | 5 |
-| **Total** | **47** | **40** | **12** | **1** | **100** |
+| Category                      | ✅ Followed   | ⚠️ Partial   | ❌ Not followed    | N/A   | Total   |
+| ----------------------------- | ------------ | ------------ | ----------------- | ----- | ------- |
+| Architecture & Design (1-15)  | 9            | 6            | 0                 | 0     | 15      |
+| Code Quality (16-30)          | 6            | 8            | 1                 | 0     | 15      |
+| Testing (31-45)               | 8            | 5            | 2                 | 0     | 15      |
+| Version Control & CI (46-55)  | 4            | 2            | 4                 | 0     | 10      |
+| Documentation (56-65)         | 7            | 3            | 0                 | 0     | 10      |
+| Security & Robustness (66-75) | 4            | 5            | 0                 | 1     | 10      |
+| Performance (76-85)           | 3            | 5            | 2                 | 0     | 10      |
+| Maintainability (86-95)       | 5            | 4            | 1                 | 0     | 10      |
+| Process & Team (96-100)       | 1            | 2            | 2                 | 0     | 5       |
+| **Total**                     | **47**       | **40**       | **12**            | **1** | **100** |
 
 ### Top 10 most impactful improvements to make
 

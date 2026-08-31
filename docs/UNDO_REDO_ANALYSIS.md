@@ -17,25 +17,25 @@ etc. To undo, you need to reverse each op and restore the previous buffer state.
 
 ### 1.1 Ops that are easy to undo
 
-| Op type | Undo action | Why it's easy |
-|---------|-------------|---------------|
-| `keep` | Move cursor back 1 position | No buffer change, just cursor |
-| `delete` | Insert the deleted char back at current position | Char was removed, re-insert it |
-| `insert` | Delete the inserted char at current position | Char was added, remove it |
-| `overwrite_insert` | Restore original char at position | Need to know what was there before |
+| Op type            | Undo action                                      | Why it's easy                      |
+| ------------------ | ------------------------------------------------ | ---------------------------------- |
+| `keep`             | Move cursor back 1 position                      | No buffer change, just cursor      |
+| `delete`           | Insert the deleted char back at current position | Char was removed, re-insert it     |
+| `insert`           | Delete the inserted char at current position     | Char was added, remove it          |
+| `overwrite_insert` | Restore original char at position                | Need to know what was there before |
 
 ### 1.2 Ops that are hard or impossible to undo
 
-| Op type | Problem | Solution |
-|---------|---------|----------|
-| `delay` | No buffer effect — just timing | Skip on undo. Undo is instant. |
-| `highlight` | Visual overlay — not in buffer | Skip. Re-derive from op position. |
-| `dim` | Visual overlay | Same as highlight — skip |
-| `fold` | Visual overlay | Same — skip |
-| `sign` | Visual overlay | Same — skip |
-| `glide` | Cursor movement instruction | Re-derive. Position cursor directly at previous op. |
-| `snapshot` | Side effect (write file) | Skip. One-way operation. |
-| `marker` | Visual overlay (e.g. git blame) | Same as highlight — skip |
+| Op type     | Problem                         | Solution                                            |
+| ----------- | ------------------------------- | --------------------------------------------------- |
+| `delay`     | No buffer effect — just timing  | Skip on undo. Undo is instant.                      |
+| `highlight` | Visual overlay — not in buffer  | Skip. Re-derive from op position.                   |
+| `dim`       | Visual overlay                  | Same as highlight — skip                            |
+| `fold`      | Visual overlay                  | Same — skip                                         |
+| `sign`      | Visual overlay                  | Same — skip                                         |
+| `glide`     | Cursor movement instruction     | Re-derive. Position cursor directly at previous op. |
+| `snapshot`  | Side effect (write file)        | Skip. One-way operation.                            |
+| `marker`    | Visual overlay (e.g. git blame) | Same as highlight — skip                            |
 
 ---
 
@@ -100,16 +100,16 @@ Redo:     re-apply op_N → buffer state S_N
 
 For each op type:
 
-| Op type | Store for undo | Undo action |
-|---------|----------------|------------|
-| `keep` | Nothing | `cursor_col--` (or `cursor_line--; cursor_col=end_of_line` if \n) |
-| `delete` | Char code + position | `insert_char(code)` at position, cursor back |
-| `insert` | Char code + position | `delete_char()` at position, cursor back |
-| `overwrite_insert` | New code + original code + position | Restore original code |
-| `delay` | Nothing | Skip |
-| `highlight/dim/fold/sign/marker` | Nothing | Skip |
-| `glide` | Previous cursor position | Set cursor directly |
-| `snapshot` | Nothing | Skip |
+| Op type                          | Store for undo                      | Undo action                                                       |
+| -------------------------------- | ----------------------------------- | ----------------------------------------------------------------- |
+| `keep`                           | Nothing                             | `cursor_col--` (or `cursor_line--; cursor_col=end_of_line` if \n) |
+| `delete`                         | Char code + position                | `insert_char(code)` at position, cursor back                      |
+| `insert`                         | Char code + position                | `delete_char()` at position, cursor back                          |
+| `overwrite_insert`               | New code + original code + position | Restore original code                                             |
+| `delay`                          | Nothing                             | Skip                                                              |
+| `highlight/dim/fold/sign/marker` | Nothing                             | Skip                                                              |
+| `glide`                          | Previous cursor position            | Set cursor directly                                               |
+| `snapshot`                       | Nothing                             | Skip                                                              |
 
 ### 3.2 Buffer state checkpoints (alternative approach)
 
@@ -155,15 +155,15 @@ timers and has a state machine. To add undo/redo:
 
 ## 4. What Needs to Change
 
-| Component | Change | Effort |
-|-----------|--------|--------|
-| `ad_layer_overwrite` (C + Perl) | Store original char code in overwrite_insert op (6th TSV field) | Low |
-| `animator/c/ad.c` | Op history stack, undo/redo functions, `u`/`Ctrl-r` shortcuts, buffer checkpoints at HUNK boundaries | Medium |
-| `animator/perl/ad.pl` | Same (Perl twin) | Medium |
-| `apps/vim/ad_vim` (vimscript) | `u`/`Ctrl-r` handling, buffer snapshots at HUNK boundaries | Medium |
-| All other layers | No change needed | — |
-| `pipeline/ad_postprocess` | No change needed | — |
-| Config / CLI flags | No change needed | — |
+| Component                       | Change                                                                                               | Effort   |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- | -------- |
+| `ad_layer_overwrite` (C + Perl) | Store original char code in overwrite_insert op (6th TSV field)                                      | Low      |
+| `animator/c/ad.c`               | Op history stack, undo/redo functions, `u`/`Ctrl-r` shortcuts, buffer checkpoints at HUNK boundaries | Medium   |
+| `animator/perl/ad.pl`           | Same (Perl twin)                                                                                     | Medium   |
+| `apps/vim/ad_vim` (vimscript)   | `u`/`Ctrl-r` handling, buffer snapshots at HUNK boundaries                                           | Medium   |
+| All other layers                | No change needed                                                                                     | —        |
+| `pipeline/ad_postprocess`       | No change needed                                                                                     | —        |
+| Config / CLI flags              | No change needed                                                                                     | —        |
 
 ---
 

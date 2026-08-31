@@ -4,20 +4,20 @@ Test suites for the animator pipeline. All tests are in Perl.
 
 ## Test suites
 
-| Test | Description | # tests |
-|------|-------------|---------|
-| `test_all_animators.pl` | Tests C and Perl animators on 15 cases | 30 |
-| `test_cross_language.pl` | Verifies C == Perl for postprocess + pace | 14 |
-| `test_newline_fix.pl` | Tests \n delete/insert handling | 6 |
-| `test_roundtrip.pl` | Round-trip: old → pipeline → should equal new | 15 |
-| `test_roundtrip_verify.pl` | Extended round-trip with more cases | 30 |
-| `test_snapshot_each_op.pl` | Per-op snapshot verification | 14 |
-| `test_delete_pacing_modes.pl` | Delete pacing mode tests | — |
-| `test_streaming.pl` | Streaming mode tests | — |
-| `test_property.pl` | Property-based tests | — |
-| `test_perl_animator.pl` | Perl animator specific tests | — |
-| `test_colormap.pl` | Colormap tests | — |
-| `test_perf.pl` | Performance tests | — |
+| Test                          | Description                                   | # tests   |
+| ----------------------------- | --------------------------------------------- | --------- |
+| `test_all_animators.pl`       | Tests C and Perl animators on 15 cases        | 30        |
+| `test_cross_language.pl`      | Verifies C == Perl for postprocess + pace     | 14        |
+| `test_newline_fix.pl`         | Tests \n delete/insert handling               | 6         |
+| `test_roundtrip.pl`           | Round-trip: old → pipeline → should equal new | 15        |
+| `test_roundtrip_verify.pl`    | Extended round-trip with more cases           | 30        |
+| `test_snapshot_each_op.pl`    | Per-op snapshot verification                  | 14        |
+| `test_delete_pacing_modes.pl` | Delete pacing mode tests                      | —         |
+| `test_streaming.pl`           | Streaming mode tests                          | —         |
+| `test_property.pl`            | Property-based tests                          | —         |
+| `test_perl_animator.pl`       | Perl animator specific tests                  | —         |
+| `test_colormap.pl`            | Colormap tests                                | —         |
+| `test_perf.pl`                | Performance tests                             | —         |
 
 Total: **117 tests** (excluding the open-ended ones).
 

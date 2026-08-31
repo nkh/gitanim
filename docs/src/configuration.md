@@ -64,85 +64,85 @@ All options can be set via CLI flag OR via the config file. The CLI flag always 
 
 ### Pacing
 
-| CLI flag | Config var | Default | Values |
-|----------|-----------|---------|--------|
-| `--delete-pacing MODE` | `DELETE_PACING` | `word` | `char`, `word`, `instant`, `rapid-eol`, `rapid-identical`, `accel`, `flash` |
-| `--insert-pacing MODE` | `INSERT_PACING` | `char` | `char`, `word`, `accel` |
-| `--pacing MODE` | `PACING` | `uniform` | `uniform`, `adaptive`, `gaussian`, `review` |
-| `--delete-speed SPEED` | `DELETE_SPEED` | `normal` | `slow`, `normal`, `fast`, `instant` |
-| `--insert-speed SPEED` | `INSERT_SPEED` | `normal` | `slow`, `normal`, `fast` |
-| `--delete-threshold N` | `DELETE_THRESHOLD` | `3` | integer |
+| CLI flag               | Config var         | Default   | Values                                                                      |
+| ---------------------- | ------------------ | --------- | --------------------------------------------------------------------------- |
+| `--delete-pacing MODE` | `DELETE_PACING`    | `word`    | `char`, `word`, `instant`, `rapid-eol`, `rapid-identical`, `accel`, `flash` |
+| `--insert-pacing MODE` | `INSERT_PACING`    | `char`    | `char`, `word`, `accel`                                                     |
+| `--pacing MODE`        | `PACING`           | `uniform` | `uniform`, `adaptive`, `gaussian`, `review`                                 |
+| `--delete-speed SPEED` | `DELETE_SPEED`     | `normal`  | `slow`, `normal`, `fast`, `instant`                                         |
+| `--insert-speed SPEED` | `INSERT_SPEED`     | `normal`  | `slow`, `normal`, `fast`                                                    |
+| `--delete-threshold N` | `DELETE_THRESHOLD` | `3`       | integer                                                                     |
 
 ### Layer chain
 
 These convenience flags enable specific postprocess layers:
 
-| CLI flag | Config var | Default | Effect |
-|----------|-----------|---------|--------|
-| `--indent-last` | `INDENT_LAST` | `0` | `1` enables the `ad_layer_indent_last` layer |
-| `--overwrite` | `OVERWRITE_MODE` | `0` | `1` enables the `ad_layer_overwrite` layer |
-| `--line-delete-in-place` | `LINE_DELETE_IN_PLACE` | `0` | `1` enables the `ad_layer_line_delete_in_place` layer |
-| `--ad-layer=NAME` | — | — | Add any layer to the chain (see [Plugin Layers](plugin-layers.md)) |
-| `--ad-layer-path=DIR` | — | — | Add a directory to the layer search path |
+| CLI flag                 | Config var             | Default   | Effect                                                             |
+| ------------------------ | ---------------------- | --------- | ------------------------------------------------------------------ |
+| `--indent-last`          | `INDENT_LAST`          | `0`       | `1` enables the `ad_layer_indent_last` layer                       |
+| `--overwrite`            | `OVERWRITE_MODE`       | `0`       | `1` enables the `ad_layer_overwrite` layer                         |
+| `--line-delete-in-place` | `LINE_DELETE_IN_PLACE` | `0`       | `1` enables the `ad_layer_line_delete_in_place` layer              |
+| `--ad-layer=NAME`        | —                      | —         | Add any layer to the chain (see [Plugin Layers](plugin-layers.md)) |
+| `--ad-layer-path=DIR`    | —                      | —         | Add a directory to the layer search path                           |
 
 ### Animation behavior
 
-| CLI flag | Config var | Default | Values |
-|----------|-----------|---------|--------|
-| `--speed N` | `SPEED` | `1.0` | float (speed multiplier) |
-| `--scroll MODE` | `SCROLL` | `zz` | `zz`, `zt`, `zb`, `none` |
-| `--max-line-len N` | `MAX_LINE_LEN` | `10000` | integer |
-| `--max-hunk-chars N` | `MAX_HUNK_CHARS` | `0` | integer; `0` = no limit |
+| CLI flag             | Config var       | Default   | Values                   |
+| -------------------- | ---------------- | --------- | ------------------------ |
+| `--speed N`          | `SPEED`          | `1.0`     | float (speed multiplier) |
+| `--scroll MODE`      | `SCROLL`         | `zz`      | `zz`, `zt`, `zb`, `none` |
+| `--max-line-len N`   | `MAX_LINE_LEN`   | `10000`   | integer                  |
+| `--max-hunk-chars N` | `MAX_HUNK_CHARS` | `0`       | integer; `0` = no limit  |
 
 ### Cursor movement
 
-| CLI flag | Config var | Default | Values |
-|----------|-----------|---------|--------|
-| `--cursor-glide-ms N` | `CURSOR_GLIDE_MS` | `0` | integer (ms); `0` disables glide |
-| `--cursor-glide-show-intermediate 0\|1` | `CURSOR_GLIDE_SHOW_INTERMEDIATE` | `1` | `0` or `1` |
-| `--distance-speed MODE` | `DISTANCE_SPEED` | `off` | `adaptive`, `off` |
-| `--distance-threshold N` | `DISTANCE_THRESHOLD` | `5` | integer (lines) |
-| `--distance-fast-mult N` | `DISTANCE_FAST_MULT` | `2.0` | float |
-| `--distance-slow-mult N` | `DISTANCE_SLOW_MULT` | `0.5` | float |
+| CLI flag                             | Config var           | Default                          | Values                           |            |
+| ------------------------------------ | -------------------- | -------------------------------- | -------------------------------- | ---------- |
+| `--cursor-glide-ms N`                | `CURSOR_GLIDE_MS`    | `0`                              | integer (ms); `0` disables glide |            |
+| `--cursor-glide-show-intermediate 0\ | 1`                   | `CURSOR_GLIDE_SHOW_INTERMEDIATE` | `1`                              | `0` or `1` |
+| `--distance-speed MODE`              | `DISTANCE_SPEED`     | `off`                            | `adaptive`, `off`                |            |
+| `--distance-threshold N`             | `DISTANCE_THRESHOLD` | `5`                              | integer (lines)                  |            |
+| `--distance-fast-mult N`             | `DISTANCE_FAST_MULT` | `2.0`                            | float                            |            |
+| `--distance-slow-mult N`             | `DISTANCE_SLOW_MULT` | `0.5`                            | float                            |            |
 
 ### Decoration
 
-| CLI flag | Config var | Default | Values |
-|----------|-----------|---------|--------|
-| `--highlight MODE` | `HIGHLIGHT_MODE` | `none` | `none`, `inline`, `word`, `hunk` |
-| `--highlight-duration-ms N` | `HIGHLIGHT_DURATION_MS` | `200` | integer (ms) |
-| `--dim-unchanged` | `DIM_UNCHANGED` | `0` | `0` or `1` |
-| `--dim-unchanged-pct N` | `DIM_UNCHANGED_PCT` | `60` | integer (0-100) |
-| `--context N` | `CONTEXT_LINES` | `0` | integer (lines of context) |
-| `--fold-unchanged` | `FOLD_UNCHANGED` | `0` | `0` or `1` |
-| `--sign-column` | `SIGN_COLUMN` | `0` | `0` or `1` |
-| `--git-blame` | `GIT_BLAME` | `0` | `0` or `1` |
+| CLI flag                    | Config var              | Default   | Values                           |
+| --------------------------- | ----------------------- | --------- | -------------------------------- |
+| `--highlight MODE`          | `HIGHLIGHT_MODE`        | `none`    | `none`, `inline`, `word`, `hunk` |
+| `--highlight-duration-ms N` | `HIGHLIGHT_DURATION_MS` | `200`     | integer (ms)                     |
+| `--dim-unchanged`           | `DIM_UNCHANGED`         | `0`       | `0` or `1`                       |
+| `--dim-unchanged-pct N`     | `DIM_UNCHANGED_PCT`     | `60`      | integer (0-100)                  |
+| `--context N`               | `CONTEXT_LINES`         | `0`       | integer (lines of context)       |
+| `--fold-unchanged`          | `FOLD_UNCHANGED`        | `0`       | `0` or `1`                       |
+| `--sign-column`             | `SIGN_COLUMN`           | `0`       | `0` or `1`                       |
+| `--git-blame`               | `GIT_BLAME`             | `0`       | `0` or `1`                       |
 
 ### Output
 
-| CLI flag | Config var | Default | Values |
-|----------|-----------|---------|--------|
-| `--output FILE` | `OUTPUT` | — | file path |
-| `--snapshot FILE` | `SNAPSHOT` | — | file path |
-| `--keep-dirty` | `KEEP_DIRTY` | `0` | `0` or `1` |
+| CLI flag          | Config var   | Default   | Values     |
+| ----------------- | ------------ | --------- | ---------- |
+| `--output FILE`   | `OUTPUT`     | —         | file path  |
+| `--snapshot FILE` | `SNAPSHOT`   | —         | file path  |
+| `--keep-dirty`    | `KEEP_DIRTY` | `0`       | `0` or `1` |
 
 ### Misc
 
-| CLI flag | Config var | Default | Values |
-|----------|-----------|---------|--------|
-| `--theme MODE` | `THEME` | — | `dark`, `light`, `high-contrast` |
-| `--log-mode MODE` | `LOG_MODE` | — | mode |
-| `--log-file FILE` | `LOG_FILE` | `diffvim.log` | file path |
-| `--debug` | `DEBUG_MODE` | `0` | `0` or `1` |
+| CLI flag          | Config var   | Default       | Values                           |
+| ----------------- | ------------ | ------------- | -------------------------------- |
+| `--theme MODE`    | `THEME`      | —             | `dark`, `light`, `high-contrast` |
+| `--log-mode MODE` | `LOG_MODE`   | —             | mode                             |
+| `--log-file FILE` | `LOG_FILE`   | `diffvim.log` | file path                        |
+| `--debug`         | `DEBUG_MODE` | `0`           | `0` or `1`                       |
 
 ### Compute (diff engine)
 
-| CLI flag | Default | Effect |
-|----------|---------|--------|
-| `--semantic-cleanup` | off | Merge adjacent delete+insert pairs that cancel out |
-| `--word-diff` | off | Use word-level diff |
-| `--optimize-sequence` | on | Enable op-sequence optimization |
-| `--no-optimize-sequence` | — | Disable op-sequence optimization |
+| CLI flag                 | Default   | Effect                                             |
+| ------------------------ | --------- | -------------------------------------------------- |
+| `--semantic-cleanup`     | off       | Merge adjacent delete+insert pairs that cancel out |
+| `--word-diff`            | off       | Use word-level diff                                |
+| `--optimize-sequence`    | on        | Enable op-sequence optimization                    |
+| `--no-optimize-sequence` | —         | Disable op-sequence optimization                   |
 
 ## Command-line overrides
 

@@ -12,13 +12,13 @@ from `man ad_vim`, `man ad_compute`, etc.
 
 ## Available Manpages
 
-| Manpage                     | Describes                                            |
-| --------------------------- | ---------------------------------------------------- |
-| [`ad_vim.1`](../../man/ad_vim.1)                  | The main `diffvim` command (bash + vimscript)   |
-| [`ad_tmux.1`](../../man/ad_tmux.1)        | The `ad_tmux` variant (bash + tmux)        |
-| [`ad_compare.1`](../../man/ad_compare.1)  | The `ad_compare` benchmark tool            |
-| [`ad_jogger.1`](../../man/ad_jogger.1)    | The `ad_jogger` test-case exerciser        |
-| [`ad_compute.1`](../../man/ad_compute.1)  | The `ad_compute` tool (the only compute implementation)     |
+| Manpage                                  | Describes                                               |
+| ---------------------------------------- | ------------------------------------------------------- |
+| [`ad_vim.1`](../../man/ad_vim.1)         | The main `diffvim` command (bash + vimscript)           |
+| [`ad_tmux.1`](../../man/ad_tmux.1)       | The `ad_tmux` variant (bash + tmux)                     |
+| [`ad_compare.1`](../../man/ad_compare.1) | The `ad_compare` benchmark tool                         |
+| [`ad_jogger.1`](../../man/ad_jogger.1)   | The `ad_jogger` test-case exerciser                     |
+| [`ad_compute.1`](../../man/ad_compute.1) | The `ad_compute` tool (the only compute implementation) |
 
 ## Installing
 

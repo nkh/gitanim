@@ -32,16 +32,16 @@ There is no use case that env vars cover but config file + CLI flags don't.
 
 ## Summary
 
-| Category | Count | Recommendation |
-|----------|-------|----------------|
-| **Obsolete (options removed)** | 8 | DELETE (already non-functional) |
-| **Vimscript-only (never set by user)** | 35 | Convert to internal variables / temp file |
-| **Perl launcher only (duplicate of bash)** | 12 | Delete Perl launcher or align |
-| **Redundant duplicates** | 9 | Consolidate |
-| **Debug/internal** | 8 | Convert to CLI flags (`--debug-*`) |
-| **Test-only** | 7 | Move to test fixtures |
-| **"Active and needed"** (revised) | 28 | DELETE — all have CLI equivalents |
-| **Total** | 107 | → **0** after cleanup |
+| Category                                   | Count   | Recommendation                            |
+| ------------------------------------------ | ------- | ----------------------------------------- |
+| **Obsolete (options removed)**             | 8       | DELETE (already non-functional)           |
+| **Vimscript-only (never set by user)**     | 35      | Convert to internal variables / temp file |
+| **Perl launcher only (duplicate of bash)** | 12      | Delete Perl launcher or align             |
+| **Redundant duplicates**                   | 9       | Consolidate                               |
+| **Debug/internal**                         | 8       | Convert to CLI flags (`--debug-*`)        |
+| **Test-only**                              | 7       | Move to test fixtures                     |
+| **"Active and needed"** (revised)          | 28      | DELETE — all have CLI equivalents         |
+| **Total**                                  | 107     | → **0** after cleanup                     |
 
 ## Goal
 
@@ -286,16 +286,16 @@ That's it. No env var layer in between.
 
 ## Proposed reduction plan (revised)
 
-| Phase | Action | Vars removed |
-|-------|--------|-------------|
-| 1 | Delete obsolete (Category 1) | 8 |
-| 2 | Convert vimscript-internal to temp file (Category 2) | 35 |
-| 3 | Delete Perl launcher duplicates (Category 3) | 12 |
-| 4 | Consolidate redundant duplicates (Category 4) | 9 |
-| 5 | Convert debug/internal to CLI flags (Category 5) | 8 |
-| 6 | Move test-only to fixtures (Category 6) | 7 |
-| 7 | Delete "active and needed" — all have CLI equivalents (Category 7) | 28 |
-| **Total** | | **107 vars removed** |
+| Phase     | Action                                                             | Vars removed         |
+| --------- | ------------------------------------------------------------------ | -------------------- |
+| 1         | Delete obsolete (Category 1)                                       | 8                    |
+| 2         | Convert vimscript-internal to temp file (Category 2)               | 35                   |
+| 3         | Delete Perl launcher duplicates (Category 3)                       | 12                   |
+| 4         | Consolidate redundant duplicates (Category 4)                      | 9                    |
+| 5         | Convert debug/internal to CLI flags (Category 5)                   | 8                    |
+| 6         | Move test-only to fixtures (Category 6)                            | 7                    |
+| 7         | Delete "active and needed" — all have CLI equivalents (Category 7) | 28                   |
+| **Total** |                                                                    | **107 vars removed** |
 
 Final count: **107 → 0 env vars**.
 

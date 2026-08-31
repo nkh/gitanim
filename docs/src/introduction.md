@@ -15,11 +15,11 @@ re-typed — surrounding text is never touched.
 
 ## Three Implementations
 
-| Implementation | Language | Vim Communication | Dependencies |
-|---------------|----------|-------------------|--------------|
-| `diffvim` | Bash + Vimscript | Native (timer_start) | Vim only |
-| `ad_tmux` | Bash + tmux | tmux send-keys | tmux, diff, sed, awk |
-| `ad_vim.pl` | Perl + tmux | tmux send-keys | Perl, tmux, diff |
+| Implementation  | Language         | Vim Communication    | Dependencies         |
+| --------------- | ---------------- | -------------------- | -------------------- |
+| `diffvim`       | Bash + Vimscript | Native (timer_start) | Vim only             |
+| `ad_tmux`       | Bash + tmux      | tmux send-keys       | tmux, diff, sed, awk |
+| `ad_vim.pl`     | Perl + tmux      | tmux send-keys       | Perl, tmux, diff     |
 
 ## Key Features
 

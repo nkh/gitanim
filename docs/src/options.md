@@ -141,7 +141,7 @@ Insertion strategy. Default: `char`.
 | ------- | ---------------------------------------------------- |
 | `char`  | One char at a time (default)                         |
 | `word`  | Batch short words (<=8 chars) instantly              |
-| `accel` | Accelerate char-by-char inserts (slow→fast→pause)   |
+| `accel` | Accelerate char-by-char inserts (slow→fast→pause)    |
 
 ### `--insert-speed MODE`
 Insertion speed: `slow|normal|fast` (default: `normal`).
@@ -218,40 +218,40 @@ Core timing env vars:
 
 | Variable                  | Default | Description                          |
 | ------------------------- | ------- | ------------------------------------ |
-| `AD_TICK_MS`         | 16      | Animation frame interval (~60fps)    |
-| `AD_TYPE_DELAY_MS`   | 50      | Delay between typed characters       |
-| `AD_DELETE_DELAY_MS` | 40      | Delay between deleted characters     |
-| `AD_MOVE_MIN_MS`     | 250     | Minimum cursor glide duration        |
-| `AD_MOVE_MAX_MS`     | 1600    | Maximum cursor glide duration        |
-| `AD_HUNK_PAUSE_MS`   | 250     | Pause between hunks                  |
+| `AD_TICK_MS`              | 16      | Animation frame interval (~60fps)    |
+| `AD_TYPE_DELAY_MS`        | 50      | Delay between typed characters       |
+| `AD_DELETE_DELAY_MS`      | 40      | Delay between deleted characters     |
+| `AD_MOVE_MIN_MS`          | 250     | Minimum cursor glide duration        |
+| `AD_MOVE_MAX_MS`          | 1600    | Maximum cursor glide duration        |
+| `AD_HUNK_PAUSE_MS`        | 250     | Pause between hunks                  |
 
 ### New Category A/B/C env vars
 
-| Variable                       | Default   | Description                              |
-| ------------------------------ | --------- | ---------------------------------------- |
-| `DIFFVIM_PACING`               | uniform   | Pacing mode (uniform\|adaptive\|gaussian\|review) |
-| `DIFFVIM_GAUSSIAN_JITTER_PCT`  | 20        | Jitter percentage for gaussian mode      |
-| `DIFFVIM_PAUSE_AFTER_LINES`    | 0         | Pause after N changed lines (0=off)      |
-| `DIFFVIM_PAUSE_AFTER_THRESHOLD`| 50       | Only pause if file >N lines              |
-| `DIFFVIM_PAUSE_AFTER_MS`       | 500       | Pause duration                           |
-| `DIFFVIM_ACCEL_DELETE`         | (off)     | Multi-line accelerated deletion          |
-| `DIFFVIM_ACCEL_DELETE_START_MS`| 80        | Initial slow delay for accel-delete      |
-| `DIFFVIM_ACCEL_DELETE_MIN_MS`  | 10        | Minimum accelerated delay                |
-| `DIFFVIM_ACCEL_DELETE_ACCEL`   | 85        | Acceleration factor (0-100)              |
-| `DIFFVIM_BLOCK_DELETE_SIZE`    | 3         | Group deletes into blocks of N           |
-| `DIFFVIM_PAUSE_BEFORE_DELETE_MS`| 200      | Pause before delete block                |
-| `DIFFVIM_PAUSE_AFTER_DELETE_MS`| 200       | Pause after delete block                 |
-| `AD_OVERWRITE_MODE`       | 0         | In-place overwrite mode                  |
-| `DIFFVIM_SCROLL`               | zz        | Scroll mode (zz\|zt\|zb\|none)            |
-| `DIFFVIM_SIGN_COLUMN`          | (off)     | Show +/- signs                           |
-| `DIFFVIM_GIT_BLAME`            | (off)     | Show git blame                           |
-| `DIFFVIM_MAX_HUNK_CHARS`       | 0         | Skip animation for hunks >N chars        |
-| `DIFFVIM_THEME`                | (none)    | Color theme (dark\|light\|high-contrast) |
-| `DIFFVIM_STEP_MODE`            | (off)     | Step mode (Space advances one op)        |
-| `DIFFVIM_STARTUP_PAUSE`         | (off)     | Show config before starting             |
-| `DIFFVIM_LOG_MODE`              | (off)     | Generate log without vim (1 or 2)        |
-| `DIFFVIM_LOG_FILE`             | diffvim.log| Log file path                         |
-| `DIFFVIM_LOG_TIMING`           | 1         | Include timing in log                    |
+| Variable                         | Default     | Description                              |           |                |         |
+| -------------------------------- | ----------- | ---------------------------------------- | --------- | -------------- | ------- |
+| `DIFFVIM_PACING`                 | uniform     | Pacing mode (uniform\                    | adaptive\ | gaussian\      | review) |
+| `DIFFVIM_GAUSSIAN_JITTER_PCT`    | 20          | Jitter percentage for gaussian mode      |           |                |         |
+| `DIFFVIM_PAUSE_AFTER_LINES`      | 0           | Pause after N changed lines (0=off)      |           |                |         |
+| `DIFFVIM_PAUSE_AFTER_THRESHOLD`  | 50          | Only pause if file >N lines              |           |                |         |
+| `DIFFVIM_PAUSE_AFTER_MS`         | 500         | Pause duration                           |           |                |         |
+| `DIFFVIM_ACCEL_DELETE`           | (off)       | Multi-line accelerated deletion          |           |                |         |
+| `DIFFVIM_ACCEL_DELETE_START_MS`  | 80          | Initial slow delay for accel-delete      |           |                |         |
+| `DIFFVIM_ACCEL_DELETE_MIN_MS`    | 10          | Minimum accelerated delay                |           |                |         |
+| `DIFFVIM_ACCEL_DELETE_ACCEL`     | 85          | Acceleration factor (0-100)              |           |                |         |
+| `DIFFVIM_BLOCK_DELETE_SIZE`      | 3           | Group deletes into blocks of N           |           |                |         |
+| `DIFFVIM_PAUSE_BEFORE_DELETE_MS` | 200         | Pause before delete block                |           |                |         |
+| `DIFFVIM_PAUSE_AFTER_DELETE_MS`  | 200         | Pause after delete block                 |           |                |         |
+| `AD_OVERWRITE_MODE`              | 0           | In-place overwrite mode                  |           |                |         |
+| `DIFFVIM_SCROLL`                 | zz          | Scroll mode (zz\                         | zt\       | zb\            | none)   |
+| `DIFFVIM_SIGN_COLUMN`            | (off)       | Show +/- signs                           |           |                |         |
+| `DIFFVIM_GIT_BLAME`              | (off)       | Show git blame                           |           |                |         |
+| `DIFFVIM_MAX_HUNK_CHARS`         | 0           | Skip animation for hunks >N chars        |           |                |         |
+| `DIFFVIM_THEME`                  | (none)      | Color theme (dark\                       | light\    | high-contrast) |         |
+| `DIFFVIM_STEP_MODE`              | (off)       | Step mode (Space advances one op)        |           |                |         |
+| `DIFFVIM_STARTUP_PAUSE`          | (off)       | Show config before starting              |           |                |         |
+| `DIFFVIM_LOG_MODE`               | (off)       | Generate log without vim (1 or 2)        |           |                |         |
+| `DIFFVIM_LOG_FILE`               | diffvim.log | Log file path                            |           |                |         |
+| `DIFFVIM_LOG_TIMING`             | 1           | Include timing in log                    |           |                |         |
 
 ### set_config script
 
@@ -261,6 +261,6 @@ Use `source ./set_config [preset]` to quickly apply preset configurations:
 | -------- | -------------------------------------------------- |
 | default  | Balanced timing for normal use                     |
 | review   | Slower timing for code review (review pacing)      |
-| demo     | Smooth timing for demos (gaussian jitter)           |
+| demo     | Smooth timing for demos (gaussian jitter)          |
 | fast     | Fast timing for quick iteration                    |
-| custom   | Only use what's explicitly provided via env vars    |
+| custom   | Only use what's explicitly provided via env vars   |

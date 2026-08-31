@@ -102,14 +102,14 @@ ad_vim --preset presentation --output result.py old.py new.py
 
 ## Comparison Table
 
-| Preset         | Speed | Highlight | Pause       | Post-processing                  | Best for                |
-| -------------- | ----- | --------- | ----------- | -------------------------------- | ----------------------- |
-| `default`      | 1.0x  | off       | none        | optimize_sequence                | Everyday use            |
-| `fast-delete`  | 1.0x  | off       | none        | optimize + rapid-EOL + word-accel| Large refactors         |
-| `review`       | 1.0x  | hunk      | after hunk  | optimize + dim-unchanged         | Code review             |
-| `ai-code`      | 1.0x  | inline    | none        | word-diff                        | AI-generated diffs      |
-| `demo`         | 0.7x  | inline    | after word  | optimize + word-pause            | Live demos              |
-| `presentation` | 1.2x  | off       | none        | optimize                         | Screencast recording    |
+| Preset         | Speed | Highlight | Pause       | Post-processing                   | Best for                |
+| -------------- | ----- | --------- | ----------- | --------------------------------- | ----------------------- |
+| `default`      | 1.0x  | off       | none        | optimize_sequence                 | Everyday use            |
+| `fast-delete`  | 1.0x  | off       | none        | optimize + rapid-EOL + word-accel | Large refactors         |
+| `review`       | 1.0x  | hunk      | after hunk  | optimize + dim-unchanged          | Code review             |
+| `ai-code`      | 1.0x  | inline    | none        | word-diff                         | AI-generated diffs      |
+| `demo`         | 0.7x  | inline    | after word  | optimize + word-pause             | Live demos              |
+| `presentation` | 1.2x  | off       | none        | optimize                          | Screencast recording    |
 
 ## Custom Presets
 

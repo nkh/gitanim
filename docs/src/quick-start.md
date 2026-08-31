@@ -17,18 +17,18 @@ characters are deleted/typed to transform the buffer into `new.py`.
 
 ## During Animation
 
-| Key | Action |
-|-----|--------|
-| `Space` | Pause / resume |
-| `n` | Skip current hunk (apply instantly) |
-| `b` | Back to previous hunk (revert and restart) |
-| `q` | Stop animation |
-| `+` | Speed up (x1.5) |
-| `-` | Slow down (x0.67) |
-| `=` | Reset speed to 1.0x |
-| `u` | Undo last hunk |
-| `Ctrl-r` | Redo hunk |
-| `?` | Show help overlay |
+| Key      | Action                                     |
+| -------- | ------------------------------------------ |
+| `Space`  | Pause / resume                             |
+| `n`      | Skip current hunk (apply instantly)        |
+| `b`      | Back to previous hunk (revert and restart) |
+| `q`      | Stop animation                             |
+| `+`      | Speed up (x1.5)                            |
+| `-`      | Slow down (x0.67)                          |
+| `=`      | Reset speed to 1.0x                        |
+| `u`      | Undo last hunk                             |
+| `Ctrl-r` | Redo hunk                                  |
+| `?`      | Show help overlay                          |
 
 ## After Animation
 

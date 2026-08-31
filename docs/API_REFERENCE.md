@@ -41,17 +41,17 @@ Hunk metadata from the HUNK header.
 
 ### Constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `AD_LAYER_MAX_LINE` | 1048576 | Max line size (1MB) |
-| `AD_LAYER_TYPE_LEN` | 20 | Max op type string length |
-| `AD_LAYER_INIT_CAPACITY` | 4096 | Initial op array capacity |
-| `AD_LAYER_OUTPUT_SLACK` | 1024 | Extra slots in output buffer |
-| `AD_LAYER_MAX_TOKENS` | 8 | Max TSV tokens per line |
-| `AD_LAYER_CHAR_SPACE` | 32 | ASCII space |
-| `AD_LAYER_CHAR_TAB` | 9 | ASCII tab |
-| `AD_LAYER_CHAR_NEWLINE` | 10 | ASCII newline |
-| `AD_LAYER_DEFAULT_SKIP_PAUSE_MS` | 300 | Default indent-skip pause |
+| Constant                         | Value   | Description                  |
+| -------------------------------- | ------- | ---------------------------- |
+| `AD_LAYER_MAX_LINE`              | 1048576 | Max line size (1MB)          |
+| `AD_LAYER_TYPE_LEN`              | 20      | Max op type string length    |
+| `AD_LAYER_INIT_CAPACITY`         | 4096    | Initial op array capacity    |
+| `AD_LAYER_OUTPUT_SLACK`          | 1024    | Extra slots in output buffer |
+| `AD_LAYER_MAX_TOKENS`            | 8       | Max TSV tokens per line      |
+| `AD_LAYER_CHAR_SPACE`            | 32      | ASCII space                  |
+| `AD_LAYER_CHAR_TAB`              | 9       | ASCII tab                    |
+| `AD_LAYER_CHAR_NEWLINE`          | 10      | ASCII newline                |
+| `AD_LAYER_DEFAULT_SKIP_PAUSE_MS` | 300     | Default indent-skip pause    |
 
 ### Functions
 
@@ -233,13 +233,13 @@ via `atexit()`.
 <type>\t<line>\t<col>\t<code>\t<char_repr>
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| type | string | `keep`, `delete`, `insert`, `overwrite_insert` |
-| line | int | 1-indexed line number |
-| col | int | 1-indexed column number |
-| code | int | ASCII/Unicode codepoint |
-| char_repr | string | Human-readable: `'a'`, `\\n`, `space`, `32` |
+| Field     | Type   | Description                                    |
+| --------- | ------ | ---------------------------------------------- |
+| type      | string | `keep`, `delete`, `insert`, `overwrite_insert` |
+| line      | int    | 1-indexed line number                          |
+| col       | int    | 1-indexed column number                        |
+| code      | int    | ASCII/Unicode codepoint                        |
+| char_repr | string | Human-readable: `'a'`, `\\n`, `space`, `32`    |
 
 ### Hunk Header
 ```
