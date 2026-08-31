@@ -121,15 +121,7 @@ sub transform_hunk {
         }
 
         # No match — emit op[i] unchanged.
-        # If this is a \n delete, the animator will join two lines
-        # (buffer loses a line) → decrement later ops > N.
         push @out, $work[$i];
-        if ($work[$i]{type} eq 'delete' && $work[$i]{code} == 10) {
-            my $join_line = $work[$i]{line};
-            for my $k ($i+1 .. $#work) {
-                $work[$k]{line}-- if $work[$k]{line} > $join_line;
-            }
-        }
         $i++;
     }
 

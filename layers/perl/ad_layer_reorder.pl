@@ -142,16 +142,15 @@ sub transform_hunk {
     }
 
     # Set positions on the output.
-    # For non-\n ops: assign (current_line, current_col).
-    # For \n ops: KEEP original position. But update current_line
-    # differently for deletes vs keeps/inserts:
-    #   - \n keep/insert: advance to next line (content moves down)
-    #   - \n delete: DON'T advance (join brings next line's content HERE)
+    # Walk forward, assigning (line, col) based on execution order.
+    # Track line_shift from \n deletes (-) and \n inserts (+).
     my $cl = @out > 0 ? $out[0]{line} : 1;
     my $cc = 1;
+    my $line_shift = 0;
     for my $op (@out) {
         next if is_debug_op($op);
         if ($op->{code} != 10) {
+            # Non-\n op: assign (current_line, current_col)
             $op->{line} = $cl;
             $op->{col}  = $cc;
             if ($op->{type} eq 'keep'
@@ -160,14 +159,20 @@ sub transform_hunk {
                 $cc++;
             }
         } else {
-            # \n op: KEEP original position. Don't touch.
+            # \n op: assign current line/col
+            $op->{line} = $cl;
+            $op->{col}  = $cc;
             if ($op->{type} eq 'delete') {
-                # \n delete: join — next content stays on SAME line
-                # current_line unchanged, current_col unchanged
+                # \n delete: join — DON'T advance.
+                $line_shift--;
             } else {
                 # \n keep or insert: advance to next line
-                $cl = $op->{line} + 1;
+                $cl++;
                 $cc = 1;
+                if ($op->{type} eq 'insert'
+                    || $op->{type} eq 'overwrite_insert') {
+                    $line_shift++;
+                }
             }
         }
     }

@@ -60,20 +60,27 @@ static int layer_reorder(Op *ops, int n_ops, Op *out, int out_cap, int *line_off
     }
 
     /* ── Pass 2: position walk ──
-     * For non-\n ops: assign (current_line, current_col).
-     * For \n ops: KEEP original position. But update current_line
-     * differently for deletes vs keeps/inserts:
+     * Walk forward, assigning (line, col) to each op based on the
+     * execution order. Track a "line_shift" that adjusts for \n
+     * deletes (join reduces line count) and \n inserts (split
+     * increases line count).
+     *
      *   - \n keep/insert: advance to next line (content moves down)
-     *   - \n delete: DON'T advance (join brings next line's content HERE) */
+     *   - \n delete: DON'T advance (join brings next line's content HERE).
+     *     Decrement line_shift so subsequent ops' lines are adjusted.
+     *   - \n insert: advance to next line.
+     *     Increment line_shift so subsequent ops' lines are adjusted. */
     if (out_count > 0) {
         int current_line = out[0].line;
         int current_col = 1;
+        int line_shift = 0;  /* cumulative shift from \n deletes (-) and inserts (+) */
         for (int i = 0; i < out_count; i++) {
             if (ad_layer_is_debug_op(&out[i])) continue;
 
             int is_newline_op = (out[i].code == AD_LAYER_CHAR_NEWLINE);
 
             if (!is_newline_op) {
+                /* Apply line_shift to the op's line */
                 out[i].line = current_line;
                 out[i].col = current_col;
                 if (strcmp(out[i].type, "keep") == 0
@@ -82,14 +89,21 @@ static int layer_reorder(Op *ops, int n_ops, Op *out, int out_cap, int *line_off
                     current_col++;
                 }
             } else {
-                /* \n op: KEEP original position. Don't touch. */
+                /* \n op */
+                out[i].line = current_line;  /* assign current line */
+                out[i].col = current_col;    /* assign current col */
                 if (strcmp(out[i].type, "delete") == 0) {
-                    /* \n delete: join — next content stays on SAME line */
-                    /* current_line unchanged, current_col unchanged */
+                    /* \n delete: join — DON'T advance. Next content
+                     * stays on SAME line. */
+                    line_shift--;
                 } else {
                     /* \n keep or insert: advance to next line */
-                    current_line = out[i].line + 1;
+                    current_line++;
                     current_col = 1;
+                    if (strcmp(out[i].type, "insert") == 0
+                        || strcmp(out[i].type, "overwrite_insert") == 0) {
+                        line_shift++;
+                    }
                 }
             }
         }

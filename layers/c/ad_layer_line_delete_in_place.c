@@ -95,19 +95,9 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
             }
         }
 
-        /* No match — emit op[i] unchanged.
-         * If this is a \n delete, the animator will join two lines
-         * (buffer loses a line) → decrement later ops by 1, but ONLY
-         * for ops that are BELOW this \n's line. */
+        /* No match — emit op[i] unchanged. */
         if (n_out < out_cap)
             out[n_out++] = work[i];
-        if (strcmp(work[i].type, "delete") == 0
-            && work[i].code == AD_LAYER_CHAR_NEWLINE) {
-            int join_line = work[i].line;
-            for (int k = i + 1; k < n_work; k++)
-                if (work[k].line > join_line)
-                    work[k].line--;
-        }
         i++;
     }
 
