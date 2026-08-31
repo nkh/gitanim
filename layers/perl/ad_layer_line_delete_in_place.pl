@@ -83,35 +83,34 @@ sub transform_hunk {
 
     my $i = 0;
     while ($i < $n) {
-        # Check for pattern:
-        #   op[i]   = \n delete on line N
-        #   op[i+1] = content delete on line N+1
-        #   op[...] = more content deletes on line N+1
-        #   op[ce]  = \n delete on line N+1
+        # Check for pattern (by op CODE, not line number — positions may
+        # have been recomputed by a previous layer):
+        #   delete \n (code==10)           ← joiner
+        #   delete content (code!=10)       ← content delete(s)
+        #   ...
+        #   delete \n (code==10)           ← content's own \n
         my $matched = 0;
         if ($i + 2 < $n
             && $in[$i]{type} eq 'delete' && $in[$i]{code} == 10
-            && $in[$i+1]{type} eq 'delete' && $in[$i+1]{code} != 10
-            && $in[$i+1]{line} == $in[$i]{line} + 1) {
-            my $dl = $in[$i]{line} + 1;
-            my $cs = $i + 1;
-            my $ce = $cs;
+            && $in[$i+1]{type} eq 'delete' && $in[$i+1]{code} != 10) {
+
+            my $cs = $i + 1;   # content start
+            my $ce = $cs;       # content end (exclusive)
             while ($ce < $n
                    && $in[$ce]{type} eq 'delete'
-                   && $in[$ce]{code} != 10
-                   && $in[$ce]{line} == $dl) {
+                   && $in[$ce]{code} != 10) {
                 $ce++;
             }
             if ($ce < $n
                 && $in[$ce]{type} eq 'delete'
-                && $in[$ce]{code} == 10
-                && $in[$ce]{line} == $dl) {
-                # Pattern matched: emit content+nl first, then the join.
+                && $in[$ce]{code} == 10) {
+                # Pattern matched: emit content first, then content's \n,
+                # then the joining \n.
                 for (my $k = $cs; $k < $ce; $k++) {
                     push @out, $in[$k];
                 }
-                push @out, $in[$ce];   # \n delete on N+1
-                push @out, $in[$i];     # \n delete on N (the join)
+                push @out, $in[$ce];   # \n (content's own)
+                push @out, $in[$i];     # \n (joiner)
                 $i = $ce + 1;
                 $matched = 1;
             }
