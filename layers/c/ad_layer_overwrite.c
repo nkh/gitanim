@@ -1,30 +1,24 @@
 /* ad_layer_overwrite.c — merge delete+insert pairs into overwrite_insert.
  *
  * Detects adjacent delete+insert at the same (line, col) and merges them
- * into overwrite_insert. Prevents merge if the previous op was a delete at
- * the same position (prev_is_delete_same_pos) or the next-next op is an
- * insert at the same line (next_is_insert_same_line).
+ * into overwrite_insert. Operates ONLY on non-\n ops — never touches
+ * 'delete \n' or 'insert \n' ops.
+ *
+ * Position handling:
+ *   - For non-\n ops: recompute (current_line, current_col) based on
+ *     keeps/inserts/overwrite_inserts advancing the cursor.
+ *   - For \n ops: KEEP original position. Never touch.
  */
 #include "ad_layer_common.h"
 
-/* layer_overwrite: Detects adjacent delete+insert pairs at the same
- * (line, col) and merges them into a single overwrite_insert op. This
- * prevents the visual "delete then insert" flicker for in-place edits.
- * The merge is suppressed if (a) the previous op was a delete at the same
- * position (would lose information) or (b) the next-next op is an insert
- * on the same line (would interrupt a multi-char insert run).
- *
- * Inputs:  ops[0..n_ops-1]   — ops for one hunk (positions already set).
- * Outputs: out[0..out_cap-1] — merged ops with positions re-walked.
- *          *line_offset       — not modified.
- * Returns: number of output ops written. */
 static int layer_overwrite(Op *ops, int n_ops, Op *out, int out_cap, int *line_offset) {
-    (void)line_offset;  /* overwrite doesn't use line_offset */
+    (void)line_offset;
     int out_count = 0;
     int i = 0;
 
     while (i < n_ops) {
         int can_merge = 0;
+        /* Only merge non-\n delete + non-\n insert at the same (line, col). */
         if (i + 1 < n_ops
             && strcmp(ops[i].type, "delete") == 0 && ops[i].code != AD_LAYER_CHAR_NEWLINE
             && strcmp(ops[i+1].type, "insert") == 0 && ops[i+1].code != AD_LAYER_CHAR_NEWLINE
@@ -62,18 +56,31 @@ static int layer_overwrite(Op *ops, int n_ops, Op *out, int out_cap, int *line_o
         }
     }
 
-    /* Set positions on the output. */
-    int cl = (out_count > 0) ? out[0].line : 1;
-    int cc = 1;
-    for (int i = 0; i < out_count; i++) {
-        if (ad_layer_is_debug_op(&out[i])) continue;
-        out[i].line = cl;
-        out[i].col = cc;
-        if (strcmp(out[i].type, "keep") == 0 ||
-            strcmp(out[i].type, "insert") == 0 ||
-            strcmp(out[i].type, "overwrite_insert") == 0) {
-            if (out[i].code == AD_LAYER_CHAR_NEWLINE) { cl++; cc = 1; }
-            else cc++;
+    /* ── Position walk ──
+     * For non-\n ops: assign (current_line, current_col).
+     * For \n ops: KEEP original position. Never touch.
+     */
+    if (out_count > 0) {
+        int current_line = out[0].line;
+        int current_col = 1;
+        for (int i = 0; i < out_count; i++) {
+            if (ad_layer_is_debug_op(&out[i])) continue;
+
+            int is_newline_op = (out[i].code == AD_LAYER_CHAR_NEWLINE);
+
+            if (!is_newline_op) {
+                out[i].line = current_line;
+                out[i].col = current_col;
+                if (strcmp(out[i].type, "keep") == 0
+                    || strcmp(out[i].type, "insert") == 0
+                    || strcmp(out[i].type, "overwrite_insert") == 0) {
+                    current_col++;
+                }
+            } else {
+                /* \n op: KEEP original position. Don't touch. */
+                current_line = out[i].line + 1;
+                current_col = 1;
+            }
         }
     }
 

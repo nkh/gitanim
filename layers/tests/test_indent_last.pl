@@ -26,10 +26,10 @@ open($fh, '>', $new) or die; print $fh "def foo():\n\ndef bar():\n    pass\n"; c
 system("./bin/ad_compute '$old' '$new' /tmp/il_test_raw.txt 2>/dev/null");
 
 # Run postprocess WITHOUT indent-last
-system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
+system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_delete_in_place < /tmp/il_test_raw.txt > /tmp/il_test_post_no.txt 2>/dev/null");
 
 # Run postprocess WITH indent-last
-system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
+system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_delete_in_place --ad-layer=ad_layer_indent_last < /tmp/il_test_raw.txt > /tmp/il_test_post_il.txt 2>/dev/null");
 
 # Read the ops
 sub read_ops {

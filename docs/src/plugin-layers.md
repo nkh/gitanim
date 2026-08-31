@@ -144,7 +144,7 @@ ad_vim --list-layers
 Convenience flags that map to layers:
 - `--indent-last` → `--ad-layer=ad_layer_indent_last`
 - `--overwrite` → `--ad-layer=ad_layer_overwrite`
-- `--line-delete-in-place` → `--ad-layer=ad_layer_line_delete_in_place`
+- `--line-delete-in-place` → `--ad-layer=ad_layer_line_delete_in_place` (runs INSTEAD of reorder — needs original line numbers)
 
 ## Built-in layers
 
@@ -201,7 +201,8 @@ The `--ad-layer=<name>` mechanism discovers the layer automatically.
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  ad_vim (bash launcher)                                          │
-│    --indent-last, --overwrite, --line-delete-in-place             │
+│    --indent-last, --overwrite                                    │
+│    --line-delete-in-place  (⚠️ DISABLED — see warning above)     │
 │    --ad-layer=<name>      ← generic layer addition               │
 │    --list-layers          ← delegates to orchestrator            │
 └──────────┬───────────────────────────────────────────────────────┘

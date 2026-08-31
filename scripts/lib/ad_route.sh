@@ -26,7 +26,7 @@ ad_route_option() {
 
     case "$opt" in
         # Compute options
-        --word-diff|--no-optimize-sequence|--left-to-right|--no-left-to-right)
+        --word-diff|--no-optimize-sequence)
             _ra_compute+=("$opt")
             [[ -n "$val" ]] && _ra_compute+=("$val")
             ;;
@@ -66,12 +66,6 @@ ad_route_option() {
         --diff-stat|--diff-highlight|--bell|--scroll|--line-numbers|--progress|--speed)
             _ra_animator+=("$opt")
             [[ -n "$val" ]] && _ra_animator+=("$val")
-            ;;
-        --left-to-right)
-            export DIFFVIM_LEFT_TO_RIGHT=1
-            ;;
-        --no-left-to-right)
-            export DIFFVIM_LEFT_TO_RIGHT=0
             ;;
         *)
             # Unknown option — default to animator

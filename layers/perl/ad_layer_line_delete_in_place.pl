@@ -1,25 +1,17 @@
 #!/usr/bin/env perl
-# ad_layer_line_delete_in_place.pl — Perl implementation of the
-# line_delete_in_place layer.
+# ad_layer_line_delete_in_place.pl — Perl twin of the C layer.
 #
-# When a \n delete would join two lines, and the next line is fully
-# deleted, reorder so content is deleted FIRST (on its own line),
-# then the \n delete joins. Prevents "join then delete" visual.
-#
-# This is the Perl twin of layers/c/ad_layer_line_delete_in_place.c.
-# Both produce byte-identical output for the same input (parity
-# verified by tests).
-#
-# Algorithm (mirror of the C version):
-#   1. Walk ops in each hunk.
-#   2. Detect pattern: \n delete on line N, followed by content deletes
-#      on line N+1, followed by \n delete on line N+1.
-#   3. When matched: emit content deletes, then \n delete on N+1, then
-#      \n delete on N (the join).
-#   4. Otherwise, pass the op through.
-#   5. Positions are passed through unchanged from ad_layer_reorder.
-#
-# Protocol: see docs/src/plugin-layers.md.
+# Algorithm (per user spec):
+#   walk ops:
+#     if op[i] is delete(\n) on line N
+#        and op[i+1..k] is delete(content) on line N+1
+#        and op[k+1] is delete(\n) on line N+1:
+#          emit op[i+1..k]      (content, keep line=N+1)
+#          emit op[k+1]         (content's \n, keep line=N+1)
+#          decrement line of all LATER ops by 1
+#          op[i] is still delete \n, re-iterate
+#     else:
+#          emit op[i] unchanged
 
 use strict;
 use warnings;
@@ -29,7 +21,6 @@ binmode(STDIN,  ':utf8');
 binmode(STDOUT, ':utf8');
 binmode(STDERR, ':utf8');
 
-my $LAYER_NAME = 'ad_layer_line_delete_in_place (Perl)';
 my $DEBUG = 0;
 for my $arg (@ARGV) { $DEBUG = 1 if $arg eq "--debug"; }
 
@@ -37,7 +28,7 @@ sub debug_log {
     my ($msg) = @_;
     return unless $DEBUG;
     open(my $fh, '>>', '/tmp/ad_debug/postprocess.log') or return;
-    print $fh "[$LAYER_NAME] $msg\n";
+    print $fh "[line_delete_in_place (Perl)] $msg\n";
     close($fh);
 }
 
@@ -77,46 +68,87 @@ sub write_op {
 
 sub transform_hunk {
     my ($ops) = @_;
-    my @in = @$ops;
-    my $n = scalar @in;
+    my @work = @$ops;           # mutable copy
     my @out;
 
     my $i = 0;
-    while ($i < $n) {
-        # Check for pattern (by op CODE, not line number — positions may
-        # have been recomputed by a previous layer):
-        #   delete \n (code==10)           ← joiner
-        #   delete content (code!=10)       ← content delete(s)
-        #   ...
-        #   delete \n (code==10)           ← content's own \n
-        my $matched = 0;
-        if ($i + 2 < $n
-            && $in[$i]{type} eq 'delete' && $in[$i]{code} == 10
-            && $in[$i+1]{type} eq 'delete' && $in[$i+1]{code} != 10) {
+    while ($i < scalar @work) {
+        # ── Pattern 1: DELETE (joiner \n, content, content's \n) ──
+        if ($i + 2 < scalar @work
+            && $work[$i]{type} eq 'delete'
+            && $work[$i]{code} == 10) {
 
-            my $cs = $i + 1;   # content start
-            my $ce = $cs;       # content end (exclusive)
-            while ($ce < $n
-                   && $in[$ce]{type} eq 'delete'
-                   && $in[$ce]{code} != 10) {
-                $ce++;
-            }
-            if ($ce < $n
-                && $in[$ce]{type} eq 'delete'
-                && $in[$ce]{code} == 10) {
-                # Pattern matched: emit content first, then content's \n,
-                # then the joining \n.
-                for (my $k = $cs; $k < $ce; $k++) {
-                    push @out, $in[$k];
+            if ($work[$i+1]{type} eq 'delete'
+                && $work[$i+1]{code} != 10) {
+
+                my $ce = $i + 1;
+                while ($ce < scalar @work
+                       && $work[$ce]{type} eq 'delete'
+                       && $work[$ce]{code} != 10) {
+                    $ce++;
                 }
-                push @out, $in[$ce];   # \n (content's own)
-                push @out, $in[$i];     # \n (joiner)
-                $i = $ce + 1;
-                $matched = 1;
+
+                if ($ce < scalar @work
+                    && $work[$ce]{type} eq 'delete'
+                    && $work[$ce]{code} == 10) {
+
+                    my $content_count = $ce - ($i + 1);
+
+                    for my $k ($i+1 .. $ce-1) {
+                        push @out, $work[$k];
+                    }
+                    push @out, $work[$ce];
+
+                    for my $k ($ce+1 .. $#work) {
+                        $work[$k]{line}--;
+                    }
+
+                    splice @work, $i+1, $content_count + 1;
+                    next;
+                }
             }
         }
-        next if $matched;
-        push @out, $in[$i];
+
+        # ── Pattern 2: INSERT (content..., then \n) ──
+        # Move \n INSERT to front so the new line is created first,
+        # then content fills it. Drop the \n at end.
+        if ($i + 1 < scalar @work
+            && ($work[$i]{type} eq 'insert'
+                || $work[$i]{type} eq 'overwrite_insert')
+            && $work[$i]{code} != 10) {
+
+            my $line = $work[$i]{line};
+            my $ce = $i;
+            while ($ce < scalar @work
+                   && ($work[$ce]{type} eq 'insert'
+                       || $work[$ce]{type} eq 'overwrite_insert')
+                   && $work[$ce]{code} != 10
+                   && $work[$ce]{line} == $line) {
+                $ce++;
+            }
+
+            if ($ce < scalar @work
+                && ($work[$ce]{type} eq 'insert'
+                    || $work[$ce]{type} eq 'overwrite_insert')
+                && $work[$ce]{code} == 10
+                && $work[$ce]{line} == $line) {
+
+                # Pattern matched: move \n to front
+                my %nl_op = %{$work[$ce]};
+                $nl_op{col} = $work[$i]{col};
+                push @out, \%nl_op;
+
+                for my $k ($i .. $ce-1) {
+                    push @out, $work[$k];
+                }
+
+                $i = $ce + 1;
+                next;
+            }
+        }
+
+        # No match — emit op[i] unchanged
+        push @out, $work[$i];
         $i++;
     }
 
@@ -135,8 +167,6 @@ my $hunk_count = 0;
 my @hunk_ops;
 my ($hunk_target, $hunk_del, $hunk_ins, $hunk_end_ins, $hunk_end_del) =
     (0, 0, 0, 0, 0);
-my $total_in = 0;
-my $total_out = 0;
 
 sub flush_hunk {
     return unless @hunk_ops;
@@ -148,10 +178,8 @@ sub flush_hunk {
         $hunk_target, $hunk_del, $hunk_ins, $hunk_end_ins, $hunk_end_del;
     for my $op (@$out_ops) {
         write_op($op);
-        $total_out++;
     }
     print "HUNK_END\n";
-    $total_in += scalar(@hunk_ops);
     @hunk_ops = ();
 }
 
@@ -192,6 +220,6 @@ while (my $line = <STDIN>) {
 flush_hunk() if $in_hunk && @hunk_ops;
 
 print "\n";
-debug_log("Total: $hunk_count hunks, $total_in → $total_out ops");
+debug_log("Total: $hunk_count hunks");
 debug_log("Done");
 exit 0;

@@ -91,6 +91,30 @@ HELP
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Resolve binary paths — search both pipeline/ and bin/ (for backward compat)
+find_bin() {
+    local name="$1"
+    for dir in "$ROOT/pipeline" "$ROOT/bin"; do
+        if [[ -x "$dir/$name" ]]; then
+            echo "$dir/$name"
+            return 0
+        fi
+    done
+    echo "ERROR: $name not found in $ROOT/pipeline or $ROOT/bin" >&2
+    exit 1
+}
+COMPUTE_BIN="$(find_bin ad_compute)"
+POSTPROCESS_BIN="$(find_bin ad_postprocess)"
+PACE_BIN="$(find_bin ad_layer_pace)"
+ANIMATOR_BIN="$(find_bin ad)"
+HIGHLIGHT_BIN=""
+for dir in "$ROOT/pipeline" "$ROOT/bin"; do
+    if [[ -x "$dir/ad_layer_highlight" ]]; then
+        HIGHLIGHT_BIN="$dir/ad_layer_highlight"
+        break
+    fi
+done
+
 # --- Snapshot-specific options ---
 SHOW_PACING=0
 SHOW_KEEP=0
@@ -127,13 +151,16 @@ while [[ $# -gt 0 ]]; do
         --font-size=*)                   FONT_SIZE="${1#--font-size=}"; shift ;;
         --trace)                         TRACE=1; shift ;;
 
-        # Postprocess options
-        --op-order)                      POSTPROCESS_ARGS+=("--op-order" "$2"); shift 2 ;;
-        --semantic-cleanup|-S)           POSTPROCESS_ARGS+=("--semantic-cleanup"); shift ;;
-        --indent-aware|-i)               POSTPROCESS_ARGS+=("--indent-aware"); shift ;;
-        --indent-last)                   POSTPROCESS_ARGS+=("--indent-last"); shift ;;
-        --overwrite)                     POSTPROCESS_ARGS+=("--overwrite"); shift ;;
-        --stream)                        POSTPROCESS_ARGS+=("--stream"); shift ;;
+        # Postprocess options (route to --ad-layer= format)
+        --indent-last)                   POSTPROCESS_ARGS+=("--ad-layer=ad_layer_indent_last"); shift ;;
+        --overwrite)                     POSTPROCESS_ARGS+=("--ad-layer=ad_layer_overwrite"); shift ;;
+        --line-delete-in-place)          POSTPROCESS_ARGS+=("--ad-layer=ad_layer_line_delete_in_place"); shift ;;
+        --ad-layer=*)                    POSTPROCESS_ARGS+=("$1"); shift ;;
+        --ad-layer)                      POSTPROCESS_ARGS+=("$1" "$2"); shift 2 ;;
+        --ad-layer-path=*)               POSTPROCESS_ARGS+=("$1"); shift ;;
+        --ad-layer-path)                 POSTPROCESS_ARGS+=("$1" "$2"); shift 2 ;;
+        --ad-layer-arg=*)                POSTPROCESS_ARGS+=("$1"); shift ;;
+        --ad-layer-arg)                  POSTPROCESS_ARGS+=("$1" "$2"); shift 2 ;;
 
         # Compute options
         --word-diff)                     COMPUTE_ARGS+=("--word-diff"); shift ;;
@@ -230,7 +257,7 @@ RAW="$OUTDIR/raw.txt"; POST="$OUTDIR/post.txt"; DECORATED="$OUTDIR/decorated.txt
 echo "Running pipeline (compute → postprocess → pace → decorate)..." >&2
 
 # Stage 1: Compute
-if ! "$ROOT/bin/ad_compute" "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"; then
+if ! "$COMPUTE_BIN" "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW" 2>"$OUTDIR/compute_stderr.txt"; then
     echo "ERROR: compute stage failed:" >&2
     cat "$OUTDIR/compute_stderr.txt" >&2
     exit 1
@@ -238,8 +265,11 @@ fi
 raw_ops=$(grep -cv "^#\|^$" "$RAW" 2>/dev/null || echo 0)
 echo "  [1/5] compute: $raw_ops ops" >&2
 
-# Stage 2: Postprocess
-if ! "$ROOT/bin/ad_postprocess" "${POSTPROCESS_ARGS[@]}" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt"; then
+# Stage 2: Postprocess (add reorder as default first layer if not present)
+if [[ ${#POSTPROCESS_ARGS[@]} -eq 0 || "${POSTPROCESS_ARGS[0]}" != "--ad-layer=ad_layer_reorder" ]]; then
+    POSTPROCESS_ARGS=("--ad-layer=ad_layer_reorder" "${POSTPROCESS_ARGS[@]}")
+fi
+if ! "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt"; then
     echo "ERROR: postprocess stage failed:" >&2
     cat "$OUTDIR/postprocess_stderr.txt" >&2
     exit 1
@@ -248,7 +278,7 @@ post_ops=$(grep -cv "^#\|^$" "$POST" 2>/dev/null || echo 0)
 echo "  [2/5] postprocess: $post_ops ops" >&2
 
 # Stage 3: Pace
-if ! "$ROOT/bin/ad_layer_pace" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
+if ! "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
     echo "ERROR: pace stage failed:" >&2
     cat "$OUTDIR/pace_stderr.txt" >&2
     exit 1
@@ -257,8 +287,8 @@ timed_ops=$(grep -cv "^#\|^$" "$TIMED" 2>/dev/null || echo 0)
 echo "  [3/5] pace: $timed_ops ops" >&2
 
 # Stage 4: Decorate
-if [[ -f "$ROOT/bin/ad_layer_highlight" ]]; then
-    if ! "$ROOT/bin/ad_layer_highlight" "${DECORATE_ARGS[@]}" < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
+if [[ -n "$HIGHLIGHT_BIN" && -x "$HIGHLIGHT_BIN" ]]; then
+    if ! "$HIGHLIGHT_BIN" "${DECORATE_ARGS[@]}" < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
         echo "WARNING: decorate stage failed, using undecorated ops:" >&2
         cat "$OUTDIR/decorate_stderr.txt" >&2
         cp "$TIMED" "$DECORATED"
@@ -291,7 +321,7 @@ echo "" >&2
 echo "  [5/5] done: $total_snaps snapshots" >&2
 
 echo "Running animator ($total_snaps ops)..." >&2
-"$ROOT/bin/ad" --no-display --speed 1000 "${ANIMATOR_ARGS[@]}" \
+"$ANIMATOR_BIN" --no-display --speed 1000 "${ANIMATOR_ARGS[@]}" \
     --snapshot "$OUTDIR/animator_output.txt" "$OLD" < "$INJECTED" 2>/dev/null || true
 
 # Build HTML with progress feedback

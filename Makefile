@@ -116,7 +116,7 @@ install-bin: all
 	install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/ad_compute
 	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/ad
 	for layer in $(LAYER_BINS); do \
-		install -m 755 $$layer $(DESTDIR)$(BINDIR)/$$(basename $$layer); \
+	        install -m 755 $$layer $(DESTDIR)$(BINDIR)/$$(basename $$layer); \
 	done
 	install -m 755 pipeline/ad_pipeline $(DESTDIR)$(BINDIR)/ad_pipeline
 	install -m 755 pipeline/ad_postprocess $(DESTDIR)$(BINDIR)/ad_postprocess
@@ -132,13 +132,13 @@ install-bin: all
 	install -m 755 layers/perl/ad_layer_line_delete_in_place.pl $(DESTDIR)$(BINDIR)/ad_layer_line_delete_in_place-perl
 	# Helper scripts
 	for tool in scripts/*.sh; do \
-		install -m 755 $$tool $(DESTDIR)$(BINDIR)/$$(basename $$tool .sh); \
+	        install -m 755 $$tool $(DESTDIR)$(BINDIR)/$$(basename $$tool .sh); \
 	done
 
 install-man:
 	install -d $(DESTDIR)$(MANDIR)
 	for f in man/*.1; do \
-		install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
+	        install -m 644 $$f $(DESTDIR)$(MANDIR)/; \
 	done
 
 install-comp:
@@ -150,9 +150,9 @@ install-comp:
 install-docs:
 	install -d $(DESTDIR)$(DOCDIR)
 	if [ -d docs/book ]; then \
-		cp -r docs/book/* $(DESTDIR)$(DOCDIR)/; \
+	        cp -r docs/book/* $(DESTDIR)$(DOCDIR)/; \
 	else \
-		cp -r docs/src/*.md $(DESTDIR)$(DOCDIR)/; \
+	        cp -r docs/src/*.md $(DESTDIR)$(DOCDIR)/; \
 	fi
 
 # --- Documentation ---------------------------------------------------------
@@ -162,9 +162,9 @@ install-docs:
 docs:
 	@echo "Building documentation..."
 	@if command -v mdbook >/dev/null 2>&1; then \
-		cd docs && mdbook build; \
+	        cd docs && mdbook build; \
 	else \
-		echo "  mdbook not installed — docs are plain Markdown"; \
+	        echo "  mdbook not installed — docs are plain Markdown"; \
 	fi
 
 # --- Testing ---------------------------------------------------------------
@@ -196,7 +196,12 @@ test-layer-indent_last: bin/ad_layer_indent_last
 
 test-layer-line_delete_in_place: bin/ad_layer_line_delete_in_place
 	@echo "=== Layer: line_delete_in_place ==="
-	@perl layers/tests/test_line_delete_in_place.pl 2>&1 | tail -3
+	@perl layers/tests/test_line_delete_in_place.pl 2>&1 | tail -5
+
+test-layer-line_delete_in_place_per_op: bin/ad_layer_line_delete_in_place bin/ad
+	@echo "=== Layer: line_delete_in_place (per-op snapshot test) ==="
+	@perl layers/tests/test_line_delete_in_place_per_op.pl 2>&1 | tail -30
+	@echo "(Per-op snapshots show EXACTLY where the layer breaks the buffer.)"
 
 test-layer-pace: bin/ad_layer_pace
 	@echo "=== Layer: pace ==="
@@ -219,12 +224,12 @@ test-layers: test-layer-reorder test-layer-overwrite test-layer-indent_last \
 test-unit:
 	@echo "=== Animator unit tests ==="
 	@for t in test_all_animators test_cross_language test_newline_fix \
-		 test_roundtrip test_roundtrip_verify test_snapshot_each_op \
-		 test_perl_animator test_colormap test_streaming \
-		 test_delete_pacing_modes test_newline_fix; do \
-		if [ -f tests/$$t.pl ]; then \
-			perl tests/$$t.pl 2>&1 | grep "Results:" || true; \
-		fi; \
+	         test_roundtrip test_roundtrip_verify test_snapshot_each_op \
+	         test_perl_animator test_colormap test_streaming \
+	         test_delete_pacing_modes test_newline_fix; do \
+	        if [ -f tests/$$t.pl ]; then \
+	                perl tests/$$t.pl 2>&1 | grep "Results:" || true; \
+	        fi; \
 	done
 
 test-minimal:
@@ -290,27 +295,27 @@ check:
 	@echo "Checking binary freshness..."
 	@needs_build=0; \
 	for src_bin in \
-		"diff_engine/cpp/compute.cpp:$(COMPUTE_BIN)" \
-		"animator/c/ad.c:$(ANIMATOR_BIN)" \
-		"layers/c/ad_layer_reorder.c:bin/ad_layer_reorder" \
-		"layers/c/ad_layer_overwrite.c:bin/ad_layer_overwrite" \
-		"layers/c/ad_layer_indent_last.c:bin/ad_layer_indent_last" \
-		"layers/c/ad_layer_line_delete_in_place.c:bin/ad_layer_line_delete_in_place" \
-		"layers/c/ad_layer_pace.c:bin/ad_layer_pace" \
-		"layers/c/ad_layer_highlight.c:bin/ad_layer_highlight"; do \
-		src=$${src_bin%%:*}; \
-		bin=$${src_bin##*:}; \
-		if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
-			echo "  STALE: $$bin (newer source: $$src)"; \
-			needs_build=1; \
-		fi; \
+	        "diff_engine/cpp/compute.cpp:$(COMPUTE_BIN)" \
+	        "animator/c/ad.c:$(ANIMATOR_BIN)" \
+	        "layers/c/ad_layer_reorder.c:bin/ad_layer_reorder" \
+	        "layers/c/ad_layer_overwrite.c:bin/ad_layer_overwrite" \
+	        "layers/c/ad_layer_indent_last.c:bin/ad_layer_indent_last" \
+	        "layers/c/ad_layer_line_delete_in_place.c:bin/ad_layer_line_delete_in_place" \
+	        "layers/c/ad_layer_pace.c:bin/ad_layer_pace" \
+	        "layers/c/ad_layer_highlight.c:bin/ad_layer_highlight"; do \
+	        src=$${src_bin%%:*}; \
+	        bin=$${src_bin##*:}; \
+	        if [ ! -f "$$bin" ] || [ "$$src" -nt "$$bin" ]; then \
+	                echo "  STALE: $$bin (newer source: $$src)"; \
+	                needs_build=1; \
+	        fi; \
 	done; \
 	if [ $$needs_build -eq 1 ]; then \
-		echo ""; \
-		echo "Run 'make' to rebuild."; \
-		exit 1; \
+	        echo ""; \
+	        echo "Run 'make' to rebuild."; \
+	        exit 1; \
 	else \
-		echo "  All binaries up to date."; \
+	        echo "  All binaries up to date."; \
 	fi
 
 # --- Help ------------------------------------------------------------------

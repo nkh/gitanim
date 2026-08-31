@@ -99,18 +99,20 @@ sub transform_hunk {
         $op->{line} += $line_offset;
     }
 
-    # 4-sweep reorder.
+    # Per-segment 4-sweep: segments are bounded by keeps and \n ops.
+    # Within each segment, emit non-\n deletes, then non-\n inserts,
+    # then debug ops. Boundaries (keeps, \n ops) are emitted in place.
+    # NEVER touches a 'delete \n' op — doesn't reorder it, doesn't recompute
+    # its position.
     my @out;
     my $buf_start = 0;
     for (my $i = 0; $i <= $n; $i++) {
-        # Decide whether position $i is a flush boundary.
         my $is_flush = ($i == $n) ? 1 : 0;
         if (!$is_flush && !is_debug_op($in[$i])) {
             if ($in[$i]{type} eq 'keep' || $in[$i]{code} == 10) {
                 $is_flush = 1;
             }
         }
-
         next unless $is_flush;
 
         # Sweep 1: non-newline deletes.
@@ -128,26 +130,11 @@ sub transform_hunk {
                 push @out, $in[$j];
             }
         }
-        # Sweep 3: newline deletes.
-        for (my $j = $buf_start; $j < $i; $j++) {
-            next if is_debug_op($in[$j]);
-            if ($in[$j]{type} eq 'delete' && $in[$j]{code} == 10) {
-                push @out, $in[$j];
-            }
-        }
-        # Sweep 4: newline inserts/overwrite_inserts.
-        for (my $j = $buf_start; $j < $i; $j++) {
-            next if is_debug_op($in[$j]);
-            if (($in[$j]{type} eq 'insert' || $in[$j]{type} eq 'overwrite_insert')
-                && $in[$j]{code} == 10) {
-                push @out, $in[$j];
-            }
-        }
-        # Sweep 5: debug ops (in original order).
+        # Sweep 3: debug ops (in original order).
         for (my $j = $buf_start; $j < $i; $j++) {
             push @out, $in[$j] if is_debug_op($in[$j]);
         }
-        # Emit the boundary op itself.
+        # Emit the boundary op itself (keep or \n) in place.
         if ($i < $n) {
             push @out, $in[$i];
         }
@@ -155,21 +142,24 @@ sub transform_hunk {
     }
 
     # Set positions on the output.
+    # For non-\n ops: assign (current_line, current_col).
+    # For \n ops: KEEP original position (never touch a 'delete \n' op).
     my $cl = @out > 0 ? $out[0]{line} : 1;
     my $cc = 1;
     for my $op (@out) {
         next if is_debug_op($op);
-        $op->{line} = $cl;
-        $op->{col}  = $cc;
-        if ($op->{type} eq 'keep'
-            || $op->{type} eq 'insert'
-            || $op->{type} eq 'overwrite_insert') {
-            if ($op->{code} == 10) {
-                $cl++;
-                $cc = 1;
-            } else {
+        if ($op->{code} != 10) {
+            $op->{line} = $cl;
+            $op->{col}  = $cc;
+            if ($op->{type} eq 'keep'
+                || $op->{type} eq 'insert'
+                || $op->{type} eq 'overwrite_insert') {
                 $cc++;
             }
+        } else {
+            # \n op: KEEP original position. Don't touch.
+            $cl = $op->{line} + 1;
+            $cc = 1;
         }
     }
 

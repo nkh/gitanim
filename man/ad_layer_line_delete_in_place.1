@@ -1,4 +1,4 @@
-.TH AD_LAYER_LINE_DELETE_IN_PLACE 1 "2026-08-30" "ad 2.0" "ad layers"
+.TH AD_LAYER_LINE_DELETE_IN_PLACE 1 "2026-08-31" "ad 2.0" "ad layers"
 .SH NAME
 ad_layer_line_delete_in_place \- delete whole lines on their own line (not joined then deleted)
 .SH SYNOPSIS
@@ -8,18 +8,32 @@ ad_layer_line_delete_in_place \- delete whole lines on their own line (not joine
 .B ad_layer_line_delete_in_place
 detects the pattern: \\n delete on line N, followed by content deletes on line N+1, followed by \\n delete on line N+1. It reorders so content is deleted FIRST (on its own line), then the \\n delete joins. This prevents the "join then delete" visual where two lines briefly merge before the second one vanishes.
 .PP
-Pattern matched:
+Algorithm:
 .PP
 .RS
 .nf
-delete \\n (line N)      delete content (line N+1)
-delete content (line N+1)  →  delete \\n (line N+1)
-delete \\n (line N+1)      delete \\n (line N)
+walk ops:
+  if op[i] is delete(\\n) on line N
+     and op[i+1..k] is delete(content) on line N+1
+     and op[k+1] is delete(\\n) on line N+1:
+
+       emit op[i+1..k]      (content deletes, keep line=N+1)
+       emit op[k+1]         (content's \\n, keep line=N+1)
+       decrement line of all LATER ops by 1
+       op[i] is still delete \\n, re-iterate
+  else:
+       emit op[i] unchanged
 .fi
 .RE
 .PP
-Positions are passed through unchanged from
-.BR ad_layer_reorder (1).
+The joiner \\n stays in place. After emitting the content and content's \\n, those ops are removed from the work array and all later ops have their line decremented by 1. Then we re-iterate from the same position \(em op[i] is still the joiner \\n, but now op[i+1] is whatever came after the deleted content. If that forms another match, we process it too.
+.SH PIPELINE PLACEMENT
+This layer runs on the RAW compute output (before
+.BR ad_layer_reorder ),
+because it needs the original line numbers from the diff. When
+.B \-\-line\-delete\-in\-place
+is enabled, it runs INSTEAD of
+.BR ad_layer_reorder .
 .SH OPTIONS
 .TP
 .B \-\-help, \-h
@@ -28,15 +42,18 @@ Show help and exit.
 .B \-\-debug
 Enable debug logging to /tmp/ad_debug/.
 .SH INPUT/OUTPUT
-V2 TSV format. Input should be post-reorder.
+V2 TSV format. Input should be raw compute output (not post-reorder).
 .SH CONFIGURATION
 No environment variables. This layer has no user-configurable options.
 .SH EXAMPLES
 .TP
-.B ad_layer_line_delete_in_place < reordered_ops.txt > line_delete_ops.txt
+.B ad_layer_line_delete_in_place < raw_ops.txt > line_delete_ops.txt
 Reorder line-delete patterns.
 .SH SEE ALSO
 .BR ad_postprocess (1),
 .BR ad_layer_reorder (1)
 .PP
 .I docs/src/plugin-layers.md
+.PP
+.I layers/tests/test_line_delete_in_place_per_op.pl
+\fR(per-op snapshot verification test)

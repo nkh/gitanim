@@ -126,21 +126,24 @@ sub transform_hunk {
     }
 
     # Set positions on the output.
+    # For non-\n ops: assign (current_line, current_col).
+    # For \n ops: KEEP original position (never touch a 'delete \n' op).
     my $cl = @out > 0 ? $out[0]{line} : 1;
     my $cc = 1;
     for my $op (@out) {
         next if is_debug_op($op);
-        $op->{line} = $cl;
-        $op->{col}  = $cc;
-        if ($op->{type} eq 'keep'
-            || $op->{type} eq 'insert'
-            || $op->{type} eq 'overwrite_insert') {
-            if ($op->{code} == 10) {
-                $cl++;
-                $cc = 1;
-            } else {
+        if ($op->{code} != 10) {
+            $op->{line} = $cl;
+            $op->{col}  = $cc;
+            if ($op->{type} eq 'keep'
+                || $op->{type} eq 'insert'
+                || $op->{type} eq 'overwrite_insert') {
                 $cc++;
             }
+        } else {
+            # \n op: KEEP original position. Don't touch.
+            $cl = $op->{line} + 1;
+            $cc = 1;
         }
     }
 

@@ -77,13 +77,13 @@ All options can be set via CLI flag OR via the config file. The CLI flag always 
 
 These convenience flags enable specific postprocess layers:
 
-| CLI flag                 | Config var             | Default   | Effect                                                             |
-| ------------------------ | ---------------------- | --------- | ------------------------------------------------------------------ |
-| `--indent-last`          | `INDENT_LAST`          | `0`       | `1` enables the `ad_layer_indent_last` layer                       |
-| `--overwrite`            | `OVERWRITE_MODE`       | `0`       | `1` enables the `ad_layer_overwrite` layer                         |
-| `--line-delete-in-place` | `LINE_DELETE_IN_PLACE` | `0`       | `1` enables the `ad_layer_line_delete_in_place` layer              |
-| `--ad-layer=NAME`        | —                      | —         | Add any layer to the chain (see [Plugin Layers](plugin-layers.md)) |
-| `--ad-layer-path=DIR`    | —                      | —         | Add a directory to the layer search path                           |
+| CLI flag                 | Config var             | Default   | Effect                                                                          |
+| ------------------------ | ---------------------- | --------- | ------------------------------------------------------------------------------- |
+| `--indent-last`          | `INDENT_LAST`          | `0`       | `1` enables the `ad_layer_indent_last` layer                                    |
+| `--overwrite`            | `OVERWRITE_MODE`       | `0`       | `1` enables the `ad_layer_overwrite` layer                                      |
+| `--line-delete-in-place` | `LINE_DELETE_IN_PLACE` | `0`       | `1` enables the `ad_layer_line_delete_in_place` layer (runs instead of reorder) |
+| `--ad-layer=NAME`        | —                      | —         | Add any layer to the chain (see [Plugin Layers](plugin-layers.md))              |
+| `--ad-layer-path=DIR`    | —                      | —         | Add a directory to the layer search path                                        |
 
 ### Animation behavior
 
