@@ -80,15 +80,6 @@ ad_vim --precomputed /tmp/diff.txt old.py new.py
 `--algorithm myers` was removed: it OOMs on 15K-line files and
 produces the same op count as patience.
 
-## Environment Variables
-
-| Variable                       | Effect                                          |
-| ------------------------------ | ----------------------------------------------- |
-| `DIFFVIM_ALGORITHM`            | Default `--algorithm` value                     |
-| `DIFFVIM_WORD_DIFF`            | Set to `1` to enable by default                 |
-| `DIFFVIM_OPTIMIZE_SEQUENCE`    | Default `1`; set to `0` to disable              |
-| `AD_LEFT_TO_RIGHT`        | Set to `1` to enable by default                 |
-| `AD_COMPUTE_BIN`          | Override path to the compute binary (advanced)  |
 
 ## Output Format
 
@@ -122,7 +113,7 @@ HUNK 5
 
 Each `keep`/`delete`/`insert` line is followed by the Unicode code
 point of the character (e.g. `97` for `a`, `10` for newline). See
-[`docs/PARSERS.md`](../PARSERS.md) for the full format reference.
+[`docs/src/parsers.md`](../PARSERS.md) for the full format reference.
 
 ## Timing Output
 
