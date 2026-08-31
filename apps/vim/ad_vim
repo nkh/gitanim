@@ -1352,11 +1352,8 @@ trap 'rm -rf "$WORKDIR"' EXIT
 VIMSCRIPT="$WORKDIR/diffvim.vim"
 VIMCONFIG="$WORKDIR/ad_config.vim"
 
-# Write the final config values to a vimscript-readable temp file.
-# The vimscript engine sources this file to get its configuration —
-# no env vars are passed to vim.
+# Source the config writer (but don't call it yet — TIMED_OPS isn't set).
 source "$(cd "$(dirname "$0")" && pwd)/../../packaging/ad_write_vimconfig.sh"
-ad_write_vimconfig "$VIMCONFIG"
 
 # --- Debug mode: log everything to /tmp/diffvim-debug.log ---
 debug_log() {
@@ -1530,6 +1527,10 @@ else
         "$PACE_BIN" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
     fi
 fi
+
+# Write the final config values to a vimscript-readable temp file.
+# This must happen AFTER the pipeline stages, so TIMED_OPS is set.
+ad_write_vimconfig "$VIMCONFIG"
 
 cat > "$VIMSCRIPT" <<'__DIFFVIM_VIMSCRIPT_EOF__'
 " diffvim.vim - animation engine, sourced by the diffvim bash launcher.
