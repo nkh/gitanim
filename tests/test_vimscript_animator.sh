@@ -68,7 +68,7 @@ fi
 # --- Extract the vimscript engine from the ad_vim launcher ---
 ENG="$TMPDIR/engine.vim"
 perl -e '
-    open my $fh, "<", "/home/z/my-project/gitanim/diffvim" or die;
+    open my $fh, "<", "/home/z/my-project/gitanim/apps/vim/ad_vim" or die;
     my $in = 0; my @L;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }
@@ -81,43 +81,22 @@ perl -e '
     close $ofh;
 ' "$ENG"
 
-# --- Patch the engine: replace s:StartTimedAnimation with a synchronous
-#     version that doesn't use timers. ---
+# --- Patch the engine for synchronous (headless) execution ---
+# Replace timer_start calls with synchronous calls, and replace
+# the StartTimedAnimation call with a synchronous loop + qa!
 perl -i -pe '
-    if (/^let s:timed_timer = timer_start\(.*$/) {
-        $_ = "";  # remove this line
-    }
+    s/.*timer_start.*function.*TimedTick.*/call s:TimedTick(0)/g;
 ' "$ENG"
 
-# Replace s:StartTimedAnimation with a synchronous version
+perl -i -pe '
+    s/let s:timed_speed = 1\.0/let s:timed_speed = 1000000.0/;
+' "$ENG"
+
+# Replace the "call s:StartTimedAnimation()" line with a synchronous loop.
+# This line is inside the if-block, BEFORE "finish endif", so it will execute.
 perl -i -0pe '
-    s/function! s:StartTimedAnimation\(\) abort.*?^endfunction//ms;
+    s/call s:StartTimedAnimation\(\)/call s:LoadTimedOps()\nlet s:timed_speed = 1000000.0\nwhile 1\n    let l:d = s:TimedProcessBatch()\n    if l:d == -1\n        break\n    endif\nendwhile\ncall s:TimedWriteOutput()\nqa!/ms;
 ' "$ENG"
-
-cat >> "$ENG" <<'VIM'
-
-" Synchronous test runner — processes all ops without using timers.
-" This is patched in by test_vimscript_animator.sh for headless testing.
-function! s:StartTimedAnimation() abort
-    call s:LoadTimedOps()
-    if empty(s:timed_ops)
-        echoerr 'ad_vim: timed op stream is empty'
-        return
-    endif
-    let s:timed_speed = 1000000.0  " super fast — delays become ~0ms
-    while 1
-        let l:delay = s:TimedProcessBatch()
-        if l:delay == -1
-            break
-        endif
-    endwhile
-    " Write the final buffer to g:diffvim.output_file (re-uses the
-    " real helper, which handles the empty-buffer case correctly).
-    call s:TimedWriteOutput()
-endfunction
-call s:StartTimedAnimation()
-qa!
-VIM
 
 # --- Test runner ---
 pass=0
@@ -127,7 +106,7 @@ total=0
 if [[ $# -ge 1 ]]; then
     examples=("$1")
 else
-    examples=( $(ls "$ROOT/examples" | grep '^[0-9]*_' | sort) )
+    examples=( $(ls "$ROOT/tests/examples" | grep '^[0-9]*_' | sort) )
 fi
 
 for d in "${examples[@]}"; do
@@ -159,10 +138,11 @@ for d in "${examples[@]}"; do
 
     # Run vim headless with the patched engine
     # Write a vimscript config file (replaces env var exports)
-    VIMCONFIG="$WORKDIR/ad_config_$$.vim"
+    VIMCONFIG="$TMPDIR/ad_config_$$.vim"
     cat > "$VIMCONFIG" <<VIMCFG
 let s:output_file = "$out"
 let s:speed_mult_x1000 = 1000000000
+let s:timed_ops_file = "$timed"
 VIMCFG
     timeout -k 5 60 vim -e -s -n -Nu NONE -U NONE \
         -c "let g:diffvim_new_file = '$new'" \

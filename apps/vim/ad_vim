@@ -1600,8 +1600,18 @@ let s:no_vimrc           = 0
 let s:bell_on_error      = 0
 
 " Source the config file written by the launcher.
+" The config file uses g: (global) variables because vimscript s:
+" (script-local) variables don't cross source boundaries.
+" After sourcing, we copy g: → s: so the rest of the script can use s:.
 if exists('g:ad_config_file') && filereadable(g:ad_config_file)
     execute 'source ' . g:ad_config_file
+    " Copy all g:ad_* variables to s:* (strip the ad_ prefix)
+    for s:k in keys(g:)
+        if s:k =~ '^ad_'
+            let s:varname = substitute(s:k, '^ad_', '', '')
+            execute 'let s:' . s:varname . ' = g:' . s:k
+        endif
+    endfor
 endif
 
 let g:diffvim = extend({

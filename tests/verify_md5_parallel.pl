@@ -20,7 +20,7 @@ my $engine_simple   = "/tmp/dv_eng_simple.vim";   # test_vim_correctness.pl styl
 my $engine_roundtrip = "/tmp/dv_eng_roundtrip.vim"; # test_vim_roundtrip.pl style
 
 sub extract_engine_simple {
-    open my $fh, '<', "$root/diffvim" or die;
+    open my $fh, '<', $root/apps/vim/ad_vim or die;
     my $in = 0; my @L;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }
@@ -103,7 +103,7 @@ VIM
 }
 
 sub extract_engine_roundtrip {
-    open my $fh, '<', "$root/diffvim" or die;
+    open my $fh, '<', $root/apps/vim/ad_vim or die;
     my $in = 0; my @L;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }

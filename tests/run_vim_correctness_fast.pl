@@ -16,7 +16,7 @@ my $engine_test = "/tmp/dv_engine_test.vim";
 
 # --- extract engine ------------------------------------------------------
 sub extract_engine {
-    open my $fh, '<', "$root/diffvim" or die;
+    open my $fh, '<', $root/apps/vim/ad_vim or die;
     my $in = 0; my @L;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }

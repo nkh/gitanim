@@ -32,7 +32,7 @@ mkdir $outdir unless -d $outdir;
 # --- extract the vimscript engine from ad_vim (same approach as
 #     tests/test_vim_roundtrip.pl) ----------------------------------------
 sub extract_engine {
-    open my $fh, '<', "$root/diffvim" or die "open ad_vim: $!";
+    open my $fh, '<', $root/apps/vim/ad_vim or die "open ad_vim: $!";
     my $in = 0; my @L;
     while (my $line = <$fh>) {
         if ($line =~ /^cat > "\$VIMSCRIPT" <<.__DIFFVIM_VIMSCRIPT_EOF__.$/) { $in=1; next; }
