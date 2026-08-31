@@ -1379,6 +1379,22 @@ fi
 # engine now only handles the animate stage (reading the timed op stream).
 # The pipeline executables are installed alongside the vimscript, so no
 # fallback is needed.
+
+# If --no-display is set, use the C animator (headless) instead of vim.
+if [[ "${NO_DISPLAY:-0}" -eq 1 ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    PIPELINE="$ROOT/pipeline/ad_pipeline"
+    [[ -f "$PIPELINE" ]] || PIPELINE="pipeline/ad_pipeline"
+    [[ -f "$PIPELINE" ]] || PIPELINE="/usr/local/bin/ad_pipeline"
+    if [[ -f "$PIPELINE" ]]; then
+        exec "$PIPELINE" --no-display --speed "$SPEED_MULT" \
+            ${OUTPUT_FILE:+--output "$OUTPUT_FILE"} \
+            "$OLD" "$NEW"
+    fi
+    # If pipeline not found, fall through to vim (with no_display in vimscript)
+fi
+
 if [[ -z "$PRECOMPUTED_FILE" ]]; then
     COMPUTE_BIN=""
     for d in "bin/ad_compute" \

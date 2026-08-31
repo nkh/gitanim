@@ -284,7 +284,7 @@ fi
 
 # Create temp files
 WORKDIR=$(mktemp -d)
-trap 'rm -rf "$WORKDIR" && kill $(jobs -p) 2>/dev/null' EXIT
+trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$WORKDIR" 2>/dev/null || true' EXIT
 RAW_OPS="$WORKDIR/raw_ops.txt"
 TIMED_OPS="$WORKDIR/timed_ops.txt"
 COLORIZE_OLD="$WORKDIR/old.colormap"
