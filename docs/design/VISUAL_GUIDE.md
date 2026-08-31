@@ -296,7 +296,7 @@ new char at the cursor and advances.
    Best for daily use      Best for scripting    Best for parser work
 ```
 
-**Recommendation for newcomers:** start with `diffvim`. Switch to
+**Recommendation for newcomers:** start with `ad_vim`. Switch to
 `ad_vim --precomputed` (with an external compute tool) for large files (>1000 lines) where the in-vim
 Patience becomes slow.
 
@@ -331,7 +331,7 @@ Patience becomes slow.
 
 Use `bin/ad_compute` (then `ad_vim --precomputed`) — it's
 the only compute implementation. When the C++ binary is missing,
-`diffvim` falls back to the in-vim Patience and `ad_pipeline` falls
+`ad_vim` falls back to the in-vim Patience and `ad_pipeline` falls
 back to `compute/perl/compute_builtin.pl` (a Perl wrapper around
 `DiffVim::Parser::Perl`). Both produce byte-for-byte identical output.
 
@@ -454,7 +454,7 @@ for common use cases.
    │                  │  --dim-unchanged --scroll zt                 │
    │                  │  For code review: pause after each hunk.     │
    ├──────────────────┼──────────────────────────────────────────────┤
-   │  ai-code         │  --semantic-cleanup --left-to-right          │
+   │  ai-code         │  [REMOVED: --semantic-cleanup] --left-to-right          │
    │                  │  --highlight-inline --word-diff              │
    │                  │  For AI-generated diffs (often messy).       │
    ├──────────────────┼──────────────────────────────────────────────┤

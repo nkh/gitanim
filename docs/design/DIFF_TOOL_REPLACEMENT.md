@@ -37,7 +37,7 @@ insert <char_code>
   end_delete flags
 - Would require a **parser** (like `jq_filter` / `difft_json_to_lcs`
   which already exist in the project) to convert unified diff →
-  diffvim's HUNK format
+  ad_vim's HUNK format
 - Then would still need the **char-level diff** (line_diff /
   char_diff functions in the C++ code)
 - **Net result**: replace ~700 lines of C++ with a parser + the same
@@ -52,7 +52,7 @@ insert <char_code>
 - Does structural matching (syntax-tree aware) which is great for
   understanding but wrong for animation — we need char-level ops, not
   "this function was moved"
-- Would need a **complex parser** to convert its output to diffvim's
+- Would need a **complex parser** to convert its output to ad_vim's
   char-level op format
 - The conversion would be harder than just running our own diff
 - difftastic also doesn't produce line-level hunk info (target line,

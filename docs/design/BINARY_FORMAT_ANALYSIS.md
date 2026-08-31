@@ -3,7 +3,7 @@
 ## Question
 
 What would making the op list a binary format gain us, for all pipe
-commands and diffvim, computed on multiple sizes of input files?
+commands and ad_vim, computed on multiple sizes of input files?
 Assume max lines = 2^16 (65536) and max chars per line = 256.
 We'd also add `--op-text-format` to be able to read it.
 
@@ -157,7 +157,7 @@ For small files, the overhead is negligible.
 
 **Format spec:**
 ```
-Header: "DIFFVIM_BIN_v1\n" (14 bytes)
+Header: "config var: BIN_v1\n" (14 bytes)
 Ops:    [type:1][line:2][col:1][code:4] (8 bytes each, little-endian)
 Markers: HUNK = [255][target:2][del:2][ins:2][end_ins:1][end_del:1]
          HUNK_END = [254]

@@ -9,7 +9,7 @@ to the raw ops (from compute) in the current postprocess pipeline.
 compute output (raw V2 TSV, read directly from stdin)
     │
     ▼
-[Optional] overwrite (pp_layer_overwrite.c)
+[Optional] overwrite (ad_layer_layer_overwrite.c)
     │   Trigger: --overwrite
     │   Runs FIRST because it reduces the number of ops (merges
     │   delete+insert pairs at the same position into overwrite_insert).
@@ -23,7 +23,7 @@ compute output (raw V2 TSV, read directly from stdin)
     │       in one step (no gap, no flicker).
     │
     ▼
-[Optional] delete-indent-last (pp_layer_indent_last.c)
+[Optional] delete-indent-last (ad_layer_layer_indent_last.c)
     │   Trigger: --indent-last
     │   Moves leading-whitespace DELETE ops to end of line group.
     │   Does NOT touch line/col — only reorders ops.
@@ -88,8 +88,8 @@ postprocess output (V2 TSV to stdout)
 cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c -o ad_postprocess \
   postprocess.c \
   ad_layer_noop_reorder.c \
-  pp_layer_indent_last.c \
-  pp_layer_overwrite.c
+  ad_layer_layer_indent_last.c \
+  ad_layer_layer_overwrite.c
 ```
 
 No `ad_layer_noop_v2.c` — compute output is already V2, so Layer 0 (V2

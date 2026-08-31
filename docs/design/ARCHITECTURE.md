@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture of the three `diffvim`
+This document describes the architecture of the three `ad_vim`
 implementations and how they compare.
 
 ---
@@ -39,7 +39,7 @@ lives**.
 
 ---
 
-## Implementation 1: `diffvim` (Bash + Vimscript)
+## Implementation 1: `ad_vim` (Bash + Vimscript)
 
 ### Architecture
 
@@ -338,7 +338,7 @@ Returns:
 
 ## Comparison Table
 
-| Feature                    | `diffvim`        | `ad_tmux`   | `ad_vim.pl`     |
+| Feature                    | `ad_vim`        | `ad_tmux`   | `ad_vim.pl`     |
 | -------------------------- | ---------------- | ---------------- | ---------------- |
 | **Language**               | Bash + Vimscript | Bash             | Perl             |
 | **Vim communication**      | Native (timer)   | tmux send-keys   | tmux send-keys   |
@@ -356,7 +356,7 @@ Returns:
 
 ## When to Use Which
 
-- **`diffvim`** — use when you want a self-contained tool with no
+- **`ad_vim`** — use when you want a self-contained tool with no
   external dependencies. Best for everyday use. No race conditions.
 
 - **`ad_tmux`** — use when you want to script or extend the

@@ -13,7 +13,7 @@ cognitive load theory to propose evaluation criteria.
 
 ad_vim now supports:
 - **2 algorithms**: Patience (default), Patience. Myers was removed (OOM on large files, same op count as Patience)
-- **4 option flags**: `--word-diff`, `--semantic-cleanup`, `--indent-aware`,
+- **4 option flags**: `--word-diff`, `[REMOVED: --semantic-cleanup]`, `[REMOVED: --indent-aware]`,
   and the new `--accel-delete`, `--overwrite`, `--inline-highlight`, etc.
 - **External compute tools** that can generate precomputed diffs with any
   combination
@@ -99,9 +99,9 @@ Output:
 ```
 algorithm   options                                   hunks  ops    changed  time
 patience    default                                   21     3420   1850     5.2ms
-patience    --semantic-cleanup                        21     3100   1530     5.1ms
+patience    [REMOVED: --semantic-cleanup]                        21     3100   1530     5.1ms
 patience    default                                   15     2900   1400     2.8ms
-patience    --semantic-cleanup --word-diff            15     2600   1100     3.0ms
+patience    [REMOVED: --semantic-cleanup] --word-diff            15     2600   1100     3.0ms
 ```
 
 (Myers was removed in the refactor — it OOMs on 15K-line files and
@@ -111,7 +111,7 @@ produces the same op count as patience.)
 - **Lower `changed`**: fewer insert/delete ops → less visual noise
 - **Lower `hunks`**: fewer cursor jumps → easier to follow
 - **Lower `time`**: faster computation → quicker startup
-- **`--semantic-cleanup`** consistently reduces `changed` by 10-20%
+- **`[REMOVED: --semantic-cleanup]`** consistently reduces `changed` by 10-20%
 - **`--word-diff`** increases `ops` but groups changes into readable units
 - **Patience** typically produces fewer, more coherent hunks
 
@@ -131,7 +131,7 @@ produces the same op count as patience.)
 ### 2. Code Review (medium, thorough)
 
 ```
---algorithm patience --semantic-cleanup --inline-highlight --dim-unchanged --pause-after-lines 7
+--algorithm patience [REMOVED: --semantic-cleanup] --inline-highlight --dim-unchanged --pause-after-lines 7
 ```
 - Semantic cleanup: removes noise
 - Inline highlight: draws eye to exact changes
@@ -150,7 +150,7 @@ produces the same op count as patience.)
 ### 4. Large Files (1000+ lines)
 
 ```
---algorithm patience --semantic-cleanup --accel-delete --pause-after-lines 10 --startup-feedback
+--algorithm patience [REMOVED: --semantic-cleanup] --accel-delete --pause-after-lines 10 --startup-feedback
 ```
 - Patience: the C++ compute tool handles large files in <1ms
 - Startup feedback: shows progress during diff computation

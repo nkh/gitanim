@@ -42,7 +42,7 @@ memory in our implementation) and produces the same op count as Patience.
 
 **Op format:**
 ```
-# diffvim precomputed diff v1
+# ad_vim precomputed diff v1
 # algorithm patience
 # hunk_count N
 HUNK <target_line> <del_count> <ins_count> <is_end_insert> <is_end_delete>
@@ -157,7 +157,7 @@ cursor to the position carried by the next op before applying it.
 **Output:** visual animation in terminal (or saved buffer file)
 
 **Tools:**
-- `diffvim` (vimscript, run inside vim) — uses the external pipeline
+- `ad_vim` (vimscript, run inside vim) — uses the external pipeline
   (compute → postprocess → pace) and reads the resulting timed op stream.
   The vimscript engine is now a ~200-line timed-op-stream reader. It
   uses incremental rendering (`redraw`, not `redraw!`) to avoid flashing.

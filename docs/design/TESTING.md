@@ -1,6 +1,6 @@
 # Testing
 
-This document describes how to test the `diffvim` implementations.
+This document describes how to test the `ad_vim` implementations.
 
 ---
 
@@ -131,7 +131,7 @@ The E2E tests may fail due to tmux `send-keys` race conditions (see
 mid-way, the buffer won't match the expected output. This is a known
 limitation of the tmux-based implementations.
 
-The `diffvim` (Vimscript) implementation doesn't have this issue, but
+The `ad_vim` (Vimscript) implementation doesn't have this issue, but
 it doesn't have an automated E2E test yet (manual testing only).
 
 ---

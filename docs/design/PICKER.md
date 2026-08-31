@@ -56,7 +56,7 @@ The main command — animate a diff between two files.
 
 ## Command Line (ad_vim --replay)
 
-The `diffvim` launcher supports git history replay:
+The `ad_vim` launcher supports git history replay:
 
 ```bash
 # Animate all changes to a file between two commits

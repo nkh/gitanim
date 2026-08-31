@@ -15,7 +15,7 @@ when the corresponding flag is given.
 The postprocess output is v2 TSV (tab-separated values):
 
 ```
-# diffvim post-processed v2
+# ad_vim post-processed v2
 # semantic_cleanup 0
 # indent_aware 0
 # optimize_sequence 1
@@ -156,7 +156,7 @@ unchanged by the postprocess.
 
 These are only applied when the corresponding flag is given.
 
-### `--semantic-cleanup` (or `--transform semantic-cleanup`)
+### `[REMOVED: --semantic-cleanup]` (or `--transform semantic-cleanup`)
 
 Merges adjacent `delete X` + `insert X` pairs (where the chars are
 identical) into a single `keep X` op. Also merges `insert X` + `delete X`.
@@ -174,7 +174,7 @@ keep    2       3       108     'l'
 Useful when the diff algorithm produces redundant delete+insert
 pairs that cancel out. Off by default.
 
-### `--indent-aware` (or `--transform indent-aware`)
+### `[REMOVED: --indent-aware]` (or `--transform indent-aware`)
 
 Treats indent-only changes (whitespace at start of line) as keeps.
 Useful when only the indentation changed (e.g., Python code that
@@ -182,7 +182,7 @@ got re-indented).
 
 **Example — old `"    foo"`, new `"\tfoo"`:**
 ```
-# Without --indent-aware:
+# Without [REMOVED: --indent-aware]:
 delete  1       1       32      space
 delete  1       2       32      space
 delete  1       3       32      space
@@ -191,7 +191,7 @@ insert  1       1       9       \t
 insert  1       1       9       \t
 keep    1       5       102     'f'
 
-# With --indent-aware:
+# With [REMOVED: --indent-aware]:
 keep    1       1       32      space     ← all converted to keeps
 keep    1       2       32      space
 keep    1       3       32      space
@@ -206,20 +206,20 @@ checks `$has_del && $has_del` instead of `$has_del && $has_ins`
 in the Perl version, so it may not trigger correctly. See the
 source for details.
 
-### `--op-order natural` (or `--transform op-order:natural`)
+### `[REMOVED: --op-order] natural` (or `--transform op-order:natural`)
 
 Disables op reordering. The ops are emitted in the raw order from
 the compute stage, with positions but no reordering.
 
 **Example:**
 ```
-# With --op-order optimize (default):
+# With [REMOVED: --op-order] optimize (default):
 keep    2       1       104     'h'
 delete  2       2       101     'e'     ← delete first
 insert  2       2       112     'p'     ← then insert
 keep    2       3       108     'l'
 
-# With --op-order natural:
+# With [REMOVED: --op-order] natural:
 keep    2       1       104     'h'
 insert  2       2       112     'p'     ← raw order
 delete  2       2       101     'e'
@@ -228,19 +228,19 @@ keep    2       3       108     'l'
 
 Useful for debugging — shows what the compute stage actually produced.
 
-### `--op-order left-to-right`
+### `[REMOVED: --op-order] left-to-right`
 
 Sorts ops within each line by column position: keeps, then deletes,
 then inserts. (Different from `optimize` which puts deletes before
 inserts within change regions.)
 
-### `--op-order end-first` / `--op-order end-first-smart`
+### `[REMOVED: --op-order] end-first` / `[REMOVED: --op-order] end-first-smart`
 
 Detects trailing deletes at the end of a line and moves them BEFORE
 the inserts. Useful when a line has both end-deletes and inserts —
 deleting the end first looks more natural.
 
-### `--op-order overwrite`
+### `[REMOVED: --op-order] overwrite`
 
 Transforms delete+insert sequences into in-place overwrites. The
 current implementation just calls `optimize_line` (a no-op alias).
@@ -250,7 +250,7 @@ have an overwrite op type — kept as a placeholder.
 
 ### `--transform op-order:MODE`
 
-Same as `--op-order MODE`. Multiple `--transform` flags can be
+Same as `[REMOVED: --op-order] MODE`. Multiple `--transform` flags can be
 given — they're applied in order.
 
 ### `--stream`
@@ -264,9 +264,9 @@ compute is done.
 
 Transforms are applied in this order:
 
-1. **semantic_cleanup** (if `--semantic-cleanup`)
-2. **indent_aware** (if `--indent-aware`)
-3. **op_order** (always — `optimize` by default, `natural` if `--op-order natural`)
+1. **semantic_cleanup** (if `[REMOVED: --semantic-cleanup]`)
+2. **indent_aware** (if `[REMOVED: --indent-aware]`)
+3. **op_order** (always — `optimize` by default, `natural` if `[REMOVED: --op-order] natural`)
 4. **overwrite** (if `--overwrite`)
 
 The always-on transformations (positioning, end-delete fix) are
@@ -288,7 +288,7 @@ transformation:
 | `15_join_two_lines` | `\n` delete (pure join) |
 | `16_split_line` | Insert `\n` (split) |
 | `17_multi_line_delete` | Multiple `\n` deletes that join lines |
-| `18_indent_change` | `--indent-aware` (when enabled) |
+| `18_indent_change` | `[REMOVED: --indent-aware]` (when enabled) |
 | `20_unicode` | UTF-8 handling |
 | `21_empty_old` | Pure inserts (end-insert hunk) |
 | `22_empty_new` | Pure deletes (end-delete hunk) |

@@ -3,7 +3,7 @@
 ## Overview
 
 [gitlogue](https://github.com/unhappychoice/gitlogue) is a Rust project
-that animates git diffs, similar in goal to diffvim. It uses ratatui +
+that animates git diffs, similar in goal to ad_vim. It uses ratatui +
 crossterm for terminal rendering.
 
 ## What gitlogue does well
@@ -106,7 +106,7 @@ gitlogue supports per-file speed rules via glob patterns:
 // "src/**/*.rs:30" → Rust files at 30ms/char
 ```
 
-**Lesson**: nice feature, could be useful for diffvim.
+**Lesson**: nice feature, could be useful for ad_vim.
 
 ### 7. Rich animation steps
 

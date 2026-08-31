@@ -12,7 +12,7 @@ This document describes all user controls available during the animation.
 | `n`       | Skip current hunk (apply instantly, pause)  | All implementations   |
 | `b`       | Back to previous hunk (revert and restart)  | All implementations   |
 | `q`       | Stop animation (by default `:q` then quits) | All implementations   |
-| `?`       | Show help                                   | `diffvim` only        |
+| `?`       | Show help                                   | `ad_vim` only        |
 
 Controls are active at **any moment** during the animation — even
 mid-typing, mid-glide, or between hunks. The animation loop checks for
@@ -34,7 +34,7 @@ Toggles the animation between paused and running states.
 - The animation continues from where it was paused
 - A message is displayed: `ad_vim: resumed`
 
-**Implementation detail:** In `diffvim` (Vimscript), pause sets a flag
+**Implementation detail:** In `ad_vim` (Vimscript), pause sets a flag
 that the timer callback checks. In `ad_tmux` and `ad_vim.pl`,
 pause sets a `$paused` variable that the animation loop checks; when
 paused, the loop sleeps in 50ms increments instead of advancing the
@@ -90,7 +90,7 @@ then restarts the current hunk's animation from the beginning.
 restarting the entire animation from the beginning.
 
 **Snapshot mechanism:**
-- `diffvim` (Vimscript): snapshots are stored in vimscript list
+- `ad_vim` (Vimscript): snapshots are stored in vimscript list
   variables (`s:state.snapshots`). Each snapshot contains the buffer
   lines, cursor position, hunk index, and line offset.
 - `ad_tmux` / `ad_vim.pl`: snapshots are saved to temp files
@@ -112,7 +112,7 @@ Stops the animation and leaves the buffer in its current state.
 **What happens:**
 1. The animation loop exits.
 2. The user-input mappings (`Space`, `n`, `b`, `q`) are removed
-   (`diffvim` only; in tmux implementations, the mappings remain but
+   (`ad_vim` only; in tmux implementations, the mappings remain but
    are harmless).
 3. By default, ad_vim runs `:set nomodified` on the buffer so that
    `:q` quits cleanly without complaining about unsaved changes.
@@ -121,7 +121,7 @@ Stops the animation and leaves the buffer in its current state.
 
 **Keeping the buffer dirty:** If you want vim's normal "unsaved changes"
 protection to remain active, pass `--keep-dirty` (or set
-`DIFFVIM_KEEP_DIRTY=1`). With this option, the buffer stays modified
+`config var: KEEP_DIRTY=1`). With this option, the buffer stays modified
 and you must type `:q!` to quit:
 
 ```bash
@@ -133,7 +133,7 @@ ad_vim --keep-dirty old.py new.py
 ```
 
 **After quitting:**
-- In `diffvim`: vim remains open with the buffer. You can quit vim
+- In `ad_vim`: vim remains open with the buffer. You can quit vim
   with `:q` (default) or `:q!` (with `--keep-dirty`), or continue
   editing.
 - In `ad_tmux` / `ad_vim.pl`: vim remains open in the tmux
@@ -145,7 +145,7 @@ ad_vim --keep-dirty old.py new.py
 
 ---
 
-## `?` — Show Help (`diffvim` only)
+## `?` — Show Help (`ad_vim` only)
 
 Displays the current hunk index and a summary of available keys.
 
@@ -196,7 +196,7 @@ If you press `b` at the first hunk:
 
 ## Key Mapping Details
 
-### `diffvim` (Vimscript)
+### `ad_vim` (Vimscript)
 
 Mappings are defined with `nnoremap <buffer> <silent>`:
 
@@ -259,10 +259,10 @@ for my $cmd (split //, $buf) {
 
 ## Customizing Key Mappings
 
-### `diffvim` (Vimscript)
+### `ad_vim` (Vimscript)
 
 The mappings are defined in the generated vimscript. To customize,
-edit the `diffvim` script and change the `nnoremap` lines near the end
+edit the `ad_vim` script and change the `nnoremap` lines near the end
 of the embedded vimscript.
 
 Alternatively, after the animation starts, you can add your own

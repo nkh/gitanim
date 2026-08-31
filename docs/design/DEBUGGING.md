@@ -56,7 +56,7 @@ Produces raw char-level ops from the diff between old and new files.
 
 **Output format (v2 TSV):**
 ```
-# diffvim raw diff v2
+# ad_vim raw diff v2
 # algorithm patience
 # hunk_count N
 HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
@@ -73,7 +73,7 @@ HUNK_END
 - Tabs (`\t`) separate every field, not spaces
 
 **Common errors:**
-- `# diffvim precomputed diff v1` → your binary is stale. Rebuild: `make -C compute clean && make -C compute`
+- `# ad_vim precomputed diff v1` → your binary is stale. Rebuild: `make -C compute clean && make -C compute`
 - `HUNK 1 1 1 0 0` (spaces, not tabs) → same — v1 format, rebuild
 
 ### Stage 2: postprocess (ad_postprocess)
@@ -84,12 +84,12 @@ Reads raw ops, reorders them, computes per-op (line, col) positions.
 ./bin/ad_postprocess < raw.txt > post.txt
 
 # With transforms:
-./bin/ad_postprocess --semantic-cleanup --indent-aware < raw.txt > post.txt
+./bin/ad_postprocess [REMOVED: --semantic-cleanup] [REMOVED: --indent-aware] < raw.txt > post.txt
 ```
 
 **Output format (v2 TSV):**
 ```
-# diffvim post-processed v2
+# ad_vim post-processed v2
 HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
 keep    <line>  <col>   <code>  <char_repr>
 delete  <line>  <col>   <code>  <char_repr>
@@ -121,7 +121,7 @@ modify, reorder, or add ops.** Only inserts `delay` lines.
 
 **Output format (v2 TSV):**
 ```
-# diffvim timed ops v2
+# ad_vim timed ops v2
 # delete_pacing word
 # insert_pacing char
 HUNK    <target>        <del>   <ins>   <end_ins>       <end_del>
@@ -188,7 +188,7 @@ OLD: old
 compute: 0.34 ms (read 0.06 + diff 0.01 + write 0.25)
 ...
   → 27 lines written to /tmp/ad_debug/raw.txt
-  → Header: # diffvim raw diff v2
+  → Header: # ad_vim raw diff v2
 
 ─── STAGE 2: POST-PROCESSED OPS (postprocess) ───────────────
   → 24 lines written to /tmp/ad_debug/post.txt
@@ -386,5 +386,5 @@ cc -O2 -o bin/ad_postprocess animator/c/postprocess.c
 cc -O2 -o bin/ad_layer_pace animator/c/pace.c
 ```
 
-If you see `# diffvim precomputed diff v1` in Stage 1 output, your
+If you see `# ad_vim precomputed diff v1` in Stage 1 output, your
 binary is stale.

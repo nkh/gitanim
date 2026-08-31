@@ -1,6 +1,6 @@
 # Configuration
 
-This document describes all configuration options for the `diffvim`
+This document describes all configuration options for the `ad_vim`
 family of tools.
 
 ---
@@ -22,12 +22,12 @@ variables. These control the animation speed and feel.
 | `AD_MOVE_MS_PER_UNIT`  | `6`     | Milliseconds per unit of glide distance  |
 | `AD_HUNK_PAUSE_MS`     | `250`   | Pause between hunks (ms)                 |
 | `AD_WORD_PAUSE_MS`     | `150`   | Pause after instant word (ms)            |
-| `DIFFVIM_RAPID_EOL_DELAY_MS`| `80`    | Delay for rapid end-of-line deletion (ms)|
-| `DIFFVIM_RAPID_EOL_MIN_CHARS`| `3`    | Min trailing chars to trigger rapid EOL  |
-| `DIFFVIM_HIGHLIGHT_WORD_COLOR`| `Search`| Highlight group for `--highlight-word` |
-| `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS`| `300`| Word highlight duration (ms)          |
-| `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS`| `2`| Min word length to highlight            |
-| `DIFFVIM_KEEP_DIRTY`        | unset   | Set to `1` to leave buffer modified      |
+| `config var: RAPID_EOL_DELAY_MS`| `80`    | Delay for rapid end-of-line deletion (ms)|
+| `config var: RAPID_EOL_MIN_CHARS`| `3`    | Min trailing chars to trigger rapid EOL  |
+| `config var: HIGHLIGHT_WORD_COLOR`| `Search`| Highlight group for `--highlight-word` |
+| `config var: HIGHLIGHT_WORD_DURATION_MS`| `300`| Word highlight duration (ms)          |
+| `config var: HIGHLIGHT_WORD_MIN_CHARS`| `2`| Min word length to highlight            |
+| `config var: KEEP_DIRTY`        | unset   | Set to `1` to leave buffer modified      |
 
 ### Detailed Descriptions
 
@@ -39,7 +39,7 @@ advances the animation. At 16ms, this is approximately 60fps.
 - **Lower** = smoother animation but higher CPU usage
 - **Higher** = coarser animation but lower CPU usage
 
-Only used by `ad_tmux` and `ad_vim.pl`. The `diffvim`
+Only used by `ad_tmux` and `ad_vim.pl`. The `ad_vim`
 (Vimscript) implementation uses vim's `timer_start()` which has its
 own tick interval (also configurable via this variable).
 
@@ -91,7 +91,7 @@ The pause between finishing one hunk and starting the next. This
 gives the viewer a moment to register the completed change before the
 cursor starts moving to the next location.
 
-#### `DIFFVIM_RAPID_EOL_DELAY_MS` (default: 80)
+#### `config var: RAPID_EOL_DELAY_MS` (default: 80)
 
 When `--rapid-eol-delete` is on (the default), a trailing run of deletes
 (cursor at end of line, all remaining text being deleted) is applied in
@@ -99,34 +99,34 @@ one shot followed by this single delay. Lower values make tail-of-line
 deletions feel faster. Set to the same as `AD_DELETE_DELAY_MS` to
 make rapid EOL feel like a single char delete.
 
-#### `DIFFVIM_RAPID_EOL_MIN_CHARS` (default: 3)
+#### `config var: RAPID_EOL_MIN_CHARS` (default: 3)
 
 Minimum number of trailing characters required to trigger rapid end-of-line
 deletion. Runs shorter than this are animated char by char, preserving
 the visual detail of small edits. Set to a large number (e.g., 9999) to
 effectively disable rapid EOL without using `--no-rapid-eol-delete`.
 
-#### `DIFFVIM_KEEP_DIRTY` (default: unset)
+#### `config var: KEEP_DIRTY` (default: unset)
 
 Set to `1` to leave the buffer marked as modified after the animation
 finishes. By default ad_vim runs `:set nomodified` so that `:q` quits
-cleanly; with `DIFFVIM_KEEP_DIRTY=1` the user must type `:q!` to quit.
+cleanly; with `config var: KEEP_DIRTY=1` the user must type `:q!` to quit.
 Equivalent to the `--keep-dirty` command-line flag.
 
-#### `DIFFVIM_HIGHLIGHT_WORD_COLOR` (default: Search)
+#### `config var: HIGHLIGHT_WORD_COLOR` (default: Search)
 
 Vim highlight group used by `--highlight-word` to highlight the word at
 the cursor before each change. Common choices: `Search` (default, yellow),
 `Visual` (blue), `IncSearch` (yellow, search-match style), `DiffAdd`
 (green), `DiffDelete` (red), `DiffChange` (cyan).
 
-#### `DIFFVIM_HIGHLIGHT_WORD_DURATION_MS` (default: 300)
+#### `config var: HIGHLIGHT_WORD_DURATION_MS` (default: 300)
 
 How long the word highlight stays visible, in milliseconds. Lower values
 make the highlight flash briefly (good for fast animation); higher values
 leave it visible longer (useful with `--step-mode` or slow speeds).
 
-#### `DIFFVIM_HIGHLIGHT_WORD_MIN_CHARS` (default: 2)
+#### `config var: HIGHLIGHT_WORD_MIN_CHARS` (default: 2)
 
 Minimum word length to trigger word highlighting. Words shorter than this
 are not highlighted (they change too fast to be worth the visual flash).
@@ -134,9 +134,9 @@ Set to `1` to highlight every single-char change.
 
 ---
 
-## Vimscript Configuration (`diffvim` only)
+## Vimscript Configuration (`ad_vim` only)
 
-The `diffvim` (Vimscript) implementation also supports a `g:diffvim`
+The `ad_vim` (Vimscript) implementation also supports a `g:diffvim`
 dictionary in your vimrc for persistent configuration:
 
 ```vim
@@ -227,7 +227,7 @@ leaves the buffer modified so `:q!` is required to quit. See
 ## Tmux Configuration
 
 `ad_tmux` and `ad_vim.pl` create tmux sessions/windows. The
-session name is `diffvim-<PID>` (e.g., `diffvim-12345`).
+session name is `ad_vim-<PID>` (e.g., `ad_vim-12345`).
 
 ### Window size
 
@@ -279,7 +279,7 @@ All implementations launch vim with these flags:
 
 Loading the user's vimrc can cause issues:
 
-- Custom mappings might conflict with diffvim's mappings
+- Custom mappings might conflict with ad_vim's mappings
 - Plugins might interfere with the animation
 - Settings like `set noshowcmd` or `set shortmess` might hide
   important messages
@@ -332,7 +332,7 @@ To see what vim is displaying during the animation:
 ```bash
 # In a separate terminal, capture the pane every second
 while true; do
-    tmux capture-pane -t diffvim-12345 -p > /tmp/pane_$(date +%s).txt
+    tmux capture-pane -t ad_vim-12345 -p > /tmp/pane_$(date +%s).txt
     sleep 1
 done
 ```
@@ -344,7 +344,7 @@ The vimscript engine is written to a temp file. To inspect it:
 ```bash
 # For ad_tmux, the engine is at $WORKDIR/engine.vim
 # Find it:
-find /tmp/diffvim.* -name engine.vim 2>/dev/null
+find /tmp/ad_vim.* -name engine.vim 2>/dev/null
 
 # For ad_vim.pl, the engine is at $workdir/engine.vim (tempdir)
 find /tmp/dv* -name engine.vim 2>/dev/null

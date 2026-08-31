@@ -1,7 +1,7 @@
 # Developer Guide / Onboarding Guide
 
 This guide is for developers who want to understand, modify, or contribute
-to the diffvim/gitanim project. It covers the architecture, codebase
+to the ad_vim/gitanim project. It covers the architecture, codebase
 layout, development workflow, and how to extend the project.
 
 ---
@@ -14,7 +14,7 @@ layout, development workflow, and how to extend the project.
 4. [Building from Source](#4-building-from-source)
 5. [The Pipeline Stages](#5-the-pipeline-stages)
 6. [The Timed Op Stream Format (v2 TSV)](#6-the-timed-op-stream-format-v2-tsv)
-7. [How ad_vim (vimscript) Works](#7-how-diffvim-vimscript-works)
+7. [How ad_vim (vimscript) Works](#7-how-ad_vim-vimscript-works)
 8. [How ad_pipeline (standalone) Works](#8-how-ad_pipeline-standalone-works)
 9. [The Coloring System](#9-the-coloring-system)
 10. [Testing](#10-testing)
@@ -29,14 +29,14 @@ layout, development workflow, and how to extend the project.
 
 ## 1. Project Overview
 
-**diffvim** animates a code diff — the transformation of an old file into
+**ad_vim** animates a code diff — the transformation of an old file into
 a new file — as if a human were typing it in real time. The animation
 feels natural: the cursor glides between change locations, characters are
 deleted and re-typed with small delays, and unchanged text is skipped
 instantly.
 
 The project has two modes:
-- **diffvim** (vimscript): Opens the old file in vim and animates the
+- **ad_vim** (vimscript): Opens the old file in vim and animates the
   transformation inside vim. Uses vim's syntax highlighting, buffer
   manipulation, and timer-based animation. Best for interactive use.
 - **ad_pipeline** (standalone): Runs the full pipeline
@@ -113,9 +113,9 @@ gitanim/
 │   ├── tests/                     # Animator-specific tests
 │   └── docs/                      # Animator documentation
 │
-├── autoload/diffvim/engine.vim   # Vimscript engine (standalone, sourced by launcher)
+├── autoload/ad_vim/engine.vim   # Vimscript engine (standalone, sourced by launcher)
 ├── plugin/diffvim.vim            # Vim plugin (:Diffvim, :DiffvimPick commands)
-├── autoload/diffvim/             # Vimscript autoload
+├── autoload/ad_vim/             # Vimscript autoload
 │
 ├── completion/                   # Shell completions (bash, fish, zsh)
 ├── man/                          # Manpages (roff)
@@ -129,7 +129,7 @@ gitanim/
 ├── tests/                        # vimscript engine tests
 ├── tests/verify_md5.sh         # Round-trip MD5 verification
 ├── DiffVim/Parser/Perl.pm        # Pure-Perl Patience diff parser
-└── packaging/diffvim.rb           # Homebrew formula
+└── packaging/ad_vim.rb           # Homebrew formula
 ```
 
 ---
@@ -188,7 +188,7 @@ ad_compute old.py new.py raw_ops.txt
 
 Output format:
 ```
-# diffvim precomputed diff v1
+# ad_vim precomputed diff v1
 # algorithm patience
 # hunk_count N
 HUNK <target_line> <del_count> <ins_count> <is_end_insert> <is_end_delete>
@@ -242,7 +242,7 @@ Delay types: `type`, `keep`, `delete`, `hunk_pause`, `rapid_eol`,
 `awd_start`, `awd_word`, `awd_space`, `word_insert`, `newline_delete`,
 `newline_insert`.
 
-### Stage 4: Animate (`ad` or `diffvim`)
+### Stage 4: Animate (`ad` or `ad_vim`)
 
 **Input:** timed op stream
 **Output:** visual animation in terminal (or vim)
@@ -287,14 +287,14 @@ Key points:
 
 ## 7. How ad_vim (vimscript) Works
 
-The `diffvim` bash launcher:
+The `ad_vim` bash launcher:
 
 1. Parses command-line options
 2. Runs the external pipeline (compute → postprocess → pace) to produce
-   a timed op stream file (`$DIFFVIM_TIMED_OPS`)
+   a timed op stream file (`$config var: TIMED_OPS`)
 3. Launches vim with the old file
 4. Sources the vimscript engine, which:
-   a. Detects `$DIFFVIM_TIMED_OPS`
+   a. Detects `$config var: TIMED_OPS`
    b. Reads the timed op stream
    c. Applies ops to the vim buffer using `setline`/`append`/`delete`
    d. Renders using `redraw` (incremental, not `redraw!` which clears)
@@ -445,7 +445,7 @@ ad_vim auto-detects language from file extension. To add a new one:
 1. **Add to the extension map** in:
    - `compute/cpp/ad_compute.cpp` (not needed — compute is language-agnostic)
    - `animator/perl/colorize.pl` — add to `%ext_map`
-   - `diffvim` (vimscript) — add to the `setfiletype` if-chain
+   - `ad_vim` (vimscript) — add to the `setfiletype` if-chain
 
 2. **Add example files**: Create `tests/tests/examples/NN_lang_name/old.ext` and `new.ext`
 
@@ -627,8 +627,8 @@ ignore this value — they process hunks as they arrive.
 | `animator/perl/*.pl` | Perl mirrors of the C tools |
 | `animator/perl/colorize.pl` | Syntax coloring (vim/pygmentize backends) |
 | `animator/ad_pipeline` | Bash script wiring all 4 stages |
-| `diffvim` | Bash launcher + embedded vimscript engine |
-| `autoload/diffvim/engine.vim` | Standalone vimscript engine (for plugin mode) |
+| `ad_vim` | Bash launcher + embedded vimscript engine |
+| `autoload/ad_vim/engine.vim` | Standalone vimscript engine (for plugin mode) |
 | `plugin/diffvim.vim` | Vim plugin (:Diffvim, :DiffvimPick) |
 | `tests/verify_md5.sh` | Round-trip MD5 verification (42 examples) |
 | `docs/PIPELINE.md` | Pipeline architecture reference |

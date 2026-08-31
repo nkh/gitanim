@@ -3,7 +3,7 @@
 **Date:** 2026-08-16
 **Status:** Analysis and design only — no code changes proposed for
 implementation yet.
-**Scope:** All 95+ CLI options across `diffvim`, `ad_tmux`,
+**Scope:** All 95+ CLI options across `ad_vim`, `ad_tmux`,
 `ad_vim.pl`, and the `ad_compute` tool.
 
 > **Update (Phase A–C refactor):** Several of the proposals below were
@@ -55,7 +55,7 @@ Grouped by current naming prefix:
 | `--git-blame`              | 1     | Show git blame                           |
 | `--git-rev`                | 1     | Git revision range shorthand             |
 | `--highlight-*`            | 10    | Various highlighting modes               |
-| `--indent-aware`           | 1     | Indent-aware diffing                     |
+| `[REMOVED: --indent-aware]`           | 1     | Indent-aware diffing                     |
 | `--keep-dirty`             | 1     | Buffer modified state after animation    |
 | `--language`               | 1     | Language hint                            |
 | `--left-to-right*`         | 2     | Left-to-right op ordering                |
@@ -77,7 +77,7 @@ Grouped by current naming prefix:
 | `--rapid-identical-*`      | 3     | Rapid identical-char deletion            |
 | `--replay`                 | 1     | Git history replay                       |
 | `--scroll`                 | 1     | Cursor scroll position                   |
-| `--semantic-cleanup`       | 1     | Semantic cleanup                         |
+| `[REMOVED: --semantic-cleanup]`       | 1     | Semantic cleanup                         |
 | `--sign-column`            | 1     | Sign column +/- markers                  |
 | `--speed`                  | 1     | Speed multiplier                         |
 | `--startup-*`              | 2     | Startup feedback / pause                 |
@@ -103,14 +103,14 @@ and char-level diff.
 **Current options mapping to this:**
 - `--algorithm patience`
 - `--word-diff` (changes char-level diff to token-level)
-- `--indent-aware` (changes how indent-only changes are diffed)
-- `--semantic-cleanup` (post-diff merge of adjacent del/ins pairs)
+- `[REMOVED: --indent-aware]` (changes how indent-only changes are diffed)
+- `[REMOVED: --semantic-cleanup]` (post-diff merge of adjacent del/ins pairs)
 - `--language` (hints to the algorithm)
 
 (Myers was removed: it OOMs on 15K-line files and produces the same
 op count as Patience.)
 
-**Problem:** `--word-diff` and `--indent-aware` are mixed concerns.
+**Problem:** `--word-diff` and `[REMOVED: --indent-aware]` are mixed concerns.
 They change both the diff algorithm AND the animation (e.g.
 `--word-diff` also batches word runs in the animator). Should be
 split: algorithm options affect only the diff; animation options
@@ -135,15 +135,15 @@ to make the animation more readable.
 **Problem:** `--delete-end-first`, `--delete-end-first-smart`, and
 `--overwrite` are three different post-processing strategies that
 overlap in what they do (reorder ops on a line). They should be
-**modes of a single `--op-order` option**:
+**modes of a single `[REMOVED: --op-order]` option**:
 
 ```
---op-order natural        # raw Patience order (no post-processing)
---op-order optimize       # deletes before inserts (current default)
---op-order left-to-right  # keeps, then deletes, then inserts
---op-order end-first      # trailing deletes first
---op-order end-first-smart # trailing deletes first + word batching
---op-order overwrite      # in-place replacement
+[REMOVED: --op-order] natural        # raw Patience order (no post-processing)
+[REMOVED: --op-order] optimize       # deletes before inserts (current default)
+[REMOVED: --op-order] left-to-right  # keeps, then deletes, then inserts
+[REMOVED: --op-order] end-first      # trailing deletes first
+[REMOVED: --op-order] end-first-smart # trailing deletes first + word batching
+[REMOVED: --op-order] overwrite      # in-place replacement
 ```
 
 ---
@@ -321,7 +321,7 @@ ad_vim --diff FILE                           # unified diff input
 ad_vim --multi <o1:n1> <o2:n2> ...           # multi-file
 ```
 
-Remove `--auto-precompute` (just use `diffvim-precomputed` wrapper).
+Remove `--auto-precompute` (just use `ad_vim-precomputed` wrapper).
 Remove `--compute-tool` (use the wrapper).
 Remove `--from`/`--to` (use `--git REV..REV`).
 
@@ -380,8 +380,8 @@ Remove `--from`/`--to` (use `--git REV..REV`).
 
 | #  | Base Operation        | Current options | Proposed unified interface                          |
 | -- | --------------------- | --------------- | --------------------------------------------------- |
-| 1  | Diff algorithm        | 5               | `--algorithm`, `--word-diff`, `--indent-aware`      |
-| 2  | Post-processing       | 7               | `--op-order MODE` (6 modes)                         |
+| 1  | Diff algorithm        | 5               | `--algorithm`, `--word-diff`, `[REMOVED: --indent-aware]`      |
+| 2  | Post-processing       | 7               | `[REMOVED: --op-order] MODE` (6 modes)                         |
 | 3  | Deletion pacing       | 20              | `--delete-pacing MODE` + `--delete-speed` + `--delete-threshold` |
 | 4  | Insertion pacing      | 4               | `--insert-pacing MODE`                              |
 | 5  | Timing                | 10              | `--pacing MODE` + `--speed` + `--char-delay` + `--hunk-pause` + `--line-pause` |
@@ -443,10 +443,10 @@ of: `char`, `rapid-eol`, `rapid-identical`, `accel`, `word`,
 
 ### Overlap 5: `--delete-end-first` vs `--delete-end-first-smart` vs `--overwrite`
 
-All three reorder ops on a line. They should be modes of `--op-order`:
-- `--op-order end-first` (current `--delete-end-first`)
-- `--op-order end-first-smart` (current `--delete-end-first-smart`)
-- `--op-order overwrite` (current `--overwrite`)
+All three reorder ops on a line. They should be modes of `[REMOVED: --op-order]`:
+- `[REMOVED: --op-order] end-first` (current `--delete-end-first`)
+- `[REMOVED: --op-order] end-first-smart` (current `--delete-end-first-smart`)
+- `[REMOVED: --op-order] overwrite` (current `--overwrite`)
 
 ### Overlap 6: `--fold-unchanged` vs `--context N`
 
@@ -461,7 +461,7 @@ Remove `--from`/`--to`, keep only `--git REV..REV`.
 
 `--auto-precompute` = run the compute tool then use `--precomputed`.
 `--compute-tool` = which tool to use for `--auto-precompute`.
-**Proposed:** Remove both. Use the `diffvim-precomputed` wrapper
+**Proposed:** Remove both. Use the `ad_vim-precomputed` wrapper
 script instead.
 
 ---
@@ -471,13 +471,13 @@ script instead.
 ### Diff algorithm (Base Op 1)
 ```
 --algorithm patience              # diff algorithm (default: patience)
---indent-aware                          # treat indent-only changes specially
---semantic-cleanup                     # merge adjacent del/ins pairs
+[REMOVED: --indent-aware]                          # treat indent-only changes specially
+[REMOVED: --semantic-cleanup]                     # merge adjacent del/ins pairs
 ```
 
 ### Post-processing (Base Op 2)
 ```
---op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite
+[REMOVED: --op-order] natural|optimize|left-to-right|end-first|end-first-smart|overwrite
                                         # op reordering (default: optimize)
 ```
 
@@ -558,7 +558,7 @@ The refactoring should be **backward-compatible** — old options
 continue to work but are deprecated.
 
 ### Phase 1: Add new unified options (no removal)
-- Add `--op-order`, `--delete-pacing`, `--insert-pacing`, `--pacing`,
+- Add `[REMOVED: --op-order]`, `--delete-pacing`, `--insert-pacing`, `--pacing`,
   `--highlight` as new top-level options.
 - Each new option maps internally to the existing options it
   replaces.
@@ -567,7 +567,7 @@ continue to work but are deprecated.
 ### Phase 2: Deprecation warnings
 - When an old option is used, print a deprecation warning to stderr
   suggesting the new equivalent.
-- Example: `--delete-end-first-smart` → `warning: --delete-end-first-smart is deprecated, use --op-order end-first-smart`
+- Example: `--delete-end-first-smart` → `warning: --delete-end-first-smart is deprecated, use [REMOVED: --op-order] end-first-smart`
 
 ### Phase 3: Remove old options (after 2 release cycles)
 - Remove all deprecated options.
@@ -581,7 +581,7 @@ The six presets become much simpler:
 default:      (no flags)
 fast-delete:  --delete-pacing word --delete-threshold 3
 review:       --pacing review --highlight hunk --dim-unchanged 50 --scroll zt
-ai-code:      --op-order end-first-smart --highlight inline --algorithm word
+ai-code:      [REMOVED: --op-order] end-first-smart --highlight inline --algorithm word
 demo:         --pacing gaussian --speed 0.7 --highlight inline
 presentation: --speed 1.2 --scroll zz --delete-pacing char
 ```
@@ -639,7 +639,7 @@ reduction comes from:
 3. **Removing redundancy** — `--fold-unchanged` = `--context 0`,
    `--from`/`--to` = `--git REV..REV`
 4. **Delegating to wrapper scripts** — `--auto-precompute` and
-   `--compute-tool` replaced by `diffvim-precomputed`
+   `--compute-tool` replaced by `ad_vim-precomputed`
 
 The proposed scheme is backward-compatible (old options work during
 a deprecation period), reduces the learning curve from 95 options

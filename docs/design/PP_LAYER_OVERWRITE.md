@@ -2,7 +2,7 @@
 
 **File:** `layers/c/ad_layer_layer_overwrite.c`
 **Binary:** `bin/ad_layer_overwrite`
-**Trigger:** `--overwrite` (env: `DIFFVIM_OVERWRITE=1`)
+**Trigger:** `--overwrite` (env: `config var: OVERWRITE=1`)
 
 ## Purpose
 
@@ -37,7 +37,7 @@ This is a single-step replacement — no delay between delete and insert.
 
 ## Debug Ops
 
-If `DV_OP_DEBUG=1`, a `debug` op is inserted before each
+If `config var: OP_DEBUG=1`, a `debug` op is inserted before each
 `overwrite_insert`:
 
 ```

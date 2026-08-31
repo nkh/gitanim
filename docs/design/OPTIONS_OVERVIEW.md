@@ -56,7 +56,7 @@ op count as Patience.)
   (default)              ──►  Char-level diff (every char is a separate op)
   --word-diff            ──►  Word-level diff (groups chars into word tokens)
                                + batches word runs as instant ops
-  --indent-aware         ──►  Normalize indent before line diff
+  [REMOVED: --indent-aware]         ──►  Normalize indent before line diff
                                (indent-only changes = "keep", not animated)
 ```
 
@@ -74,7 +74,7 @@ op count as Patience.)
   │                                                             │
   │  Raw char_ops                                               │
   │    │                                                        │
-  │    ├──► --semantic-cleanup   (merge canceling del+ins pairs)│
+  │    ├──► [REMOVED: --semantic-cleanup]   (merge canceling del+ins pairs)│
   │    │                                                         │
   │    ├──► --optimize-sequence  (consolidate interleaved ops)  │
   │    │     del a, ins x, del b  ──►  del a, del b, ins x     │

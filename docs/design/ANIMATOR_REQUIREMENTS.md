@@ -89,7 +89,7 @@ controls. It can:
 
 ```
 ┌─────────────┐     ┌───────────────┐     ┌──────────────┐     ┌──────────────┐
-│  diffvim-   │     │  diffvim-     │     │  diffvim-    │     │  diffvim-    │
+│  ad_vim-   │     │  ad_vim-     │     │  ad_vim-    │     │  ad_vim-    │
 │  compute    │────▶│  postprocess  │────▶│  pace        │────▶│  animator    │
 │             │     │               │     │              │     │              │
 │ Computes    │     │ Reorders ops  │     │ Adds timing  │     │ Plays back   │
@@ -122,13 +122,13 @@ old.py + new.py
 ┌──────────────────┐
 │ ad_postprocess│  (new: Perl / C)
 │                   │
-│ Input: raw ops    │  Flags: --op-order, --semantic-cleanup,
-│ Output: ordered   │          --indent-aware, --overwrite
+│ Input: raw ops    │  Flags: [REMOVED: --op-order], [REMOVED: --semantic-cleanup],
+│ Output: ordered   │          [REMOVED: --indent-aware], --overwrite
 │         ops       │
 │                   │
 │ Reorders ops      │  Can be multiple piped commands:
-│ within lines      │    postprocess --op-order optimize |
-│ + (line, col)     │    postprocess --semantic-cleanup |
+│ within lines      │    postprocess [REMOVED: --op-order] optimize |
+│ + (line, col)     │    postprocess [REMOVED: --semantic-cleanup] |
 │ positions         │    postprocess --left-to-right
 │                   │
 │ Owns cursor       │  (Since the Phase C refactor, postprocess
@@ -220,8 +220,8 @@ beforehand and produces a timed op stream. This means:
 chained:
 ```bash
 ad_compute old.py new.py |
-  ad_postprocess --op-order optimize |
-  ad_postprocess --semantic-cleanup |
+  ad_postprocess [REMOVED: --op-order] optimize |
+  ad_postprocess [REMOVED: --semantic-cleanup] |
   ad_layer_pace --delete-pacing word --pacing gaussian |
   ad old.py
 ```
@@ -492,17 +492,17 @@ buffer at startup.
 write transformed ops to stdout.
 
 **FR-2.2:** The postprocess tool SHALL support these flags:
-- `--op-order MODE`: Reorder ops within each line
-- `--semantic-cleanup`: Merge canceling delete/insert pairs
-- `--indent-aware`: Handle indent-only changes
+- `[REMOVED: --op-order] MODE`: Reorder ops within each line
+- `[REMOVED: --semantic-cleanup]`: Merge canceling delete/insert pairs
+- `[REMOVED: --indent-aware]`: Handle indent-only changes
 - `--overwrite`: Transform delete+insert into in-place overwrite
 
 **FR-2.3:** Multiple postprocess invocations SHALL be chainable via
 pipes:
 ```bash
 ad_compute old.py new.py |
-  ad_postprocess --op-order optimize |
-  ad_postprocess --semantic-cleanup
+  ad_postprocess [REMOVED: --op-order] optimize |
+  ad_postprocess [REMOVED: --semantic-cleanup]
 ```
 
 **FR-2.4:** The postprocess tool SHALL be implemented in Perl and C.
@@ -605,14 +605,14 @@ op stream.
 ```bash
 # Full pipeline with separate tools
 ad_compute old.py new.py |
-  ad_postprocess --op-order optimize --semantic-cleanup |
+  ad_postprocess [REMOVED: --op-order] optimize [REMOVED: --semantic-cleanup] |
   ad_layer_pace --delete-pacing word --pacing gaussian |
   ad --speed 1.0 --scroll zz old.py
 
 # Or with a wrapper script that builds the pipeline (no --tool flag
 # needed anymore — ad_pipeline auto-selects the C++ compute tool
 # and falls back to Perl when it's missing)
-ad_pipeline --op-order optimize --delete-pacing word old.py new.py
+ad_pipeline [REMOVED: --op-order] optimize --delete-pacing word old.py new.py
 ```
 
 ### 6.2 Animator Options
@@ -654,9 +654,9 @@ Other:
 ```
 ad_postprocess [options]  < raw_ops  > ordered_ops
 
-  --op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite
-  --semantic-cleanup
-  --indent-aware
+  [REMOVED: --op-order] natural|optimize|left-to-right|end-first|end-first-smart|overwrite
+  [REMOVED: --semantic-cleanup]
+  [REMOVED: --indent-aware]
   --overwrite
 ```
 
@@ -795,14 +795,14 @@ ad/
 
 ### 9.3 Phase 3: Integration
 
-- Add `--animator` flag to the bash `diffvim` wrapper that builds
+- Add `--animator` flag to the bash `ad_vim` wrapper that builds
   the pipeline: compute | postprocess | pace | animator
 - Keep vim-based engine as default (backwards compat)
 - Update documentation
 
 ### 9.4 Phase 4: Make animator the default
 
-- Change `diffvim` to use the animator by default
+- Change `ad_vim` to use the animator by default
 - Add `--vim` flag to fall back to the vim-based engine
 - Deprecate the vimscript engine
 

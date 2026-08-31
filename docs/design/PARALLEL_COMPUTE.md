@@ -106,7 +106,7 @@ would require a plugin with Python/Neovim support.
 **Approach 1 (background compute + file-poll wait)** is the simplest and
 most practical. Here's the implementation:
 
-### Bash wrapper (`diffvim-parallel`)
+### Bash wrapper (`ad_vim-parallel`)
 
 ```bash
 #!/usr/bin/env bash
@@ -174,7 +174,7 @@ The infrastructure is in place:
 - `--precomputed FILE` loads the file in the engine.
 - the compute tool computes then ad_vim animates sequentially.
 
-The **parallel** wrapper (`diffvim-parallel`) with the polling engine
+The **parallel** wrapper (`ad_vim-parallel`) with the polling engine
 change is left as a future enhancement — it requires adding a `sleep` loop
 to the vimscript engine, which blocks the UI during the wait. For now, the
 sequential compute+ad_vim approach is sufficient because the external

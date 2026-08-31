@@ -1,7 +1,7 @@
 # Adoption Guide — Bringing ad_vim to Your Team
 
 ad_vim has grown into a complex tool with **50+ CLI options**, three
-implementations (`diffvim`, `ad_tmux`, `ad_vim.pl`), one
+implementations (`ad_vim`, `ad_tmux`, `ad_vim.pl`), one
 external compute tool (C++) with a Perl fallback, and six presets.
 That flexibility is great for power users but can be intimidating
 for newcomers. This document explains how to introduce ad_vim to
@@ -58,7 +58,7 @@ ad_vim --preset ai-code old.py new.py
    (no `--tool` flag needed — it's automatic)
 6. **Month 2:** customize via `AD_PRESET` env var
 
-**Never** introduce raw options like `--word-diff`, `--semantic-cleanup`,
+**Never** introduce raw options like `--word-diff`, `[REMOVED: --semantic-cleanup]`,
 or `--left-to-right` until the user has used presets for at least a
 week. By then they'll have a mental model and will understand what
 each option does.
@@ -69,12 +69,12 @@ each option does.
 
 The in-vim patience is fast enough for toy examples but takes seconds on
 real codebases. **Make `bin/ad_compute` the default**,
-not `diffvim` without pre-computation:
+not `ad_vim` without pre-computation:
 
 ```bash
 # ad_vim searches for bin/ad_compute automatically.
 # Recommend this alias in every team member's shell config:
-alias dv='diffvim'
+alias dv='ad_vim'
 
 # With the C++ binary on PATH, `dv old.py new.py` is:
 #   1. ~1ms compute (C++) + ~50ms vim startup = 51ms total
@@ -93,10 +93,10 @@ make -C compute
 
 # Symlink to /usr/local/bin (or anywhere on PATH)
 sudo ln -sf "$(pwd)/bin/ad_compute" /usr/local/bin/
-sudo ln -sf "$(pwd)/diffvim" /usr/local/bin/
+sudo ln -sf "$(pwd)/ad_vim" /usr/local/bin/
 ```
 
-Now `diffvim` and `ad_compute` are available to everyone on
+Now `ad_vim` and `ad_compute` are available to everyone on
 the machine. (No more `--tool (removed)` flag — that was removed
 in the refactor; only the C++ tool remains.)
 
@@ -111,7 +111,7 @@ forgotten. ad_vim ships with several integration points — use them.
 
 ```vim
 " In ~/.vimrc or ~/.config/nvim/init.vim
-source /path/to/diffvim/plugin/diffvim.vim
+source /path/to/ad_vim/plugin/diffvim.vim
 
 " Now you have:
 "   :Diffvim old.py new.py
@@ -153,8 +153,8 @@ marker, and the result — a kind of "diff storyboard" that's perfect for
 async review.
 
 ```yaml
-# .github/workflows/diffvim-preview.yml
-name: diffvim-preview
+# .github/workflows/ad_vim-preview.yml
+name: ad_vim-preview
 on: [pull_request]
 jobs:
   preview:
@@ -174,7 +174,7 @@ jobs:
             github.rest.issues.createComment({
               ...context.repo,
               issue_number: context.issue.number,
-              body: '```diffvim\n' + log + '\n```'
+              body: '```ad_vim\n' + log + '\n```'
             });
 ```
 
@@ -227,15 +227,15 @@ ad_vim --log-mode 2 --log-file - old.py new.py | \
 When every developer configures ad_vim differently, the team can't
 help each other. Standardize via a checked-in config.
 
-### 6.1 Project-level `.diffvimrc`
+### 6.1 Project-level `.ad_vimrc`
 
 ```bash
 # In your repo, at the root:
-cat > .diffvimrc <<'EOF'
+cat > .ad_vimrc <<'EOF'
 # Team default: review preset + Rust compute + inline highlight
 AD_PRESET="review --highlight-inline"
-DIFFVIM_COMPUTE_TOOL=rust
-DIFFVIM_COMPUTE_DIR="$(git rev-parse --show-toplevel)/compute"
+config var: COMPUTE_TOOL=rust
+config var: COMPUTE_DIR="$(git rev-parse --show-toplevel)/compute"
 EOF
 ```
 
@@ -243,7 +243,7 @@ Developers source it once:
 
 ```bash
 # In ~/.bashrc or ~/.zshrc
-[ -f ./.diffvimrc ] && source ./.diffvimrc
+[ -f ./.ad_vimrc ] && source ./.ad_vimrc
 ```
 
 Now everyone on the team gets the same defaults.
@@ -254,7 +254,7 @@ Check in a `.vimrc.local` snippet that team members can `source`:
 
 ```vim
 " .vimrc.local (checked into the repo)
-source /path/to/diffvim/plugin/diffvim.vim
+source /path/to/ad_vim/plugin/diffvim.vim
 
 " Team mapping: <leader>d animates the current buffer's last commit
 nnoremap <leader>d :DiffvimCommit<CR>
@@ -267,7 +267,7 @@ nnoremap <leader>p :DiffvimPick<CR>
 
 ## 7. Suggested Onboarding Workshop (45 minutes)
 
-A structured workshop gets a team from "never used diffvim" to "uses
+A structured workshop gets a team from "never used ad_vim" to "uses
 it daily" in one session.
 
 ### Minute 0–5: Demo (no slides)
@@ -308,7 +308,7 @@ Walk around and help anyone whose animation didn't start.
 ### Minute 25–35: Vim plugin
 
 ```bash
-echo 'source ~/diffvim/plugin/diffvim.vim' >> ~/.vimrc
+echo 'source ~/ad_vim/plugin/diffvim.vim' >> ~/.vimrc
 ```
 
 In vim: `:DiffvimCommit`. Now everyone has it integrated.
@@ -333,8 +333,8 @@ You can't improve what you don't measure. Track:
 | Metric                                | How to measure                              | Target     |
 | ------------------------------------- | ------------------------------------------- | ---------- |
 | % of developers with ad_vim installed | `which ad_vim | wc -l` across the team    | 100%       |
-| Animations per developer per week     | Wrap `diffvim` in a logging wrapper         | 5+         |
-| % of PRs that mention a ad_vim log   | GitHub search `body:"diffvim"`              | 20%+       |
+| Animations per developer per week     | Wrap `ad_vim` in a logging wrapper         | 5+         |
+| % of PRs that mention a ad_vim log   | GitHub search `body:"ad_vim"`              | 20%+       |
 | Average session duration              | Wrap in a timer                             | 30-120s    |
 
 If a metric stalls, ask "what's the friction?" — usually it's one of
@@ -381,7 +381,7 @@ hunks.
 > **"AI-generated diffs are too messy to animate."**
 
 That's exactly what the `ai-code` preset is for. It enables
-`--semantic-cleanup`, `--left-to-right`, and `--word-diff` together,
+`[REMOVED: --semantic-cleanup]`, `--left-to-right`, and `--word-diff` together,
 which turn a chaotic char-level diff into something that reads like
 human edits.
 
@@ -410,7 +410,7 @@ Week 3 — Compute tools and large files
   [ ] Everyone has tried `--preset ai-code` on an AI-generated diff
 
 Week 4 — Share and refine
-  [ ] Team has agreed on a shared `.diffvimrc`
+  [ ] Team has agreed on a shared `.ad_vimrc`
   [ ] At least one teammate has presented a refactor using ad_vim in standup
   [ ] Adoption metric: 5+ animations per developer per week
 ```
@@ -422,7 +422,7 @@ When every box is checked, ad_vim is part of your team's DNA.
 ## 11. Anti-Patterns to Avoid
 
 - **Don't** introduce raw options in the first week. Use presets only.
-- **Don't** run `diffvim` without the C++ compute binary on files >500
+- **Don't** run `ad_vim` without the C++ compute binary on files >500
   lines. The 3-second startup will sour users on the tool.
 - **Don't** require a specific preset for everyone. Let each developer
   pick their own via `AD_PRESET`.

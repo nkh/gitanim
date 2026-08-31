@@ -1,7 +1,7 @@
 # Delete-Line-Content-First Layer
 
 **File:** `layers/c/ad_layer_layer_delete_line_first.c`
-**Binary:** `animator/bin/pp_delete_line_first`
+**Binary:** `bin/ad_layer_delete_line_first`
 **Trigger:** Always runs (not optional)
 
 ## Purpose
@@ -66,7 +66,7 @@ Works for any number of consecutive line deletions.
 ```bash
 # Standalone
 cc -DPP_STANDALONE -O2 -Wall -Wextra -Wunused -Werror \
-   -I animator/c -o animator/bin/pp_delete_line_first \
+   -I animator/c -o bin/ad_layer_delete_line_first \
    layers/c/ad_layer_layer_delete_line_first.c
 
 # In pipeline (via ad_postprocess)

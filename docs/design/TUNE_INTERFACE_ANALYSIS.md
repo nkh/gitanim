@@ -15,7 +15,7 @@ Currently this workflow is:
 vim /tmp/old.txt /tmp/new.txt
 # Run pipeline with options
 ./bin/ad_compute /tmp/old.txt /tmp/new.txt /tmp/raw.txt
-./bin/ad_postprocess --op-order optimize < /tmp/raw.txt > /tmp/post.txt
+./bin/ad_postprocess [REMOVED: --op-order] optimize < /tmp/raw.txt > /tmp/post.txt
 ./bin/ad_layer_pace --delete-pacing word < /tmp/post.txt > /tmp/timed.txt
 # Inspect
 less -S /tmp/post.txt
@@ -27,7 +27,7 @@ bash scripts/dv_debug.sh /tmp/old.txt /tmp/new.txt
 
 This is slow and repetitive. We need a faster loop.
 
-## Proposed solution: `diffvim-tune` interactive script
+## Proposed solution: `ad_vim-tune` interactive script
 
 A bash-based interactive tool that provides a menu-driven interface for
 tuning postprocessing and pacing.
@@ -36,7 +36,7 @@ tuning postprocessing and pacing.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ diffvim-tune — postprocessing/pacing workbench                  │
+│ ad_vim-tune — postprocessing/pacing workbench                  │
 ├─────────────────────────────────────────────────────────────────┤
 │ Files:  old=/tmp/old.txt  new=/tmp/new.txt                      │
 │         (e=edit old, E=edit new, s=swap, d=diff)               │
@@ -67,9 +67,9 @@ tuning postprocessing and pacing.
 
 ```bash
 #!/usr/bin/env bash
-# diffvim-tune — interactive postprocessing/pacing workbench
+# ad_vim-tune — interactive postprocessing/pacing workbench
 #
-# Usage: diffvim-tune [oldfile newfile]
+# Usage: ad_vim-tune [oldfile newfile]
 #   If no files given, uses tests/minimal/01_simple_replace/
 
 # State stored in /tmp/dv_tune/
@@ -120,12 +120,12 @@ dv_debug_bundle_20260820_153000.tar.gz
 ├── dv_debug_output.txt
 ├── snapshots.html
 ├── system_info.txt
-└── diffvim_version.txt
+└── ad_vim_version.txt
 ```
 
 ### Why this is better than manual commands
 
-| Manual | diffvim-tune |
+| Manual | ad_vim-tune |
 |--------|-------------|
 | 5 commands to change settings + re-run | 2 keystrokes |
 | Must remember all option names | Menu shows options |
@@ -149,8 +149,8 @@ dv_debug_bundle_20260820_153000.tar.gz
 
 ## Recommendation
 
-**Build `diffvim-tune` as a bash script** (not a full TUI). It should:
-1. Live in `scripts/diffvim-tune`
+**Build `ad_vim-tune` as a bash script** (not a full TUI). It should:
+1. Live in `scripts/ad_vim-tune`
 2. Use a simple numbered menu (no ncurses)
 3. Source settings from a config file
 4. Generate debug bundles on demand

@@ -289,7 +289,7 @@ The current orchestrator is in `postprocess.c` (C code). To add/remove/reorder l
 
 ### The Solution
 
-Write the orchestrator as a bash script (`animator/diffvim-orchestrator`). It:
+Write the orchestrator as a bash script (`animator/ad_vim-orchestrator`). It:
 
 1. Reads V2 TSV from stdin
 2. For each enabled layer:
@@ -303,13 +303,13 @@ Write the orchestrator as a bash script (`animator/diffvim-orchestrator`). It:
 
 ```bash
 #!/bin/bash
-# diffvim-orchestrator — runs postprocess layers in sequence
+# ad_vim-orchestrator — runs postprocess layers in sequence
 #
 # Each layer is a standalone binary that reads V2 TSV from stdin
 # and writes V2 TSV to stdout.
 #
 # Usage:
-#   diffvim-orchestrator [--indent-last] [--overwrite] [--debug] < raw_ops > post_ops
+#   ad_vim-orchestrator [--indent-last] [--overwrite] [--debug] < raw_ops > post_ops
 
 OPS_FILE=$(mktemp)
 cat > "$OPS_FILE"
@@ -323,7 +323,7 @@ LAYERS+=("ad_layer_line_delete_in_place")  # always (when implemented)
 
 # Run each layer
 for layer in "${LAYERS[@]}"; do
-    BIN="$ROOT/animator/bin/$layer"
+    BIN="$ROOT/bin/$layer"
     if [[ -f "$BIN" ]]; then
         "$BIN" < "$OPS_FILE" > "$OPS_FILE.tmp"
         mv "$OPS_FILE.tmp" "$OPS_FILE"
@@ -514,7 +514,7 @@ ad_layer_indent_last --dump-changes /tmp/il_changes.txt < ops2.txt > ops3.txt
 
 Or globally:
 ```bash
-diffvim-orchestrator --debug --dump-dir /tmp/debug < raw.txt > post.txt
+ad_vim-orchestrator --debug --dump-dir /tmp/debug < raw.txt > post.txt
 # This runs each layer with --dump-changes /tmp/debug/<layer>_changes.txt
 ```
 

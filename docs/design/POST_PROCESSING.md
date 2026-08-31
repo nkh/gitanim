@@ -17,7 +17,7 @@ visually confusing and cognitively demanding.
 
 ## Solution
 
-diffvim's `--optimize-sequence` option (default: **on**) post-processes
+ad_vim's `--optimize-sequence` option (default: **on**) post-processes
 the char-op sequence to eliminate erratic movement. Use
 `--no-optimize-sequence` to disable.
 

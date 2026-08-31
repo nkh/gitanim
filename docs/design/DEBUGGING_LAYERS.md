@@ -21,7 +21,7 @@ The bash orchestrator (`bin/ad_postprocess`) chains them.
 | `ad_layer_noop` | Reorder ops + position adjustment |
 | `ad_layer_indent_last` | Move indent deletes to end of line |
 | `ad_layer_overwrite` | Merge delete+insert pairs |
-| `pp_adjust` | Standalone position adjustment |
+| `ad_layer_adjust` | Standalone position adjustment |
 | `ad_layer_line_delete_in_place` | Delete lines on their own line (disabled) |
 | `ad` | Apply ops to old file → snapshot |
 

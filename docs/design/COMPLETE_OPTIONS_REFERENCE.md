@@ -250,30 +250,30 @@ ad_vim --distance-speed adaptive --distance-slow-mult 0.3 old.py new.py
 
 ## 7. Op Ordering
 
-### --op-order MODE
+### [REMOVED: --op-order] MODE
 Op reordering: `natural|optimize|left-to-right|end-first|end-first-smart` (default: optimize).
 ```bash
-ad_vim --op-order natural old.py new.py
-ad_vim --op-order optimize old.py new.py
-ad_vim --op-order left-to-right old.py new.py
-ad_vim --op-order end-first old.py new.py
-ad_vim --op-order end-first-smart old.py new.py
+ad_vim [REMOVED: --op-order] natural old.py new.py
+ad_vim [REMOVED: --op-order] optimize old.py new.py
+ad_vim [REMOVED: --op-order] left-to-right old.py new.py
+ad_vim [REMOVED: --op-order] end-first old.py new.py
+ad_vim [REMOVED: --op-order] end-first-smart old.py new.py
 ```
 
 ---
 
 ## 8. Postprocess Transforms
 
-### --semantic-cleanup
+### [REMOVED: --semantic-cleanup]
 Merge adjacent delete+insert pairs that cancel out.
 ```bash
-ad_vim --semantic-cleanup old.py new.py
+ad_vim [REMOVED: --semantic-cleanup] old.py new.py
 ```
 
-### --indent-aware
+### [REMOVED: --indent-aware]
 Normalize indentation before line diff.
 ```bash
-ad_vim --indent-aware old.py new.py
+ad_vim [REMOVED: --indent-aware] old.py new.py
 ```
 
 ### --indent-last
@@ -492,9 +492,9 @@ ad_vim --preset fast old.py new.py
 
 Or use directly:
 ```bash
-ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged [REMOVED: --op-order] left-to-right old.py new.py
 ad_vim --pacing gaussian --speed 0.7 --highlight inline old.py new.py
-ad_vim --delete-pacing word --delete-speed fast --op-order optimize old.py new.py
+ad_vim --delete-pacing word --delete-speed fast [REMOVED: --op-order] optimize old.py new.py
 ```
 
 ---
@@ -521,7 +521,7 @@ During animation in vim normal mode:
 ```bash
 ad_vim --preset review old.py new.py
 # or
-ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --speed 0.7 old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged [REMOVED: --op-order] left-to-right --speed 0.7 old.py new.py
 ```
 
 ### Demo (smooth, visually appealing)
@@ -564,7 +564,7 @@ ad_vim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 -
 
 ### Indent-aware + indent-last (Python)
 ```bash
-ad_vim --indent-aware --indent-last old.py new.py
+ad_vim [REMOVED: --indent-aware] --indent-last old.py new.py
 ```
 
 ### Everything at once

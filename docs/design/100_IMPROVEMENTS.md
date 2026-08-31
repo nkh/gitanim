@@ -1,4 +1,4 @@
-# 100 Improvements for Animated Diffs (diffvim/gitanim)
+# 100 Improvements for Animated Diffs (ad_vim/gitanim)
 
 A catalogue of **exactly 100 improvements** — each one implementable as
 either (a) a **postprocess layer** that reorders/groups/modifies ops,
@@ -49,7 +49,7 @@ Reorder ops within line groups / hunks for a more natural visual flow.
 ### 1. Left-to-Right Cursor Sweep
 - **Category:** Op Ordering
 - **Layer type:** postprocess layer
-- **Trigger:** default-on (`--op-order natural` to disable; already partially implemented via `left_to_right`)
+- **Trigger:** default-on (`[REMOVED: --op-order] natural` to disable; already partially implemented via `left_to_right`)
 - **Description:** Within each line group (between keeps or `\n` ops), emit all DELETE ops sorted ascending by `col`, then all INSERT ops sorted ascending by `col`. This guarantees the cursor never moves backward within a single line, eliminating the "flicker back" effect.
 - **Example:** Before: `del 'x' @col5, ins 'y' @col3, del 'z' @col7`. After: `del 'x' @col5, del 'z' @col7, ins 'y' @col3`.
 - **Test:** Property test — for any output, within each line group, the `col` sequence of deletes is non-decreasing and the `col` sequence of inserts is non-decreasing.
@@ -105,8 +105,8 @@ Reorder ops within line groups / hunks for a more natural visual flow.
 ### 8. Reinsertion Folding
 - **Category:** Op Ordering
 - **Layer type:** postprocess layer
-- **Trigger:** `--fold-reinsertion` (default-on; supersedes `--semantic-cleanup`)
-- **Description:** Generalize `--semantic-cleanup`: any DELETE of char `c` at `(line, col)` immediately followed by an INSERT of the same char `c` at the same `(line, col)` is folded into a `keep` op. Reduces op count and prevents "delete then re-add the same char" flicker. Distinct from `--overwrite` because the chars are identical, not different.
+- **Trigger:** `--fold-reinsertion` (default-on; supersedes `[REMOVED: --semantic-cleanup]`)
+- **Description:** Generalize `[REMOVED: --semantic-cleanup]`: any DELETE of char `c` at `(line, col)` immediately followed by an INSERT of the same char `c` at the same `(line, col)` is folded into a `keep` op. Reduces op count and prevents "delete then re-add the same char" flicker. Distinct from `--overwrite` because the chars are identical, not different.
 - **Example:** `del 'a' @col3, ins 'a' @col3` → `keep 'a' @col3`.
 - **Test:** Property test — round-trip equality (running the layer on random inputs yields the same final buffer); also op count strictly decreases.
 
@@ -771,7 +771,7 @@ Keyboard, reduced motion, pause points — for diverse viewers.
 ### 86. Reduced Motion Mode
 - **Category:** Accessibility & UX
 - **Layer type:** pace layer
-- **Trigger:** `--reduced-motion` (default off; auto-on if `$DIFFVIM_REDUCED_MOTION=1` or terminal reports `prefers-reduced-motion`)
+- **Trigger:** `--reduced-motion` (default off; auto-on if `$config var: REDUCED_MOTION=1` or terminal reports `prefers-reduced-motion`)
 - **Description:** Skips all animations: shows the final buffer immediately with no char-by-char playback. Only the diff highlighting (insert = green, delete = red) is shown statically. Essential for viewers with vestibular disorders or those who find animation distracting.
 - **Example:** 50-op diff → no animation; final buffer shown with green/red highlights only.
 - **Test:** Visual snapshot — no intermediate frames; final buffer matches expected.
@@ -924,7 +924,7 @@ Cutting-edge ideas — higher risk, higher reward.
 
 - **default-on**: applied automatically; disable with a `--no-<name>` flag.
 - **default-off**: opt-in via `--<name>` flag.
-- **env var**: `$DIFFVIM_<NAME>=1` (e.g., `DIFFVIM_REDUCED_MOTION`).
+- **env var**: `$config var: <NAME>=1` (e.g., `config var: REDUCED_MOTION`).
 - **language-aware**: requires `--lang <lang>` or auto-detection from file extension; uses tree-sitter or a simpler regex-based parser.
 
 ## Testing Strategy
@@ -950,7 +950,7 @@ These improvements draw on:
 ## Next Actions
 
 1. **Prioritize** — rank by impact/cost. Recommended high-impact, low-cost first: #1, #8, #25, #39–#41, #42, #69, #86.
-2. **Prototype** — implement each as a standalone `pp_layer_*.c` binary for isolated testing (matches the existing `ad_layer_overwrite` / `ad_layer_indent_last` / `ad_layer_noop` pattern).
+2. **Prototype** — implement each as a standalone `ad_layer_layer_*.c` binary for isolated testing (matches the existing `ad_layer_overwrite` / `ad_layer_indent_last` / `ad_layer_noop` pattern).
 3. **Integrate** — wire into `postprocess.c` (for postprocess layers), `pace.c` (for pace layers), `decorate.c` (for decorate layers), or the animator loop (for animator features).
 4. **Document** — each layer gets a `docs/PP_LAYER_<NAME>.md` file (matching the existing `PP_LAYER_OVERWRITE.md` pattern).
 5. **Test** — add a `tests/test_<layer_name>.pl` for each (matching the existing `test_indent_last.pl` / `test_overwrite_layer.sh` pattern).

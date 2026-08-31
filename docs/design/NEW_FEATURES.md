@@ -26,7 +26,7 @@ ad_vim --cursor-glide-ms 300 old.py new.py
 ad_pipeline --cursor-glide-ms 300 --cursor-glide-show-intermediate 0 old.py new.py
 ```
 
-**Env vars:** `DIFFVIM_CURSOR_GLIDE_MS`, `DIFFVIM_CURSOR_GLIDE_SHOW_INTERMEDIATE`
+**Env vars:** `config var: CURSOR_GLIDE_MS`, `config var: CURSOR_GLIDE_SHOW_INTERMEDIATE`
 
 ---
 
@@ -50,8 +50,8 @@ affected — insert delays and keep delays are unchanged.
 ad_vim --distance-speed adaptive --distance-threshold 10 old.py new.py
 ```
 
-**Env vars:** `DIFFVIM_DISTANCE_SPEED`, `DIFFVIM_DISTANCE_THRESHOLD`,
-`DIFFVIM_DISTANCE_FAST_MULT`, `DIFFVIM_DISTANCE_SLOW_MULT`
+**Env vars:** `config var: DISTANCE_SPEED`, `config var: DISTANCE_THRESHOLD`,
+`config var: DISTANCE_FAST_MULT`, `config var: DISTANCE_SLOW_MULT`
 
 ---
 
@@ -94,8 +94,8 @@ Different from `instant` (which just deletes with no highlight/pause).
 ad_vim --delete-pacing flash --flash-pause-ms 500 old.py new.py
 ```
 
-**Env vars:** `DIFFVIM_DELETE_PACING=flash`, `DIFFVIM_FLASH_PAUSE_MS`,
-`DIFFVIM_FLASH_HIGHLIGHT_MS`
+**Env vars:** `config var: DELETE_PACING=flash`, `config var: FLASH_PAUSE_MS`,
+`config var: FLASH_HIGHLIGHT_MS`
 
 ---
 
@@ -130,7 +130,7 @@ Controls how the viewport scrolls to follow the cursor:
 ad_vim --scroll zt old.py new.py
 ```
 
-**Env var:** `DIFFVIM_SCROLL`
+**Env var:** `config var: SCROLL`
 
 ---
 
@@ -154,11 +154,11 @@ ad_pipeline --animator-colormap-old old.colormap --animator-colormap-new new.col
 
 ## Launcher Wiring
 
-The `diffvim` launcher and `ad_pipeline` now forward ALL options
+The `ad_vim` launcher and `ad_pipeline` now forward ALL options
 to the C pipeline stages:
 
-- **Postprocess:** `--semantic-cleanup`, `--indent-aware`, `--overwrite`,
-  `--indent-last`, `--op-order` (all 5 modes)
+- **Postprocess:** `[REMOVED: --semantic-cleanup]`, `[REMOVED: --indent-aware]`, `--overwrite`,
+  `--indent-last`, `[REMOVED: --op-order]` (all 5 modes)
 - **Pace:** `--delete-pacing`, `--insert-pacing`, `--delete-speed`,
   `--insert-speed`, `--delete-threshold`, `--pacing`, `--gaussian-jitter-pct`,
   `--pause-after-lines`, `--pause-after-threshold`, `--pause-after-ms`,

@@ -10,7 +10,7 @@ This document analyses the seven architecture questions you raised. For each, I 
 
 ### What ad_vim does today
 
-The `diffvim` bash launcher embeds a 3,064-line vimscript engine (`autoload/diffvim/engine.vim`) inside itself via a heredoc. That engine **reimplements the entire pipeline**:
+The `ad_vim` bash launcher embeds a 3,064-line vimscript engine (`autoload/ad_vim/engine.vim`) inside itself via a heredoc. That engine **reimplements the entire pipeline**:
 
 | Stage | C/Perl pipeline | vimscript engine (duplicated) |
 |-------|-----------------|--------------------------------|
@@ -22,7 +22,7 @@ The bash launcher already calls `ad_compute` when available (Phase B), so **the 
 
 ### Proposed approach
 
-Add a `--precomputed-pipeline FILE` mode to `diffvim` that:
+Add a `--precomputed-pipeline FILE` mode to `ad_vim` that:
 1. Runs `compute → postprocess → pace` externally and writes a v2 TSV timed-op stream to `FILE`.
 2. The vimscript engine reads that file and only handles the **animate** stage (rendering + user interaction).
 3. The duplicate postprocess/pace vimscript functions stay as a fallback when external tools aren't available.
@@ -59,7 +59,7 @@ Change the test to initialize the dict first:
 -c 'let g:diffvim = {"output_file": "/tmp/.../out.txt"}'
 ```
 
-The engine's `extend({...defaults...}, get(g:, 'diffvim', {}))` then merges the user's value with defaults.
+The engine's `extend({...defaults...}, get(g:, 'ad_vim', {}))` then merges the user's value with defaults.
 
 **Done.** 10/10 tests pass now. See commit `9fcdd99` + the follow-up fix in this session.
 
@@ -82,9 +82,9 @@ But once we do item #1 above (move postprocess+pace out of vim), the vimscript e
 `ad_postprocess` has 4 options today:
 
 ```
---op-order natural|optimize|left-to-right|end-first|end-first-smart|overwrite
---semantic-cleanup
---indent-aware
+[REMOVED: --op-order] natural|optimize|left-to-right|end-first|end-first-smart|overwrite
+[REMOVED: --semantic-cleanup]
+[REMOVED: --indent-aware]
 --overwrite
 ```
 
@@ -100,8 +100,8 @@ Each is a transformation pass over the op stream. They run sequentially inside o
 **Arguments AGAINST separate executables:**
 - 6 executables to maintain instead of 1 (the C impl, the Perl impl, the docs, the manpages, the completions).
 - Each pipe stage re-parses the entire op stream — currently `read_input()` is ~20% of postprocess's runtime. Spinning up 4-6 separate processes for a 28K-op stream would add ~50ms of process startup overhead per stage.
-- The transformations interact: `--semantic-cleanup` creates new keep ops that `--op-order` then needs to reorder; if they're separate executables, you have to re-emit and re-parse the op stream between them.
-- The user almost always wants the same combination (`--op-order optimize --semantic-cleanup` is the default). Splitting them just makes the common case slower.
+- The transformations interact: `[REMOVED: --semantic-cleanup]` creates new keep ops that `[REMOVED: --op-order]` then needs to reorder; if they're separate executables, you have to re-emit and re-parse the op stream between them.
+- The user almost always wants the same combination (`[REMOVED: --op-order] optimize [REMOVED: --semantic-cleanup]` is the default). Splitting them just makes the common case slower.
 
 ### Recommendation
 
@@ -135,7 +135,7 @@ Patience uses unique-line anchors to sub-divide; LCS doesn't. So Patience produc
 
 ### Proposed normalization layer
 
-Add a `diffvim-normalize` executable (or `--normalize` flag to postprocess) that:
+Add a `ad_vim-normalize` executable (or `--normalize` flag to postprocess) that:
 
 1. **Hunk re-bundling**: walk the op stream. When two adjacent hunks have no `keep \n` between them (i.e., the boundary is artificial), merge them. When a hunk is very large (say >5K ops), try to split it at `keep \n` boundaries.
 2. **Op consolidation**: walk each hunk's ops. Merge adjacent `keep X, keep Y` into `keep X+Y` (where `X+Y` is a multi-char keep — currently we have one op per char).
@@ -237,7 +237,7 @@ No temp files. Animator starts rendering as soon as the first hunk is ready. On 
 
 ### Caveats
 
-- `--semantic-cleanup` currently can produce ops that cancel out across hunk boundaries in rare cases (when a hunk ends with `delete \n` and the next starts with `insert \n`). In streaming mode, this transformation wouldn't be applied. Workaround: detect the case and emit a warning, or skip semantic-cleanup in streaming mode.
+- `[REMOVED: --semantic-cleanup]` currently can produce ops that cancel out across hunk boundaries in rare cases (when a hunk ends with `delete \n` and the next starts with `insert \n`). In streaming mode, this transformation wouldn't be applied. Workaround: detect the case and emit a warning, or skip semantic-cleanup in streaming mode.
 - The Perl `pace.pl` already streams (it reads line-by-line). It just buffers per-hunk. The C version is the same.
 
 **Recommendation: implement streaming in postprocess and pace. It's a small code change (~50 lines each) with big latency wins on large files.**
@@ -405,7 +405,7 @@ The picker shows commits that touched the current file, with a `git show --stat 
 1. **Install fzf** in the dev environment so we can test the existing picker.
 2. **Add `:DiffvimPickFile`** — pick a file (fzf on `git ls-files`), then animate its diff vs HEAD or vs a picked commit.
 3. **Document the existing commands** in README and a new GIT_INTEGRATION.md.
-4. **Add `--picker fzf|forgit|builtin|none` flag** to the `diffvim` bash launcher so non-vim users get the same picker.
+4. **Add `--picker fzf|forgit|builtin|none` flag** to the `ad_vim` bash launcher so non-vim users get the same picker.
 
 ---
 
@@ -416,7 +416,7 @@ The picker shows commits that touched the current file, with a `git show --stat 
 | 1 | ad_vim uses C++ postprocess+pace | DO IT — biggest win | ~1 day, ~1800 LOC removed from engine |
 | 2 | synchronous_engine test | FIXED (was a vimscript dict init bug) | done |
 | 3 | Each postprocess option as separate executable | Don't — keep one tool, expose transforms as `--transform NAME` flags | n/a |
-| 4 | Normalize LCS vs Patience output | Add a `diffvim-normalize` layer that re-bundles hunks; keep single-char ops as canonical, add `--batch-keeps` for efficiency | ~2 days |
+| 4 | Normalize LCS vs Patience output | Add a `ad_vim-normalize` layer that re-bundles hunks; keep single-char ops as canonical, add `--batch-keeps` for efficiency | ~2 days |
 | 5 | Streaming pipeline (hunk-by-hunk) | Add `--stream` to postprocess and pace; animator already streams. Big latency win on large files | ~1 day |
 | 6 | Typed delays | Add `--typed-delays` to pace, parse type in animator. Allows dynamic per-type pacing at animation time | ~2 hours |
 | 7 | Coloring via external colorizer | Add `ad_colorize` (using pygmentize), opt-in via `--colorize`. Color maps precomputed, op stream unchanged | ~1 day |
@@ -432,7 +432,7 @@ The picker shows commits that touched the current file, with a `git show --stat 
 6. **Item 4 (normalize)** — needs design; only worth doing if we want LCS/Patience to be truly interchangeable.
 7. **Item 3 (split postprocess)** — probably never; the current design is correct.
 
-Items 1, 5, 6 are all on the critical path to a much smaller, faster diffvim. I'd tackle those first.
+Items 1, 5, 6 are all on the critical path to a much smaller, faster ad_vim. I'd tackle those first.
 
 ---
 

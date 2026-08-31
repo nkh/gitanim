@@ -7,7 +7,7 @@ All intermediary files in the ad_vim pipeline use **TSV (tab-separated values)**
 Produced by `ad_compute`. Contains char-level diff ops with positions.
 
 ```
-# diffvim raw diff v2
+# ad_vim raw diff v2
 # algorithm patience
 # semantic_cleanup 0
 # word_diff 0
@@ -61,7 +61,7 @@ HUNK_END
 Produced by `ad_postprocess`. Same format as raw diff, with ops reordered/transformed and positions recomputed.
 
 ```
-# diffvim post-processed v2
+# ad_vim post-processed v2
 # semantic_cleanup 0
 # optimize_sequence 1
 # hunk_count N
@@ -85,7 +85,7 @@ HUNK_END
 Produced by `ad_layer_pace`. Same ops as post-processed, with **delay lines inserted between them**. Pace does NOT modify, reorder, or add any ops — it only inserts delays.
 
 ```
-# diffvim timed ops v2
+# ad_vim timed ops v2
 # delete_pacing word
 # insert_pacing char
 

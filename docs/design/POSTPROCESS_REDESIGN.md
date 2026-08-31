@@ -2,7 +2,7 @@
 
 **Status:** Implemented. The layered architecture below is reflected in
 the current code (`postprocess.c`, `ad_layer_noop_v2.c`, `ad_layer_noop_reorder.c`,
-`pp_layer_indent_last.c`, `pp_layer_overwrite.c`). Cursor recomputation
+`ad_layer_layer_indent_last.c`, `ad_layer_layer_overwrite.c`). Cursor recomputation
 is performed by the inline `adjust_positions()` function in
 `postprocess.c`, not by a separate layer.
 
@@ -135,7 +135,7 @@ postprocess output (V2 TSV)
 1. **Each layer is a pure function:** `Op[] → Op[]`. No side effects,
    no stdout writing. The output of one layer is the input to the next.
 
-2. **Each layer can be enabled/disabled.** If `--op-order natural`
+2. **Each layer can be enabled/disabled.** If `[REMOVED: --op-order] natural`
    is set, Layer 1 is a no-op. `--indent-last` and `--overwrite`
    gate the optional transforms. `adjust_positions` always runs.
 
@@ -189,7 +189,7 @@ Output: HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>
 **What it does:**
 - Detect V1 (space-separated) vs V2 (tab-separated)
 - Convert V1 → V2 if needed
-- Write headers (`# diffvim post-processed v2`, etc.)
+- Write headers (`# ad_vim post-processed v2`, etc.)
 - Pass through HUNK/HUNK_END and ops unchanged
 
 **What it does NOT do:**
@@ -226,27 +226,27 @@ has correct content — no transient mismatch.
 
 Each transform is a separate sub-layer. They run in order:
 
-**2a. semantic_cleanup** (option: `--semantic-cleanup`)
+**2a. semantic_cleanup** (option: `[REMOVED: --semantic-cleanup]`)
 - Merge canceling delete+insert pairs → keep
 - Runs BEFORE reorder (on raw ops)
 - Actually, should run AFTER reorder (on reordered ops) to catch
   adjacent pairs
 
-**2b. delete-indent-last** (option: `--indent-last`, file: `pp_layer_indent_last.c`)
+**2b. delete-indent-last** (option: `--indent-last`, file: `ad_layer_layer_indent_last.c`)
 - For each line group (between `\n` ops):
   - Find leading whitespace (space/tab deletes at start of group)
   - Move them to the end of the line group (just before the `\n` delete)
 - **Reorders ops only.** Does NOT modify `line`/`col` positions.
 - Runs AFTER reorder (so groups are per-line, with `\n` at end)
 
-**2c. overwrite** (option: `--overwrite`, file: `pp_layer_overwrite.c`)
+**2c. overwrite** (option: `--overwrite`, file: `ad_layer_layer_overwrite.c`)
 - Mark adjacent delete+insert pairs as `overwrite_insert`
 - Runs AFTER reorder and delete-indent-last
 
 > `semantic_cleanup` was proposed but is not implemented. The
 > "Layer 2" grouping in earlier drafts was replaced by two
-> standalone layer files (`pp_layer_indent_last.c`,
-> `pp_layer_overwrite.c`) invoked conditionally by `postprocess.c`.
+> standalone layer files (`ad_layer_layer_indent_last.c`,
+> `ad_layer_layer_overwrite.c`) invoked conditionally by `postprocess.c`.
 
 #### adjust_positions (inline in postprocess.c)
 
@@ -367,8 +367,8 @@ transform has finished.
 
 ### Phase 4: Transforms (delete-indent-last, overwrite)
 
-Add `pp_layer_indent_last.c` (reorder leading-whitespace deletes to
-end of line group; no line/col changes) and `pp_layer_overwrite.c`
+Add `ad_layer_layer_indent_last.c` (reorder leading-whitespace deletes to
+end of line group; no line/col changes) and `ad_layer_layer_overwrite.c`
 (mark adjacent delete+insert pairs as `overwrite_insert`). Each is a
 pure function on the op array, gated by `--indent-last` and
 `--overwrite` respectively.
@@ -401,8 +401,8 @@ animator/c/
   postprocess.c           # Orchestrator; contains inline adjust_positions()
   ad_layer_noop_v2.c          # Layer 0: V2 conversion
   ad_layer_noop_reorder.c     # Layer 1: 4-sweep reorder
-  pp_layer_indent_last.c  # delete-indent-last transform (--indent-last)
-  pp_layer_overwrite.c     # overwrite transform (--overwrite)
+  ad_layer_layer_indent_last.c  # delete-indent-last transform (--indent-last)
+  ad_layer_layer_overwrite.c     # overwrite transform (--overwrite)
   ad_layer_common.h             # Shared types (Op struct, helpers, debug dumps)
 ```
 
@@ -412,8 +412,8 @@ Or keep it in one file but with clear section markers:
 postprocess.c:
   // ===== Layer 0: V2 Conversion (in ad_layer_noop_v2.c) =====
   // ===== Layer 1: Reorder (in ad_layer_noop_reorder.c) =====
-  // ===== delete-indent-last (in pp_layer_indent_last.c) =====
-  // ===== overwrite (in pp_layer_overwrite.c) =====
+  // ===== delete-indent-last (in ad_layer_layer_indent_last.c) =====
+  // ===== overwrite (in ad_layer_layer_overwrite.c) =====
   // ===== adjust_positions (inline) =====
   // ===== Debug =====
   // ===== Main =====

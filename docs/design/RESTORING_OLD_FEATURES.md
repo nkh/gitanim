@@ -15,10 +15,10 @@ feature, categorized by where the implementation belongs.
 ```
 bash launcher
   ├── parses all options
-  ├── exports ~95 DIFFVIM_* env vars
+  ├── exports ~95 config var: * env vars
   ├── runs pipeline: compute → postprocess → pace
   └── launches vim with timed op stream reader
-      └── reads $DIFFVIM_TIMED_OPS, $DIFFVIM_SPEED, $DIFFVIM_SYNC
+      └── reads $config var: TIMED_OPS, $config var: SPEED, $config var: SYNC
           (ignores all other env vars)
 ```
 
@@ -40,7 +40,7 @@ and AWD timing. **WORKS** but only affects `word` pacing mode.
 **Action**: None needed. ✅ Already works.
 
 #### A3. `--pacing uniform|adaptive|gaussian|review`
-**Current state**: Exported as `DIFFVIM_PACING` but pace doesn't read it.
+**Current state**: Exported as `config var: PACING` but pace doesn't read it.
 **Needed**: Implement pacing modes in pace:
 - `uniform` (default): fixed delays (current behavior)
 - `adaptive`: speed up for long runs of same-type ops, slow down at transitions
@@ -84,7 +84,7 @@ acceleration curve.
 **Action**: Add to pace.c.
 **Effort**: ~1 hour.
 
-#### A9. `--overwrite` / `--op-order overwrite`
+#### A9. `--overwrite` / `[REMOVED: --op-order] overwrite`
 **Current state**: Postprocess has `--overwrite` flag but it's a no-op
 (just calls optimize_line).
 **Needed**: Transform delete+insert into in-place overwrite ops.
@@ -93,7 +93,7 @@ followed by insert 'b' at the same position, replace with a single
 "overwrite" concept (delete 'a', insert 'b' with no delay between them).
 **Effort**: ~3 hours. Requires a new op type or pace handling.
 
-#### A10. `--op-order left-to-right|end-first|end-first-smart`
+#### A10. `[REMOVED: --op-order] left-to-right|end-first|end-first-smart`
 **Current state**: Postprocess only implements `natural` and `optimize`.
 **Needed**: 
 - `left-to-right`: sort keeps, then deletes, then inserts (per line)
@@ -198,7 +198,7 @@ all ops without delays.
 #### B13. `--scroll zz|zt|zb|none`
 **Current state**: Exported but timed reader always uses `zz`.
 **Needed**: Support `zt` (top), `zb` (bottom), `none` (no scroll).
-**Action**: Read `DIFFVIM_SCROLL` in TimedPlaceCursor, use appropriate
+**Action**: Read `config var: SCROLL` in TimedPlaceCursor, use appropriate
 vim scroll command.
 **Effort**: ~30 minutes.
 
@@ -238,8 +238,8 @@ These options work correctly in the current architecture:
 - `--dry-run` ✅
 - `--no-vimrc` ✅
 - `--keep-dirty` ✅ (fixed in last commit)
-- `--semantic-cleanup` ✅
-- `--indent-aware` ✅
+- `[REMOVED: --semantic-cleanup]` ✅
+- `[REMOVED: --indent-aware]` ✅
 - `--word-diff` ✅
 - `--delete-pacing char|word|instant` ✅
 - `--insert-pacing char|word` ✅
@@ -284,7 +284,7 @@ used features:
 ### Phase 4: Advanced pipeline (~8 hours total)
 
 1. A9: `--overwrite` (3 hours)
-2. A10: `--op-order left-to-right|end-first|end-first-smart` (3 hours)
+2. A10: `[REMOVED: --op-order] left-to-right|end-first|end-first-smart` (3 hours)
 3. C1: `--log-mode` (1 hour)
 4. C2: `--debug` (30 min)
 5. C3: `--max-line-len` (30 min)
@@ -326,18 +326,18 @@ Yes. The pace stage should handle all timing-related options:
 ### Should the timed reader read more env vars?
 
 Yes. Currently it only reads 3. It should read:
-- `DIFFVIM_SCROLL` (for scroll mode)
-- `DIFFVIM_MAX_HUNK_CHARS` (for instant-apply threshold)
-- `DIFFVIM_STEP_MODE` (for step mode)
-- `DIFFVIM_SIGN_COLUMN` (for sign placement)
-- `DIFFVIM_GIT_BLAME` (for blame echo)
-- `DIFFVIM_HIGHLIGHT` + related (for highlighting)
-- `DIFFVIM_DIM_UNCHANGED` (for dimming)
-- `DIFFVIM_THEME` (for color scheme)
-- `DIFFVIM_CONTEXT` (for folding)
-- `DIFFVIM_FOLD_UNCHANGED` (for folding)
-- `DIFFVIM_STARTUP_PAUSE` (for startup)
-- `DIFFVIM_LANGUAGE` (for filetype)
+- `config var: SCROLL` (for scroll mode)
+- `config var: MAX_HUNK_CHARS` (for instant-apply threshold)
+- `config var: STEP_MODE` (for step mode)
+- `config var: SIGN_COLUMN` (for sign placement)
+- `config var: GIT_BLAME` (for blame echo)
+- `config var: HIGHLIGHT` + related (for highlighting)
+- `config var: DIM_UNCHANGED` (for dimming)
+- `config var: THEME` (for color scheme)
+- `config var: CONTEXT` (for folding)
+- `config var: FOLD_UNCHANGED` (for folding)
+- `config var: STARTUP_PAUSE` (for startup)
+- `config var: LANGUAGE` (for filetype)
 
 ### New op types needed?
 

@@ -8,7 +8,7 @@ See `POSTPROCESS_OPERATIONS.md` for full detail.
 ### Header Rewriting
 Rewrites input header lines to v2 output format.
 - Walk collected header lines on stdout.
-- `# diffvim raw diff` / `# diffvim precomputed` → `# diffvim post-processed v2`.
+- `# ad_vim raw diff` / `# ad_vim precomputed` → `# ad_vim post-processed v2`.
 - `# semantic_cleanup N` → reflect `do_semantic`.
 - `# indent_aware N` → reflect `do_indent`.
 - `# optimize_sequence N` → reflect `op_order_optimize`.
@@ -35,7 +35,7 @@ Reorders ops within each line group via 4 sweeps.
   4. `\n` inserts (`code == 10`).
 - Emit `keep` ops in place between regions.
 - Single-op line groups copied verbatim.
-- **Trigger:** default (`--op-order optimize`; cleared by `natural`).
+- **Trigger:** default (`[REMOVED: --op-order] optimize`; cleared by `natural`).
 
 ### left_to_right_line
 Stable 3-pass partition of each line group.
@@ -43,7 +43,7 @@ Stable 3-pass partition of each line group.
 - Sweep 2: emit all `delete` ops in original order (incl. `\n`).
 - Sweep 3: emit all `insert` ops in original order.
 - No `\n` special-casing; trailing `\n` delete stays at end of delete sweep.
-- **Trigger:** `--op-order left-to-right`.
+- **Trigger:** `[REMOVED: --op-order] left-to-right`.
 
 ### end_first_line
 Currently identical to `optimize_line`.
@@ -51,7 +51,7 @@ Currently identical to `optimize_line`.
 - Compute `last_non_nl = (in[count-1].code == 10) ? count-2 : n_out-1`.
 - Check `out[last_non_nl].type == "delete"` — body is empty (comment only).
 - Multi-line handling not yet implemented.
-- **Trigger:** `--op-order end-first` (also `end-first-smart`).
+- **Trigger:** `[REMOVED: --op-order] end-first` (also `end-first-smart`).
 
 ### indent_last_transform
 Moves leading-whitespace deletes to end of full-line delete.
@@ -71,7 +71,7 @@ Merges canceling adjacent `delete`+`insert` pairs into `keep`.
 - `insert[i]` + `delete[i+1]` same `code` → emit `keep` with that code, `i += 2`.
 - Else copy `in[i]`, `i += 1`.
 - Runs before all other transforms.
-- **Trigger:** `--semantic-cleanup`.
+- **Trigger:** `[REMOVED: --semantic-cleanup]`.
 
 ### overwrite_transform
 Marks adjacent `delete`+`insert` as in-place overwrite.
@@ -113,11 +113,11 @@ Walks final ops, computes `(line, col)` per op.
 |---|---|---|---|
 | Header rewriting | default | — (header lines only) | none (metadata) |
 | Hunk emission | default | — (structural) | none (framing) |
-| `optimize_line` | default (`--op-order optimize`) | within line groups, 4 sweeps | deletes, inserts, `\n` deletes, `\n` inserts |
-| `left_to_right_line` | `--op-order left-to-right` | within line groups, 3 sweeps | keeps, then deletes, then inserts |
-| `end_first_line` | `--op-order end-first` | identical to `optimize_line` | (same as optimize) |
+| `optimize_line` | default (`[REMOVED: --op-order] optimize`) | within line groups, 4 sweeps | deletes, inserts, `\n` deletes, `\n` inserts |
+| `left_to_right_line` | `[REMOVED: --op-order] left-to-right` | within line groups, 3 sweeps | keeps, then deletes, then inserts |
+| `end_first_line` | `[REMOVED: --op-order] end-first` | identical to `optimize_line` | (same as optimize) |
 | `indent_last_transform` | `--indent-last` | moves leading ws deletes to end | deletes in all-delete line groups |
-| `semantic_cleanup` | `--semantic-cleanup` | merges adjacent pairs | `delete`+`insert` same code → `keep` |
+| `semantic_cleanup` | `[REMOVED: --semantic-cleanup]` | merges adjacent pairs | `delete`+`insert` same code → `keep` |
 | `overwrite_transform` | `--overwrite` | rewrites type, no reorder | adjacent `delete`+`insert` → `overwrite_insert` |
 | `line_offset` accounting | default | — (cursor base) | `cur_line` per hunk |
 | Per-op cursor simulation | default | — (computes positions) | every op |
@@ -126,7 +126,7 @@ Walks final ops, computes `(line, col)` per op.
 
 ```
 raw ops
-  → [if --semantic-cleanup]      semantic_cleanup
+  → [if [REMOVED: --semantic-cleanup]]      semantic_cleanup
   → [if op_order_optimize]       reorder_hunk_ops
       ├── left-to-right | end-first | optimize | natural
       └── [if --indent-last]    indent_last_transform

@@ -7,7 +7,7 @@ what's coming next, and where should I look?"
 
 Items are grouped by theme and ordered roughly by impact-within-group.
 Status markers:
-- ✅ already implemented in `diffvim` (at least partially)
+- ✅ already implemented in `ad_vim` (at least partially)
 - ⬜ not yet implemented (a concrete proposal)
 
 ---

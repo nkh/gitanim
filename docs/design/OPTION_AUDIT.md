@@ -14,19 +14,19 @@ NOT compute, postprocess, or pace — those are done externally.
 
 | Option | Where it's used | Status |
 |--------|----------------|--------|
-| `--speed N` | Exported as DIFFVIM_SPEED, read by vimscript | ✅ Fixed |
-| `--output FILE` | Exported as DIFFVIM_OUTPUT | ✅ |
+| `--speed N` | Exported as config var: SPEED, read by vimscript | ✅ Fixed |
+| `--output FILE` | Exported as config var: OUTPUT | ✅ |
 | `--no-vimrc` | Controls vim -u flag | ✅ |
 | `--sync` | Runs without timers | ✅ |
 | `--dry-run` | Prints hunks without vim | ✅ |
-| `--semantic-cleanup` | Passed to postprocess | ✅ |
-| `--indent-aware` | Passed to postprocess | ✅ |
+| `[REMOVED: --semantic-cleanup]` | Passed to postprocess | ✅ |
+| `[REMOVED: --indent-aware]` | Passed to postprocess | ✅ |
 | `--word-diff` | Passed to compute | ✅ |
 | `--delete-pacing` | Passed to pace | ✅ |
 | `--insert-pacing` | Passed to pace | ✅ |
 | `--algorithm` | Passed to compute (patience/lcs) | ✅ |
 | `--left-to-right` | Exported as AD_LEFT_TO_RIGHT | ✅ |
-| `--op-order` | Exported as DIFFVIM_OP_ORDER | ✅ (but pace/postprocess don't read it) |
+| `[REMOVED: --op-order]` | Exported as config var: OP_ORDER | ✅ (but pace/postprocess don't read it) |
 
 ## Options that are IGNORED (parsed but not used)
 
@@ -37,31 +37,31 @@ All other config fields are set but never accessed:
 
 | Option | Env var | Ignored because |
 |--------|--------|-----------------|
-| `--context N` | DIFFVIM_CONTEXT | Timed reader doesn't fold |
-| `--max-hunk-chars N` | DIFFVIM_MAX_HUNK_CHARS | Timed reader doesn't check |
-| `--scroll zz|zt|zb` | DIFFVIM_SCROLL | Timed reader always uses `zz` |
-| `--sign-column` | DIFFVIM_SIGN_COLUMN | No sign column in timed reader |
-| `--git-blame` | DIFFVIM_GIT_BLAME | No git blame in timed reader |
-| `--step-mode` | DIFFVIM_STEP_MODE | No step mode in timed reader |
-| `--no-startup-pause` | DIFFVIM_NO_STARTUP_PAUSE | No startup pause logic |
-| `--language` | DIFFVIM_LANGUAGE | Not used (syntax is in colormap) |
-| `--highlight` | DIFFVIM_HIGHLIGHT | No highlight in timed reader |
-| `--highlight-color` | DIFFVIM_HIGHLIGHT_COLOR | Not used |
-| `--highlight-duration-ms` | DIFFVIM_HIGHLIGHT_DURATION_MS | Not used |
-| `--dim-unchanged` | DIFFVIM_DIM_UNCHANGED | Not used |
-| `--dim-unchanged-pct` | DIFFVIM_DIM_UNCHANGED_PCT | Not used |
-| `--fold-unchanged` | DIFFVIM_FOLD_UNCHANGED | Not used |
-| `--theme` | DIFFVIM_THEME | Not used |
-| `--max-line-len` | DIFFVIM_MAX_LINE_LEN | Not used |
-| `--gaussian-jitter` | DIFFVIM_GAUSSIAN_JITTER | Not used |
-| `--pause-after-lines` | DIFFVIM_PAUSE_AFTER_LINES | Not used |
-| `--accel-delete` | DIFFVIM_ACCEL_DELETE | Not used |
-| `--overwrite` | DIFFVIM_OVERWRITE | Not used |
-| `--delete-end-first` | DIFFVIM_DELETE_END_FIRST | Not used |
-| `--rapid-eol-delete` | DIFFVIM_RAPID_EOL_DELETE | Not used |
-| `--adaptive-word-delete` | DIFFVIM_ADAPTIVE_WORD_DELETE | Not used |
-| `--rapid-identical-chars` | DIFFVIM_RAPID_IDENTICAL_CHARS | Not used |
-| `--word-accel` | DIFFVIM_WORD_ACCEL | Not used |
+| `--context N` | config var: CONTEXT | Timed reader doesn't fold |
+| `--max-hunk-chars N` | config var: MAX_HUNK_CHARS | Timed reader doesn't check |
+| `--scroll zz|zt|zb` | config var: SCROLL | Timed reader always uses `zz` |
+| `--sign-column` | config var: SIGN_COLUMN | No sign column in timed reader |
+| `--git-blame` | config var: GIT_BLAME | No git blame in timed reader |
+| `--step-mode` | config var: STEP_MODE | No step mode in timed reader |
+| `--no-startup-pause` | config var: NO_STARTUP_PAUSE | No startup pause logic |
+| `--language` | config var: LANGUAGE | Not used (syntax is in colormap) |
+| `--highlight` | config var: HIGHLIGHT | No highlight in timed reader |
+| `--highlight-color` | config var: HIGHLIGHT_COLOR | Not used |
+| `--highlight-duration-ms` | config var: HIGHLIGHT_DURATION_MS | Not used |
+| `--dim-unchanged` | config var: DIM_UNCHANGED | Not used |
+| `--dim-unchanged-pct` | config var: DIM_UNCHANGED_PCT | Not used |
+| `--fold-unchanged` | config var: FOLD_UNCHANGED | Not used |
+| `--theme` | config var: THEME | Not used |
+| `--max-line-len` | config var: MAX_LINE_LEN | Not used |
+| `--gaussian-jitter` | config var: GAUSSIAN_JITTER | Not used |
+| `--pause-after-lines` | config var: PAUSE_AFTER_LINES | Not used |
+| `--accel-delete` | config var: ACCEL_DELETE | Not used |
+| `--overwrite` | config var: OVERWRITE | Not used |
+| `--delete-end-first` | config var: DELETE_END_FIRST | Not used |
+| `--rapid-eol-delete` | config var: RAPID_EOL_DELETE | Not used |
+| `--adaptive-word-delete` | config var: ADAPTIVE_WORD_DELETE | Not used |
+| `--rapid-identical-chars` | config var: RAPID_IDENTICAL_CHARS | Not used |
+| `--word-accel` | config var: WORD_ACCEL | Not used |
 
 ### Options parsed by bash but NOT exported at all
 

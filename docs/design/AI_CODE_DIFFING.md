@@ -236,7 +236,7 @@ to find things that can be done WITHOUT real-time AI calls.
 ### F. AI Tooling Integration (offline)
 
 76. **Pre-commit hook** — run AI analysis as a pre-commit hook, store
-    results in a `.diffvim-annotations` file, ad_vim reads it.
+    results in a `.ad_vim-annotations` file, ad_vim reads it.
 77. **CI/CD integration** — generate annotations in CI, ad_vim reads
     them during animation.
 78. **Git notes** — store AI annotations as git notes on the commit.
@@ -334,13 +334,13 @@ without any API calls.
 
 ```bash
 # Example workflow:
-diffvim-ai-annotate old.py new.py > annotated.diff  # offline AI call
+ad_vim-ai-annotate old.py new.py > annotated.diff  # offline AI call
 ad_vim --precomputed annotated.diff old.py new.py   # animation with annotations
 ```
 
 The annotated diff file would look like:
 ```
-# diffvim precomputed diff v1
+# ad_vim precomputed diff v1
 # AI_SUMMARY: Changed print() to f-string, added type hints
 # AI_RISK: low
 # AI_CATEGORY: refactor

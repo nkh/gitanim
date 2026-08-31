@@ -22,7 +22,7 @@ batched, or non-character-based.
 | `--delete-end-first` | Delete end-of-line before inserting | Mixed insert+delete on one line |
 | `--left-to-right` | Sort ops within each line (no jumping around) | Coherent cursor movement |
 | `--optimize-sequence` | Consolidate interleaved del/ins pairs | Eliminate erratic movement |
-| `--semantic-cleanup` | Merge canceling del+ins pairs into keeps | Remove redundant ops |
+| `[REMOVED: --semantic-cleanup]` | Merge canceling del+ins pairs into keeps | Remove redundant ops |
 
 ---
 
@@ -194,7 +194,7 @@ deletes first, then all inserts).
 **Effect:** The cursor does one pass for deletes, then one pass for
 inserts, instead of alternating between the two.
 
-### 10. `--semantic-cleanup` (merge canceling pairs)
+### 10. `[REMOVED: --semantic-cleanup]` (merge canceling pairs)
 
 **What happens:** Adjacent delete+insert pairs where both ops have the
 same character (e.g., `delete 'a', insert 'a'`) are merged into a single
@@ -245,7 +245,7 @@ For the best viewer experience, combine options:
 
 ```bash
 # Natural word-based animation
-ad_vim --word-diff --semantic-cleanup --optimize-sequence old.py new.py
+ad_vim --word-diff [REMOVED: --semantic-cleanup] --optimize-sequence old.py new.py
 
 # Fast review of large files
 ad_vim --max-hunk-chars 500 --accel-delete --speed 2 old.py new.py
@@ -254,7 +254,7 @@ ad_vim --max-hunk-chars 500 --accel-delete --speed 2 old.py new.py
 ad_vim --left-to-right --optimize-sequence --overwrite --highlight-inline old.py new.py
 
 # Everything on (kitchen sink)
-ad_vim --word-diff --semantic-cleanup --optimize-sequence --left-to-right \
+ad_vim --word-diff [REMOVED: --semantic-cleanup] --optimize-sequence --left-to-right \
   --overwrite --accel-delete --highlight-inline --highlight-hunk \
   old.py new.py
 ```

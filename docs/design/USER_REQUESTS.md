@@ -13,7 +13,7 @@ a master reference for what was asked and what was implemented.
 3. **Ease-in-out cubic cursor glide** between hunks.
 4. **Timer-based animation engine** using vimscript `timer_start()`.
 5. **Self-contained bash + vimscript** implementation (no Python, no tmux).
-6. **Three implementations**: `diffvim` (bash+vimscript), `ad_tmux`
+6. **Three implementations**: `ad_vim` (bash+vimscript), `ad_tmux`
    (bash+tmux), `ad_vim.pl` (Perl+tmux with pluggable parsers).
 
 ---
@@ -45,7 +45,7 @@ a master reference for what was asked and what was implemented.
 
 ## Session 3: Bug Fixes & Architecture
 
-26. **Boolean env var fix** — `export DIFFVIM_STEP_MODE="0"` was truthy.
+26. **Boolean env var fix** — `export config var: STEP_MODE="0"` was truthy.
 27. **`cur_hunk` not set before `ApplyHunkInstantly`** — fixed.
 28. **`redraw` after keep ops** — fixed stale display.
 29. **`-T dumb` removed** — was preventing alternate screen.
@@ -105,7 +105,7 @@ a master reference for what was asked and what was implemented.
 50. **External diff computation** — the computation takes too long. Keep
    the current implementation but add the possibility to compute in a
    separate application. Create Rust, Go, C, and C++ applications with
-   a Makefile and timing. Create a bash script to run it with diffvim.
+   a Makefile and timing. Create a bash script to run it with ad_vim.
 51. **Analyze parallel compute** — can both run in parallel to speed up
    startup?
 
@@ -301,9 +301,9 @@ extensive documentation.
 ## Session 16: Documentation, Manpages, Visual Guide, Adoption
 
 119. **All executables must have a -h option, a manpage, documentation** —
-     every binary in the project (`diffvim`, `ad_tmux`,
+     every binary in the project (`ad_vim`, `ad_tmux`,
      `ad_vim.pl`, `ad_compare`, `ad_jogger`,
-     `diffvim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
+     `ad_vim-precomputed`, `jq_filter`, `difft_json_to_lcs`,
      `set_config`, and the four `ad_compute`
      variants) must respond to `-h` / `--help`, must have a manpage in
      `man/`, and must be documented in the mdBook.

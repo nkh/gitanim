@@ -12,12 +12,12 @@ the exact command line to run — copy and paste.
 ```bash
 ad_vim --preset review old.py new.py
 # or explicitly:
-ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --speed 0.7 old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged [REMOVED: --op-order] left-to-right --speed 0.7 old.py new.py
 ```
 
 **With smooth cursor movement:**
 ```bash
-ad_vim --pacing review --highlight hunk --dim-unchanged --op-order left-to-right --cursor-glide-ms 300 --speed 0.7 old.py new.py
+ad_vim --pacing review --highlight hunk --dim-unchanged [REMOVED: --op-order] left-to-right --cursor-glide-ms 300 --speed 0.7 old.py new.py
 ```
 
 ---
@@ -92,12 +92,12 @@ ad_vim --cursor-glide-ms 300 --distance-speed adaptive --diff-stat --diff-highli
 **Goal:** Handle Python indentation correctly.
 
 ```bash
-ad_vim --indent-aware --indent-last old.py new.py
+ad_vim [REMOVED: --indent-aware] --indent-last old.py new.py
 ```
 
 **With overwrite (in-place replacement):**
 ```bash
-ad_vim --indent-aware --indent-last --overwrite old.py new.py
+ad_vim [REMOVED: --indent-aware] --indent-last --overwrite old.py new.py
 ```
 
 ---
@@ -136,7 +136,7 @@ ad_vim --cursor-glide-ms 300 --distance-speed adaptive --distance-threshold 10 -
 bash scripts/dv_snapshot.sh old.py new.py
 
 # With all the same options as ad_vim
-bash scripts/dv_snapshot.sh --op-order left-to-right --delete-pacing flash --highlight inline --indent-last --cursor-glide-ms 300 old.py new.py
+bash scripts/dv_snapshot.sh [REMOVED: --op-order] left-to-right --delete-pacing flash --highlight inline --indent-last --cursor-glide-ms 300 old.py new.py
 
 # With trace UI (click ops to collect them)
 bash scripts/dv_snapshot.sh --trace --diff-stat --diff-highlight old.py new.py

@@ -17,11 +17,11 @@ Layer 0: V2 Conversion (ad_layer_noop_v2.c)
 Layer 1: Reorder (ad_layer_noop_reorder.c)
     │   4-sweep: content del → content ins → \n del → \n ins.
     ▼
-delete-indent-last (pp_layer_indent_last.c)  [optional, --indent-last]
+delete-indent-last (ad_layer_layer_indent_last.c)  [optional, --indent-last]
     │   Reorders leading-whitespace DELETE ops to end of line group.
     │   Does NOT touch line/col positions.
     ▼
-overwrite (pp_layer_overwrite.c)  [optional, --overwrite]
+overwrite (ad_layer_layer_overwrite.c)  [optional, --overwrite]
     │   Marks adjacent delete+insert pairs as overwrite_insert.
     ▼
 adjust_positions (inline in postprocess.c)
@@ -37,8 +37,8 @@ postprocess output (V2 TSV)
 | `ad_layer_common.h` | Shared | Types, logging, TSV parsing, standalone runner |
 | `ad_layer_noop_v2.c` | Layer 0 | **Implemented** — V1/V2 detection, conversion |
 | `ad_layer_noop_reorder.c` | Layer 1 | 4-sweep reorder |
-| `pp_layer_indent_last.c` | delete-indent-last | Reorders leading-whitespace deletes (no line/col changes) |
-| `pp_layer_overwrite.c` | overwrite | Marks delete+insert pairs as `overwrite_insert` |
+| `ad_layer_layer_indent_last.c` | delete-indent-last | Reorders leading-whitespace deletes (no line/col changes) |
+| `ad_layer_layer_overwrite.c` | overwrite | Marks delete+insert pairs as `overwrite_insert` |
 | `postprocess.c` | Orchestrator | Runs the pipeline; contains inline `adjust_positions()` |
 | `ad_layer_noop.pl` | Perl | No-op (passthrough) — Perl template |
 
@@ -53,7 +53,7 @@ postprocess output (V2 TSV)
 cc -O2 -Wall -Wextra -Wunused -Werror -I animator/c \
    -o ad_postprocess postprocess.c \
    ad_layer_noop_v2.c ad_layer_noop_reorder.c \
-   pp_layer_indent_last.c pp_layer_overwrite.c
+   ad_layer_layer_indent_last.c ad_layer_layer_overwrite.c
 ```
 
 ### Standalone binaries (each reads stdin, writes stdout):
@@ -108,7 +108,7 @@ typedef struct {
 ```
 
 The `char_repr` field (5th TSV column, e.g. `'A'`, `space`, `\n`) is
-derived from `code` by `pp_char_repr()` — it's cosmetic, not stored
+derived from `code` by `ad_layer_char_repr()` — it's cosmetic, not stored
 in the struct. The `pos_set` flag that previously existed on the
 struct has been removed.
 

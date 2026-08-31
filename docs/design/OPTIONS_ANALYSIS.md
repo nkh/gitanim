@@ -66,13 +66,13 @@ lines. This is confusing.
 - `--pause-mode line`: pause at each line boundary (current `--line-change-pause-ms`)
 - `--pause-mode periodic N`: pause every N lines (current `--pause-after-lines`)
 
-### 1.4 `--semantic-cleanup` vs `--optimize-sequence`
+### 1.4 `[REMOVED: --semantic-cleanup]` vs `--optimize-sequence`
 
 **Current state:** Two post-processing passes:
-- `--semantic-cleanup`: Merge canceling del+ins pairs (del 'a' + ins 'a' → keep 'a')
+- `[REMOVED: --semantic-cleanup]`: Merge canceling del+ins pairs (del 'a' + ins 'a' → keep 'a')
 - `--optimize-sequence`: Consolidate interleaved del/ins (del a, ins x, del b → del a, del b, ins x)
 
-**Redundancy:** Both clean up the char op sequence. `--semantic-cleanup`
+**Redundancy:** Both clean up the char op sequence. `[REMOVED: --semantic-cleanup]`
 is a special case of `--optimize-sequence` (canceling pairs are a subset
 of interleaved pairs). If `--optimize-sequence` is on (default), most
 canceling pairs are already handled.
@@ -217,7 +217,7 @@ hardcoded to 3 lines. It should be configurable.
 
 ### 4.3 `--log-scroll on|off`
 
-The scroll debug log (`DIFFVIM_SCROLL_DEBUG`) is an env var only.
+The scroll debug log (`config var: SCROLL_DEBUG`) is an env var only.
 It should be a CLI option: `--log-scroll /tmp/scroll.log`.
 
 ### 4.4 `--word-accel-threshold N`
@@ -232,7 +232,7 @@ It should be configurable.
 ### 5.1 `--highlight-inline` vs `--inline-highlight`
 
 The option was renamed from `--inline-highlight` to `--highlight-inline`
-for consistency, but the env var is still `DIFFVIM_HIGHLIGHT_INLINE` and
+for consistency, but the env var is still `config var: HIGHLIGHT_INLINE` and
 the config key is `inline_highlight`. Should be fully consistent.
 
 ### 5.2 `--rapid-eol-delete` vs `--rapid-identical-chars`

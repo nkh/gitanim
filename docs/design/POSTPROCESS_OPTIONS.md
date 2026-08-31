@@ -11,8 +11,8 @@ Transforms are applied in this order:
 raw ops from compute
     │
     ├── 1. [always] op reordering (optimize_sequence)
-    ├── 2. [optional] semantic_cleanup (--semantic-cleanup)
-    ├── 3. [optional] indent_aware (--indent-aware)
+    ├── 2. [optional] semantic_cleanup ([REMOVED: --semantic-cleanup])
+    ├── 3. [optional] indent_aware ([REMOVED: --indent-aware])
     ├── 4. [always] per-op (line, col) position computation
     └── 5. [always] end-delete hunk fix (\n delete redirected)
         │
@@ -22,7 +22,7 @@ post-processed ops (to pace)
 
 ## Options
 
-### `--op-order natural|optimize` (default: optimize)
+### `[REMOVED: --op-order] natural|optimize` (default: optimize)
 
 Controls step 1 — op reordering within each line group.
 
@@ -36,7 +36,7 @@ Controls step 1 — op reordering within each line group.
 
 **Effect on ops**: Reorders within line groups. Does NOT change op count.
 
-### `--semantic-cleanup` (default: off)
+### `[REMOVED: --semantic-cleanup]` (default: off)
 
 Controls step 2. Merges adjacent `delete X` + `insert X` pairs (where
 the chars are identical) into a single `keep X` op.
@@ -45,7 +45,7 @@ the chars are identical) into a single `keep X` op.
 
 **Effect on ops**: Reduces op count (merges canceling pairs).
 
-### `--indent-aware` (default: off)
+### `[REMOVED: --indent-aware]` (default: off)
 
 Controls step 3. Treats indent-only changes (whitespace at start of
 line) as keeps instead of delete+insert.
@@ -82,9 +82,9 @@ in order. Available transforms:
 
 | Option | Default | Where | Changes op count? | Changes op order? |
 |--------|---------|-------|-------------------|-------------------|
-| `--op-order optimize` | on | postprocess | No | Yes (within line groups) |
-| `--semantic-cleanup` | off | postprocess | Yes (reduces) | No |
-| `--indent-aware` | off | postprocess | Yes (reduces) | No |
+| `[REMOVED: --op-order] optimize` | on | postprocess | No | Yes (within line groups) |
+| `[REMOVED: --semantic-cleanup]` | off | postprocess | Yes (reduces) | No |
+| `[REMOVED: --indent-aware]` | off | postprocess | Yes (reduces) | No |
 | `AD_LEFT_TO_RIGHT=1` | on (launcher) | compute | No | Yes (within change regions) |
 | `--stream` | off | postprocess | No | No (I/O only) |
 | `--overwrite` | off | postprocess | No | No (alias for optimize) |
