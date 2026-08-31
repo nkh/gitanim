@@ -62,10 +62,22 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
 
                     int content_count = ce - (i + 1);
 
-                    for (int k = i + 1; k < ce && n_out < out_cap; k++)
-                        out[n_out++] = work[k];
-                    if (n_out < out_cap)
-                        out[n_out++] = work[ce];
+                    /* Emit content deletes. Their positions were recomputed
+                     * by reorder to be on the JOINED line (same as joiner).
+                     * But we're moving them BEFORE the joiner \n, so at
+                     * execution time the join hasn't happened — the content
+                     * is still on the NEXT line. Increment line by 1. */
+                    for (int k = i + 1; k < ce && n_out < out_cap; k++) {
+                        Op tmp = work[k];
+                        tmp.line = work[i].line + 1;  /* content is on line after joiner */
+                        out[n_out++] = tmp;
+                    }
+                    /* Emit content's \n (also on the next line) */
+                    if (n_out < out_cap) {
+                        Op tmp = work[ce];
+                        tmp.line = work[i].line + 1;
+                        out[n_out++] = tmp;
+                    }
 
                     for (int k = ce + 1; k < n_work; k++)
                         work[k].line--;
@@ -125,9 +137,20 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
             }
         }
 
-        /* No match — emit op[i] unchanged */
+        /* No match — emit op[i] unchanged.
+         * If this is a \n delete, the animator will join two lines
+         * (buffer loses a line) → decrement later ops by 1, but ONLY
+         * for ops that are BELOW this \n's line (ops on the same line
+         * or above are not affected by the join). */
         if (n_out < out_cap)
             out[n_out++] = work[i];
+        if (strcmp(work[i].type, "delete") == 0
+            && work[i].code == AD_LAYER_CHAR_NEWLINE) {
+            int join_line = work[i].line;
+            for (int k = i + 1; k < n_work; k++)
+                if (work[k].line > join_line)
+                    work[k].line--;
+        }
         i++;
     }
 

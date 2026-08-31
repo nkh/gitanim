@@ -143,7 +143,10 @@ sub transform_hunk {
 
     # Set positions on the output.
     # For non-\n ops: assign (current_line, current_col).
-    # For \n ops: KEEP original position (never touch a 'delete \n' op).
+    # For \n ops: KEEP original position. But update current_line
+    # differently for deletes vs keeps/inserts:
+    #   - \n keep/insert: advance to next line (content moves down)
+    #   - \n delete: DON'T advance (join brings next line's content HERE)
     my $cl = @out > 0 ? $out[0]{line} : 1;
     my $cc = 1;
     for my $op (@out) {
@@ -158,8 +161,14 @@ sub transform_hunk {
             }
         } else {
             # \n op: KEEP original position. Don't touch.
-            $cl = $op->{line} + 1;
-            $cc = 1;
+            if ($op->{type} eq 'delete') {
+                # \n delete: join — next content stays on SAME line
+                # current_line unchanged, current_col unchanged
+            } else {
+                # \n keep or insert: advance to next line
+                $cl = $op->{line} + 1;
+                $cc = 1;
+            }
         }
     }
 

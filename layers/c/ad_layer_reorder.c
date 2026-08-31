@@ -61,7 +61,10 @@ static int layer_reorder(Op *ops, int n_ops, Op *out, int out_cap, int *line_off
 
     /* ── Pass 2: position walk ──
      * For non-\n ops: assign (current_line, current_col).
-     * For \n ops: KEEP original position. Never touch. */
+     * For \n ops: KEEP original position. But update current_line
+     * differently for deletes vs keeps/inserts:
+     *   - \n keep/insert: advance to next line (content moves down)
+     *   - \n delete: DON'T advance (join brings next line's content HERE) */
     if (out_count > 0) {
         int current_line = out[0].line;
         int current_col = 1;
@@ -80,8 +83,14 @@ static int layer_reorder(Op *ops, int n_ops, Op *out, int out_cap, int *line_off
                 }
             } else {
                 /* \n op: KEEP original position. Don't touch. */
-                current_line = out[i].line + 1;
-                current_col = 1;
+                if (strcmp(out[i].type, "delete") == 0) {
+                    /* \n delete: join — next content stays on SAME line */
+                    /* current_line unchanged, current_col unchanged */
+                } else {
+                    /* \n keep or insert: advance to next line */
+                    current_line = out[i].line + 1;
+                    current_col = 1;
+                }
             }
         }
     }

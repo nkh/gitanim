@@ -94,10 +94,21 @@ sub transform_hunk {
 
                     my $content_count = $ce - ($i + 1);
 
+                    # Emit content deletes. Their positions were recomputed
+                    # by reorder to be on the JOINED line. But we're moving
+                    # them BEFORE the joiner \n, so at execution time the
+                    # join hasn't happened — content is on the NEXT line.
                     for my $k ($i+1 .. $ce-1) {
-                        push @out, $work[$k];
+                        my %tmp = %{$work[$k]};
+                        $tmp{line} = $work[$i]{line} + 1;
+                        push @out, \%tmp;
                     }
-                    push @out, $work[$ce];
+                    # Emit content's \n (also on next line)
+                    {
+                        my %tmp = %{$work[$ce]};
+                        $tmp{line} = $work[$i]{line} + 1;
+                        push @out, \%tmp;
+                    }
 
                     for my $k ($ce+1 .. $#work) {
                         $work[$k]{line}--;
@@ -147,8 +158,17 @@ sub transform_hunk {
             }
         }
 
-        # No match — emit op[i] unchanged
+        # No match — emit op[i] unchanged.
+        # If this is a \n delete, the animator will join two lines
+        # (buffer loses a line) → decrement later ops by 1, but ONLY
+        # for ops that are BELOW this \n's line.
         push @out, $work[$i];
+        if ($work[$i]{type} eq 'delete' && $work[$i]{code} == 10) {
+            my $join_line = $work[$i]{line};
+            for my $k ($i+1 .. $#work) {
+                $work[$k]{line}-- if $work[$k]{line} > $join_line;
+            }
+        }
         $i++;
     }
 
