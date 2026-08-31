@@ -1,5 +1,10 @@
 # Manpage Overview
 
+*Created:* `08f3cb7` (2026-08-29 01:18:34 +0000)
+*Last updated:* `2fd6bed` (2026-08-29 20:09:29 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 The `man/` directory contains 25 manpages for the `ad` toolkit. Install with `make install-man` (installs to `$(PREFIX)/share/man/man1/`).
 
 ## Quick reference

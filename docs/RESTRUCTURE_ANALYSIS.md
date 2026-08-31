@@ -1,5 +1,10 @@
 # Project Restructure Analysis
 
+*Created:* `010cbdc` (2026-08-28 14:41:15 +0000)
+*Last updated:* `7b9e449` (2026-08-28 18:57:44 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 Source commit: `b97649e` (pushed to `origin/main`). This analysis: `010cbdc`.
 
 Pick changes by keeping their `#N short name` line (delete the explanation paragraphs). Delete the whole proposal by `dd` on each of its lines, then `.` to repeat. Lines are unwrapped — vim handles the wrap.

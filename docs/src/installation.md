@@ -1,5 +1,10 @@
 # Installation
 
+*Created:* `4692a55` (2026-08-10 13:37:07 +0000)
+*Last updated:* `4625efa` (2026-08-28 15:24:52 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 ## Prerequisites
 
 ### diffvim (Bash + Vimscript)

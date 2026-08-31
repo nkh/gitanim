@@ -1,5 +1,10 @@
 # Documentation Audit
 
+*Created:* `12700a4` (2026-08-28 15:46:39 +0000)
+*Last updated:* `7b9e449` (2026-08-28 18:57:44 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 This file lists every document in `docs/design/` with a relevance score for the current design. Delete the ones you don't want; the rest stay in `docs/design/` as historical design reference (NOT part of the mdbook user guide).
 
 The relevance score is my assessment:

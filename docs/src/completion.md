@@ -1,5 +1,10 @@
 # Shell Completion
 
+*Created:* `4692a55` (2026-08-10 13:37:07 +0000)
+*Last updated:* `5e75de2` (2026-08-18 23:19:57 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 The repo includes shell completion scripts for bash, zsh, and fish.
 
 ## Bash

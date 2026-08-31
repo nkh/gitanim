@@ -1,5 +1,10 @@
 # Contributing to `ad`
 
+*Created:* `8475573` (2026-08-28 15:39:59 +0000)
+*Last updated:* `7b9e449` (2026-08-28 18:57:44 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 Thanks for your interest in improving `ad`! This document explains the development workflow.
 
 ## Quick start

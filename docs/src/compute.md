@@ -1,5 +1,10 @@
 # External Compute Tool
 
+*Created:* `c07e1e1` (2026-08-16 08:00:10 +0000)
+*Last updated:* `db72a00` (2026-08-30 08:35:56 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 diffvim's in-vim patience computation is fast enough for files up to a few
 hundred lines. For larger files (1000+ lines, or diffs with thousands
 of changed characters), the vimscript patience can take seconds or even

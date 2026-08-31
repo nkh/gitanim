@@ -1,5 +1,10 @@
 # Environment Variable Analysis
 
+*Created:* `872057f` (2026-08-28 18:59:28 +0000)
+*Last updated:* `8728169` (2026-08-28 23:09:49 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 The `ad` toolkit currently uses **107 distinct `AD_*` environment variables**. This document categorizes them, identifies which are removable, and proposes a plan to reduce the count dramatically.
 
 ## TL;DR — Revised recommendation

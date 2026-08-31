@@ -1,5 +1,10 @@
 # C/C++ API Reference
 
+*Created:* `17560bf` (2026-08-30 15:05:02 +0000)
+*Last updated:* `17560bf` (2026-08-30 15:05:02 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 Internal API documentation for the `ad` toolkit's C and C++ components.
 
 ---

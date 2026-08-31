@@ -1,5 +1,10 @@
 # ad — Requirements Specification
 
+*Created:* `2c22aa4` (2026-08-30 06:34:38 +0000)
+*Last updated:* `db72a00` (2026-08-30 08:35:56 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 **Version:** 2.0.0  
 **Date:** 2026-08-30  
 **Repository:** https://github.com/nkh/gitanim  

@@ -1,5 +1,10 @@
 # Diff Parsers
 
+*Created:* `4692a55` (2026-08-10 13:37:07 +0000)
+*Last updated:* `da64fdb` (2026-08-26 21:10:06 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 The `diffvim.pl` implementation uses a single built-in diff parser.
 
 ## Parser API

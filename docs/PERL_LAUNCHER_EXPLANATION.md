@@ -1,5 +1,10 @@
 # Perl Launcher Explanation
 
+*Created:* `08f3cb7` (2026-08-29 01:18:34 +0000)
+*Last updated:* `78e882f` (2026-08-29 15:55:36 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 The user asked: "what do you mean with 'Deleting 12 Perl launcher duplicates (or aligning)'?"
 
 ## What was meant

@@ -1,5 +1,10 @@
 # Presets
 
+*Created:* `c07e1e1` (2026-08-16 08:00:10 +0000)
+*Last updated:* `4625efa` (2026-08-28 15:24:52 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 diffvim ships with **six built-in presets** that bundle a sane
 combination of post-processing and timing options for common use cases.
 Presets are the easiest way to get a good result without having to

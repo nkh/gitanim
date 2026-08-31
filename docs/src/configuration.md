@@ -1,5 +1,10 @@
 # Configuration
 
+*Created:* `4692a55` (2026-08-10 13:37:07 +0000)
+*Last updated:* `db72a00` (2026-08-30 08:35:56 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 `ad_vim` and `ad_pipeline` read configuration from a single file at startup, with CLI flags overriding per-invocation. **There are no environment variables.**
 
 ## Config file location

@@ -1,5 +1,10 @@
 # Plugin Layers
 
+*Created:* `fb14b64` (2026-08-28 15:20:07 +0000)
+*Last updated:* `db72a00` (2026-08-30 08:35:56 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 The `ad` postprocess pipeline is **plugin-based**. Layers are standalone executables chained by the orchestrator (`pipeline/ad_postprocess`). The chain is supplied entirely on the command line — there is no manifest, no config file for the chain.
 
 ## At a glance

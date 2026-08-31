@@ -1,5 +1,10 @@
 # Introduction
 
+*Created:* `4692a55` (2026-08-10 13:37:07 +0000)
+*Last updated:* `db72a00` (2026-08-30 08:35:56 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 **diffvim** animates a code diff in vim as if a human were typing it.
 
 Given two versions of a file, diffvim opens the old version in vim and

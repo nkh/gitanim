@@ -1,5 +1,10 @@
 # docs/
 
+*Created:* `28fa1f5` (2026-08-19 20:47:45 +0000)
+*Last updated:* `7b9e449` (2026-08-28 18:57:44 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 Documentation for the `ad` toolkit.
 
 ## Contents

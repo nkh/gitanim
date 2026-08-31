@@ -1,5 +1,10 @@
 # ad — animate a diff
 
+*Created:* `e99e6fd` (2026-08-10 06:57:04 +0200)
+*Last updated:* `4a013a6` (2026-08-28 20:15:31 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 `ad` is a toolkit for animating code diffs. It opens an old file and progressively transforms it into the new file, character by character, as if a human were typing the changes.
 
 `ad_vim` is the vim application — one consumer of the toolkit — that renders the animation in vim.

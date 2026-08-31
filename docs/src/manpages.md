@@ -1,5 +1,10 @@
 # Manpages
 
+*Created:* `c07e1e1` (2026-08-16 08:00:10 +0000)
+*Last updated:* `4625efa` (2026-08-28 15:24:52 +0000)
+*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
+
+
 Every diffvim executable has a manpage in the
 [`man/`](https://github.com/diffvim/diffvim/tree/main/man) directory.
 Install them to your system manpath to get offline documentation
