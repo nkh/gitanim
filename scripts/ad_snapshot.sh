@@ -265,10 +265,7 @@ fi
 raw_ops=$(grep -cv "^#\|^$" "$RAW" 2>/dev/null || echo 0)
 echo "  [1/5] compute: $raw_ops ops" >&2
 
-# Stage 2: Postprocess (add reorder as default first layer if not present)
-if [[ ${#POSTPROCESS_ARGS[@]} -eq 0 || "${POSTPROCESS_ARGS[0]}" != "--ad-layer=ad_layer_reorder" ]]; then
-    POSTPROCESS_ARGS=("--ad-layer=ad_layer_reorder" "${POSTPROCESS_ARGS[@]}")
-fi
+# Stage 2: Postprocess (NO default layers — user must add via flags)
 if ! "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW" > "$POST" 2>"$OUTDIR/postprocess_stderr.txt"; then
     echo "ERROR: postprocess stage failed:" >&2
     cat "$OUTDIR/postprocess_stderr.txt" >&2

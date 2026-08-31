@@ -329,13 +329,10 @@ run_stage() {
 run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW_OPS"
 
 # Stage 2: Postprocess — runs the layer chain.
-# Default: ad_layer_reorder first, then any user-requested layers
-# (via --indent-last, --overwrite, --line-delete-in-place, --ad-layer).
+# NO layers by default. Users add layers via --indent-last,
+# --overwrite, --line-delete-in-place, or --ad-layer=<name>.
 # The user flags above already pushed --ad-layer=ad_layer_<name> entries
-# into POSTPROCESS_ARGS; we prepend the default reorder layer here.
-if [[ ${#POSTPROCESS_ARGS[@]} -eq 0 || "${POSTPROCESS_ARGS[0]}" != "--ad-layer=ad_layer_reorder" ]]; then
-    POSTPROCESS_ARGS=("--ad-layer=ad_layer_reorder" "${POSTPROCESS_ARGS[@]}")
-fi
+# into POSTPROCESS_ARGS; we pass them through as-is.
 
 run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 

@@ -1424,10 +1424,9 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         debug_log "Stage 1 done: $(wc -l < "$RAW_OPS") lines in raw_ops"
 
         # Stage 2: Postprocess — runs the layer chain.
-        # Default chain: reorder. The convenience flags insert their
-        # respective layers after reorder.
+        # NO layers by default. Users add layers via --indent-last,
+        # --overwrite, --line-delete-in-place, or --ad-layer=<name>.
         POSTPROCESS_ARGS=()
-        POSTPROCESS_ARGS+=("--ad-layer=ad_layer_reorder")
         [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_overwrite")
         [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_indent_last")
         [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_line_delete_in_place")
