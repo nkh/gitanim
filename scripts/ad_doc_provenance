@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# ad_doc_provenance — Print the creation and last-modification provenance
+# for a file in the git repo.
+#
+# Usage:
+#   ad_doc_provenance <file>
+#   ad_doc_provenance docs/REQUIREMENTS.md
+#   ad_doc_provenance layers/c/ad_layer_reorder.c
+#
+# Output:
+#   File:     docs/REQUIREMENTS.md
+#   Created:  2c22aa4  2026-08-30 06:34:38 +0000  "Add comprehensive requirements..."
+#   Modified: db72a00  2026-08-30 08:35:56 +0000  "Remove --indent-aware..."
+#   HEAD:     f8beb2c  2026-08-31 02:15:00 +0000
+
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+    echo "Usage: $0 <file>" >&2
+    echo "  Print git provenance (created, last modified, current HEAD) for a file." >&2
+    echo "" >&2
+    echo "Examples:" >&2
+    echo "  $0 docs/REQUIREMENTS.md" >&2
+    echo "  $0 layers/c/ad_layer_reorder.c" >&2
+    echo "  $0 README.md" >&2
+    exit 1
+fi
+
+FILE="$1"
+
+if [[ ! -e "$FILE" ]]; then
+    echo "Error: file not found: $FILE" >&2
+    exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Error: not inside a git repository" >&2
+    exit 1
+fi
+
+if ! git ls-files --error-unmatch "$FILE" >/dev/null 2>&1; then
+    echo "Error: file is not tracked by git: $FILE" >&2
+    exit 1
+fi
+
+printf 'File:     %s\n' "$FILE"
+
+# Created (first commit that added the file)
+CREATED_HASH=$(git log --diff-filter=A --format='%h' -- "$FILE" | tail -1)
+if [[ -n "$CREATED_HASH" ]]; then
+    CREATED_DATE=$(git log -1 --format='%ci' "$CREATED_HASH")
+    CREATED_MSG=$(git log -1 --format='%s' "$CREATED_HASH")
+    printf 'Created:  %s  %s  "%s"\n' "$CREATED_HASH" "$CREATED_DATE" "$CREATED_MSG"
+else
+    printf 'Created:  (unknown)\n'
+fi
+
+# Last modified (most recent commit that touched the file)
+MODIFIED_HASH=$(git log -1 --format='%h' -- "$FILE")
+if [[ -n "$MODIFIED_HASH" ]]; then
+    MODIFIED_DATE=$(git log -1 --format='%ci' "$MODIFIED_HASH")
+    MODIFIED_MSG=$(git log -1 --format='%s' "$MODIFIED_HASH")
+    printf 'Modified: %s  %s  "%s"\n' "$MODIFIED_HASH" "$MODIFIED_DATE" "$MODIFIED_MSG"
+else
+    printf 'Modified: (unknown)\n'
+fi
+
+# Current HEAD
+HEAD_HASH=$(git rev-parse --short HEAD)
+HEAD_DATE=$(git log -1 --format='%ci')
+printf 'HEAD:     %s  %s\n' "$HEAD_HASH" "$HEAD_DATE"
