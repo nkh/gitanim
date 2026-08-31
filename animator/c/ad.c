@@ -313,15 +313,11 @@ int char_to_byte(int l, int col) {
 void set_cursor(int line, int col) {
     cursor_l = line - 1;
     if (cursor_l < 0) cursor_l = 0;
-    /* If the target line is past the end of buffer, INSERT empty lines
-     * up to the target. This happens when a hunk's ops reference a line
-     * that hasn't been created yet (e.g., inserts at line 8 when the
-     * buffer only has 7 lines — the \n that creates line 8 is later
-     * in the op stream). */
-    while (cursor_l >= n_lines) {
-        ensure_lines_capacity(n_lines + 1);
-        lines[n_lines] = strdup("");
-        n_lines++;
+    if (cursor_l >= n_lines) {
+        /* Past end of buffer — clamp to last line, position at END. */
+        cursor_l = n_lines - 1;
+        cursor_c = line_chars(cursor_l);  /* END of last line (0-indexed = past last char) */
+        return;
     }
     cursor_c = col - 1;
     if (cursor_c < 0) cursor_c = 0;

@@ -95,48 +95,6 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
             }
         }
 
-        /* ── Pattern 2: INSERT (content..., then \n) ──
-         * Move the \n INSERT to the FRONT so the new line is created
-         * before content fills it. Drop the \n at the end (already
-         * created by the front \n). */
-        if (i + 1 < n_work
-            && (strcmp(work[i].type, "insert") == 0
-                || strcmp(work[i].type, "overwrite_insert") == 0)
-            && work[i].code != AD_LAYER_CHAR_NEWLINE) {
-
-            /* Collect content inserts on the same line */
-            int ce = i;
-            int line = work[i].line;
-            while (ce < n_work
-                   && (strcmp(work[ce].type, "insert") == 0
-                       || strcmp(work[ce].type, "overwrite_insert") == 0)
-                   && work[ce].code != AD_LAYER_CHAR_NEWLINE
-                   && work[ce].line == line)
-                ce++;
-
-            /* Check: op[ce] is INSERT \n on the same line */
-            if (ce < n_work
-                && (strcmp(work[ce].type, "insert") == 0
-                    || strcmp(work[ce].type, "overwrite_insert") == 0)
-                && work[ce].code == AD_LAYER_CHAR_NEWLINE
-                && work[ce].line == line) {
-
-                /* Pattern matched: move \n to front, drop \n at end */
-                Op nl_op = work[ce];
-                nl_op.col = work[i].col;  /* \n goes at the start col */
-                if (n_out < out_cap)
-                    out[n_out++] = nl_op;
-
-                /* Emit content inserts (same positions) */
-                for (int k = i; k < ce && n_out < out_cap; k++)
-                    out[n_out++] = work[k];
-
-                /* Skip the \n insert at ce (already emitted at front) */
-                i = ce + 1;
-                continue;
-            }
-        }
-
         /* No match — emit op[i] unchanged.
          * If this is a \n delete, the animator will join two lines
          * (buffer loses a line) → decrement later ops by 1, but ONLY

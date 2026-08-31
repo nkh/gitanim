@@ -120,44 +120,6 @@ sub transform_hunk {
             }
         }
 
-        # ── Pattern 2: INSERT (content..., then \n) ──
-        # Move \n INSERT to front so the new line is created first,
-        # then content fills it. Drop the \n at end.
-        if ($i + 1 < scalar @work
-            && ($work[$i]{type} eq 'insert'
-                || $work[$i]{type} eq 'overwrite_insert')
-            && $work[$i]{code} != 10) {
-
-            my $line = $work[$i]{line};
-            my $ce = $i;
-            while ($ce < scalar @work
-                   && ($work[$ce]{type} eq 'insert'
-                       || $work[$ce]{type} eq 'overwrite_insert')
-                   && $work[$ce]{code} != 10
-                   && $work[$ce]{line} == $line) {
-                $ce++;
-            }
-
-            if ($ce < scalar @work
-                && ($work[$ce]{type} eq 'insert'
-                    || $work[$ce]{type} eq 'overwrite_insert')
-                && $work[$ce]{code} == 10
-                && $work[$ce]{line} == $line) {
-
-                # Pattern matched: move \n to front
-                my %nl_op = %{$work[$ce]};
-                $nl_op{col} = $work[$i]{col};
-                push @out, \%nl_op;
-
-                for my $k ($i .. $ce-1) {
-                    push @out, $work[$k];
-                }
-
-                $i = $ce + 1;
-                next;
-            }
-        }
-
         # No match — emit op[i] unchanged.
         # If this is a \n delete, the animator will join two lines
         # (buffer loses a line) → decrement later ops by 1, but ONLY
