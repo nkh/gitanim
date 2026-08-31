@@ -90,4 +90,4 @@ sub parse_diff {
 ```
 
 Then add it to `ad_vim.pl`'s `compute_diff` function. See
-`docs/src/parsers.md` for the full reference.
+`docs/PARSERS.md` for the full reference.
