@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+# ad_tmux_watch — Open ad_watch + vim in a tmux window with vertical split.
+#
+# Creates a new tmux window with two panes side by side:
+#   Left pane:  ad_watch (displays old, new, diff — refreshes on save)
+#   Right pane: vim with ad_ops_syntax.vim (edit ops, :w to refresh)
+#
+# Usage:
+#   ad_tmux_watch <oldfile> <newfile> <opfile> [--ad-layer=<name>]...
+#
+# If <opfile> doesn't exist, it's generated first via ad_gen_ops.
+#
+# Example:
+#   ad_tmux_watch old.py new.py /tmp/ops.tsv --ad-layer=ad_layer_reorder
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Show help
+show_help() {
+    cat <<'HELP'
+ad_tmux_watch — Open ad_watch + vim in a tmux window with vertical split.
+
+USAGE
+    ad_tmux_watch <oldfile> <newfile> <opfile> [--ad-layer=<name>]...
+
+DESCRIPTION
+    Creates a new tmux window with two panes side by side:
+      Left pane:  ad_watch (displays old, new, diff — refreshes on save)
+      Right pane: vim with ad_ops_syntax.vim (edit ops, :w to refresh)
+
+    If <opfile> doesn't exist, it's generated first via ad_gen_ops
+    using the specified --ad-layer options.
+
+    Requires: tmux, vim, and the ad tools (ad_watch, ad_gen_ops).
+
+OPTIONS
+    --help, -h              Show this help and exit
+    --ad-layer=<name>       Pass to ad_gen_ops (if generating ops)
+    --ad-layer-path=<dir>   Pass to ad_gen_ops
+    --no-generate           Don't generate ops even if opfile missing
+    --show-delays           Pass to ad_watch (keep delay ops)
+    --show-decorations      Pass to ad_watch (keep decoration ops)
+
+EXAMPLES
+    # Basic usage — generates ops if /tmp/ops.tsv doesn't exist
+    ad_tmux_watch old.py new.py /tmp/ops.tsv --ad-layer=ad_layer_reorder
+
+    # Use existing ops file
+    ad_tmux_watch old.py new.py existing_ops.tsv
+
+    # With multiple layers
+    ad_tmux_watch old.py new.py /tmp/ops.tsv \
+        --ad-layer=ad_layer_reorder \
+        --ad-layer=ad_layer_indent_last
+
+SEE ALSO
+    ad_watch — the display script (run in left pane)
+    ad_gen_ops — generates the op file (if missing)
+    scripts/vim/ad_ops_syntax.vim — vim syntax highlighting
+    docs/design/AD_WATCH_REQUIREMENTS.md — full requirements
+HELP
+}
+
+# Parse args
+if [[ $# -lt 3 ]]; then
+    show_help
+    exit 1
+fi
+
+OLD_FILE=""
+NEW_FILE=""
+OP_FILE=""
+GEN_OPS_ARGS=()
+WATCH_ARGS=()
+NO_GENERATE=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --no-generate)
+            NO_GENERATE=1
+            shift
+            ;;
+        --show-delays)
+            WATCH_ARGS+=("--show-delays")
+            shift
+            ;;
+        --show-decorations)
+            WATCH_ARGS+=("--show-decorations")
+            shift
+            ;;
+        --ad-layer=*)
+            GEN_OPS_ARGS+=("$1")
+            shift
+            ;;
+        --ad-layer)
+            GEN_OPS_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --ad-layer-path=*)
+            GEN_OPS_ARGS+=("$1")
+            shift
+            ;;
+        --ad-layer-path)
+            GEN_OPS_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --*)
+            echo "ad_tmux_watch: unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [[ -z "$OLD_FILE" ]]; then
+                OLD_FILE="$1"
+            elif [[ -z "$NEW_FILE" ]]; then
+                NEW_FILE="$1"
+            elif [[ -z "$OP_FILE" ]]; then
+                OP_FILE="$1"
+            else
+                echo "ad_tmux_watch: unexpected argument: $1" >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$OLD_FILE" || -z "$NEW_FILE" || -z "$OP_FILE" ]]; then
+    echo "ad_tmux_watch: oldfile, newfile, and opfile are required" >&2
+    exit 1
+fi
+
+# Validate old/new files
+if [[ ! -f "$OLD_FILE" ]]; then
+    echo "ad_tmux_watch: old file not found: $OLD_FILE" >&2
+    exit 1
+fi
+if [[ ! -f "$NEW_FILE" ]]; then
+    echo "ad_tmux_watch: new file not found: $NEW_FILE" >&2
+    exit 1
+fi
+
+# Check tmux is available
+if ! command -v tmux &>/dev/null; then
+    echo "ad_tmux_watch: tmux is not installed" >&2
+    exit 1
+fi
+
+# Check we're inside tmux
+if [[ -z "${TMUX:-}" ]]; then
+    echo "ad_tmux_watch: must be run inside a tmux session" >&2
+    echo "  Start tmux first: tmux" >&2
+    exit 1
+fi
+
+# Resolve paths to absolute
+OLD_FILE=$(cd "$(dirname "$OLD_FILE")" && pwd)/$(basename "$OLD_FILE")
+NEW_FILE=$(cd "$(dirname "$NEW_FILE")" && pwd)/$(basename "$NEW_FILE")
+
+# Make op file path absolute (but don't require it to exist yet)
+if [[ "$OP_FILE" != /* ]]; then
+    OP_FILE="$(pwd)/$OP_FILE"
+fi
+
+# Generate ops if opfile doesn't exist (unless --no-generate)
+if [[ ! -f "$OP_FILE" ]]; then
+    if [[ $NO_GENERATE -eq 1 ]]; then
+        echo "ad_tmux_watch: op file not found: $OP_FILE" >&2
+        echo "  Remove --no-generate to auto-generate, or create it first." >&2
+        exit 1
+    fi
+    echo "ad_tmux_watch: generating ops → $OP_FILE" >&2
+    "$SCRIPT_DIR/ad_gen_ops" "$OLD_FILE" "$NEW_FILE" "${GEN_OPS_ARGS[@]}" > "$OP_FILE"
+fi
+
+VIM_SYNTAX="$SCRIPT_DIR/vim/ad_ops_syntax.vim"
+
+# Build the ad_watch command
+WATCH_CMD="$SCRIPT_DIR/ad_watch"
+if [[ ${#WATCH_ARGS[@]} -gt 0 ]]; then
+    WATCH_CMD="$WATCH_CMD ${WATCH_ARGS[*]}"
+fi
+WATCH_CMD="$WATCH_CMD \"$OLD_FILE\" \"$NEW_FILE\" \"$OP_FILE\""
+
+# Build the vim command
+VIM_CMD="vim -S \"$VIM_SYNTAX\" \"$OP_FILE\""
+
+# Create a new tmux window with vertical split
+# Left pane: ad_watch, Right pane: vim
+tmux new-window -n "ad_watch" "$WATCH_CMD"
+tmux split-window -h -t "{left}" "$VIM_CMD"
+
+# Focus the vim pane (right)
+tmux select-pane -t "{right}"
+
+echo "" >&2
+echo "ad_tmux_watch: launched in new tmux window" >&2
+echo "  Left pane:  ad_watch (auto-refreshes when you save)" >&2
+echo "  Right pane: vim (edit ops, :w to refresh left pane)" >&2
+echo "" >&2
+echo "  OLD: $OLD_FILE" >&2
+echo "  NEW: $NEW_FILE" >&2
+echo "  OPS: $OP_FILE" >&2

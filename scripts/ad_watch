@@ -59,12 +59,15 @@ WORKFLOW
     # :w to save — terminal 1 refreshes instantly
 
 OPTIONS
-    --help, -h    Show this help and exit
-    --once        Display once and exit (no watching). Useful for testing.
+    --help, -h           Show this help and exit
+    --once               Display once and exit (no watching). Useful for testing.
+    --show-delays        Keep delay ops in the stream (default: stripped)
+    --show-decorations   Keep highlight/dim/fold/sign/marker ops (default: stripped)
 
 EXAMPLES
     ad_watch old.py new.py ops.tsv
     ad_watch --once old.py new.py ops.tsv   # one-shot display
+    ad_watch --show-delays old.py new.py ops.tsv  # keep delay ops
 
 SEE ALSO
     ad_gen_ops — generate the op file from old+new+layers
@@ -75,6 +78,8 @@ HELP
 
 # Parse args
 ONCE=0
+SHOW_DELAYS=0
+SHOW_DECORATIONS=0
 args=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -84,6 +89,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --once)
             ONCE=1
+            shift
+            ;;
+        --show-delays)
+            SHOW_DELAYS=1
+            shift
+            ;;
+        --show-decorations)
+            SHOW_DECORATIONS=1
             shift
             ;;
         *)
@@ -135,10 +148,29 @@ if command -v diff-so-fancy &>/dev/null; then
     DIFF_FANCY="diff-so-fancy"
 fi
 
-# Temp file for animator output
+# Temp files for animator output and filtered ops
 RESULT_FILE=$(mktemp -t ad_watch_result.XXXXXX)
 ERR_FILE=$(mktemp -t ad_watch_err.XXXXXX)
-trap 'rm -f "$RESULT_FILE" "$ERR_FILE"' EXIT
+FILTERED_OPS=$(mktemp -t ad_watch_ops.XXXXXX)
+trap 'rm -f "$RESULT_FILE" "$ERR_FILE" "$FILTERED_OPS"' EXIT
+
+# Build the grep filter pattern for ops to strip
+# Default: strip delay and decoration ops
+# Decorations: highlight, dim, fold, sign, marker, snapshot, glide
+STRIP_PATTERN="^delay\t|^highlight\t|^dim\t|^fold\t|^sign\t|^marker\t|^snapshot\t|^glide\t"
+if [[ $SHOW_DELAYS -eq 1 ]]; then
+    # Keep delays — only strip decorations
+    STRIP_PATTERN="^highlight\t|^dim\t|^fold\t|^sign\t|^marker\t|^snapshot\t|^glide\t"
+fi
+if [[ $SHOW_DECORATIONS -eq 1 ]]; then
+    if [[ $SHOW_DELAYS -eq 1 ]]; then
+        # Keep everything
+        STRIP_PATTERN=""
+    else
+        # Strip only delays
+        STRIP_PATTERN="^delay\t"
+    fi
+fi
 
 # Display function — shows all three sections
 display() {
@@ -152,8 +184,17 @@ display() {
     echo ""
 
     echo "═══ DIFF (new vs old+ops) ═══"
+
+    # Filter the op file: strip delay/decoration ops unless asked for
+    if [[ -n "$STRIP_PATTERN" ]]; then
+        grep -vE "$STRIP_PATTERN" "$OP_FILE" > "$FILTERED_OPS" 2>/dev/null || true
+        OPS_TO_APPLY="$FILTERED_OPS"
+    else
+        OPS_TO_APPLY="$OP_FILE"
+    fi
+
     # Apply ops to old file using the real animator
-    if "$ANIMATOR_BIN" --no-display --speed 1000 --snapshot "$RESULT_FILE" "$OLD_FILE" < "$OP_FILE" 2>"$ERR_FILE"; then
+    if "$ANIMATOR_BIN" --no-display --speed 1000 --snapshot "$RESULT_FILE" "$OLD_FILE" < "$OPS_TO_APPLY" 2>"$ERR_FILE"; then
         # Animator succeeded — show diff
         if diff -q "$NEW_FILE" "$RESULT_FILE" >/dev/null 2>&1; then
             echo "✓ Files are identical — ops produce the correct result."

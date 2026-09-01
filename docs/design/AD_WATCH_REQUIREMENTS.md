@@ -269,3 +269,146 @@ Where `display.sh` is the body of `ad_watch`'s `display` function.
 - `BufWritePost` is per-buffer, must be re-set each session.
 - The `inotifywait`/`stat` approach is editor-agnostic and works in
   any terminal without tmux integration.
+
+---
+
+## Examples
+
+### Example 1: Simple word replacement
+
+**old.txt:**
+```
+hello world
+```
+
+**new.txt:**
+```
+hello universe
+```
+
+**Generate ops and watch:**
+```bash
+ad_gen_ops old.txt new.txt --ad-layer=ad_layer_reorder > /tmp/ops.tsv
+ad_watch old.txt new.txt /tmp/ops.tsv
+```
+
+**Ops file (after generation):**
+```
+# diffvim timed ops v2
+HUNK	1	1	1	0	0
+keep	1	1	104	'h'
+keep	1	2	101	'e'
+keep	1	3	108	'l'
+keep	1	4	108	'l'
+keep	1	5	111	'o'
+keep	1	6	32	space
+delete	1	7	119	'w'
+delete	1	7	111	'o'
+delete	1	7	114	'r'
+delete	1	7	108	'l'
+delete	1	7	100	'd'
+insert	1	7	117	'u'
+insert	1	8	110	'n'
+insert	1	9	105	'i'
+insert	1	10	118	'v'
+insert	1	11	101	'e'
+insert	1	12	114	'r'
+insert	1	13	115	's'
+insert	1	14	101	'e'
+HUNK_END
+```
+
+**Expected display:**
+```
+═══ OLD (old.txt) ═══
+     1	hello world
+
+═══ NEW (new.txt) ═══
+     1	hello universe
+
+═══ DIFF (new vs old+ops) ═══
+✓ Files are identical — ops produce the correct result.
+```
+
+### Example 2: Line deletion (join)
+
+**old.txt:**
+```
+A
+B
+C
+```
+
+**new.txt:**
+```
+A
+C
+```
+
+**Generate ops and watch:**
+```bash
+ad_gen_ops old.txt new.txt --ad-layer=ad_layer_reorder > /tmp/ops.tsv
+ad_watch old.txt new.txt /tmp/ops.tsv
+```
+
+### Example 3: Using tmux launcher
+
+```bash
+# Inside a tmux session:
+ad_tmux_watch old.txt new.txt /tmp/ops.tsv --ad-layer=ad_layer_reorder
+```
+
+This opens a new tmux window with:
+- Left pane: `ad_watch` (auto-refreshes)
+- Right pane: `vim` with syntax highlighting (edit ops, `:w` to refresh)
+
+### Example 4: Editing ops to test changes
+
+Start `ad_watch` in one terminal, then edit the ops file in vim:
+
+```bash
+# Terminal 1:
+ad_watch old.txt new.txt /tmp/ops.tsv
+
+# Terminal 2:
+vim -S scripts/vim/ad_ops_syntax.vim /tmp/ops.tsv
+```
+
+Comment out some ops to see the effect:
+```
+HUNK	1	1	1	0	0
+keep	1	1	104	'h'
+keep	1	2	101	'e'
+# delete	1	3	108	'l'    ← commented out
+insert	1	3	88	'X'
+HUNK_END
+```
+
+Save (`:w`) — terminal 1 refreshes instantly showing the new result.
+
+### Example 5: Keeping delay ops
+
+By default, `ad_watch` strips delay ops. To keep them:
+
+```bash
+ad_watch --show-delays old.txt new.txt /tmp/ops.tsv
+```
+
+### Example 6: One-shot display (for testing)
+
+```bash
+ad_watch --once old.txt new.txt /tmp/ops.tsv
+```
+
+Displays once and exits — useful for scripts and testing.
+
+### Example 7: Multiple layers
+
+```bash
+ad_gen_ops old.py new.py \
+    --ad-layer=ad_layer_reorder \
+    --ad-layer=ad_layer_indent_last \
+    --ad-layer=ad_layer_line_delete_in_place > /tmp/ops.tsv
+
+ad_watch old.py new.py /tmp/ops.tsv
+```

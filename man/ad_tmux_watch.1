@@ -1,0 +1,84 @@
+.TH AD_TMUX_WATCH 1 "2026-09-01" "ad 2.0" "ad tools"
+.SH NAME
+ad_tmux_watch \- open ad_watch + vim in a tmux window with vertical split
+.SH SYNOPSIS
+.B ad_tmux_watch
+<oldfile> <newfile> <opfile> [--ad-layer=<name>]... [options]
+.SH DESCRIPTION
+.B ad_tmux_watch
+creates a new tmux window with two panes side by side:
+.RS 4
+.IP \(bu 2
+Left pane:
+.B ad_watch
+(displays old, new, diff \(em refreshes on save)
+.IP \(bu 2
+Right pane:
+.B vim
+with
+.I ad_ops_syntax.vim
+(edit ops, :w to refresh left pane)
+.RE
+.PP
+If
+<opfile>
+doesn't exist, it's generated first via
+.BR ad_gen_ops (1)
+using the specified
+.B --ad-layer
+options.
+.SH OPTIONS
+.TP
+.BR --help ", " -h
+Show help and exit.
+.TP
+.BI --ad-layer= NAMERe
+Pass to
+.B ad_gen_ops
+(if generating ops). Repeatable.
+.TP
+.BI --ad-layer-path= DIR
+Pass to
+.BR ad_gen_ops .
+.TP
+.B --no-generate
+Don't generate ops even if opfile is missing.
+.TP
+.B --show-delays
+Pass to
+.B ad_watch
+(keep delay ops in the stream).
+.TP
+.B --show-decorations
+Pass to
+.B ad_watch
+(keep highlight/dim/fold/sign/marker ops).
+.SH EXAMPLES
+.TP
+Basic usage \(em generates ops if /tmp/ops.tsv doesn't exist:
+.B ad_tmux_watch old.py new.py /tmp/ops.tsv --ad-layer=ad_layer_reorder
+.TP
+Use existing ops file:
+.B ad_tmux_watch old.py new.py existing_ops.tsv
+.TP
+With multiple layers:
+.B ad_tmux_watch old.py new.py /tmp/ops.tsv \\\\
+.br
+.B   --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last
+.SH REQUIREMENTS
+Requires:
+.BR tmux (1),
+.BR vim (1),
+and the ad tools
+.RB ( ad_watch ", " ad_gen_ops ).
+Must be run inside a tmux session.
+.SH SEE ALSO
+.BR ad_watch (1),
+.BR ad_gen_ops (1),
+.BR ad (1)
+.PP
+.I scripts/vim/ad_ops_syntax.vim
+\(em vim syntax highlighting for op files
+.PP
+.I docs/design/AD_WATCH_REQUIREMENTS.md
+\(em full requirements

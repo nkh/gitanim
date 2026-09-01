@@ -1,0 +1,58 @@
+.TH AD_GEN_OPS 1 "2026-09-01" "ad 2.0" "ad tools"
+.SH NAME
+ad_gen_ops \- generate a timed op file from old/new files + layer chain
+.SH SYNOPSIS
+.B ad_gen_ops
+<oldfile> <newfile> [--ad-layer=<name>]... [options]
+.SH DESCRIPTION
+.B ad_gen_ops
+runs the ad pipeline
+.RI ( compute \(-> postprocess \(-> pace )
+and writes the timed ops to stdout. The output is V2 TSV format,
+suitable for editing with
+.B vim
+(use
+.IR scripts/vim/ad_ops_syntax.vim ).
+.PP
+This is the companion to
+.BR ad_watch :
+generate the initial ops with
+.BR ad_gen_ops ,
+then iterate on them in vim while
+.B ad_watch
+shows the result.
+.SH OPTIONS
+.TP
+.BR --help ", " -h
+Show help and exit.
+.TP
+.BI --ad-layer= NAME
+Add a layer to the postprocess chain. Layers run in argv order.
+Repeatable.
+.TP
+.BI --ad-layer-path= DIR
+Add a search path for layers.
+.TP
+.BI --delete-pacing= MODE
+Delete pacing mode (char|word|rapid-eol|...).
+.TP
+.BI --insert-pacing= MODE
+Insert pacing mode (char|word|accel|...).
+.SH EXAMPLES
+.TP
+Generate ops with reorder layer only:
+.B ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder > ops.tsv
+.TP
+Generate ops with multiple layers:
+.B ad_gen_ops old.py new.py \\\\
+.br
+.B   --ad-layer=ad_layer_reorder \\\\
+.br
+.B   --ad-layer=ad_layer_indent_last > ops.tsv
+.SH SEE ALSO
+.BR ad_watch (1),
+.BR ad_tmux_watch (1),
+.BR ad (1)
+.PP
+.I scripts/vim/ad_ops_syntax.vim
+\(em vim syntax highlighting for op files

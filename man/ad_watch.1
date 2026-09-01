@@ -1,0 +1,87 @@
+.TH AD_WATCH 1 "2026-09-01" "ad 2.0" "ad tools"
+.SH NAME
+ad_watch \- live-preview how ops transform an old file
+.SH SYNOPSIS
+.B ad_watch
+<oldfile> <newfile> <opfile> [options]
+.SH DESCRIPTION
+.B ad_watch
+displays three sections in one terminal, refreshing when the op file
+changes:
+.RS 4
+.IP 1. 3
+OLD file (with line numbers)
+.IP 2. 3
+NEW file (with line numbers)
+.IP 3. 3
+DIFF: new vs (old + ops applied), via
+.B diff-so-fancy
+if available, else plain
+.BR "diff -u" .
+.RE
+.PP
+Uses
+.B inotifywait
+(inotify-tools) for instant, event-driven refresh. Falls back to
+.B stat
+mtime polling (0.2s interval) if
+.B inotifywait
+is not installed.
+.PP
+The ops are applied using the real animator
+.RB ( bin/ad ),
+so this tests the exact same code path as production.
+.PP
+By default, delay and decoration ops (highlight, dim, fold, sign,
+marker, snapshot, glide) are stripped from the op stream before
+passing to the animator. Use
+.B --show-delays
+or
+.B --show-decorations
+to keep them.
+.SH OPTIONS
+.TP
+.BR --help ", " -h
+Show help and exit.
+.TP
+.B --once
+Display once and exit (no watching). Useful for testing.
+.TP
+.B --show-delays
+Keep delay ops in the stream (default: stripped).
+.TP
+.B --show-decorations
+Keep highlight/dim/fold/sign/marker ops (default: stripped).
+.SH EXAMPLES
+.TP
+Basic usage:
+.B ad_watch old.py new.py ops.tsv
+.TP
+One-shot display (for testing):
+.B ad_watch --once old.py new.py ops.tsv
+.TP
+Keep delay ops:
+.B ad_watch --show-delays old.py new.py ops.tsv
+.SH WORKFLOW
+.PP
+.RS 4
+.nf
+# Terminal 1: generate initial ops, then watch
+ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder > /tmp/ops.tsv
+ad_watch old.py new.py /tmp/ops.tsv
+
+# Terminal 2: edit ops with syntax highlighting
+vim -S scripts/vim/ad_ops_syntax.vim /tmp/ops.tsv
+# :w to save \(em terminal 1 refreshes instantly
+.fi
+.RE
+.SH SEE ALSO
+.BR ad_gen_ops (1),
+.BR ad_tmux_watch (1),
+.BR ad (1)
+.PP
+.I scripts/vim/ad_ops_syntax.vim
+\(em vim syntax highlighting for op files
+.PP
+.I docs/design/AD_WATCH_REQUIREMENTS.md
+\(em full requirements
