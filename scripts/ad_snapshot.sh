@@ -274,17 +274,23 @@ fi
 post_ops=$(grep -cv "^#\|^$" "$POST" 2>/dev/null || echo 0)
 echo "  [2/5] postprocess: $post_ops ops" >&2
 
-# Stage 3: Pace
-if ! "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
-    echo "ERROR: pace stage failed:" >&2
-    cat "$OUTDIR/pace_stderr.txt" >&2
-    exit 1
+# Stage 3: Pace (only if PACE_ARGS given — NO pace by default)
+if [[ ${#PACE_ARGS[@]} -gt 0 ]]; then
+    if ! "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST" > "$TIMED" 2>"$OUTDIR/pace_stderr.txt"; then
+        echo "ERROR: pace stage failed:" >&2
+        cat "$OUTDIR/pace_stderr.txt" >&2
+        exit 1
+    fi
+    timed_ops=$(grep -cv "^#\|^$" "$TIMED" 2>/dev/null || echo 0)
+    echo "  [3/5] pace: $timed_ops ops" >&2
+else
+    # No pace options — pass post through as timed
+    cp "$POST" "$TIMED"
+    echo "  [3/5] pace: skipped (no --pace-* options)" >&2
 fi
-timed_ops=$(grep -cv "^#\|^$" "$TIMED" 2>/dev/null || echo 0)
-echo "  [3/5] pace: $timed_ops ops" >&2
 
-# Stage 4: Decorate
-if [[ -n "$HIGHLIGHT_BIN" && -x "$HIGHLIGHT_BIN" ]]; then
+# Stage 4: Decorate (only if DECORATE_ARGS given — NO decorate by default)
+if [[ ${#DECORATE_ARGS[@]} -gt 0 && -n "$HIGHLIGHT_BIN" && -x "$HIGHLIGHT_BIN" ]]; then
     if ! "$HIGHLIGHT_BIN" "${DECORATE_ARGS[@]}" < "$TIMED" > "$DECORATED" 2>"$OUTDIR/decorate_stderr.txt"; then
         echo "WARNING: decorate stage failed, using undecorated ops:" >&2
         cat "$OUTDIR/decorate_stderr.txt" >&2
@@ -293,6 +299,8 @@ if [[ -n "$HIGHLIGHT_BIN" && -x "$HIGHLIGHT_BIN" ]]; then
     decorated_ops=$(grep -cv "^#\|^$" "$DECORATED" 2>/dev/null || echo 0)
     echo "  [4/5] decorate: $decorated_ops ops" >&2
     TIMED="$DECORATED"
+else
+    echo "  [4/5] decorate: skipped (no --highlight/--dim/--fold options)" >&2
 fi
 
 # Inject snapshot after every keep/delete/insert

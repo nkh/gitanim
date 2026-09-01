@@ -144,11 +144,22 @@ def process_file(filepath):
     return False
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: format_tables.py <file.md> [--all]")
-        print("  Format markdown tables so columns align vertically.")
-        print("  --all: process all .md files in the repo (except docs/design/)")
-        sys.exit(1)
+    if len(sys.argv) < 2 or sys.argv[1] in ('--help', '-h'):
+        print("format_tables.py — Format markdown tables so columns align vertically.")
+        print("")
+        print("USAGE")
+        print("    format_tables.py <file.md>...")
+        print("    format_tables.py --all")
+        print("    format_tables.py --help | -h")
+        print("")
+        print("OPTIONS")
+        print("    --all       Process all .md files in the repo (except docs/design/)")
+        print("    --help, -h  Show this help and exit")
+        print("")
+        print("EXAMPLES")
+        print("    format_tables.py docs/README.md")
+        print("    format_tables.py --all")
+        sys.exit(0)
 
     if sys.argv[1] == '--all':
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

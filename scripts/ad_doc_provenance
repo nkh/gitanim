@@ -15,16 +15,41 @@
 
 set -euo pipefail
 
+# Show help
+show_help() {
+    cat <<'HELP'
+ad_doc_provenance — Print git provenance for a file.
+
+USAGE
+    ad_doc_provenance <file>
+    ad_doc_provenance --help | -h
+
+DESCRIPTION
+    Prints the creation commit, last-modification commit, and current
+    HEAD for the given file.
+
+OPTIONS
+    --help, -h    Show this help and exit
+
+EXAMPLES
+    ad_doc_provenance docs/REQUIREMENTS.md
+    ad_doc_provenance layers/c/ad_layer_reorder.c
+    ad_doc_provenance README.md
+HELP
+}
+
+# Parse args
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <file>" >&2
-    echo "  Print git provenance (created, last modified, current HEAD) for a file." >&2
-    echo "" >&2
-    echo "Examples:" >&2
-    echo "  $0 docs/REQUIREMENTS.md" >&2
-    echo "  $0 layers/c/ad_layer_reorder.c" >&2
-    echo "  $0 README.md" >&2
+    show_help >&2
     exit 1
 fi
+
+case "$1" in
+    --help|-h)
+        show_help
+        exit 0
+        ;;
+esac
 
 FILE="$1"
 

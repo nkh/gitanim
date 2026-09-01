@@ -1440,7 +1440,11 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         debug_log "Stage 2 done: $(wc -l < "$POST_OPS") lines in post_ops"
 
         # Stage 3: Pace (add typed delays + batching)
-        PACE_ARGS=("--delete-pacing" "${DELETE_PACING:-word}" "--insert-pacing" "${INSERT_PACING:-char}")
+        # Only run if user explicitly passes --delete-pacing, --insert-pacing,
+        # or any --pace-* / timing option. NO pace by default.
+        PACE_ARGS=()
+        [[ -n "${DELETE_PACING:-}" ]] && PACE_ARGS+=("--delete-pacing" "$DELETE_PACING")
+        [[ -n "${INSERT_PACING:-}" ]] && PACE_ARGS+=("--insert-pacing" "$INSERT_PACING")
         # Delete/insert speed
         [[ -n "${DELETE_SPEED:-}" ]] && PACE_ARGS+=("--delete-speed" "$DELETE_SPEED")
         [[ -n "${INSERT_SPEED:-}" ]] && PACE_ARGS+=("--insert-speed" "$INSERT_SPEED")
@@ -1472,32 +1476,42 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         [[ -n "${DISTANCE_THRESHOLD:-}" ]] && PACE_ARGS+=("--distance-threshold" "$DISTANCE_THRESHOLD")
         [[ -n "${DISTANCE_FAST_MULT:-}" ]] && PACE_ARGS+=("--distance-fast-mult" "$DISTANCE_FAST_MULT")
         [[ -n "${DISTANCE_SLOW_MULT:-}" ]] && PACE_ARGS+=("--distance-slow-mult" "$DISTANCE_SLOW_MULT")
-        debug_log "Stage 3: pace ${PACE_ARGS[*]}"
-        "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
-        debug_log "Stage 3 done: $(wc -l < "$TIMED_OPS") lines in timed_ops"
+        if [[ ${#PACE_ARGS[@]} -gt 0 ]]; then
+            debug_log "Stage 3: pace ${PACE_ARGS[*]}"
+            "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST_OPS" > "$TIMED_OPS" 2>/dev/null
+            debug_log "Stage 3 done: $(wc -l < "$TIMED_OPS") lines in timed_ops"
+        else
+            # No pace options — pass post_ops through as timed_ops
+            cp "$POST_OPS" "$TIMED_OPS"
+            debug_log "Stage 3: skipped (no pace options)"
+        fi
 
         # Stage 4: Decorate (insert highlight/dim/fold/sign ops)
+        # Only run if user explicitly passes --highlight, --dim-unchanged,
+        # --fold-unchanged, --sign-column, --git-blame, etc. NO decorate by default.
         DECORATE_BIN=""
         for d in "bin/ad_layer_highlight" \
                  "/usr/local/bin/ad_layer_highlight"; do
             if [[ -f "$d" ]]; then DECORATE_BIN="$d"; break; fi
         done
         DECORATED_OPS="$WORKDIR/decorated_ops.txt"
-        if [[ -n "$DECORATE_BIN" ]]; then
-            DECORATE_ARGS=()
-            [[ "$HIGHLIGHT_MODE" != "none" ]] && DECORATE_ARGS+=("--highlight" "$HIGHLIGHT_MODE")
-            DECORATE_ARGS+=("--highlight-duration-ms" "${HIGHLIGHT_DURATION_MS:-200}")
-            [[ "$DIM_UNCHANGED" -eq 1 ]] && DECORATE_ARGS+=("--dim-unchanged" "--dim-unchanged-pct" "${DIM_UNCHANGED_PCT:-60}")
-            [[ "$CONTEXT_LINES" -gt 0 ]] && DECORATE_ARGS+=("--context" "$CONTEXT_LINES")
-            [[ "$FOLD_UNCHANGED" -eq 1 ]] && DECORATE_ARGS+=("--fold-unchanged")
-            [[ "$SIGN_COLUMN" -eq 1 ]] && DECORATE_ARGS+=("--sign-column")
-            [[ "$GIT_BLAME" -eq 1 ]] && DECORATE_ARGS+=("--git-blame")
-            [[ "$MAX_HUNK_CHARS" -gt 0 ]] && DECORATE_ARGS+=("--max-hunk-chars" "$MAX_HUNK_CHARS")
-            [[ -n "$THEME" ]] && DECORATE_ARGS+=("--theme" "$THEME")
+        DECORATE_ARGS=()
+        [[ "$HIGHLIGHT_MODE" != "none" ]] && DECORATE_ARGS+=("--highlight" "$HIGHLIGHT_MODE")
+        [[ -n "${HIGHLIGHT_DURATION_MS:-}" ]] && DECORATE_ARGS+=("--highlight-duration-ms" "$HIGHLIGHT_DURATION_MS")
+        [[ "$DIM_UNCHANGED" -eq 1 ]] && DECORATE_ARGS+=("--dim-unchanged" "--dim-unchanged-pct" "${DIM_UNCHANGED_PCT:-60}")
+        [[ "$CONTEXT_LINES" -gt 0 ]] && DECORATE_ARGS+=("--context" "$CONTEXT_LINES")
+        [[ "$FOLD_UNCHANGED" -eq 1 ]] && DECORATE_ARGS+=("--fold-unchanged")
+        [[ "$SIGN_COLUMN" -eq 1 ]] && DECORATE_ARGS+=("--sign-column")
+        [[ "$GIT_BLAME" -eq 1 ]] && DECORATE_ARGS+=("--git-blame")
+        [[ "$MAX_HUNK_CHARS" -gt 0 ]] && DECORATE_ARGS+=("--max-hunk-chars" "$MAX_HUNK_CHARS")
+        [[ -n "$THEME" ]] && DECORATE_ARGS+=("--theme" "$THEME")
+        if [[ -n "$DECORATE_BIN" && ${#DECORATE_ARGS[@]} -gt 0 ]]; then
             debug_log "Stage 4: decorate ${DECORATE_ARGS[*]}"
             "$DECORATE_BIN" "${DECORATE_ARGS[@]}" < "$TIMED_OPS" > "$DECORATED_OPS" 2>/dev/null
             debug_log "Stage 4 done: $(wc -l < "$DECORATED_OPS") lines in decorated_ops"
             TIMED_OPS="$DECORATED_OPS"
+        else
+            debug_log "Stage 4: skipped (no decoration options)"
         fi
     else
         echo "ad_vim: pipeline executables not found (need ad_compute, ad_postprocess, ad_layer_pace)" >&2

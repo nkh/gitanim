@@ -336,15 +336,23 @@ run_stage "compute" "$RAW_OPS" $COMPUTE "${COMPUTE_ARGS[@]}" "$OLD" "$NEW" "$RAW
 
 run_stage "postprocess" "$WORKDIR/post_ops.txt" $POSTPROCESS "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS"
 
-# Stage 3: Pace
-run_stage "pace" "$TIMED_OPS" $PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt"
+# Stage 3: Pace (only if --pace-* options given OR pace binary explicitly requested)
+# NO layers run by default. The user must opt in.
+if [[ ${#PACE_ARGS[@]} -gt 0 ]] || [[ -n "${PACE_EXPLICIT:-}" ]]; then
+    run_stage "pace" "$TIMED_OPS" $PACE "${PACE_ARGS[@]}" < "$WORKDIR/post_ops.txt"
+else
+    # No pace — pass post_ops through as timed_ops
+    cp "$WORKDIR/post_ops.txt" "$TIMED_OPS"
+fi
 
-# Stage 3b: Decorate (optional — passes through if no decoration args)
-# DECORATE_ARGS was initialized at top with other arrays
+# Stage 3b: Decorate (only if --highlight/--dim/--fold/--sign/--git-blame given)
+# NO decoration by default.
 DECORATED_OPS="$WORKDIR/decorated_ops.txt"
-if [[ -f "$DECORATE" ]] || [[ -f "$DECORATE_PERL" ]]; then
-    run_stage "decorate" "$DECORATED_OPS" $DECORATE "${DECORATE_ARGS[@]}" < "$TIMED_OPS"
-    TIMED_OPS="$DECORATED_OPS"
+if [[ ${#DECORATE_ARGS[@]} -gt 0 ]]; then
+    if [[ -f "$DECORATE" ]] || [[ -f "$DECORATE_PERL" ]]; then
+        run_stage "decorate" "$DECORATED_OPS" $DECORATE "${DECORATE_ARGS[@]}" < "$TIMED_OPS"
+        TIMED_OPS="$DECORATED_OPS"
+    fi
 fi
 
 # Wait for coloring to finish (if still running)

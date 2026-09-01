@@ -412,3 +412,62 @@ ad_gen_ops old.py new.py \
 
 ad_watch old.py new.py /tmp/ops.tsv
 ```
+
+---
+
+## Philosophy: No defaults
+
+The ad pipeline runs **NO layers by default**. Every layer must be
+explicitly added by the user:
+
+```bash
+# No layers — raw compute output goes directly to the animator
+ad_vim old.py new.py
+
+# Add layers explicitly
+ad_vim --ad-layer=ad_layer_reorder old.py new.py
+ad_vim --indent-last --overwrite old.py new.py
+ad_vim --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last old.py new.py
+```
+
+**What is NOT run by default:**
+- `ad_layer_reorder` — character reordering within lines
+- `ad_layer_overwrite` — merge delete+insert into overwrite_insert
+- `ad_layer_indent_last` — move whitespace deletes to end
+- `ad_layer_line_delete_in_place` — reorder whole-line deletes
+- `ad_layer_skip_indent` — skip animation for indent-only hunks
+- `ad_layer_pace` — insert delay ops (timing)
+- `ad_layer_highlight` — insert highlight/dim/fold/sign/marker ops
+
+**Why no defaults:**
+- The user knows what they want. Don't decide for them.
+- It's easy to write a bash alias or wrapper that adds layers:
+  ```bash
+  # ~/.bashrc
+  alias advim='ad_vim --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last'
+  ```
+- Defaults make debugging harder — "where did this delay come from?"
+- Defaults vary by use case (testing vs. demo vs. production)
+
+**How to add layers:**
+1. Convenience flags (in `ad_vim` and `ad_pipeline`):
+   - `--indent-last` → `--ad-layer=ad_layer_indent_last`
+   - `--overwrite` → `--ad-layer=ad_layer_overwrite`
+   - `--line-delete-in-place` → `--ad-layer=ad_layer_line_delete_in_place`
+
+2. Generic `--ad-layer=<name>` (any layer, any order):
+   ```bash
+   ad_vim --ad-layer=ad_layer_reorder --ad-layer=ad_layer_overwrite old.py new.py
+   ```
+
+3. Bash alias (recommended for repeated use):
+   ```bash
+   alias advim='ad_vim --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last'
+   advim old.py new.py
+   ```
+
+4. Wrapper script:
+   ```bash
+   #!/usr/bin/env bash
+   exec ad_vim --ad-layer=ad_layer_reorder "$@"
+   ```
