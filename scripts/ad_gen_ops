@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+# ad_gen_ops — Generate a timed op file from old/new files + layer chain.
+#
+# Runs: compute → postprocess (with specified layers) → pace
+# Writes timed ops to stdout.
+#
+# Usage:
+#   ad_gen_ops <oldfile> <newfile> [--ad-layer=<name>]... [options]
+#
+# Options:
+#   --ad-layer=<name>      Add a layer to the postprocess chain
+#   --ad-layer-path=<dir>  Add a search path for layers
+#   --delete-pacing=MODE   Delete pacing mode (char|word|rapid-eol|...)
+#   --insert-pacing=MODE   Insert pacing mode (char|word|accel|...)
+#   --help, -h             Show this help
+#
+# Examples:
+#   ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder > ops.tsv
+#   ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder --ad-layer=ad_layer_indent_last > ops.tsv
+#
+# The output is V2 TSV format, suitable for editing with:
+#   vim -S scripts/vim/ad_ops_syntax.vim ops.tsv
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Show help
+show_help() {
+    cat <<'HELP'
+ad_gen_ops — Generate a timed op file from old/new files + layer chain.
+
+USAGE
+    ad_gen_ops <oldfile> <newfile> [--ad-layer=<name>]... [options]
+
+DESCRIPTION
+    Runs the ad pipeline (compute → postprocess → pace) and writes
+    the timed ops to stdout. The output is V2 TSV format, suitable
+    for editing with vim (use scripts/vim/ad_ops_syntax.vim).
+
+    This is the companion to ad_watch: generate the initial ops with
+    ad_gen_ops, then iterate on them in vim while ad_watch shows the
+    result.
+
+OPTIONS
+    --ad-layer=<name>      Add a layer to the postprocess chain.
+                            Layers run in argv order.
+    --ad-layer-path=<dir>  Add a search path for layers.
+    --delete-pacing=MODE   Delete pacing mode (char|word|rapid-eol|...).
+    --insert-pacing=MODE   Insert pacing mode (char|word|accel|...).
+    --help, -h             Show this help and exit.
+
+EXAMPLES
+    # Generate ops with reorder layer only
+    ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder > ops.tsv
+
+    # Generate ops with multiple layers
+    ad_gen_ops old.py new.py \
+        --ad-layer=ad_layer_reorder \
+        --ad-layer=ad_layer_indent_last \
+        --ad-layer=ad_layer_line_delete_in_place > ops.tsv
+
+    # Then edit and watch
+    vim -S scripts/vim/ad_ops_syntax.vim ops.tsv
+    ad_watch old.py new.py ops.tsv
+
+SEE ALSO
+    ad_watch — display old/new/diff, refresh on opfile change
+    docs/design/AD_WATCH_REQUIREMENTS.md — full requirements
+HELP
+}
+
+# Parse args
+if [[ $# -lt 2 ]]; then
+    show_help
+    exit 1
+fi
+
+OLD_FILE=""
+NEW_FILE=""
+PP_ARGS=()
+PACE_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --ad-layer=*)
+            PP_ARGS+=("$1")
+            shift
+            ;;
+        --ad-layer)
+            PP_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --ad-layer-path=*)
+            PP_ARGS+=("$1")
+            shift
+            ;;
+        --ad-layer-path)
+            PP_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --delete-pacing=*)
+            PACE_ARGS+=("--delete-pacing" "${1#--delete-pacing=}")
+            shift
+            ;;
+        --insert-pacing=*)
+            PACE_ARGS+=("--insert-pacing" "${1#--insert-pacing=}")
+            shift
+            ;;
+        --delete-pacing|--insert-pacing)
+            PACE_ARGS+=("$1" "$2")
+            shift 2
+            ;;
+        --*)
+            echo "ad_gen_ops: unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [[ -z "$OLD_FILE" ]]; then
+                OLD_FILE="$1"
+            elif [[ -z "$NEW_FILE" ]]; then
+                NEW_FILE="$1"
+            else
+                echo "ad_gen_ops: unexpected argument: $1" >&2
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$OLD_FILE" || -z "$NEW_FILE" ]]; then
+    echo "ad_gen_ops: both oldfile and newfile are required" >&2
+    exit 1
+fi
+
+if [[ ! -f "$OLD_FILE" ]]; then
+    echo "ad_gen_ops: old file not found: $OLD_FILE" >&2
+    exit 1
+fi
+
+if [[ ! -f "$NEW_FILE" ]]; then
+    echo "ad_gen_ops: new file not found: $NEW_FILE" >&2
+    exit 1
+fi
+
+# Resolve binary paths
+COMPUTE_BIN=""
+POSTPROCESS_BIN=""
+PACE_BIN=""
+
+for dir in "$ROOT/pipeline" "$ROOT/bin"; do
+    [[ -z "$COMPUTE_BIN" && -x "$dir/ad_compute" ]] && COMPUTE_BIN="$dir/ad_compute"
+    [[ -z "$POSTPROCESS_BIN" && -x "$dir/ad_postprocess" ]] && POSTPROCESS_BIN="$dir/ad_postprocess"
+    [[ -z "$PACE_BIN" && -x "$dir/ad_layer_pace" ]] && PACE_BIN="$dir/ad_layer_pace"
+done
+
+if [[ -z "$COMPUTE_BIN" ]]; then
+    echo "ad_gen_ops: ad_compute not found in $ROOT/pipeline or $ROOT/bin" >&2
+    exit 1
+fi
+if [[ -z "$POSTPROCESS_BIN" ]]; then
+    echo "ad_gen_ops: ad_postprocess not found" >&2
+    exit 1
+fi
+if [[ -z "$PACE_BIN" ]]; then
+    echo "ad_gen_ops: ad_layer_pace not found" >&2
+    exit 1
+fi
+
+# Temporary files
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+RAW="$TMPDIR/raw.tsv"
+POST="$TMPDIR/post.tsv"
+
+# Stage 1: compute
+if ! "$COMPUTE_BIN" "$OLD_FILE" "$NEW_FILE" "$RAW" 2>/dev/null; then
+    echo "ad_gen_ops: compute stage failed" >&2
+    exit 1
+fi
+
+# Stage 2: postprocess (with user-specified layers)
+if [[ ${#PP_ARGS[@]} -gt 0 ]]; then
+    if ! "$POSTPROCESS_BIN" "${PP_ARGS[@]}" < "$RAW" > "$POST" 2>/dev/null; then
+        echo "ad_gen_ops: postprocess stage failed" >&2
+        exit 1
+    fi
+else
+    # No layers — pass raw through
+    cp "$RAW" "$POST"
+fi
+
+# Stage 3: pace → stdout
+"$PACE_BIN" "${PACE_ARGS[@]}" < "$POST"

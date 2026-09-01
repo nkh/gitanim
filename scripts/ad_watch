@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+# ad_watch — Live-preview how ops transform an old file.
+#
+# Displays three sections in one terminal:
+#   1. OLD file (with line numbers)
+#   2. NEW file (with line numbers)
+#   3. DIFF: new vs (old + ops applied) — piped through diff-so-fancy
+#      if available, else plain diff -u
+#
+# When the op file is modified (e.g., saved in vim), the display
+# refreshes automatically — only on actual file modification, not on
+# an interval.
+#
+# Usage:
+#   ad_watch <oldfile> <newfile> <opfile>
+#
+# Workflow:
+#   # Terminal 1:
+#   ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder > /tmp/ops.tsv
+#   ad_watch old.py new.py /tmp/ops.tsv
+#
+#   # Terminal 2:
+#   vim -S scripts/vim/ad_ops_syntax.vim /tmp/ops.tsv
+#   # :w to save — terminal 1 refreshes instantly
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Show help
+show_help() {
+    cat <<'HELP'
+ad_watch — Live-preview how ops transform an old file.
+
+USAGE
+    ad_watch <oldfile> <newfile> <opfile>
+
+DESCRIPTION
+    Displays three sections, refreshing when the op file changes:
+      1. OLD file (with line numbers)
+      2. NEW file (with line numbers)
+      3. DIFF: new vs (old + ops applied), via diff-so-fancy if available
+
+    Uses inotifywait (inotify-tools) for instant, event-driven refresh.
+    Falls back to stat mtime polling (0.2s interval) if inotifywait
+    is not installed.
+
+    The ops are applied using the real animator (bin/ad), so this tests
+    the exact same code path as production.
+
+WORKFLOW
+    # Terminal 1: generate initial ops, then watch
+    ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder > /tmp/ops.tsv
+    ad_watch old.py new.py /tmp/ops.tsv
+
+    # Terminal 2: edit ops with syntax highlighting
+    vim -S scripts/vim/ad_ops_syntax.vim /tmp/ops.tsv
+    # :w to save — terminal 1 refreshes instantly
+
+OPTIONS
+    --help, -h    Show this help and exit
+    --once        Display once and exit (no watching). Useful for testing.
+
+EXAMPLES
+    ad_watch old.py new.py ops.tsv
+    ad_watch --once old.py new.py ops.tsv   # one-shot display
+
+SEE ALSO
+    ad_gen_ops — generate the op file from old+new+layers
+    scripts/vim/ad_ops_syntax.vim — vim syntax highlighting for op files
+    docs/design/AD_WATCH_REQUIREMENTS.md — full requirements
+HELP
+}
+
+# Parse args
+ONCE=0
+args=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --once)
+            ONCE=1
+            shift
+            ;;
+        *)
+            args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ ${#args[@]} -ne 3 ]]; then
+    show_help
+    exit 1
+fi
+
+OLD_FILE="${args[0]}"
+NEW_FILE="${args[1]}"
+OP_FILE="${args[2]}"
+
+# Validate inputs
+if [[ ! -f "$OLD_FILE" ]]; then
+    echo "ad_watch: old file not found: $OLD_FILE" >&2
+    exit 1
+fi
+if [[ ! -f "$NEW_FILE" ]]; then
+    echo "ad_watch: new file not found: $NEW_FILE" >&2
+    exit 1
+fi
+if [[ ! -f "$OP_FILE" ]]; then
+    echo "ad_watch: op file not found: $OP_FILE" >&2
+    exit 1
+fi
+
+# Resolve animator
+ANIMATOR_BIN=""
+for dir in "$ROOT/bin" "$ROOT/pipeline"; do
+    if [[ -x "$dir/ad" ]]; then
+        ANIMATOR_BIN="$dir/ad"
+        break
+    fi
+done
+if [[ -z "$ANIMATOR_BIN" ]]; then
+    echo "ad_watch: animator (ad) not found in $ROOT/bin or $ROOT/pipeline" >&2
+    exit 1
+fi
+
+# Check for diff-so-fancy
+DIFF_FANCY=""
+if command -v diff-so-fancy &>/dev/null; then
+    DIFF_FANCY="diff-so-fancy"
+fi
+
+# Temp file for animator output
+RESULT_FILE=$(mktemp -t ad_watch_result.XXXXXX)
+ERR_FILE=$(mktemp -t ad_watch_err.XXXXXX)
+trap 'rm -f "$RESULT_FILE" "$ERR_FILE"' EXIT
+
+# Display function — shows all three sections
+display() {
+    clear 2>/dev/null || true
+    echo "═══ OLD ($OLD_FILE) ═══"
+    cat -n "$OLD_FILE" 2>/dev/null || echo "(error reading file)"
+    echo ""
+
+    echo "═══ NEW ($NEW_FILE) ═══"
+    cat -n "$NEW_FILE" 2>/dev/null || echo "(error reading file)"
+    echo ""
+
+    echo "═══ DIFF (new vs old+ops) ═══"
+    # Apply ops to old file using the real animator
+    if "$ANIMATOR_BIN" --no-display --speed 1000 --snapshot "$RESULT_FILE" "$OLD_FILE" < "$OP_FILE" 2>"$ERR_FILE"; then
+        # Animator succeeded — show diff
+        if diff -q "$NEW_FILE" "$RESULT_FILE" >/dev/null 2>&1; then
+            echo "✓ Files are identical — ops produce the correct result."
+        elif [[ -n "$DIFF_FANCY" ]]; then
+            diff -u "$NEW_FILE" "$RESULT_FILE" 2>/dev/null | $DIFF_FANCY || true
+        else
+            diff -u "$NEW_FILE" "$RESULT_FILE" 2>/dev/null || true
+        fi
+    else
+        # Animator failed — show error
+        echo "ERROR: ad animator failed:"
+        cat "$ERR_FILE" | sed 's/^/  /'
+        echo ""
+        echo "(op file: $OP_FILE)"
+    fi
+    echo ""
+    echo "═══ Watching: $OP_FILE (save in vim to refresh) ═══"
+}
+
+# Initial display
+display
+
+# If --once, exit here
+if [[ $ONCE -eq 1 ]]; then
+    exit 0
+fi
+
+# Watch for changes
+# Try inotifywait first (event-driven, zero latency)
+if command -v inotifywait &>/dev/null; then
+    inotifywait --quiet --monitor --event modify --event close_write --format "%w%f" "$OP_FILE" 2>/dev/null \
+    | while read -r _change; do
+        sleep 0.1  # wait for write to complete
+        display
+    done
+else
+    # Fallback: stat mtime polling (0.2s interval)
+    last_mtime=""
+    while true; do
+        current_mtime=$(stat -c %Y "$OP_FILE" 2>/dev/null || echo 0)
+        if [[ "$current_mtime" != "$last_mtime" ]]; then
+            last_mtime="$current_mtime"
+            sleep 0.1  # wait for write to complete
+            display
+        fi
+        sleep 0.2
+    done
+fi
