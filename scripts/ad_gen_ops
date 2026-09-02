@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ad_gen_ops — Generate a timed op file from old/new files + layer chain.
 #
-# Runs: compute → postprocess (with specified layers) → pace
-# Writes timed ops to stdout.
+# Runs: compute → postprocess (with specified layers)
+# Pace is NOT run by default. Use --delete-pacing/--insert-pacing to add pace.
+# Writes ops to stdout.
 #
 # Usage:
 #   ad_gen_ops <oldfile> <newfile> [--ad-layer=<name>]... [options]
@@ -35,9 +36,9 @@ USAGE
     ad_gen_ops <oldfile> <newfile> [--ad-layer=<name>]... [options]
 
 DESCRIPTION
-    Runs the ad pipeline (compute → postprocess → pace) and writes
-    the timed ops to stdout. The output is V2 TSV format, suitable
-    for editing with vim (use scripts/vim/ad_ops_syntax.vim).
+    Runs the ad pipeline (compute → postprocess) and writes
+    the ops to stdout. Pace is NOT run by default — use
+    --delete-pacing or --insert-pacing to add delays.
 
     This is the companion to ad_watch: generate the initial ops with
     ad_gen_ops, then iterate on them in vim while ad_watch shows the
@@ -197,5 +198,11 @@ else
     cp "$RAW" "$POST"
 fi
 
-# Stage 3: pace → stdout
-"$PACE_BIN" "${PACE_ARGS[@]}" < "$POST"
+# Stage 3: pace (only if --delete-pacing or --insert-pacing given)
+# NO pace by default — the user must opt in.
+if [[ ${#PACE_ARGS[@]} -gt 0 ]]; then
+    "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST"
+else
+    # No pace — output post-processed ops directly
+    cat "$POST"
+fi
