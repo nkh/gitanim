@@ -224,20 +224,30 @@ fi
 
 # Watch for changes
 # Try inotifywait first (event-driven, zero latency)
+# Only watch close_write — fires ONCE when the file is fully written.
+# Watching "modify" causes double-refresh (vim fires modify during write,
+# then close_write after).
 if command -v inotifywait &>/dev/null; then
-    inotifywait --quiet --monitor --event modify --event close_write --format "%w%f" "$OP_FILE" 2>/dev/null \
+    inotifywait --quiet --monitor --event close_write --format "%w%f" "$OP_FILE" 2>/dev/null \
     | while read -r _change; do
-        sleep 0.1  # wait for write to complete
         display
     done
 else
     # Fallback: stat mtime polling (0.2s interval)
+    # Debounce: wait for mtime to stabilize (vim may write in multiple steps)
     last_mtime=""
     while true; do
         current_mtime=$(stat -c %Y "$OP_FILE" 2>/dev/null || echo 0)
         if [[ "$current_mtime" != "$last_mtime" ]]; then
             last_mtime="$current_mtime"
-            sleep 0.1  # wait for write to complete
+            # Wait for write to fully complete (mtime stable for 0.3s)
+            sleep 0.3
+            new_mtime=$(stat -c %Y "$OP_FILE" 2>/dev/null || echo 0)
+            if [[ "$new_mtime" != "$current_mtime" ]]; then
+                # mtime changed again — file still being written, skip
+                last_mtime="$new_mtime"
+                continue
+            fi
             display
         fi
         sleep 0.2

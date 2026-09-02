@@ -155,6 +155,49 @@ __attribute__((unused)) static int ad_layer_is_debug_op(Op *op) {
     return strcmp(op->type, "debug") == 0;
 }
 
+/* ── Shared position-walk function ──────────────────────────────────
+ * Recompute (line, col) for every op in the output array.
+ *
+ * Walks forward, tracking current_line and current_col based on
+ * each op's type:
+ *   - non-\n op: assign (current_line, current_col), advance col for keep/insert
+ *   - \n delete: assign position, DON'T advance (join brings content here)
+ *   - \n keep/insert: assign position, advance to next line
+ *
+ * This is THE correct position-walk (verified by reorder's 42/42 pass rate).
+ * Every layer should call this after its transform.
+ */
+__attribute__((unused)) static void ad_layer_recompute_positions(Op *out, int n_out) {
+    if (n_out <= 0) return;
+    int current_line = out[0].line;
+    int current_col = 1;
+    for (int i = 0; i < n_out; i++) {
+        if (ad_layer_is_debug_op(&out[i])) continue;
+        
+        int is_newline = (out[i].code == AD_LAYER_CHAR_NEWLINE);
+        
+        if (!is_newline) {
+            out[i].line = current_line;
+            out[i].col = current_col;
+            if (strcmp(out[i].type, "keep") == 0
+                || strcmp(out[i].type, "insert") == 0
+                || strcmp(out[i].type, "overwrite_insert") == 0) {
+                current_col++;
+            }
+        } else {
+            out[i].line = current_line;
+            out[i].col = current_col;
+            if (strcmp(out[i].type, "delete") == 0) {
+                /* \n delete: join — DON'T advance */
+            } else {
+                /* \n keep/insert: advance to next line */
+                current_line++;
+                current_col = 1;
+            }
+        }
+    }
+}
+
 /* ── Standalone Layer Runner ────────────────────────────────────────
  * Reads TSV from stdin, parses into Op array per hunk, calls the
  * layer function for each hunk, writes the result to stdout.

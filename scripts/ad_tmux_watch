@@ -175,8 +175,12 @@ if [[ ! -f "$OP_FILE" ]]; then
         echo "  Remove --no-generate to auto-generate, or create it first." >&2
         exit 1
     fi
-    echo "ad_tmux_watch: generating ops → $OP_FILE" >&2
+    echo "ad_tmux_watch: op file does not exist — generating with ad_gen_ops" >&2
+    echo "  layers: ${GEN_OPS_ARGS[*]:-(none)}" >&2
     "$SCRIPT_DIR/ad_gen_ops" "$OLD_FILE" "$NEW_FILE" "${GEN_OPS_ARGS[@]}" > "$OP_FILE"
+    echo "ad_tmux_watch: generated $OP_FILE ($(wc -l < "$OP_FILE") lines)" >&2
+else
+    echo "ad_tmux_watch: using existing op file: $OP_FILE ($(wc -l < "$OP_FILE") lines)" >&2
 fi
 
 VIM_SYNTAX="$SCRIPT_DIR/vim/ad_ops_syntax.vim"
