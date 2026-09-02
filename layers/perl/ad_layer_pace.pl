@@ -151,11 +151,12 @@ sub char_repr {
     return "$code";
 }
 
-# Read all lines
+# Read all lines (stop at EOF)
 my @lines;
 while (my $line = <STDIN>) {
     chomp $line;
     next if $line eq '' || $line =~ /^#/;
+    last if $line eq 'EOF';
     push @lines, $line;
 }
 

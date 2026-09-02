@@ -884,7 +884,8 @@ int main(int argc, char **argv) {
             }
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
-        } else if (strcmp(cmd, "done") == 0) {
+        } else if (strcmp(cmd, "done") == 0 || strcmp(cmd, "EOF") == 0) {
+            /* EOF marks end of op list. Any ops after EOF are ignored. */
             break;
         }
 

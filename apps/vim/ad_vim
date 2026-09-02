@@ -1996,7 +1996,7 @@ function! s:TimedProcessBatch() abort
                 execute 'w! ' . g:diffvim.output_file
             endif
 
-        elseif l:cmd ==# 'done'
+        elseif l:cmd ==# 'done' || l:cmd ==# 'EOF'
             let s:timed_stopped = 1
             if s:needs_redraw
                 call s:TimedPlaceCursor()

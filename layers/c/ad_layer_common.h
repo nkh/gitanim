@@ -281,6 +281,11 @@ __attribute__((unused)) static int ad_layer_run(
             continue;
         }
 
+        /* EOF — stop reading. Any ops after EOF are ignored. */
+        if (strcmp(line, "EOF") == 0) {
+            break;
+        }
+
         /* Op line — parse and add to current hunk's array */
         if (in_hunk) {
             if (in_count >= in_cap) {

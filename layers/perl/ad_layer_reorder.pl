@@ -253,6 +253,8 @@ while (my $line = <STDIN>) {
         next;
     }
 
+    last if $line eq 'EOF';
+
     # Op line — add to current hunk's ops.
     if ($in_hunk) {
         my $op = parse_op($line);

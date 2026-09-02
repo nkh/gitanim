@@ -210,6 +210,8 @@ while (my $line = <STDIN>) {
         next;
     }
 
+    last if $line eq 'EOF';
+
     if ($in_hunk) {
         my $op = parse_op($line);
         push @hunk_ops, $op if $op;

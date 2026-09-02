@@ -242,7 +242,7 @@ while (my $line = <STDIN>) {
         # Metadata — no action
     } elsif ($cmd eq 'snapshot' && @parts >= 1) {
         write_buffer($parts[0]);
-    } elsif ($cmd eq 'done') {
+    } elsif ($cmd eq 'done' || $cmd eq 'EOF') {
         last;
     }
 }

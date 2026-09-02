@@ -192,8 +192,9 @@ if [[ ${#WATCH_ARGS[@]} -gt 0 ]]; then
 fi
 WATCH_CMD="$WATCH_CMD \"$OLD_FILE\" \"$NEW_FILE\" \"$OP_FILE\""
 
-# Build the vim command
-VIM_CMD="vim -S \"$VIM_SYNTAX\" \"$OP_FILE\""
+# Build the vim command — open ops file (default tab), old file, new file
+# Ops file gets syntax highlighting; it's the first (default) tab.
+VIM_CMD="vim -S \"$VIM_SYNTAX\" \"$OP_FILE\" -c \"tabnew $OLD_FILE\" -c \"tabnew $NEW_FILE\" -c \"tabfirst\""
 
 # Create a new tmux window with vertical split
 # Left pane: ad_watch, Right pane: vim
