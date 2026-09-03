@@ -32,45 +32,10 @@ execute 'cd ' . s:session_dir
 " --- Leader key (use default \, don't override user's setting) ---
 
 " --- Layout setup ---
-" Current buffer is ops.tsv (opened on command line).
-" Create the layout:
-"   1. Open result.txt in horizontal split below ops
-"   2. Open vertical diffsplit new (left side)
-
-" Open result.txt below
-execute 'belowright split ' . s:result_file
-setlocal nomodifiable readonly
-wincmd k  " back to ops.tsv
-
-" Open diff: new file on the left
-execute 'leftabove vertical diffsplit ' . s:new_file
-" In the new buffer, also diff with result
-wincmd l  " back to ops area
-wincmd l  " to result (if 3 windows) — actually let's set up properly
-
-" Let's redo: we want:
-" Left: diff(new, result) — but vim diffsplit works on current buffer
-" Right top: ops.tsv
-" Right bottom: result.txt
-"
-" Simpler approach:
-" 1. Current = ops.tsv
-" 2. :below split result.txt (right bottom)
-" 3. :wincmd k (back to ops)
-" 4. :vert diffsplit new (opens new on left, diffs with ops — wrong)
-"
-" Actually, the diff should be between result.txt and new, not ops.
-" So:
-" 1. Current = ops.tsv
-" 2. :below split result.txt (right bottom)
-" 3. Go to result.txt, :vert diffsplit new (opens new on left of result)
-"    But that creates: new | result | ops (3 windows)
-"
-" Better approach:
-" 1. ops.tsv is buffer 1
-" 2. :vsplit new (left: new, right: ops)
-" 3. Go to new, :diffsplit result (below new: result)
-" 4. Go to ops
+" Layout:
+"   Left: new file (diff with result)
+"   Right top: ops.tsv
+"   Right bottom: result.txt
 
 " Close all windows, start fresh
 only
@@ -79,202 +44,243 @@ only
 execute 'leftabove vsplit ' . s:new_file
 " Open result below new
 execute 'belowright split ' . s:result_file
-" Now: new (top-left) | result (bottom-left) | ops (right)
 
 " Set up diff between new and result
 wincmd h  " to new
 diffthis
 wincmd j  " to result
 diffthis
-setlocal nomodifiable
+setlocal nomodifiable readonly
 
 " Go to ops
 wincmd l  " to ops.tsv
 
-" --- Fold expression for keep ops ---
-" Folds consecutive 'keep' lines, showing N context lines around non-keep.
-let s:fold_expr_context = s:fold_context
-
-function! AdKeepFoldExpr(lnum)
-    let l:line = getline(a:lnum)
-    let l:is_keep = (l:line =~ '^keep\t')
-
-    " If not a keep line, never fold it
-    if !l:is_keep
-        return 0
-    endif
-
-    " Check context: look ahead and behind for non-keep lines
-    let l:ctx = s:fold_expr_context
+" --- Fold settings for ops buffer ---
+" O(N) fold: pre-compute fold regions on BufReadPost, use manual folds.
+" The O(N²) foldexpr was replaced because it froze on large op files.
+function! s:AdSetupFolds()
+    " Clear existing folds
+    normal! zE
+    let l:ctx = s:fold_context
     if l:ctx <= 0
-        return 0
+        return
     endif
-
-    " Check if within context of a non-keep line (ahead)
-    let l:i = a:lnum + 1
-    let l:ahead_nonkeep = 0
-    while l:i <= line('$') && (l:i - a:lnum) <= l:ctx
-        if getline(l:i) !~ '^keep\t' && getline(l:i) !~ '^#' && getline(l:i) !~ '^$'
-            let l:ahead_nonkeep = 1
-            break
+    " Walk lines, find runs of keep ops outside context of non-keep ops
+    let l:start = 0
+    let l:i = 1
+    let l:n = line('$')
+    while l:i <= l:n
+        let l:line = getline(l:i)
+        let l:is_keep = (l:line =~ '^keep\t')
+        let l:is_meta = (l:line =~ '^#' || l:line == '' || l:line =~ '^HUNK' || l:line =~ '^HUNK_END' || l:line =~ '^delay' || l:line =~ '^EOF')
+        if !l:is_keep && !l:is_meta
+            " Non-keep op — check if there's a foldable run before it
+            if l:start > 0
+                " Don't fold the last l:ctx lines (context)
+                let l:fold_end = l:i - l:ctx - 1
+                if l:fold_end > l:start
+                    execute l:start . ',' . l:fold_end . 'fold'
+                endif
+            endif
+            let l:start = 0
+            " Also check ahead for context
+            let l:ahead = l:i + 1
+            let l:ahead_end = min([l:i + l:ctx, l:n])
+        elseif l:is_keep
+            if l:start == 0
+                " Check if this keep is outside context of any non-keep op
+                let l:in_context = 0
+                " Check behind
+                let l:b = max([1, l:i - l:ctx])
+                for l:j in range(l:b, l:i - 1)
+                    let l:bl = getline(l:j)
+                    if l:bl !~ '^keep\t' && l:bl !~ '^#' && l:bl != '' && l:bl !~ '^HUNK' && l:bl !~ '^HUNK_END' && l:bl !~ '^delay' && l:bl !~ '^EOF'
+                        let l:in_context = 1
+                        break
+                    endif
+                endfor
+                " Check ahead
+                if !l:in_context
+                    let l:a = min([l:i + l:ctx, l:n])
+                    for l:j in range(l:i + 1, l:a)
+                        let l:al = getline(l:j)
+                        if l:al !~ '^keep\t' && l:al !~ '^#' && l:al != '' && l:al !~ '^HUNK' && l:al !~ '^HUNK_END' && l:al !~ '^delay' && l:al !~ '^EOF'
+                            let l:in_context = 1
+                            break
+                        endif
+                    endfor
+                endif
+                if !l:in_context
+                    let l:start = l:i
+                endif
+            endif
         endif
         let l:i += 1
     endwhile
-
-    " Check if within context of a non-keep line (behind)
-    let l:i = a:lnum - 1
-    let l:behind_nonkeep = 0
-    while l:i >= 1 && (a:lnum - l:i) <= l:ctx
-        if getline(l:i) !~ '^keep\t' && getline(l:i) !~ '^#' && getline(l:i) !~ '^$'
-            let l:behind_nonkeep = 1
-            break
+    " Fold trailing keep run
+    if l:start > 0
+        let l:fold_end = l:n - l:ctx
+        if l:fold_end > l:start
+            execute l:start . ',' . l:fold_end . 'fold'
         endif
-        let l:i -= 1
-    endwhile
-
-    " If within context of non-keep, don't fold
-    if l:ahead_nonkeep || l:behind_nonkeep
-        return 0
-    endif
-
-    " This is a keep line outside context — fold it
-    " Use 'a' to start a fold, 's' to continue, but we need to detect
-    " fold boundaries. Simple approach: fold level 1 for keep lines
-    " outside context.
-    let l:prev = getline(a:lnum - 1)
-    let l:prev_keep = (l:prev =~ '^keep\t')
-    let l:prev_in_ctx = 0
-
-    " Check if previous line was within context
-    if l:prev_keep
-        let l:pi = a:lnum - 1
-        let l:pi_ahead = 0
-        let l:pi_i = l:pi + 1
-        while l:pi_i <= line('$') && (l:pi_i - l:pi) <= l:ctx
-            if getline(l:pi_i) !~ '^keep\t' && getline(l:pi_i) !~ '^#' && getline(l:pi_i) !~ '^$'
-                let l:pi_ahead = 1
-                break
-            endif
-            let l:pi_i += 1
-        endwhile
-        if l:pi_ahead
-            let l:prev_in_ctx = 1
-        endif
-    endif
-
-    if l:prev_keep && !l:prev_in_ctx
-        return 1  " continue fold
-    else
-        return '>1'  " start new fold
     endif
 endfunction
 
-" Apply fold settings to ops buffer
-setlocal foldmethod=expr
-setlocal foldexpr=AdKeepFoldExpr(v:lnum)
-setlocal foldtext=getline(v:foldstart).'... ('.(v:foldend-v:foldstart+1).' keep ops)'
+" Apply folds after buffer is loaded
+augroup AdSessionFolds
+    autocmd! * <buffer>
+    autocmd BufReadPost <buffer> call s:AdSetupFolds()
+augroup END
 
-" --- Commands ---
+" Call once now (for already-loaded buffer)
+call s:AdSetupFolds()
+
+" Custom fold text
+function! s:AdFoldText()
+    let l:line = getline(v:foldstart)
+    let l:count = v:foldend - v:foldstart + 1
+    return '+' . l:line . '... (' . l:count . ' keep ops)'
+endfunction
+setlocal foldtext=s:AdFoldText()
+
+" --- Commands and mappings ---
+" Mappings are global (not buffer-local) so they work in any window.
+
+" Find and switch to the ops buffer
+function! s:AdGoToOps()
+    let l:buf = bufnr(s:ops_file)
+    if l:buf == -1 | return 0 | endif
+    for l:w in range(1, winnr('$'))
+        if winbufnr(l:w) == l:buf
+            execute l:w . 'wincmd w'
+            return 1
+        endif
+    endfor
+    execute 'buffer ' . l:buf
+    return 1
+endfunction
+
+" Find and switch to the result buffer
+function! s:AdGoToResult()
+    let l:buf = bufnr(s:result_file)
+    if l:buf == -1 | return 0 | endif
+    for l:w in range(1, winnr('$'))
+        if winbufnr(l:w) == l:buf
+            execute l:w . 'wincmd w'
+            return 1
+        endif
+    endfor
+    return 0
+endfunction
 
 " F6 / <leader>r: Run animator snapshot
-command! -buffer AdRun call s:AdRun()
-nnoremap <buffer> <F6> :call <SID>AdRun()<CR>
-nnoremap <buffer> <leader>r :call <SID>AdRun()<CR>
+command! AdRun call s:AdRun()
+nnoremap <F6> :call <SID>AdRun()<CR>
+nnoremap <leader>r :call <SID>AdRun()<CR>
 
 function! s:AdRun()
-    " Save ops if modified
-    if &modified
+    let l:ops_buf = bufnr(s:ops_file)
+    if l:ops_buf != -1 && getbufvar(l:ops_buf, '&modified')
+        call s:AdGoToOps()
         write
     endif
-
-    " Run animator
-    execute '!' . s:animator . ' --no-display --speed 1000 --snapshot ' . s:result_file . ' ' . s:old_file . ' < ' . s:ops_file
-
-    " Refresh result buffer
-    let l:cur_win = winnr()
-    " Find result window
-    2wincmd w  " go to result (bottom-left)
-    setlocal modifiable noreadonly
-    edit!
-    setlocal nomodifiable readonly
-    diffupdate
-    wincmd w  " back to ops
+    let l:cmd = s:animator . ' --no-display --speed 1000 --snapshot ' . s:result_file . ' ' . s:old_file . ' < ' . s:ops_file
+    call system(l:cmd)
+    if v:shell_error != 0
+        echohl ErrorMsg | echo 'AdRun: animator failed (exit ' . v:shell_error . ')' | echohl None
+        return
+    endif
+    let l:result_buf = bufnr(s:result_file)
+    if l:result_buf != -1
+        call s:AdGoToResult()
+        setlocal modifiable noreadonly
+        edit!
+        setlocal nomodifiable readonly
+        diffupdate
+    endif
+    call s:AdGoToOps()
+    echo 'AdRun: done'
 endfunction
 
 " F5: Run animation in terminal split
-command! -buffer AdAnimate call s:AdAnimate()
-nnoremap <buffer> <F5> :call <SID>AdAnimate()<CR>
+command! AdAnimate call s:AdAnimate()
+nnoremap <F5> :call <SID>AdAnimate()<CR>
 
 function! s:AdAnimate()
-    if &modified
+    let l:ops_buf = bufnr(s:ops_file)
+    if l:ops_buf != -1 && getbufvar(l:ops_buf, '&modified')
+        call s:AdGoToOps()
         write
     endif
-    " Open terminal split below
+    call s:AdGoToOps()
     belowright split
-    terminal
-    " In the terminal, run the animator with display
-    call feedkeys(s:animator . ' --speed 1000 ' . s:old_file . ' < ' . s:ops_file . "\n")
+    let l:cmd = s:animator . ' --speed 1000 ' . s:old_file . ' < ' . s:ops_file
+    call term_start(l:cmd, {'curwin': 1})
 endfunction
 
 " <leader>c: Git commit
-command! -buffer AdCommit call s:AdCommit()
-nnoremap <buffer> <leader>c :call <SID>AdCommit()<CR>
+command! AdCommit call s:AdCommit()
+nnoremap <leader>c :call <SID>AdCommit()<CR>
 
 function! s:AdCommit()
-    !git add -A && git commit -q -m "Session update $(date '+%H:%M:%S')"
+    call system('git add -A && git commit -q -m "Session update"')
+    if v:shell_error == 0
+        echo 'AdCommit: committed'
+    else
+        echo 'AdCommit: nothing to commit'
+    endif
 endfunction
 
 " <leader>q: Commit and quit
-command! -buffer AdQuit call s:AdQuit()
-nnoremap <buffer> <leader>q :call <SID>AdQuit()<CR>
+command! AdQuit call s:AdQuit()
+nnoremap <leader>q :call <SID>AdQuit()<CR>
 
 function! s:AdQuit()
-    !git add -A && git commit -q -m "Session update $(date '+%H:%M:%S')"
+    call system('git add -A && git commit -q -m "Session update"')
     qa!
 endfunction
 
 " <leader>Q: Quit without committing
-command! -buffer AdQuitForce call s:AdQuitForce()
-nnoremap <buffer> <leader>Q :call <SID>AdQuitForce()<CR>
+command! AdQuitForce call s:AdQuitForce()
+nnoremap <leader>Q :call <SID>AdQuitForce()<CR>
 
 function! s:AdQuitForce()
     qa!
 endfunction
 
 " <leader>g: Regenerate ops (backup first)
-command! -buffer AdGen call s:AdGen()
-nnoremap <buffer> <leader>g :call <SID>AdGen()<CR>
+let s:ad_auto_gen = 0
+
+command! AdGen call s:AdGen()
+nnoremap <leader>g :let s:ad_auto_gen=0<CR>:call <SID>AdGen()<CR>
+nnoremap <leader>L :let s:ad_auto_gen=0<CR>:call <SID>AdGen()<CR>
 
 function! s:AdGen()
-    let l:confirm = input('Regenerate ops? Current will be backed up. (y/n): ')
-    if l:confirm !=? 'y'
-        return
+    if !s:ad_auto_gen
+        let l:confirm = input('Regenerate ops? Current will be backed up. (y/n): ')
+        if l:confirm !=? 'y' | return | endif
     endif
-    " Backup
-    execute '!cp ' . s:ops_file . ' ' . s:ops_file . '.bak'
-    " Regenerate — use layer file if available, else plain ad_gen_ops
+    call system('cp ' . s:ops_file . ' ' . s:ops_file . '.bak')
     if s:layer_file != '' && filereadable(s:layer_file)
-        " Parse layers from layer file using the group
         let l:layers = s:ParseLayerFile(s:layer_file)
         let l:cmd = s:gen_ops . ' ' . s:old_file . ' ' . s:new_file
         for l:layer in l:layers
             let l:cmd .= ' --ad-layer=' . l:layer
         endfor
-        execute '!' . l:cmd . ' > ' . s:ops_file
+        call system(l:cmd . ' > ' . s:ops_file)
     else
-        execute '!' . s:gen_ops . ' ' . s:old_file . ' ' . s:new_file . ' > ' . s:ops_file
+        call system(s:gen_ops . ' ' . s:old_file . ' ' . s:new_file . ' > ' . s:ops_file)
     endif
-    " Reload ops buffer
-    edit!
+    let l:ops_buf = bufnr(s:ops_file)
+    if l:ops_buf != -1
+        call s:AdGoToOps()
+        edit!
+        call s:AdSetupFolds()
+    endif
+    echo 'AdGen: regenerated'
 endfunction
 
-" <leader>L: Regenerate ops from layer file (same as AdGen with layers)
-command! -buffer AdGenLayers call s:AdGen()
-nnoremap <buffer> <leader>L :call <SID>AdGen()<CR>
-
-" Parse a layer group file.
-" First non-comment line = active group name.
-" Returns list of layer names for that group.
+" Parse layer group file (first non-comment line = active group)
 function! s:ParseLayerFile(file)
     let l:lines = readfile(a:file)
     let l:active_group = ''
@@ -282,102 +288,57 @@ function! s:ParseLayerFile(file)
     let l:in_group = 0
     let l:found = 0
     let l:layers = []
-
-    " Step 1: find active group name (first non-comment, non-blank line)
     for l:line in l:lines
-        if l:line =~ '^\s*#'
-            continue
-        endif
+        if l:line =~ '^\s*#' | continue | endif
         let l:line = substitute(l:line, '^\s\+', '', '')
         let l:line = substitute(l:line, '\s\+$', '', '')
-        if l:line != ''
-            let l:active_group = l:line
-            break
-        endif
-    endfor
-
-    if l:active_group == ''
-        return []
-    endif
-
-    " Step 2: find the group definition and collect layers
-    for l:line in l:lines
-        if l:line =~ '^\s*#'
-            continue
-        endif
-        let l:line = substitute(l:line, '^\s\+', '', '')
-        let l:line = substitute(l:line, '\s\+$', '', '')
-
-        " Skip the first non-blank line (active group name selector)
-        if !l:first_seen
-            if l:line != ''
-                let l:first_seen = 1
-                if l:line == l:active_group
-                    let l:in_group = 1
-                    let l:found = 1
-                else
-                    let l:in_group = 1
-                    let l:found = 0
-                endif
-            endif
-            continue
-        endif
-
-        " Empty = group separator
         if l:line == ''
-            if l:in_group && l:found
-                break
-            endif
+            if l:in_group && l:found | break | endif
             let l:in_group = 0
             continue
         endif
-
-        " Group name or layer?
-        if !l:in_group
-            if l:line == l:active_group
-                let l:in_group = 1
-                let l:found = 1
-            else
-                let l:in_group = 1
-                let l:found = 0
-            endif
+        if !l:first_seen
+            let l:first_seen = 1
+            let l:active_group = l:line
             continue
         endif
-
-        " Layer name
-        if l:found
-            call add(l:layers, l:line)
+        if !l:in_group
+            let l:in_group = 1
+            let l:found = (l:line == l:active_group) ? 1 : 0
+            continue
         endif
+        if l:found | call add(l:layers, l:line) | endif
     endfor
-
     return l:layers
 endfunction
 
-" Auto-regenerate ops when layers.txt is saved
+" Auto-regenerate ops when layers.txt is saved (no prompt)
 if s:layer_file != ''
-    execute 'autocmd BufWritePost ' . s:layer_file . ' call s:AdGen()'
+    execute 'autocmd BufWritePost ' . s:layer_file . ' let s:ad_auto_gen=1 | call s:AdGen() | let s:ad_auto_gen=0'
 endif
 
 " <leader>d: Reopen diff split
-command! -buffer AdDiff call s:AdDiff()
-nnoremap <buffer> <leader>d :call <SID>AdDiff()<CR>
+command! AdDiff call s:AdDiff()
+nnoremap <leader>d :call <SID>AdDiff()<CR>
 
 function! s:AdDiff()
-    " Find or create result window
     let l:result_buf = bufnr(s:result_file)
     if l:result_buf == -1
+        call s:AdGoToOps()
         belowright split
         execute 'edit ' . s:result_file
+    else
+        call s:AdGoToResult()
     endif
     execute 'leftabove vertical diffsplit ' . s:new_file
 endfunction
 
 " <leader>h: Fold all hunks except current
-command! -buffer AdFoldHunks call s:AdFoldHunks()
-nnoremap <buffer> <leader>h :call <SID>AdFoldHunks()<CR>
+command! AdFoldHunks call s:AdFoldHunks()
+nnoremap <leader>h :call <SID>AdFoldHunks()<CR>
 
 function! s:AdFoldHunks()
-    " Fold all HUNK...HUNK_END regions except the one containing the cursor
+    if bufname('%') !=# s:ops_file | call s:AdGoToOps() | endif
     let l:cur_line = line('.')
     let l:in_hunk = 0
     let l:hunk_start = 0
@@ -389,7 +350,6 @@ function! s:AdFoldHunks()
             let l:in_hunk = 1
         elseif l:line =~ '^HUNK_END'
             if l:in_hunk && (l:cur_line < l:hunk_start || l:cur_line > l:i)
-                " This hunk doesn't contain cursor — fold it
                 execute l:hunk_start . ',' . l:i . 'fold'
             endif
             let l:in_hunk = 0
@@ -399,32 +359,39 @@ function! s:AdFoldHunks()
 endfunction
 
 " <leader>H: Unfold all
-command! -buffer AdFoldHunksUnfold call s:AdFoldHunksUnfold()
-nnoremap <buffer> <leader>H :call <SID>AdFoldHunksUnfold()<CR>
+command! AdFoldHunksUnfold call s:AdFoldHunksUnfold()
+nnoremap <leader>H :call <SID>AdFoldHunksUnfold()<CR>
 
 function! s:AdFoldHunksUnfold()
+    if bufname('%') !=# s:ops_file | call s:AdGoToOps() | endif
     normal! zR
 endfunction
 
 " <leader>k: Toggle keep-op folding
-command! -buffer AdFoldKeeps call s:AdFoldKeeps()
-nnoremap <buffer> <leader>k :call <SID>AdFoldKeeps()<CR>
+command! AdFoldKeeps call s:AdFoldKeeps()
+nnoremap <leader>k :call <SID>AdFoldKeeps()<CR>
 
 function! s:AdFoldKeeps()
-    if &foldmethod ==# 'expr'
-        setlocal foldmethod=manual
+    if bufname('%') !=# s:ops_file | call s:AdGoToOps() | endif
+    let l:has_folds = 0
+    for l:i in range(1, line('$'))
+        if foldclosed(l:i) != -1
+            let l:has_folds = 1
+            break
+        endif
+    endfor
+    if l:has_folds
         normal! zR
         echo 'Keep folding: OFF'
     else
-        setlocal foldmethod=expr
-        setlocal foldexpr=AdKeepFoldExpr(v:lnum)
+        call s:AdSetupFolds()
         echo 'Keep folding: ON (context=' . s:fold_context . ')'
     endif
 endfunction
 
 " <leader>?: Show help
-command! -buffer AdHelp call s:AdHelp()
-nnoremap <buffer> <leader>? :call <SID>AdHelp()<CR>
+command! AdHelp call s:AdHelp()
+nnoremap <leader>? :call <SID>AdHelp()<CR>
 
 function! s:AdHelp()
     echo "ad_session shortcuts:"
@@ -435,7 +402,7 @@ function! s:AdHelp()
     echo "  <leader>q   Commit and quit"
     echo "  <leader>Q   Quit without commit"
     echo "  <leader>g   Regenerate ops from layers (backup to .bak)"
-    echo "  <leader>L   Same as <leader>g (layers)"
+    echo "  <leader>L   Same as <leader>g"
     echo "  <leader>d   Reopen diff split"
     echo "  <leader>h   Fold all hunks except current"
     echo "  <leader>H   Unfold all"
@@ -444,7 +411,7 @@ function! s:AdHelp()
     if s:layer_file != ''
         echo ""
         echo "  Layer file: " . s:layer_file . " (first line = active group)"
-        echo "  Saving layers.txt auto-regenerates ops"
+        echo "  Saving layers.txt auto-regenerates ops (no prompt)"
     endif
 endfunction
 
