@@ -1,0 +1,14 @@
+# Layer groups for ad debugging
+# No auto-expand — use full layer names.
+
+default
+ad_layer_reorder
+
+debug_ldi
+ad_layer_reorder
+ad_layer_line_delete_in_place
+
+debug_full
+ad_layer_reorder
+ad_layer_line_delete_in_place
+ad_layer_indent_last

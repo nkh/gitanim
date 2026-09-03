@@ -21,6 +21,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SESSIONS_DIR="$ROOT/ad_sessions"
 
+# Source layer group parser
+source "$SCRIPT_DIR/lib/ad_layer_groups.sh"
+
 show_help() {
     cat <<'HELP'
 ad_session — Vim-only interactive op debugger.
@@ -51,6 +54,8 @@ OPTIONS
     --no-generate             Don't generate ops if opfile missing
     --fold-context=<N>        Context lines around non-keep ops (default: 5)
     --fold-hunks              Start with all hunks folded
+    --layer-file=<file>       Layer group file (default: .ad_layers)
+    --layer-group=<name>      Layer group to use (default: default)
 
 VIM SHORTCUTS (inside session)
     F5                        Run animation in terminal split
@@ -79,7 +84,7 @@ SEE ALSO
 HELP
 }
 
-# --- Parse args (same as ad_tmux_watch) ---
+# --- Parse args ---
 OLD_FILE=""
 NEW_FILE=""
 OP_FILE=""
@@ -91,6 +96,8 @@ RESUME_LATEST=0
 LIST_SESSIONS=0
 FOLD_CONTEXT=5
 FOLD_HUNKS=0
+LAYER_FILE=""
+LAYER_GROUP=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -108,6 +115,10 @@ while [[ $# -gt 0 ]]; do
         --list-sessions) LIST_SESSIONS=1; shift ;;
         --fold-context=*) FOLD_CONTEXT="${1#--fold-context=}"; shift ;;
         --fold-hunks) FOLD_HUNKS=1; shift ;;
+        --layer-file=*) LAYER_FILE="${1#--layer-file=}"; shift ;;
+        --layer-file) LAYER_FILE="$2"; shift 2 ;;
+        --layer-group=*) LAYER_GROUP="${1#--layer-group=}"; shift ;;
+        --layer-group) LAYER_GROUP="$2"; shift 2 ;;
         --*) echo "ad_session: unknown option: $1" >&2; exit 1 ;;
         *)
             if [[ -z "$OLD_FILE" ]]; then OLD_FILE="$1"
@@ -164,6 +175,10 @@ if [[ -n "$RESUME_DIR" || $RESUME_LATEST -eq 1 ]]; then
         echo "ad_session: session missing old/new files: $RESUME_DIR" >&2; exit 1
     fi
     SESSION_DIR="$RESUME_DIR"
+    # Resolve layer file in session
+    if [[ -z "$LAYER_FILE" && -f "$SESSION_DIR/layers.txt" ]]; then
+        LAYER_FILE="$SESSION_DIR/layers.txt"
+    fi
     echo "ad_session: resuming session: $SESSION_DIR" >&2
 else
     # --- Create new session ---
@@ -197,6 +212,38 @@ else
     cp "$NEW_FILE" "$SESSION_DIR/new.$new_ext"
     OLD_FILE="$SESSION_DIR/old.$old_ext"
     NEW_FILE="$SESSION_DIR/new.$new_ext"
+
+    # --- Resolve layer file ---
+    # Priority: --layer-file > .ad_layers in project root > none
+    if [[ -z "$LAYER_FILE" ]]; then
+        if [[ -f "$ROOT/.ad_layers" ]]; then
+            LAYER_FILE="$ROOT/.ad_layers"
+        fi
+    fi
+    # Copy layer file into session
+    if [[ -n "$LAYER_FILE" && -f "$LAYER_FILE" ]]; then
+        cp "$LAYER_FILE" "$SESSION_DIR/layers.txt"
+        LAYER_FILE="$SESSION_DIR/layers.txt"
+        echo "ad_session: layer file: $LAYER_FILE" >&2
+    else
+        LAYER_FILE=""
+    fi
+
+    # --- Determine layers to use ---
+    if [[ -n "$LAYER_FILE" ]]; then
+        # Parse layer group file
+        group="${LAYER_GROUP:-$AD_LAYERS_DEFAULT_GROUP}"
+        if ad_layers_parse "$LAYER_FILE" "$group"; then
+            ad_layers_to_args
+            GEN_OPS_ARGS=("${AD_LAYER_ARGS[@]}")
+            echo "ad_session: layer group '$group': ${AD_LAYERS_RESULT:-none}" >&2
+        else
+            echo "ad_session: group '$group' not found in $LAYER_FILE" >&2
+            echo "  Available groups:" >&2
+            grep -E '^[[:alnum:]_]+$' "$LAYER_FILE" | sed 's/^/    /' >&2
+            exit 1
+        fi
+    fi
 
     if [[ -n "$OP_FILE" && -f "$OP_FILE" ]]; then
         cp "$OP_FILE" "$SESSION_DIR/ops.tsv"
@@ -256,8 +303,24 @@ VIM_SESSION="$SCRIPT_DIR/vim/ad_session.vim"
 
 # --- Launch vim ---
 # Write a vim init script that sets variables, then source both scripts.
-# This avoids the "too many -c arguments" error.
 VIM_INIT="$SESSION_DIR/.ad_init.vim"
+LAYER_FILE_BASE=""
+if [[ -n "$LAYER_FILE" && -f "$LAYER_FILE" ]]; then
+    LAYER_FILE_BASE=$(basename "$LAYER_FILE")
+fi
+# Resolve ad_gen_ops relative path
+GEN_OPS_BIN=""
+for dir in "$ROOT/bin" "$ROOT/scripts"; do
+    if [[ -x "$dir/ad_gen_ops" ]]; then
+        GEN_OPS_BIN="$dir/ad_gen_ops"
+        break
+    fi
+done
+GEN_OPS_REL=""
+if [[ -n "$GEN_OPS_BIN" ]]; then
+    GEN_OPS_REL=$(python3 -c "import os; print(os.path.relpath('$GEN_OPS_BIN', '$SESSION_DIR'))")
+fi
+
 cat > "$VIM_INIT" <<VIMINIT
 let g:ad_session_dir='$SESSION_DIR'
 let g:ad_old_file='$OLD_BASE'
@@ -265,13 +328,19 @@ let g:ad_new_file='$NEW_BASE'
 let g:ad_ops_file='$OP_BASE'
 let g:ad_result_file='$RESULT_BASE'
 let g:ad_animator='$ANIMATOR_REL'
+let g:ad_gen_ops='$GEN_OPS_REL'
 let g:ad_fold_context=$FOLD_CONTEXT
 let g:ad_fold_hunks=$FOLD_HUNKS
+let g:ad_layer_file='$LAYER_FILE_BASE'
+let g:ad_layer_group='${LAYER_GROUP:-default}'
 VIMINIT
 
 cd "$SESSION_DIR"
 
-exec vim -S "$VIM_INIT" -S "$VIM_SYNTAX" -S "$VIM_SESSION" "$OP_BASE" \
-    -c "tabnew $OLD_BASE" \
-    -c "tabnew $NEW_BASE" \
-    -c "tabfirst"
+# Build tab commands
+VIM_TABS="-c \"tabnew $OLD_BASE\" -c \"tabnew $NEW_BASE\""
+if [[ -n "$LAYER_FILE_BASE" ]]; then
+    VIM_TABS="$VIM_TABS -c \"tabnew $LAYER_FILE_BASE\""
+fi
+
+eval exec vim -S "\"$VIM_INIT\"" -S "\"$VIM_SYNTAX\"" -S "\"$VIM_SESSION\"" "\"$OP_BASE\"" $VIM_TABS -c \"tabfirst\"

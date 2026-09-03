@@ -21,8 +21,11 @@ let s:new_file = exists('g:ad_new_file') ? g:ad_new_file : 'new'
 let s:ops_file = exists('g:ad_ops_file') ? g:ad_ops_file : 'ops.tsv'
 let s:result_file = exists('g:ad_result_file') ? g:ad_result_file : 'result.txt'
 let s:animator = exists('g:ad_animator') ? g:ad_animator : 'ad'
+let s:gen_ops = exists('g:ad_gen_ops') ? g:ad_gen_ops : 'ad_gen_ops'
 let s:fold_context = exists('g:ad_fold_context') ? g:ad_fold_context : 5
 let s:fold_hunks_start = exists('g:ad_fold_hunks') ? g:ad_fold_hunks : 0
+let s:layer_file = exists('g:ad_layer_file') && g:ad_layer_file != '' ? g:ad_layer_file : ''
+let s:layer_group = exists('g:ad_layer_group') ? g:ad_layer_group : 'default'
 
 " --- Set working directory ---
 execute 'cd ' . s:session_dir
@@ -250,11 +253,70 @@ function! s:AdGen()
     endif
     " Backup
     execute '!cp ' . s:ops_file . ' ' . s:ops_file . '.bak'
-    " Regenerate
-    execute '!' . s:animator . '_gen_ops ' . s:old_file . ' ' . s:new_file . ' > ' . s:ops_file
+    " Regenerate — use layer file if available, else plain ad_gen_ops
+    if s:layer_file != '' && filereadable(s:layer_file)
+        " Parse layers from layer file using the group
+        let l:layers = s:ParseLayerFile(s:layer_file, s:layer_group)
+        let l:cmd = s:gen_ops . ' ' . s:old_file . ' ' . s:new_file
+        for l:layer in l:layers
+            let l:cmd .= ' --ad-layer=' . l:layer
+        endfor
+        execute '!' . l:cmd . ' > ' . s:ops_file
+    else
+        execute '!' . s:gen_ops . ' ' . s:old_file . ' ' . s:new_file . ' > ' . s:ops_file
+    endif
     " Reload ops buffer
     edit!
 endfunction
+
+" <leader>L: Regenerate ops from layer file (same as AdGen with layers)
+command! -buffer AdGenLayers call s:AdGen()
+nnoremap <buffer> <leader>L :call <SID>AdGen()<CR>
+
+" Parse a layer group file and return list of layer names.
+function! s:ParseLayerFile(file, group)
+    let l:lines = readfile(a:file)
+    let l:in_group = 0
+    let l:found = 0
+    let l:layers = []
+    for l:line in l:lines
+        " Skip comments
+        if l:line =~ '^\s*#'
+            continue
+        endif
+        " Trim
+        let l:line = substitute(l:line, '^\s\+', '', '')
+        let l:line = substitute(l:line, '\s\+$', '', '')
+        " Empty = separator
+        if l:line == ''
+            if l:in_group && l:found
+                break
+            endif
+            let l:in_group = 0
+            continue
+        endif
+        " First line after separator = group name
+        if !l:in_group
+            let l:in_group = 1
+            if l:line == a:group
+                let l:found = 1
+            else
+                let l:found = 0
+            endif
+            continue
+        endif
+        " Layer name
+        if l:found
+            call add(l:layers, l:line)
+        endif
+    endfor
+    return l:layers
+endfunction
+
+" Auto-regenerate ops when layers.txt is saved
+if s:layer_file != ''
+    execute 'autocmd BufWritePost ' . s:layer_file . ' call s:AdGen()'
+endif
 
 " <leader>d: Reopen diff split
 command! -buffer AdDiff call s:AdDiff()
@@ -332,12 +394,18 @@ function! s:AdHelp()
     echo "  <leader>c   Git commit"
     echo "  <leader>q   Commit and quit"
     echo "  <leader>Q   Quit without commit"
-    echo "  <leader>g   Regenerate ops (backup to .bak)"
+    echo "  <leader>g   Regenerate ops from layers (backup to .bak)"
+    echo "  <leader>L   Same as <leader>g (layers)"
     echo "  <leader>d   Reopen diff split"
     echo "  <leader>h   Fold all hunks except current"
     echo "  <leader>H   Unfold all"
     echo "  <leader>k   Toggle keep-op folding"
     echo "  <leader>?   Show this help"
+    if s:layer_file != ''
+        echo ""
+        echo "  Layer file: " . s:layer_file . " (group: " . s:layer_group . ")"
+        echo "  Saving layers.txt auto-regenerates ops"
+    endif
 endfunction
 
 " --- Start with hunks folded if requested ---
