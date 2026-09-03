@@ -26,3 +26,4 @@ tools/
 
 # Generated docs (mdbook)
 docs/book/
+ad_sessions/

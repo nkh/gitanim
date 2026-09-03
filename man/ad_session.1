@@ -1,0 +1,114 @@
+.TH AD_SESSION 1 "2026-09-03" "ad 2.0" "ad tools"
+.SH NAME
+ad_session \- vim-only interactive op debugger
+.SH SYNOPSIS
+.B ad_session
+<oldfile> <newfile> [opfile] [options]
+.br
+.B ad_session
+--resume <session_dir>
+.br
+.B ad_session
+--resume-latest
+.br
+.B ad_session
+--list-sessions
+.SH DESCRIPTION
+.B ad_session
+creates a session directory under
+.I ad_sessions/
+in the project root, copies old/new files, generates ops, initializes a
+git repo, and launches vim with a split layout:
+.RS 4
+.IP \(bu 2
+Left split: diff (new vs result) \(em updated on F6
+.IP \(bu 2
+Right top: ops.tsv (editing, F5=animate, F6=snapshot)
+.IP \(bu 2
+Right bottom: result.txt (updated on F6)
+.RE
+.PP
+No tmux required. Everything runs inside vim.
+.SH OPTIONS
+.TP
+.BR --help ", " -h
+Show help and exit.
+.TP
+.BI --ad-layer= NAME
+Layer(s) for ad_gen_ops (if generating ops). Repeatable.
+.TP
+.BI --session-name= NAME
+Custom session directory name.
+.TP
+.BI --resume= PATH
+Resume existing session.
+.TP
+.B --resume-latest
+Resume most recent session.
+.TP
+.B --list-sessions
+List sessions and exit.
+.TP
+.B --no-generate
+Don't generate ops if opfile missing.
+.TP
+.BI --fold-context= N
+Context lines around non-keep ops (default: 5).
+.TP
+.B --fold-hunks
+Start with all hunks folded.
+.SH VIM SHORTCUTS
+.TP
+.B F5
+Run animation in terminal split.
+.TP
+.B F6
+Run animator (snapshot), update result.txt, refresh diff.
+.TP
+.B <leader>r
+Same as F6.
+.TP
+.B <leader>c
+Git commit in session dir.
+.TP
+.B <leader>q
+Commit and quit.
+.TP
+.B <leader>Q
+Quit without committing.
+.TP
+.B <leader>g
+Regenerate ops (backs up to ops.tsv.bak).
+.TP
+.B <leader>d
+Reopen diff split (result vs new).
+.TP
+.B <leader>h
+Fold all hunks except current.
+.TP
+.B <leader>H
+Unfold all hunks.
+.TP
+.B <leader>k
+Toggle keep-op folding.
+.TP
+.B <leader>?
+Show help (shortcuts).
+.SH EXAMPLES
+.TP
+New session with generated ops:
+.B ad_session old.py new.py --ad-layer=ad_layer_reorder
+.TP
+Custom session name:
+.B ad_session old.py new.py --session-name bug42
+.TP
+Resume latest:
+.B ad_session --resume-latest
+.TP
+List sessions:
+.B ad_session --list-sessions
+.SH SEE ALSO
+.BR ad_tmux_watch (1),
+.BR ad_watch (1),
+.BR ad_gen_ops (1),
+.BR ad (1)

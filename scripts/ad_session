@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# ad_tmux_watch — Session-based interactive op debugger (tmux version).
+# ad_session — Vim-only interactive op debugger.
 #
-# Creates a session directory in the project, copies old/new files,
-# generates ops, initializes a git repo, and launches tmux with
-# ad_watch + vim.
+# Creates a session directory, copies old/new, generates ops, git init,
+# and launches vim with a split layout:
+#   Left:  diff (new vs result) — updated on F6
+#   Right: ops.tsv (editing) + result.txt (horizontal split)
+#
+# F5: run animation in terminal split
+# F6: run animator (snapshot), update result.txt, refresh diff
 #
 # Usage:
-#   ad_tmux_watch <oldfile> <newfile> [opfile] [--ad-layer=<name>]...
-#   ad_tmux_watch --resume <session_dir>
-#   ad_tmux_watch --resume-latest
-#   ad_tmux_watch --list-sessions
-#
-# Examples:
-#   ad_tmux_watch old.py new.py --ad-layer=ad_layer_reorder
-#   ad_tmux_watch old.py new.py existing_ops.tsv
-#   ad_tmux_watch --session-name bug42 old.py new.py
-#   ad_tmux_watch --resume-latest
+#   ad_session <oldfile> <newfile> [opfile] [options]
+#   ad_session --resume <session_dir>
+#   ad_session --resume-latest
+#   ad_session --list-sessions
 
 set -euo pipefail
 
@@ -25,22 +23,23 @@ SESSIONS_DIR="$ROOT/ad_sessions"
 
 show_help() {
     cat <<'HELP'
-ad_tmux_watch — Session-based interactive op debugger (tmux version).
+ad_session — Vim-only interactive op debugger.
 
 USAGE
-    ad_tmux_watch <oldfile> <newfile> [opfile] [options]
-    ad_tmux_watch --resume <session_dir>
-    ad_tmux_watch --resume-latest
-    ad_tmux_watch --list-sessions
+    ad_session <oldfile> <newfile> [opfile] [options]
+    ad_session --resume <session_dir>
+    ad_session --resume-latest
+    ad_session --list-sessions
 
 DESCRIPTION
     Creates a session directory under ad_sessions/ in the project root.
-    Copies old/new files, generates ops (if not provided), initializes a
-    git repo, and launches tmux with:
-      Left pane:  ad_watch (auto-refreshes on save)
-      Right pane: vim with 3 tabs (ops, old, new) + syntax highlighting
+    Copies old/new files, generates ops, initializes a git repo, and
+    launches vim with:
+      Left split:  diff (new vs result) — updated on F6
+      Right top:   ops.tsv (editing, F5=animate, F6=snapshot)
+      Right bot:   result.txt (horizontal split, updated on F6)
 
-    Sessions persist in the project directory (not /tmp).
+    No tmux required. Everything runs inside vim.
 
 OPTIONS
     --help, -h                Show this help and exit
@@ -50,40 +49,41 @@ OPTIONS
     --resume-latest           Resume most recent session
     --list-sessions           List sessions and exit
     --no-generate             Don't generate ops if opfile missing
-    --show-delays             Keep delay ops in ad_watch
-    --show-decorations        Keep decoration ops in ad_watch
     --fold-context=<N>        Context lines around non-keep ops (default: 5)
     --fold-hunks              Start with all hunks folded
 
+VIM SHORTCUTS (inside session)
+    F5                        Run animation in terminal split
+    F6                        Run animator (snapshot), update result + diff
+    <leader>r                 Same as F6
+    <leader>c                 Git commit
+    <leader>q                 Commit and quit
+    <leader>Q                 Quit without committing
+    <leader>g                 Regenerate ops (backs up to ops.tsv.bak)
+    <leader>d                 Reopen diff split (result vs new)
+    <leader>h                 Fold all hunks except current
+    <leader>H                 Unfold all hunks
+    <leader>k                 Toggle keep-op folding
+    <leader>?                 Show help (shortcuts)
+
 EXAMPLES
-    # New session with generated ops
-    ad_tmux_watch old.py new.py --ad-layer=ad_layer_reorder
-
-    # New session with existing ops
-    ad_tmux_watch old.py new.py my_ops.tsv
-
-    # Custom session name
-    ad_tmux_watch old.py new.py --session-name bug42
-
-    # Resume latest session
-    ad_tmux_watch --resume-latest
-
-    # List all sessions
-    ad_tmux_watch --list-sessions
+    ad_session old.py new.py --ad-layer=ad_layer_reorder
+    ad_session old.py new.py my_ops.tsv --session-name bug42
+    ad_session --resume-latest
+    ad_session --list-sessions
 
 SEE ALSO
-    ad_session — vim-only version (no tmux required)
+    ad_tmux_watch — tmux version (ad_watch + vim in panes)
     ad_watch — display script
     ad_gen_ops — generates op file
 HELP
 }
 
-# --- Parse args ---
+# --- Parse args (same as ad_tmux_watch) ---
 OLD_FILE=""
 NEW_FILE=""
 OP_FILE=""
 GEN_OPS_ARGS=()
-WATCH_ARGS=()
 NO_GENERATE=0
 SESSION_NAME=""
 RESUME_DIR=""
@@ -96,8 +96,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h) show_help; exit 0 ;;
         --no-generate) NO_GENERATE=1; shift ;;
-        --show-delays) WATCH_ARGS+=("--show-delays"); shift ;;
-        --show-decorations) WATCH_ARGS+=("--show-decorations"); shift ;;
         --ad-layer=*) GEN_OPS_ARGS+=("$1"); shift ;;
         --ad-layer) GEN_OPS_ARGS+=("$1" "$2"); shift 2 ;;
         --ad-layer-path=*) GEN_OPS_ARGS+=("$1"); shift ;;
@@ -110,12 +108,12 @@ while [[ $# -gt 0 ]]; do
         --list-sessions) LIST_SESSIONS=1; shift ;;
         --fold-context=*) FOLD_CONTEXT="${1#--fold-context=}"; shift ;;
         --fold-hunks) FOLD_HUNKS=1; shift ;;
-        --*) echo "ad_tmux_watch: unknown option: $1" >&2; exit 1 ;;
+        --*) echo "ad_session: unknown option: $1" >&2; exit 1 ;;
         *)
             if [[ -z "$OLD_FILE" ]]; then OLD_FILE="$1"
             elif [[ -z "$NEW_FILE" ]]; then NEW_FILE="$1"
             elif [[ -z "$OP_FILE" ]]; then OP_FILE="$1"
-            else echo "ad_tmux_watch: unexpected argument: $1" >&2; exit 1
+            else echo "ad_session: unexpected argument: $1" >&2; exit 1
             fi
             shift ;;
     esac
@@ -147,45 +145,41 @@ fi
 if [[ -n "$RESUME_DIR" || $RESUME_LATEST -eq 1 ]]; then
     if [[ $RESUME_LATEST -eq 1 ]]; then
         if [[ ! -d "$SESSIONS_DIR" ]]; then
-            echo "ad_tmux_watch: no sessions found" >&2; exit 1
+            echo "ad_session: no sessions found" >&2; exit 1
         fi
         RESUME_DIR=$(ls -td "$SESSIONS_DIR"/*/ 2>/dev/null | head -1)
         if [[ -z "$RESUME_DIR" ]]; then
-            echo "ad_tmux_watch: no sessions found" >&2; exit 1
+            echo "ad_session: no sessions found" >&2; exit 1
         fi
         RESUME_DIR="${RESUME_DIR%/}"
     fi
-    # Resolve to absolute
     RESUME_DIR=$(cd "$RESUME_DIR" && pwd)
     if [[ ! -d "$RESUME_DIR" ]]; then
-        echo "ad_tmux_watch: session not found: $RESUME_DIR" >&2; exit 1
+        echo "ad_session: session not found: $RESUME_DIR" >&2; exit 1
     fi
-    # Find old/new/ops in session dir
     OLD_FILE=$(ls "$RESUME_DIR"/old.* 2>/dev/null | head -1)
     NEW_FILE=$(ls "$RESUME_DIR"/new.* 2>/dev/null | head -1)
     OP_FILE="$RESUME_DIR/ops.tsv"
     if [[ -z "$OLD_FILE" || -z "$NEW_FILE" ]]; then
-        echo "ad_tmux_watch: session missing old/new files: $RESUME_DIR" >&2; exit 1
+        echo "ad_session: session missing old/new files: $RESUME_DIR" >&2; exit 1
     fi
     SESSION_DIR="$RESUME_DIR"
-    echo "ad_tmux_watch: resuming session: $SESSION_DIR" >&2
+    echo "ad_session: resuming session: $SESSION_DIR" >&2
 else
     # --- Create new session ---
     if [[ -z "$OLD_FILE" || -z "$NEW_FILE" ]]; then
         show_help; exit 1
     fi
     if [[ ! -f "$OLD_FILE" ]]; then
-        echo "ad_tmux_watch: old file not found: $OLD_FILE" >&2; exit 1
+        echo "ad_session: old file not found: $OLD_FILE" >&2; exit 1
     fi
     if [[ ! -f "$NEW_FILE" ]]; then
-        echo "ad_tmux_watch: new file not found: $NEW_FILE" >&2; exit 1
+        echo "ad_session: new file not found: $NEW_FILE" >&2; exit 1
     fi
 
-    # Resolve old/new to absolute
     OLD_FILE=$(cd "$(dirname "$OLD_FILE")" && pwd)/$(basename "$OLD_FILE")
     NEW_FILE=$(cd "$(dirname "$NEW_FILE")" && pwd)/$(basename "$NEW_FILE")
 
-    # Generate session directory name
     if [[ -n "$SESSION_NAME" ]]; then
         SESSION_DIR="$SESSIONS_DIR/$SESSION_NAME"
     else
@@ -197,7 +191,6 @@ else
 
     mkdir -p "$SESSION_DIR"
 
-    # Copy old/new into session
     old_ext="${OLD_FILE##*.}"
     new_ext="${NEW_FILE##*.}"
     cp "$OLD_FILE" "$SESSION_DIR/old.$old_ext"
@@ -205,18 +198,20 @@ else
     OLD_FILE="$SESSION_DIR/old.$old_ext"
     NEW_FILE="$SESSION_DIR/new.$new_ext"
 
-    # Ops file
     if [[ -n "$OP_FILE" && -f "$OP_FILE" ]]; then
         cp "$OP_FILE" "$SESSION_DIR/ops.tsv"
-        echo "ad_tmux_watch: copied ops from $OP_FILE" >&2
+        echo "ad_session: copied ops from $OP_FILE" >&2
     elif [[ $NO_GENERATE -eq 0 ]]; then
-        echo "ad_tmux_watch: generating ops..." >&2
+        echo "ad_session: generating ops..." >&2
         "$SCRIPT_DIR/ad_gen_ops" "$OLD_FILE" "$NEW_FILE" "${GEN_OPS_ARGS[@]}" > "$SESSION_DIR/ops.tsv"
-        echo "ad_tmux_watch: generated ops ($(wc -l < "$SESSION_DIR/ops.tsv") lines)" >&2
+        echo "ad_session: generated ops ($(wc -l < "$SESSION_DIR/ops.tsv") lines)" >&2
     else
-        echo "ad_tmux_watch: no ops file and --no-generate given" >&2; exit 1
+        echo "ad_session: no ops file and --no-generate given" >&2; exit 1
     fi
     OP_FILE="$SESSION_DIR/ops.tsv"
+
+    # Create empty result.txt
+    touch "$SESSION_DIR/result.txt"
 
     # Git init
     (cd "$SESSION_DIR" && git init -q 2>/dev/null && git add -A && git commit -q -m "Initial session" 2>/dev/null) || true
@@ -225,7 +220,7 @@ else
     cat > "$SESSION_DIR/resume.sh" <<RESUME
 #!/usr/bin/env bash
 cd "$SESSION_DIR"
-exec "$SCRIPT_DIR/ad_tmux_watch" --resume "$SESSION_DIR"
+exec "$SCRIPT_DIR/ad_session" --resume "$SESSION_DIR"
 RESUME
     chmod +x "$SESSION_DIR/resume.sh"
 
@@ -234,46 +229,49 @@ RESUME
         echo "ad_sessions/" >> "$ROOT/.gitignore"
     fi
 
-    echo "ad_tmux_watch: session created: $SESSION_DIR" >&2
+    echo "ad_session: session created: $SESSION_DIR" >&2
 fi
 
-# --- Check tmux ---
-if ! command -v tmux &>/dev/null; then
-    echo "ad_tmux_watch: tmux is not installed" >&2; exit 1
-fi
-if [[ -z "${TMUX:-}" ]]; then
-    echo "ad_tmux_watch: must be run inside a tmux session" >&2
-    echo "  Start tmux first: tmux" >&2; exit 1
+# --- Resolve paths relative to session dir ---
+OLD_BASE=$(basename "$OLD_FILE")
+NEW_BASE=$(basename "$NEW_FILE")
+OP_BASE="ops.tsv"
+RESULT_BASE="result.txt"
+ANIMATOR_BIN=""
+for dir in "$ROOT/bin" "$ROOT/pipeline"; do
+    if [[ -x "$dir/ad" ]]; then
+        ANIMATOR_BIN="$dir/ad"
+        break
+    fi
+done
+if [[ -z "$ANIMATOR_BIN" ]]; then
+    echo "ad_session: animator (ad) not found" >&2; exit 1
 fi
 
-# --- Launch ---
+# Relative path from session dir to animator
+ANIMATOR_REL=$(python3 -c "import os; print(os.path.relpath('$ANIMATOR_BIN', '$SESSION_DIR'))")
+
 VIM_SYNTAX="$SCRIPT_DIR/vim/ad_ops_syntax.vim"
+VIM_SESSION="$SCRIPT_DIR/vim/ad_session.vim"
 
-# Build vim fold args
-VIM_FOLD_ARGS=""
-if [[ $FOLD_HUNKS -eq 1 ]]; then
-    VIM_FOLD_ARGS="$VIM_FOLD_ARGS -c \"let g:ad_fold_hunks=1\""
-fi
-VIM_FOLD_ARGS="$VIM_FOLD_ARGS -c \"let g:ad_fold_context=$FOLD_CONTEXT\""
+# --- Launch vim ---
+# Write a vim init script that sets variables, then source both scripts.
+# This avoids the "too many -c arguments" error.
+VIM_INIT="$SESSION_DIR/.ad_init.vim"
+cat > "$VIM_INIT" <<VIMINIT
+let g:ad_session_dir='$SESSION_DIR'
+let g:ad_old_file='$OLD_BASE'
+let g:ad_new_file='$NEW_BASE'
+let g:ad_ops_file='$OP_BASE'
+let g:ad_result_file='$RESULT_BASE'
+let g:ad_animator='$ANIMATOR_REL'
+let g:ad_fold_context=$FOLD_CONTEXT
+let g:ad_fold_hunks=$FOLD_HUNKS
+VIMINIT
 
-# Build ad_watch command
-WATCH_CMD="$SCRIPT_DIR/ad_watch"
-if [[ ${#WATCH_ARGS[@]} -gt 0 ]]; then
-    WATCH_CMD="$WATCH_CMD ${WATCH_ARGS[*]}"
-fi
-WATCH_CMD="$WATCH_CMD \"$OLD_FILE\" \"$NEW_FILE\" \"$OP_FILE\""
+cd "$SESSION_DIR"
 
-# Build vim command — 3 tabs: ops (default), old, new
-VIM_CMD="vim -S \"$VIM_SYNTAX\" \"$OP_FILE\" $VIM_FOLD_ARGS -c \"tabnew $OLD_FILE\" -c \"tabnew $NEW_FILE\" -c \"tabfirst\""
-
-# Create tmux window with vertical split
-tmux new-window -n "ad_session" "cd '$SESSION_DIR' && $WATCH_CMD"
-tmux split-window -h -t "{left}" "cd '$SESSION_DIR' && $VIM_CMD"
-tmux select-pane -t "{right}"
-
-echo "" >&2
-echo "ad_tmux_watch: launched" >&2
-echo "  Session:  $SESSION_DIR" >&2
-echo "  Left:     ad_watch (auto-refresh on save)" >&2
-echo "  Right:    vim (ops | old | new tabs)" >&2
-echo "  Resume:   bash $SESSION_DIR/resume.sh" >&2
+exec vim -S "$VIM_INIT" -S "$VIM_SYNTAX" -S "$VIM_SESSION" "$OP_BASE" \
+    -c "tabnew $OLD_BASE" \
+    -c "tabnew $NEW_BASE" \
+    -c "tabfirst"
