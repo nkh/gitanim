@@ -25,7 +25,6 @@ let s:gen_ops = exists('g:ad_gen_ops') ? g:ad_gen_ops : 'ad_gen_ops'
 let s:fold_context = exists('g:ad_fold_context') ? g:ad_fold_context : 5
 let s:fold_hunks_start = exists('g:ad_fold_hunks') ? g:ad_fold_hunks : 0
 let s:layer_file = exists('g:ad_layer_file') && g:ad_layer_file != '' ? g:ad_layer_file : ''
-let s:layer_group = exists('g:ad_layer_group') ? g:ad_layer_group : 'default'
 
 " --- Set working directory ---
 execute 'cd ' . s:session_dir
@@ -256,7 +255,7 @@ function! s:AdGen()
     " Regenerate — use layer file if available, else plain ad_gen_ops
     if s:layer_file != '' && filereadable(s:layer_file)
         " Parse layers from layer file using the group
-        let l:layers = s:ParseLayerFile(s:layer_file, s:layer_group)
+        let l:layers = s:ParseLayerFile(s:layer_file)
         let l:cmd = s:gen_ops . ' ' . s:old_file . ' ' . s:new_file
         for l:layer in l:layers
             let l:cmd .= ' --ad-layer=' . l:layer
@@ -273,21 +272,58 @@ endfunction
 command! -buffer AdGenLayers call s:AdGen()
 nnoremap <buffer> <leader>L :call <SID>AdGen()<CR>
 
-" Parse a layer group file and return list of layer names.
-function! s:ParseLayerFile(file, group)
+" Parse a layer group file.
+" First non-comment line = active group name.
+" Returns list of layer names for that group.
+function! s:ParseLayerFile(file)
     let l:lines = readfile(a:file)
+    let l:active_group = ''
+    let l:first_seen = 0
     let l:in_group = 0
     let l:found = 0
     let l:layers = []
+
+    " Step 1: find active group name (first non-comment, non-blank line)
     for l:line in l:lines
-        " Skip comments
         if l:line =~ '^\s*#'
             continue
         endif
-        " Trim
         let l:line = substitute(l:line, '^\s\+', '', '')
         let l:line = substitute(l:line, '\s\+$', '', '')
-        " Empty = separator
+        if l:line != ''
+            let l:active_group = l:line
+            break
+        endif
+    endfor
+
+    if l:active_group == ''
+        return []
+    endif
+
+    " Step 2: find the group definition and collect layers
+    for l:line in l:lines
+        if l:line =~ '^\s*#'
+            continue
+        endif
+        let l:line = substitute(l:line, '^\s\+', '', '')
+        let l:line = substitute(l:line, '\s\+$', '', '')
+
+        " Skip the first non-blank line (active group name selector)
+        if !l:first_seen
+            if l:line != ''
+                let l:first_seen = 1
+                if l:line == l:active_group
+                    let l:in_group = 1
+                    let l:found = 1
+                else
+                    let l:in_group = 1
+                    let l:found = 0
+                endif
+            endif
+            continue
+        endif
+
+        " Empty = group separator
         if l:line == ''
             if l:in_group && l:found
                 break
@@ -295,21 +331,25 @@ function! s:ParseLayerFile(file, group)
             let l:in_group = 0
             continue
         endif
-        " First line after separator = group name
+
+        " Group name or layer?
         if !l:in_group
-            let l:in_group = 1
-            if l:line == a:group
+            if l:line == l:active_group
+                let l:in_group = 1
                 let l:found = 1
             else
+                let l:in_group = 1
                 let l:found = 0
             endif
             continue
         endif
+
         " Layer name
         if l:found
             call add(l:layers, l:line)
         endif
     endfor
+
     return l:layers
 endfunction
 
@@ -403,7 +443,7 @@ function! s:AdHelp()
     echo "  <leader>?   Show this help"
     if s:layer_file != ''
         echo ""
-        echo "  Layer file: " . s:layer_file . " (group: " . s:layer_group . ")"
+        echo "  Layer file: " . s:layer_file . " (first line = active group)"
         echo "  Saving layers.txt auto-regenerates ops"
     endif
 endfunction

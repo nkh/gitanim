@@ -1,5 +1,8 @@
-# Layer groups for ad debugging
-# No auto-expand — use full layer names.
+# Layer groups for ad debugging.
+# First non-comment line = active group name.
+# Change it to switch groups (save to regenerate ops).
+
+default
 
 default
 ad_layer_reorder
@@ -12,3 +15,5 @@ debug_full
 ad_layer_reorder
 ad_layer_line_delete_in_place
 ad_layer_indent_last
+
+minimal
