@@ -183,10 +183,10 @@ docs:
 # Per-layer test files. Each layer bin depends on its test, and each
 # test target rebuilds the layer bin if needed.
 .PHONY: test test-layers test-unit test-minimal test-l2r test-property \
-	test-examples test-indent-last test-pipeline-options \
-	test-layers-discovery \
-	test-layer-reorder test-layer-overwrite test-layer-indent-last \
-	test-layer-line_delete_in_place test-layer-pace test-layer-highlight
+        test-examples test-indent-last test-pipeline-options \
+        test-layers-discovery \
+        test-layer-reorder test-layer-overwrite test-layer-indent-last \
+        test-layer-line_delete_in_place test-layer-pace test-layer-highlight
 
 test: test-layers test-unit test-minimal test-l2r test-property test-fuzz test-indent-last test-pipeline-options test-layers-discovery
 	@echo ""
@@ -336,9 +336,10 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  make                Build all binaries into bin/"
-	@echo "  make diff_engine   Build only the diff engine"
-	@echo "  make layers         Build only the layer binaries"
+	@echo "  make diff_engine    Build only the diff engine (bin/ad_compute)"
+	@echo "  make layers         Build only the layer binaries (bin/ad_layer_*)"
 	@echo "  make animator       Build only the animator (bin/ad)"
+	@echo "  make tools          Build only the tools (bin/ad_annotate)"
 	@echo "  make install        Install everything to $$(PREFIX)"
 	@echo "  make install-bin    Install binaries only"
 	@echo "  make install-man    Install manpages only"
@@ -348,6 +349,9 @@ help:
 	@echo "  make test-layers    Run per-layer tests (TDD)"
 	@echo "  make test-property  Run property-based tests"
 	@echo "  make test-examples  Run all examples through pipeline"
+	@echo "  make test-fuzz      Run fuzz tests"
 	@echo "  make clean          Remove bin/ directory"
 	@echo "  make check          Check if binaries are up to date"
 	@echo "  make help           Show this help"
+	@echo ""
+	@echo "See INSTALL.md for full documentation."
