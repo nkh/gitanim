@@ -11,6 +11,7 @@
 # Options:
 #   --ad-layer=<name>      Add a layer to the postprocess chain
 #   --ad-layer-path=<dir>  Add a search path for layers
+#   --annotate             Add # old: / # new: comments before each hunk
 #   --delete-pacing=MODE   Delete pacing mode (char|word|rapid-eol|...)
 #   --insert-pacing=MODE   Insert pacing mode (char|word|accel|...)
 #   --help, -h             Show this help
@@ -82,12 +83,17 @@ OLD_FILE=""
 NEW_FILE=""
 PP_ARGS=()
 PACE_ARGS=()
+ANNOTATE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h)
             show_help
             exit 0
+            ;;
+        --annotate)
+            ANNOTATE=1
+            shift
             ;;
         --ad-layer=*)
             PP_ARGS+=("$1")
@@ -201,8 +207,14 @@ fi
 # Stage 3: pace (only if --delete-pacing or --insert-pacing given)
 # NO pace by default — the user must opt in.
 if [[ ${#PACE_ARGS[@]} -gt 0 ]]; then
-    "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST"
+    "$PACE_BIN" "${PACE_ARGS[@]}" < "$POST" > "$TMPDIR/timed.tsv"
 else
-    # No pace — output post-processed ops directly
-    cat "$POST"
+    cp "$POST" "$TMPDIR/timed.tsv"
+fi
+
+# Stage 4: annotate (if --annotate)
+if [[ $ANNOTATE -eq 1 ]]; then
+    "$SCRIPT_DIR/ad_annotate" "$OLD_FILE" "$NEW_FILE" < "$TMPDIR/timed.tsv"
+else
+    cat "$TMPDIR/timed.tsv"
 fi

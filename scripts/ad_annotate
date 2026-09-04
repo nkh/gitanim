@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# ad_annotate — Add # old: / # new: comments before each hunk.
+#
+# Reads ops from stdin, reads old/new files, outputs annotated ops.
+# For each hunk, determines which old/new lines it touches, and
+# inserts two comment lines before the HUNK header:
+#   # old: <content of old line(s)>
+#   # new: <content of new line(s)>
+#
+# Usage: ad_annotate <oldfile> <newfile> < ops.tsv > annotated_ops.tsv
+
+set -euo pipefail
+
+OLD_FILE="$1"
+NEW_FILE="$2"
+
+# Read old and new files into arrays (1-indexed)
+declare -a OLD_LINES NEW_LINES
+OLD_LINES[0]=""  # placeholder for 1-indexing
+NEW_LINES[0]=""
+
+while IFS= read -r line; do
+    OLD_LINES+=("$line")
+done < "$OLD_FILE"
+
+while IFS= read -r line; do
+    NEW_LINES+=("$line")
+done < "$NEW_FILE"
+
+# Process stdin
+while IFS= read -r line || [[ -n "$line" ]]; do
+    # Detect HUNK header
+    if [[ "$line" =~ ^HUNK$'\t'([0-9]+)$'\t'([0-9]+)$'\t'([0-9]+) ]]; then
+        target_line="${BASH_REMATCH[1]}"
+        del_count="${BASH_REMATCH[2]}"
+        ins_count="${BASH_REMATCH[3]}"
+
+        # Determine old lines affected
+        old_start=$target_line
+        old_end=$((target_line + del_count - 1))
+        if [[ $del_count -eq 0 ]]; then
+            old_end=$old_start
+            # Pure insert — show the line before the insert point
+            if [[ $old_start -gt 1 ]]; then
+                old_start=$((old_start - 1))
+            fi
+        fi
+
+        # Determine new lines affected
+        # The new file's line numbers differ from old due to prior hunks.
+        # Approximate: new lines start at the same target line, offset by
+        # cumulative (ins - del) from prior hunks. For simplicity, use
+        # the target line and ins_count.
+        new_start=$target_line
+        new_end=$((target_line + ins_count - 1))
+        if [[ $ins_count -eq 0 ]]; then
+            new_end=$new_start
+        fi
+
+        # Build old content
+        old_content=""
+        for ((i = old_start; i <= old_end; i++)); do
+            if [[ $i -ge 1 && $i -lt ${#OLD_LINES[@]} ]]; then
+                if [[ -z "$old_content" ]]; then
+                    old_content="${OLD_LINES[$i]}"
+                else
+                    old_content="$old_content | ${OLD_LINES[$i]}"
+                fi
+            fi
+        done
+
+        # Build new content
+        new_content=""
+        for ((i = new_start; i <= new_end; i++)); do
+            if [[ $i -ge 1 && $i -lt ${#NEW_LINES[@]} ]]; then
+                if [[ -z "$new_content" ]]; then
+                    new_content="${NEW_LINES[$i]}"
+                else
+                    new_content="$new_content | ${NEW_LINES[$i]}"
+                fi
+            fi
+        done
+
+        # Truncate long lines
+        if [[ ${#old_content} -gt 120 ]]; then
+            old_content="${old_content:0:117}..."
+        fi
+        if [[ ${#new_content} -gt 120 ]]; then
+            new_content="${new_content:0:117}..."
+        fi
+
+        # Output annotation
+        echo "# old: $old_content"
+        echo "# new: $new_content"
+    fi
+
+    echo "$line"
+done

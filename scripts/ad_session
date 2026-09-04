@@ -97,10 +97,12 @@ LIST_SESSIONS=0
 FOLD_CONTEXT=5
 FOLD_HUNKS=0
 LAYER_FILE=""
+ANNOTATE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --help|-h) show_help; exit 0 ;;
+        --annotate) ANNOTATE=1; shift ;;
         --no-generate) NO_GENERATE=1; shift ;;
         --ad-layer=*) GEN_OPS_ARGS+=("$1"); shift ;;
         --ad-layer) GEN_OPS_ARGS+=("$1" "$2"); shift 2 ;;
@@ -244,6 +246,9 @@ else
         echo "ad_session: copied ops from $OP_FILE" >&2
     elif [[ $NO_GENERATE -eq 0 ]]; then
         echo "ad_session: generating ops..." >&2
+        if [[ $ANNOTATE -eq 1 ]]; then
+            GEN_OPS_ARGS+=("--annotate")
+        fi
         "$SCRIPT_DIR/ad_gen_ops" "$OLD_FILE" "$NEW_FILE" "${GEN_OPS_ARGS[@]}" > "$SESSION_DIR/ops.tsv"
         echo "ad_session: generated ops ($(wc -l < "$SESSION_DIR/ops.tsv") lines)" >&2
     else
@@ -326,6 +331,7 @@ let g:ad_gen_ops='$GEN_OPS_REL'
 let g:ad_fold_context=$FOLD_CONTEXT
 let g:ad_fold_hunks=$FOLD_HUNKS
 let g:ad_layer_file='$LAYER_FILE_BASE'
+let g:ad_annotate=$ANNOTATE
 VIMINIT
 
 cd "$SESSION_DIR"

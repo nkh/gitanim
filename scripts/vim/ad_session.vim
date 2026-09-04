@@ -24,6 +24,7 @@ let s:animator = exists('g:ad_animator') ? g:ad_animator : 'ad'
 let s:gen_ops = exists('g:ad_gen_ops') ? g:ad_gen_ops : 'ad_gen_ops'
 let s:fold_context = exists('g:ad_fold_context') ? g:ad_fold_context : 5
 let s:fold_hunks_start = exists('g:ad_fold_hunks') ? g:ad_fold_hunks : 0
+let s:annotate = exists('g:ad_annotate') ? g:ad_annotate : 0
 let s:layer_file = exists('g:ad_layer_file') && g:ad_layer_file != '' ? g:ad_layer_file : ''
 
 " --- Set working directory ---
@@ -267,9 +268,16 @@ function! s:AdGen()
         for l:layer in l:layers
             let l:cmd .= ' --ad-layer=' . l:layer
         endfor
+        if s:annotate
+            let l:cmd .= ' --annotate'
+        endif
         call system(l:cmd . ' > ' . s:ops_file)
     else
-        call system(s:gen_ops . ' ' . s:old_file . ' ' . s:new_file . ' > ' . s:ops_file)
+        let l:gen_cmd = s:gen_ops . ' ' . s:old_file . ' ' . s:new_file
+        if s:annotate
+            let l:gen_cmd .= ' --annotate'
+        endif
+        call system(l:gen_cmd . ' > ' . s:ops_file)
     endif
     let l:ops_buf = bufnr(s:ops_file)
     if l:ops_buf != -1
@@ -389,6 +397,24 @@ function! s:AdFoldKeeps()
     endif
 endfunction
 
+
+" <leader>a: Toggle annotations (show/hide # old: / # new: comments)
+command! AdToggleAnnotate call s:AdToggleAnnotate()
+nnoremap <leader>a :call <SID>AdToggleAnnotate()<CR>
+
+function! s:AdToggleAnnotate()
+    let s:annotate = !s:annotate
+    if s:annotate
+        echo 'Annotations: ON (will be added on next AdGen)'
+    else
+        echo 'Annotations: OFF (will be removed on next AdGen)'
+    endif
+    " Regenerate ops with new setting
+    let s:ad_auto_gen = 1
+    call s:AdGen()
+    let s:ad_auto_gen = 0
+endfunction
+
 " <leader>?: Show help
 command! AdHelp call s:AdHelp()
 nnoremap <leader>? :call <SID>AdHelp()<CR>
@@ -407,6 +433,7 @@ function! s:AdHelp()
     echo "  <leader>h   Fold all hunks except current"
     echo "  <leader>H   Unfold all"
     echo "  <leader>k   Toggle keep-op folding"
+    echo "  <leader>a   Toggle annotations (# old: / # new:)"
     echo "  <leader>?   Show this help"
     if s:layer_file != ''
         echo ""
