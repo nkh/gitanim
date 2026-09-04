@@ -78,7 +78,7 @@ Diff Computation → Hunk Grouping → Char-level patience → Animate in Vim
 ### ad_vim.pl (Perl + tmux)
 
 Same architecture as ad_tmux but written in Perl with:
-- Single parser module (`DiffVim::Parser::Perl`, pure-Perl patience, no deps)
+- Single parser module (`ad::Parser::Perl`, pure-Perl patience, no deps)
 - `IPC::Open3` for vim communication (when using `--no-tmux`)
 - `File::Temp` with `CLEANUP => 1` for automatic temp file cleanup
 
@@ -93,7 +93,7 @@ Same architecture as ad_tmux but written in Perl with:
 
 ## When to Use Which
 
-- **diffvim** — everyday use, no external dependencies
+- **ad_vim** — everyday use, no external dependencies
 - **ad_tmux** — when you want to script/extend in bash
 - **ad_vim.pl** — when you want parser pluggability or prefer Perl
 

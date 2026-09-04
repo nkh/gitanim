@@ -62,10 +62,10 @@ perl tests/test_integration.pl
 
 ```bash
 # Quick test with example files
-./ad_vim tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
+./ad_vim tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py
 
 # Test with --dry-run
-perl ad_vim.pl --dry-run tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
+perl ad_vim.pl --dry-run tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py
 
 # Test --version
 perl ad_vim.pl --version

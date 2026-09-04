@@ -60,7 +60,7 @@ Phase B refactor — there's only one compute implementation now.)
 
 ## How It Works
 
-The completion scripts are loaded by the shell when you type `diffvim`
+The completion scripts are loaded by the shell when you type `ad_vim`
 and press `<Tab>`. They are **static** — they list all known options
 at the time the script was generated. If you add new options, you need
 to update the completion scripts in `completion/`.

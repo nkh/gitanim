@@ -29,7 +29,7 @@ A system-wide defaults file can be installed at `/etc/ad/config` (see `packaging
 2. `~/.config/ad/config` — user config
 3. CLI flags — per-invocation (highest priority)
 
-No environment variables. No `~/.diffvimrc` fallback. No `DV_*` or `DIFFVIM_*` vars.
+No environment variables. No `~/.config/ad/config` fallback. No `(none)` or `(none)` vars.
 
 ## Creating the config file
 
@@ -132,14 +132,13 @@ These convenience flags enable specific postprocess layers:
 | ----------------- | ------------ | ------------- | -------------------------------- |
 | `--theme MODE`    | `THEME`      | —             | `dark`, `light`, `high-contrast` |
 | `--log-mode MODE` | `LOG_MODE`   | —             | mode                             |
-| `--log-file FILE` | `LOG_FILE`   | `diffvim.log` | file path                        |
+| `--log-file FILE` | `LOG_FILE`   | `ad_vim.log`  | file path                        |
 | `--debug`         | `DEBUG_MODE` | `0`           | `0` or `1`                       |
 
 ### Compute (diff engine)
 
 | CLI flag                 | Default   | Effect                                             |
 | ------------------------ | --------- | -------------------------------------------------- |
-| `--semantic-cleanup`     | off       | Merge adjacent delete+insert pairs that cancel out |
 | `--word-diff`            | off       | Use word-level diff                                |
 | `--optimize-sequence`    | on        | Enable op-sequence optimization                    |
 | `--no-optimize-sequence` | —         | Disable op-sequence optimization                   |

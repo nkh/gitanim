@@ -5,7 +5,7 @@
 *Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
 
 
-diffvim's in-vim patience computation is fast enough for files up to a few
+ad_vim's in-vim patience computation is fast enough for files up to a few
 hundred lines. For larger files (1000+ lines, or diffs with thousands
 of changed characters), the vimscript patience can take seconds or even
 tens of seconds before the animation starts.
@@ -18,13 +18,13 @@ vimscript engine, but compiled to native code. It is 10-100x faster.
 > refactor — they all produced byte-identical output and the maintenance
 > cost outweighed the value. Only the C++ tool remains. When the C++
 > binary is missing, `ad_pipeline` falls back to the pure-Perl
-> `compute/perl/compute_builtin.pl`.
+> `diff_engine/perl/compute_builtin.pl`.
 
 ## Quick Start
 
 ```bash
 # Build the C++ tool
-make -C compute
+make diff_engine
 
 # Compute the diff, then run ad_vim with --precomputed
 bin/ad_compute old.py new.py /tmp/diff.txt
@@ -35,16 +35,16 @@ bin/ad_compute old.py new.py /tmp/diff.txt && \
     ad_vim --precomputed /tmp/diff.txt old.py new.py
 ```
 
-`diffvim` and `ad_pipeline` look for the C++ binary automatically
+`ad_vim` and `ad_pipeline` look for the C++ binary automatically
 (in `bin/ad_compute `, `/usr/local/bin/`, and `~/.local/bin/`); when it
 is present they pre-compute before launching vim, so the manual
 `--precomputed` step is rarely needed.
 
 ## The C++ Variant
 
-| Binary                       | Source                       | Build cmd              | Notes                                  |
-| ---------------------------- | ---------------------------- | ---------------------- | -------------------------------------- |
-| `bin/ad_compute`             | `compute/cpp/ad_compute.cpp` | `make cpp`             | C++17, the only compute implementation |
+| Binary                       | Source                           | Build cmd              | Notes                                  |
+| ---------------------------- | -------------------------------- | ---------------------- | -------------------------------------- |
+| `bin/ad_compute`             | `diff_engine/cpp/ad_compute.cpp` | `make cpp`             | C++17, the only compute implementation |
 
 ## Direct Usage
 
@@ -52,7 +52,7 @@ is present they pre-compute before launching vim, so the manual
 # Compute the diff and write to a file
 bin/ad_compute old.py new.py /tmp/diff.txt
 
-# Convert a unified diff to diffvim's format
+# Convert a unified diff to ad_vim's format
 bin/ad_compute --diff patch.diff /tmp/diff.txt
 bin/ad_compute --diff - /tmp/diff.txt < patch.diff
 
@@ -84,15 +84,10 @@ produces the same op count as patience.
 
 | Variable                       | Effect                                          |
 | ------------------------------ | ----------------------------------------------- |
-| `DIFFVIM_ALGORITHM`            | Default `--algorithm` value                     |
-| `DIFFVIM_WORD_DIFF`            | Set to `1` to enable by default                 |
-| `DIFFVIM_OPTIMIZE_SEQUENCE`    | Default `1`; set to `0` to disable              |
-| `AD_LEFT_TO_RIGHT`             | Set to `1` to enable by default                 |
-| `AD_COMPUTE_BIN`               | Override path to the compute binary (advanced)  |
 
 ## Output Format
 
-The compute tool writes a line-oriented diff file that diffvim's
+The compute tool writes a line-oriented diff file that ad_vim's
 `--precomputed` flag reads:
 
 ```
@@ -140,11 +135,11 @@ to see the compute time, then run ad_vim to see the animation startup.
 
 If `bin/ad_compute` is not on disk:
 
-- `diffvim` falls back to the embedded vimscript patience
-  (`s:LineDiff` / `s:CharDiff` in `autoload/diffvim/engine.vim`) —
+- `ad_vim` falls back to the embedded vimscript patience
+  (`s:LineDiff` / `s:CharDiff` in `autoload/ad_vim/engine.vim`) —
   slower but always available.
-- `ad_pipeline` falls back to `compute/perl/compute_builtin.pl`,
-  a thin Perl wrapper around `DiffVim::Parser::Perl::parse_diff` that
+- `ad_pipeline` falls back to `diff_engine/perl/compute_builtin.pl`,
+  a thin Perl wrapper around `ad::Parser::Perl::parse_diff` that
   emits the same op-stream format as the C++ tool.
 
 Both fallbacks produce byte-identical output to the C++ tool, just

@@ -36,10 +36,10 @@ use { 'nkh/gitanim', rtp = '.' }
 
 ## Configuration
 
-Set the `g:diffvim` dictionary in your vimrc:
+Set the `g:ad_vim` dictionary in your vimrc:
 
 ```vim
-let g:diffvim = {
+let g:ad_vim = {
     \ 'type_delay_ms': 50,
     \ 'scroll': 'zz',
     \ 'max_word_chars': 5,
@@ -48,9 +48,9 @@ let g:diffvim = {
 
 ## How It Works
 
-1. The `:Diffvim` command calls `s:DiffvimStart()` in `plugin/diffvim.vim`
+1. The `:Diffvim` command calls `s:DiffvimStart()` in `plugin/ad_vim.vim`
 2. The plugin opens the old file in the current window (or new tab/split)
-3. It sources `autoload/diffvim/engine.vim` — the full animation engine
+3. It sources `autoload/ad_vim/engine.vim` — the full animation engine
 4. The engine uses vim's `timer_start()` to drive the animation
 5. All controls work natively (Space, n, b, q, +, -, =, u, Ctrl-r, ?)
 
@@ -64,7 +64,7 @@ let g:diffvim = {
 ## Limitations
 
 - Only supports single-file animation (no `--multi` or `--replay`)
-- Configuration is via `g:diffvim` only (no env vars)
+- Configuration is via `g:ad_vim` only (no env vars)
 - The engine is sourced fresh each time (no persistence between runs)
 
 > **Note:** The project now uses an external pipeline (ad_compute → ad_postprocess → ad_layer_pace → animator). See `docs/PIPELINE.md` and `docs/DEVELOPER_GUIDE.md` for the current architecture. Coloring (`ad_colorize`), streaming mode (`--stream`), and typed delays are described in the Developer Guide.

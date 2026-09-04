@@ -6,7 +6,7 @@
 
 
 Every ad_vim executable has a manpage in the
-[`man/`](https://github.com/diffvim/diffvim/tree/main/man) directory.
+[`man/`](https://github.com/ad_vim/ad_vim/tree/main/man) directory.
 Install them to your system manpath to get offline documentation
 from `man ad_vim`, `man ad_compute`, etc.
 
@@ -14,7 +14,7 @@ from `man ad_vim`, `man ad_compute`, etc.
 
 | Manpage                                  | Describes                                               |
 | ---------------------------------------- | ------------------------------------------------------- |
-| [`ad_vim.1`](../../man/ad_vim.1)         | The main `diffvim` command (bash + vimscript)           |
+| [`ad_vim.1`](../../man/ad_vim.1)         | The main `ad_vim` command (bash + vimscript)            |
 | [`ad_tmux.1`](../../man/ad_tmux.1)       | The `ad_tmux` variant (bash + tmux)                     |
 | [`ad_compare.1`](../../man/ad_compare.1) | The `ad_compare` benchmark tool                         |
 | [`ad_jogger.1`](../../man/ad_jogger.1)   | The `ad_jogger` test-case exerciser                     |
@@ -37,7 +37,7 @@ man ad_vim
 man ad_compute
 ```
 
-If you installed via Homebrew (`brew install diffvim`), the manpages
+If you installed via Homebrew (`brew install ad_vim`), the manpages
 are installed automatically.
 
 ## Reading Without Installing

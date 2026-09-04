@@ -1,45 +1,36 @@
 # Summary
 
-*Created:* `4692a55` (2026-08-10 13:37:07 +0000)
-*Last updated:* `12700a4` (2026-08-28 15:46:39 +0000)
-*Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
-
-
 [Introduction](./introduction.md)
 
 # Getting Started
-
-- [Installation](./installation.md)
+- [Installation](../INSTALL.md)
 - [Quick Start](./quick-start.md)
 - [Configuration](./configuration.md)
-- [Visual Guide](../design/VISUAL_GUIDE.md)
-
-# Usage
-
-- [Command-Line Options](./options.md)
-- [Controls](./controls.md)
-- [Examples](./examples.md)
-- [Presets](./presets.md)
-
-# Architecture
-
-- [Overview](./architecture.md)
-- [Diff Parsers](./parsers.md)
-- [Plugin Layers](./plugin-layers.md)
-- [Contributing](./contributing.md)
 
 # Reference
-
+- [Options](./options.md)
+- [Controls](./controls.md)
+- [Plugin Layers](./plugin-layers.md)
+- [Architecture](./architecture.md)
+- [Parsers](./parsers.md)
 - [Manpages](./manpages.md)
-- [Shell Completion](./completion.md)
-- [Git Integration](./git-integration.md)
+- [Shell Completions](./completion.md)
+
+# Debugging
+- [Debugging Tools](./debugging.md)
+
+# Testing
 - [Testing](./testing.md)
 
+# Git Integration
+- [Git Integration](./git-integration.md)
+
+# Development
+- [Contributing](./contributing.md)
+- [Examples](./examples.md)
+
 # Design Documents
-
-Historical design docs live in `docs/design/`. See [docs/DOCS_AUDIT.md](../DOCS_AUDIT.md) for a relevance-scored inventory. These are NOT part of the user guide.
-
-# Project
-
-- [CHANGELOG](../../CHANGELOG.md)
-- [Restructure Analysis](../RESTRUCTURE_ANALYSIS.md)
+- [Design Docs](../design/README.md)
+- [Layers Reference](../design/LAYERS_REFERENCE.md)
+- [Layers Review](../design/LAYERS_REVIEW.md)
+- [Session Requirements](../design/AD_SESSION_REQUIREMENTS.md)

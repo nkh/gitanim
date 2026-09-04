@@ -36,29 +36,29 @@ The buffer is a normal vim buffer — you can `:w`, `:wq`, edit further, etc.
 
 ## Try the Examples
 
-The repo includes example file pairs in `tests/tests/examples/`:
+The repo includes example file pairs in `tests/examples/`:
 
 ```bash
 # Small Python diff (f-string conversion)
-./ad_vim tests/tests/examples/01_small_python/old.py tests/tests/examples/01_small_python/new.py
+./ad_vim tests/examples/01_small_python/old.py tests/examples/01_small_python/new.py
 
 # Large Python diff (class refactoring)
-./ad_vim tests/tests/examples/02_large_python/old.py tests/tests/examples/02_large_python/new.py
+./ad_vim tests/examples/02_large_python/old.py tests/examples/02_large_python/new.py
 
 # JSON config update
-./ad_vim tests/tests/examples/03_json_config/old.json tests/tests/examples/03_json_config/new.json
+./ad_vim tests/examples/03_json_config/old.json tests/examples/03_json_config/new.json
 
 # Shell script improvement
-./ad_vim tests/tests/examples/04_shell_script/old.sh tests/tests/examples/04_shell_script/new.sh
+./ad_vim tests/examples/04_shell_script/old.sh tests/examples/04_shell_script/new.sh
 
 # Go code expansion
-./ad_vim tests/tests/examples/05_go_code/old.go tests/tests/examples/05_go_code/new.go
+./ad_vim tests/examples/05_go_code/old.go tests/examples/05_go_code/new.go
 
 # TypeScript interface growth
-./ad_vim tests/tests/examples/06_typescript/old.ts tests/tests/examples/06_typescript/new.ts
+./ad_vim tests/examples/06_typescript/old.ts tests/examples/06_typescript/new.ts
 
 # Text prose rewrite
-./ad_vim tests/tests/examples/07_text_prose/old.txt tests/tests/examples/07_text_prose/new.txt
+./ad_vim tests/examples/07_text_prose/old.txt tests/examples/07_text_prose/new.txt
 ```
 
 ## Common Options

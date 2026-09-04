@@ -1,45 +1,22 @@
 # animator/perl/
 
-Perl implementation of the animator pipeline stages. Mirror of the C
-implementation in `../c/`. Produces byte-identical output.
+Perl fallback for the C animator.
 
 ## Files
 
-- `animator.pl` — Terminal animator. Reads timed ops from stdin,
-  applies them to a virtual buffer. Supports `--no-display` for
-  headless testing and `--snapshot FILE` to write the final buffer.
-- `postprocess.pl` — Same transformations as the C version.
-  See `../../docs/POSTPROCESS_TRANSFORMS.md` for details.
-- `pace.pl` — Same delay insertion as the C version.
-- `colorize.pl` — Syntax highlighting. Supports `vim` and `pygmentize`
-  backends. Used by `ad_pipeline` to colorize old/new files
-  in parallel with the compute stage.
+- `ad.pl` — Perl animator. Reads timed ops from stdin, applies them to
+  the old file, renders the animation. Produces identical output to the
+  C animator (`animator/c/ad.c`).
+- `colorize.pl` — Syntax highlighting helper for the Perl animator.
 
 ## Usage
 
 ```bash
-# Post-process raw ops:
-perl layers/perl/postprocess.pl < raw.txt > post.txt
-
-# Add delays:
-perl layers/perl/ad_layer_pace.pl < post.txt > timed.txt
-
-# Animate (terminal):
-perl animator/perl/ad.pl old.txt < timed.txt
-
-# Animate (headless, for testing):
-perl animator/perl/ad.pl --no-display --speed 1000 --snapshot out.txt old.txt < timed.txt
+perl animator/perl/ad.pl --no-display --speed 1000 --snapshot out.txt old.py < ops.tsv
 ```
 
-## Why Perl?
+## When is the Perl animator used?
 
-The Perl implementations exist as a fallback — if the C binaries
-are missing or don't work on a particular platform, the pipeline
-falls back to Perl. Both produce identical output, verified by
-`tests/verify_md5.sh` (42/42 pass for both C and Perl).
-
-## Related
-
-- `../c/` — C implementation (produces identical output)
-- `../../docs/POSTPROCESS_TRANSFORMS.md` — What postprocess does
-- `../../tests/verify_md5.sh` — Verifies C == Perl
+The pipeline prefers the C animator (`bin/ad`). If the C binary is not
+found, it falls back to the Perl version. This is mainly for systems
+without a C compiler.

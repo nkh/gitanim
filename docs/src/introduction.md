@@ -5,7 +5,7 @@
 *Repo HEAD:* `96d0693aca20` (2026-08-31 01:49:17 +0000)
 
 
-**diffvim** animates a code diff in vim as if a human were typing it.
+**ad_vim** animates a code diff in vim as if a human were typing it.
 
 Given two versions of a file, ad_vim opens the old version in vim and
 animates the transformation into the new version character by character.
@@ -17,7 +17,7 @@ re-typed — surrounding text is never touched.
 
 | Implementation  | Language         | Vim Communication    | Dependencies         |
 | --------------- | ---------------- | -------------------- | -------------------- |
-| `diffvim`       | Bash + Vimscript | Native (timer_start) | Vim only             |
+| `ad_vim`        | Bash + Vimscript | Native (timer_start) | Vim only             |
 | `ad_tmux`       | Bash + tmux      | tmux send-keys       | tmux, diff, sed, awk |
 | `ad_vim.pl`     | Perl + tmux      | tmux send-keys       | Perl, tmux, diff     |
 
@@ -66,7 +66,7 @@ perl ad_vim.pl --dry-run old.py new.py
 
 ## Where to Go Next
 
-- **New to diffvim?** Read the [Visual Guide](../VISUAL_GUIDE.md) —
+- **New to ad_vim?** Read the [Visual Guide](../VISUAL_GUIDE.md) —
   it explains graphically what ad_vim does, using ASCII drawings.
 - **Want to install?** See [Installation](./installation.md).
 - **Want a quick first run?** See [Quick Start](./quick-start.md).
