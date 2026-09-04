@@ -12,14 +12,19 @@ files, prose. If you can diff it, you can animate it.
 Code reviews show you *what* changed. `ad` shows you *how* it changed —
 the order of edits, the rhythm of typing, the places where a small
 change ripples through the file. It's a different way to understand a
-diff.
+diff, and it fits naturally into the git workflows you already run.
 
 Use it for:
-- **Demos** — show how a refactor unfolded, not just the final result
-- **Code review** — see the edit sequence, spot ordering issues
-- **Teaching** — animate how an algorithm was built up step by step
-- **Debugging** — watch a bug fix being applied, see if the edit order
-  makes sense
+- **Self-review before a commit** — animate your staged changes and
+  watch the edit sequence before you write the commit message
+- **Pull request walkthroughs** — show a reviewer how a branch evolved,
+  commit by commit, instead of dumping a 600-line diff
+- **Code review follow-ups** — replay the changes a teammate left
+  comments on, so the discussion has context
+- **Mentoring and pairing** — walk a teammate through how you arrived
+  at a solution, not just the final shape of the code
+- **Branch retrospectives** — replay a feature branch from main to HEAD
+  and see whether the commit ordering tells a clean story
 
 ## Quick start
 
@@ -33,8 +38,11 @@ make
 # Or run headless (no vim, just the pipeline)
 ./pipeline/ad_pipeline old.py new.py
 
-# Debug the ops interactively (vim-only, with diff split + folds)
-./scripts/ad_session old.py new.py --ad-layer=ad_layer_reorder
+# Animate your last commit
+./apps/vim/ad_vim <(git show HEAD^:file.py) <(git show HEAD:file.py)
+
+# Replay a file's last 5 commits
+./apps/vim/ad_vim --replay src/main.py --from HEAD~5 --to HEAD
 ```
 
 ## How it works
@@ -80,70 +88,89 @@ No layers run by default. Add them explicitly:
 
 Or use a `.ad_layers` file to define layer groups (see [INSTALL.md](INSTALL.md)).
 
-## Debugging tools
+## Good git usage
 
-The project includes an interactive op debugger:
+`ad` is most useful when wired into the git workflows you already run.
+The launcher ships with flags for the common cases:
+
+### Review your own work before committing
 
 ```bash
-# Create a debugging session (vim-only, no tmux needed)
-./scripts/ad_session old.py new.py --ad-layer=ad_layer_reorder --annotate
+# Animate your working-tree changes against the last commit
+./apps/vim/ad_vim <(git show HEAD:file.py) file.py
+
+# Animate what you've staged (not yet committed)
+./apps/vim/ad_vim <(git show :file.py) <(git stash create)
 ```
 
-This opens vim with:
-- **Left split**: diff between expected new file and the animator's output
-- **Right top**: the op list (editable, with syntax highlighting and folds)
-- **Right bottom**: the result of applying the ops
+This is a 10-second gut-check before `git commit`: you see whether the
+edit order reads like a deliberate change or a fumbled sequence of
+saves. If the animation feels off, the commit message probably will
+too.
 
-Shortcuts: `F5` (animate), `F6` (snapshot + refresh diff), `<leader>g`
-(regenerate ops), `<leader>h` (fold hunks), `<leader>a` (toggle
-annotations), `<leader>?` (help).
+### Walk a reviewer through a branch
 
-The `--annotate` flag adds `# old:` / `# new:` comments showing the
-text content before and after each bundle of ops:
+```bash
+# Replay every commit on this file from main to HEAD
+./apps/vim/ad_vim --replay src/main.py --from main --to HEAD
 
+# Same thing, using git rev range syntax
+./apps/vim/ad_vim --git-rev main..HEAD src/main.py
+
+# Multiple files in sequence
+./apps/vim/ad_vim --replay src/main.py src/utils.py
 ```
-# keep: "hello " (line 1, cols 1-6)
-keep	1	1	104	'h'
-keep	1	2	101	'e'
-...
-# old: "hello world"
-# new: "hello rld"
-delete	1	7	119	'w'
-delete	1	7	111	'o'
+
+Drop this into a PR description: *"Run `ad_vim --git-rev main..HEAD src/main.py` for a walkthrough."* Reviewers
+get a narrative instead of a wall of unified diff.
+
+### See who last touched each animated line
+
+```bash
+./apps/vim/ad_vim --git-blame <(git show HEAD^:file.py) file.py
 ```
+
+Each changed line is annotated with the commit hash and author while it
+animates — useful when a review touches code you didn't write and you
+want context without leaving vim.
+
+### Pick a single commit to understand
+
+```bash
+# Animate one specific commit's effect on a file
+./apps/vim/ad_vim <(git show abc123^:file.py) <(git show abc123:file.py)
+```
+
+Helpful for "what did this hotfix actually do?" moments during incident
+review, or when cherry-picking a commit and wanting to verify the
+intent before applying it.
+
+See [docs/src/git-integration.md](docs/src/git-integration.md) for the
+full set of git flags (`--replay`, `--git-rev`, `--git-blame`,
+multi-file replay).
 
 ## Installation
 
 See [**INSTALL.md**](INSTALL.md) for:
 - Prerequisites and build instructions
-- All Makefile targets (`make`, `make tools`, `make test`, etc.)
+- All Makefile targets (`make`, `make tools`, `make install`, etc.)
 - Installation to a custom prefix
 - Full list of binaries, scripts, and manpages
-- Debugging tools reference
 - The `.ad_layers` layer group file
+- Interactive session tooling for op inspection
 - Troubleshooting
 
 ## Documentation
 
-- [INSTALL.md](INSTALL.md) — Building, installing, testing, debugging
+- [INSTALL.md](INSTALL.md) — Building, installing, running the suite
 - [docs/src/](docs/src/) — User guide (mdBook)
+- [docs/src/git-integration.md](docs/src/git-integration.md) — All git flags and workflows
 - [docs/design/LAYERS_REFERENCE.md](docs/design/LAYERS_REFERENCE.md) — All layers with pseudo-code
 - [docs/design/LAYERS_REVIEW.md](docs/design/LAYERS_REVIEW.md) — Layer audit and known issues
-- [docs/design/AD_SESSION_REQUIREMENTS.md](docs/design/AD_SESSION_REQUIREMENTS.md) — Debugger design
 
 Build the mdBook:
 ```bash
 cd docs && mdbook serve   # http://localhost:3000
-```
-
-## Testing
-
-```bash
-make test           # all tests
-make test-layers    # per-layer C/Perl parity
-make test-property  # 50 random property-based tests
-make test-examples  # 42 examples through the full pipeline
-make test-fuzz      # malformed TSV, binary, empty, large inputs
 ```
 
 ## License
