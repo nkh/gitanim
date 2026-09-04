@@ -25,8 +25,8 @@
 #   make check            Check that all binaries are up to date
 #   make help             Show this help
 
-.PHONY: all diff_engine layers animator
-all: diff_engine layers animator
+.PHONY: all diff_engine layers animator tools
+all: diff_engine layers animator tools
 
 # --- Configuration ---------------------------------------------------------
 
@@ -104,6 +104,16 @@ bin/ad_layer_pace: layers/c/ad_layer_pace.c
 bin/ad_layer_highlight: layers/c/ad_layer_highlight.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 
+# --- Tools (C binaries) -----------------------------------------------
+
+.PHONY: tools
+TOOLS_BIN := bin/ad_annotate
+
+tools: $(TOOLS_BIN)
+
+bin/ad_annotate: scripts/ad_annotate.c
+	$(CC) $(CFLAGS) -o $@ $<
+
 # --- Installation ---------------------------------------------------------
 
 .PHONY: install install-bin install-man install-comp install-docs
@@ -115,6 +125,7 @@ install-bin: all
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 $(COMPUTE_BIN) $(DESTDIR)$(BINDIR)/ad_compute
 	install -m 755 $(ANIMATOR_BIN) $(DESTDIR)$(BINDIR)/ad
+	install -m 755 $(TOOLS_BIN) $(DESTDIR)$(BINDIR)/ad_annotate
 	for layer in $(LAYER_BINS); do \
 	        install -m 755 $$layer $(DESTDIR)$(BINDIR)/$$(basename $$layer); \
 	done

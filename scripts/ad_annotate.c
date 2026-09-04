@@ -321,9 +321,27 @@ static int is_passthrough(const char *line) {
 /* ── Main ─────────────────────────────────────────────────────────── */
 
 int main(int argc, char **argv) {
-    if (argc < 3) {
-        fprintf(stderr, "Usage: ad_annotate <oldfile> <newfile> < ops.tsv > annotated.tsv\n");
-        return 1;
+    if (argc < 3 || strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
+        printf("ad_annotate — Add context comments to ops.\n\n");
+        printf("USAGE\n");
+        printf("    ad_annotate <oldfile> <newfile> < ops.tsv > annotated.tsv\n");
+        printf("    ad_annotate --help | -h\n\n");
+        printf("DESCRIPTION\n");
+        printf("    Reads ops from stdin, simulates the buffer, and inserts\n");
+        printf("    comment lines showing the text content before/after each\n");
+        printf("    bundle of delete or insert ops. Keep bundles (2+) get a\n");
+        printf("    summary comment. Single keeps and \\n keeps get no comment.\n\n");
+        printf("OUTPUT FORMAT\n");
+        printf("    # old: <full old line>        ← before each HUNK\n");
+        printf("    # new: <full new line>\n");
+        printf("    # keep: \"text\" (line N, cols X-Y)  ← before keep bundles\n");
+        printf("    # old: \"line before\"          ← before delete bundles\n");
+        printf("    # new: \"line after\"\n");
+        printf("    # old: \"line before\"          ← before insert bundles\n");
+        printf("    # new: \"line after\"\n\n");
+        printf("SEE ALSO\n");
+        printf("    ad_gen_ops --annotate  (calls ad_annotate automatically)\n");
+        return argc < 3 ? 1 : 0;
     }
 
     /* Read old and new files */

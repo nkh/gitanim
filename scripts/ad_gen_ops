@@ -214,7 +214,20 @@ fi
 
 # Stage 4: annotate (if --annotate)
 if [[ $ANNOTATE -eq 1 ]]; then
-    "$SCRIPT_DIR/ad_annotate" "$OLD_FILE" "$NEW_FILE" < "$TMPDIR/timed.tsv"
+    # Use bin/ad_annotate if built, fall back to scripts/ad_annotate
+    ANNOTATE_BIN=""
+    for dir in "$ROOT/bin" "$SCRIPT_DIR"; do
+        if [[ -x "$dir/ad_annotate" ]]; then
+            ANNOTATE_BIN="$dir/ad_annotate"
+            break
+        fi
+    done
+    if [[ -z "$ANNOTATE_BIN" ]]; then
+        echo "ad_gen_ops: ad_annotate not found. Run 'make tools' to build it." >&2
+        cat "$TMPDIR/timed.tsv"
+        exit 1
+    fi
+    "$ANNOTATE_BIN" "$OLD_FILE" "$NEW_FILE" < "$TMPDIR/timed.tsv"
 else
     cat "$TMPDIR/timed.tsv"
 fi

@@ -1,0 +1,45 @@
+.TH AD_ANNOTATE 1 "2026-09-03" "ad 2.0" "ad tools"
+.SH NAME
+ad_annotate \- add context comments to ops
+.SH SYNOPSIS
+.B ad_annotate
+<oldfile> <newfile> < ops.tsv > annotated.tsv
+.br
+.B ad_annotate
+--help | -h
+.SH DESCRIPTION
+.B ad_annotate
+reads ops from stdin, simulates the buffer state, and inserts comment
+lines showing the text content before and after each bundle of delete
+or insert ops. Keep bundles (2+ consecutive) get a summary comment.
+Single keeps and \\n keeps get no comment.
+.PP
+This is called automatically by
+.BR ad_gen_ops (1)
+when the
+.B --annotate
+flag is used.
+.SH OUTPUT FORMAT
+.PP
+.RS 4
+.nf
+# old: <full old line>        ← before each HUNK
+# new: <full new line>
+# keep: "text" (line N, cols X-Y)  ← before keep bundles (2+)
+# old: "line before"          ← before delete bundles
+# new: "line after"
+# old: "line before"          ← before insert bundles
+# new: "line after"
+.fi
+.RE
+.SH EXAMPLES
+.TP
+Direct usage:
+.B ad_annotate old.py new.py < ops.tsv > annotated.tsv
+.TP
+Through ad_gen_ops:
+.B ad_gen_ops old.py new.py --ad-layer=ad_layer_reorder --annotate > ops.tsv
+.SH SEE ALSO
+.BR ad_gen_ops (1),
+.BR ad_session (1),
+.BR ad (1)
