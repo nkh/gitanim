@@ -1,98 +1,210 @@
-#!/usr/bin/env bash
-# ad_annotate — Add # old: / # new: comments before each hunk.
-#
-# Reads ops from stdin, reads old/new files, outputs annotated ops.
-# For each hunk, determines which old/new lines it touches, and
-# inserts two comment lines before the HUNK header:
-#   # old: <content of old line(s)>
-#   # new: <content of new line(s)>
-#
-# Usage: ad_annotate <oldfile> <newfile> < ops.tsv > annotated_ops.tsv
+#!/usr/bin/env python3
+"""ad_annotate — Add context comments to ops.
 
-set -euo pipefail
+Reads old/new files and ops from stdin. Outputs annotated ops.
 
-OLD_FILE="$1"
-NEW_FILE="$2"
+Rules:
+- HUNK header: # old: <full old line> / # new: <full new line>
+- Keep bundle (2+ consecutive): # keep: "<text>" (line N, cols X-Y)
+- Keep bundle (1): NO comment
+- Delete bundle (any size): # old: "<line before>" / # new: "<line after>"
+- Insert bundle (any size): # old: "<line before>" / # new: "<line after>"
 
-# Read old and new files into arrays (1-indexed)
-declare -a OLD_LINES NEW_LINES
-OLD_LINES[0]=""  # placeholder for 1-indexing
-NEW_LINES[0]=""
+Usage: ad_annotate <oldfile> <newfile> < ops.tsv > annotated_ops.tsv
+"""
+import sys
 
-while IFS= read -r line; do
-    OLD_LINES+=("$line")
-done < "$OLD_FILE"
 
-while IFS= read -r line; do
-    NEW_LINES+=("$line")
-done < "$NEW_FILE"
+def read_lines(filename):
+    with open(filename) as f:
+        content = f.read()
+    return content.split('\n')
 
-# Process stdin
-while IFS= read -r line || [[ -n "$line" ]]; do
-    # Detect HUNK header
-    if [[ "$line" =~ ^HUNK$'\t'([0-9]+)$'\t'([0-9]+)$'\t'([0-9]+) ]]; then
-        target_line="${BASH_REMATCH[1]}"
-        del_count="${BASH_REMATCH[2]}"
-        ins_count="${BASH_REMATCH[3]}"
 
-        # Determine old lines affected
-        old_start=$target_line
-        old_end=$((target_line + del_count - 1))
-        if [[ $del_count -eq 0 ]]; then
-            old_end=$old_start
-            # Pure insert — show the line before the insert point
-            if [[ $old_start -gt 1 ]]; then
-                old_start=$((old_start - 1))
-            fi
-        fi
+def escape(text):
+    return text.replace('\\', '\\\\').replace('\n', '\\n').replace('\t', '\\t')
 
-        # Determine new lines affected
-        # The new file's line numbers differ from old due to prior hunks.
-        # Approximate: new lines start at the same target line, offset by
-        # cumulative (ins - del) from prior hunks. For simplicity, use
-        # the target line and ins_count.
-        new_start=$target_line
-        new_end=$((target_line + ins_count - 1))
-        if [[ $ins_count -eq 0 ]]; then
-            new_end=$new_start
-        fi
 
-        # Build old content
-        old_content=""
-        for ((i = old_start; i <= old_end; i++)); do
-            if [[ $i -ge 1 && $i -lt ${#OLD_LINES[@]} ]]; then
-                if [[ -z "$old_content" ]]; then
-                    old_content="${OLD_LINES[$i]}"
-                else
-                    old_content="$old_content | ${OLD_LINES[$i]}"
-                fi
-            fi
-        done
+def main():
+    old_file = sys.argv[1]
+    new_file = sys.argv[2]
 
-        # Build new content
-        new_content=""
-        for ((i = new_start; i <= new_end; i++)); do
-            if [[ $i -ge 1 && $i -lt ${#NEW_LINES[@]} ]]; then
-                if [[ -z "$new_content" ]]; then
-                    new_content="${NEW_LINES[$i]}"
-                else
-                    new_content="$new_content | ${NEW_LINES[$i]}"
-                fi
-            fi
-        done
+    old_lines = read_lines(old_file)
+    new_lines = read_lines(new_file)
 
-        # Truncate long lines
-        if [[ ${#old_content} -gt 120 ]]; then
-            old_content="${old_content:0:117}..."
-        fi
-        if [[ ${#new_content} -gt 120 ]]; then
-            new_content="${new_content:0:117}..."
-        fi
+    # Read all input lines
+    input_lines = sys.stdin.read().split('\n')
 
-        # Output annotation
-        echo "# old: $old_content"
-        echo "# new: $new_content"
-    fi
+    # Buffer state: dict of line_num (1-indexed) -> list of chars
+    buffer = {}
 
-    echo "$line"
-done
+    # Initialize buffer from old file
+    def init_buffer():
+        nonlocal buffer
+        buffer = {}
+        for i, line in enumerate(old_lines):
+            buffer[i + 1] = list(line)
+
+    init_buffer()
+
+    i = 0
+    while i < len(input_lines):
+        line = input_lines[i]
+
+        # Pass through comments, empty lines, EOF
+        if line.startswith('#') or line == '' or line == 'EOF':
+            print(line)
+            i += 1
+            continue
+
+        # HUNK header
+        if line.startswith('HUNK\t'):
+            parts = line.split('\t')
+            target = int(parts[1]) if len(parts) > 1 else 1
+
+            # Re-init buffer for new hunk
+            init_buffer()
+
+            # Hunk-level annotation: show old/new line content
+            old_content = old_lines[target - 1] if target <= len(old_lines) else ''
+            new_content = new_lines[target - 1] if target <= len(new_lines) else ''
+            print(f'# old: {old_content}')
+            print(f'# new: {new_content}')
+            print(line)
+            i += 1
+            continue
+
+        # HUNK_END, delay, snapshot, etc. — pass through
+        if line.startswith('HUNK_END') or line.startswith('delay') or \
+           line.startswith('snapshot') or line.startswith('highlight') or \
+           line.startswith('dim') or line.startswith('fold') or \
+           line.startswith('sign') or line.startswith('marker') or \
+           line.startswith('glide') or line.startswith('skip_hunk'):
+            print(line)
+            i += 1
+            continue
+
+        # Parse op
+        parts = line.split('\t')
+        if len(parts) < 4:
+            print(line)
+            i += 1
+            continue
+
+        op_type = parts[0]
+        op_line = int(parts[1])
+        op_col = int(parts[2])
+        op_code = int(parts[3])
+
+        # Collect bundle of consecutive same-type ops
+        # For keeps: split on \n (code 10) — it's a line transition
+        # For keeps: split on line number change
+        # For deletes/inserts: split on type change only
+        bundle = [(op_type, op_line, op_col, op_code, line)]
+        j = i + 1
+        while j < len(input_lines):
+            next_line = input_lines[j]
+            if next_line.startswith('#') or next_line == '' or next_line == 'EOF':
+                break
+            if next_line.startswith('HUNK') or next_line.startswith('delay') or \
+               next_line.startswith('snapshot') or next_line.startswith('highlight') or \
+               next_line.startswith('dim') or next_line.startswith('fold') or \
+               next_line.startswith('sign') or next_line.startswith('marker') or \
+               next_line.startswith('glide') or next_line.startswith('skip_hunk'):
+                break
+            next_parts = next_line.split('\t')
+            if len(next_parts) < 4:
+                break
+            next_type = next_parts[0]
+            if next_type != op_type:
+                break
+            next_line_num = int(next_parts[1])
+            next_code = int(next_parts[3])
+            # For keeps: break on \n (line transition) or line number change
+            if op_type == 'keep':
+                if op_code == 10:  # current op is \n keep — end bundle here
+                    break
+                if next_code == 10:  # next op is \n keep — don't include it
+                    break
+                if next_line_num != op_line:  # line changed
+                    break
+            bundle.append((next_type, next_line_num, int(next_parts[2]),
+                          next_code, next_line))
+            j += 1
+
+        # Annotate based on bundle type
+        if op_type == 'keep':
+            if len(bundle) >= 2:
+                first = bundle[0]
+                last = bundle[-1]
+                text = ''.join(chr(b[3]) for b in bundle)
+                print(f'# keep: "{escape(text)}" (line {first[1]}, cols {first[2]}-{last[2]})')
+            # Keeps don't change buffer content — char is already there
+
+        elif op_type == 'delete':
+            line_num = bundle[0][1]
+            before = ''.join(buffer.get(line_num, []))
+
+            # Apply deletes to buffer
+            for b in bundle:
+                _, ln, col, code, _ = b
+                if code == 10:  # \n — join with next line
+                    next_ln = ln + 1
+                    if next_ln in buffer:
+                        buffer[ln].extend(buffer[next_ln])
+                        del buffer[next_ln]
+                else:
+                    if ln in buffer and col - 1 < len(buffer[ln]):
+                        buffer[ln].pop(col - 1)
+
+            after = ''.join(buffer.get(line_num, []))
+            print(f'# old: "{escape(before)}"')
+            print(f'# new: "{escape(after)}"')
+
+        elif op_type in ('insert', 'overwrite_insert'):
+            line_num = bundle[0][1]
+            before = ''.join(buffer.get(line_num, []))
+
+            # Apply inserts to buffer
+            for b in bundle:
+                _, ln, col, code, _ = b
+                if code == 10:  # \n — split line
+                    if ln in buffer:
+                        after_chars = buffer[ln][col - 1:]
+                        buffer[ln] = buffer[ln][:col - 1]
+                        # Shift lines > ln up by 1
+                        new_buf = {}
+                        for k, v in sorted(buffer.items()):
+                            if k <= ln:
+                                new_buf[k] = v
+                            else:
+                                new_buf[k + 1] = v
+                        new_buf[ln + 1] = after_chars
+                        buffer = new_buf
+                else:
+                    if ln not in buffer:
+                        buffer[ln] = []
+                    # Pad if needed
+                    while len(buffer[ln]) < col - 1:
+                        buffer[ln].append('')
+                    buffer[ln].insert(col - 1, chr(code))
+
+            after = ''.join(buffer.get(line_num, []))
+            print(f'# old: "{escape(before)}"')
+            print(f'# new: "{escape(after)}"')
+
+        # Output the ops
+        for b in bundle:
+            print(b[4])
+
+        i = j
+
+    # Output any remaining lines
+    while i < len(input_lines):
+        if input_lines[i]:
+            print(input_lines[i])
+        i += 1
+
+
+if __name__ == '__main__':
+    main()
