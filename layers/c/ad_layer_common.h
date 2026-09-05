@@ -232,13 +232,23 @@ __attribute__((unused)) static int ad_layer_run(
      * update line_offset. */
     #define AD_LAYER_FLUSH_HUNK() do {                                    \
         if (in_hunk && in_count > 0) {                                   \
+            /* Save line_offset before layer func updates it (for the   \
+             * next hunk). The current hunk's target should be shifted  \
+             * by the line_offset as it was BEFORE this hunk's net     \
+             * \n delta. */                                              \
+            int hunk_line_offset = line_offset;                         \
             /* Apply cross-hunk line_offset to all ops */               \
             for (int j = 0; j < in_count; j++)                          \
-                in_ops[j].line += line_offset;                          \
+                in_ops[j].line += hunk_line_offset;                     \
             Op *out_ops = (Op *)malloc((in_count + AD_LAYER_OUTPUT_SLACK) * sizeof(Op)); \
             if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; } \
             int out_count = layer_func(in_ops, in_count, out_ops,       \
                                        in_count + AD_LAYER_OUTPUT_SLACK, &line_offset);  \
+            /* Update HUNK target with the pre-layer line_offset so the \
+             * header matches the shifted ops. The animator uses the    \
+             * HUNK target_line for cross-hunk line remapping, so it    \
+             * must be consistent with the ops' actual line numbers. */ \
+            current_hunk.target += hunk_line_offset;                    \
             ad_layer_write_hunk(&current_hunk);                         \
             for (int i = 0; i < out_count; i++)                         \
                 ad_layer_write_op(&out_ops[i]);                        \

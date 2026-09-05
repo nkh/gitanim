@@ -805,8 +805,16 @@ int main(int argc, char** argv) {
             out << type << "\t" << cur_line << "\t" << cur_col << "\t"
                 << op.code << "\t" << char_repr(op.code) << "\n";
             if (op.code == 10) {
-                cur_line++;
-                cur_col = 1;
+                /* For \n keep/insert: advance to next line (content moves down).
+                 * For \n delete: DON'T advance — the join brings the next
+                 * line's content TO the current line, so subsequent ops
+                 * on the joined content target the SAME line. */
+                if (op.type != OP_DELETE) {
+                    cur_line++;
+                    cur_col = 1;
+                }
+                /* For \n delete: col stays (the join happens AT the cursor,
+                 * and the joined content begins right where the \n was). */
             } else {
                 if (op.type == OP_KEEP || op.type == OP_INSERT)
                     cur_col++;
