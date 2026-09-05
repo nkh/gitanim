@@ -187,6 +187,11 @@ static void buffer_apply_delete(Buffer *buf, int line_1idx, int col_1idx, int co
                 buf->lines[i] = buf->lines[i + 1];
                 buf->line_lens[i] = buf->line_lens[i + 1];
             }
+            /* Clear the now-vacated last slot — its pointer was moved
+             * down, and leaving the stale copy would cause a double-free
+             * in buffer_free(). */
+            buf->lines[buf->n_lines - 1] = NULL;
+            buf->line_lens[buf->n_lines - 1] = 0;
             buf->n_lines--;
         }
     } else {
@@ -239,9 +244,16 @@ static void buffer_apply_insert(Buffer *buf, int line_1idx, int col_1idx, int co
 
         /* Shift lines up to make room for new line */
         if (buf->n_lines >= buf->cap_lines) {
+            int old_cap = buf->cap_lines;
             buf->cap_lines *= 2;
             buf->lines = (int **)realloc(buf->lines, buf->cap_lines * sizeof(int *));
             buf->line_lens = (int *)realloc(buf->line_lens, buf->cap_lines * sizeof(int));
+            /* Initialize new slots to NULL — buffer_free iterates up
+             * to cap_lines and frees non-NULL pointers. */
+            for (int i = old_cap; i < buf->cap_lines; i++) {
+                buf->lines[i] = NULL;
+                buf->line_lens[i] = 0;
+            }
         }
         for (int i = buf->n_lines; i > idx + 1; i--) {
             buf->lines[i] = buf->lines[i - 1];

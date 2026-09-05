@@ -77,6 +77,7 @@ REPLAY_TO="HEAD"
 HELP=0
 VERSION=0
 DRY_RUN=0
+ANNOTATE=0
 SYNC_MODE=0
 WORD_DIFF=0
 STEP_MODE=0
@@ -237,6 +238,8 @@ CORE OPTIONS:
   --git-rev REV..REV (-R)  Animate a git commit range (e.g. HEAD~3..HEAD)
   --version, -V            Print version and exit
   --dry-run (-d)           Print diff hunks without launching vim
+  --annotate               Write annotated ops (# old: / # new: comments) to
+                           /tmp/ad_vim_ops_annotated_<pid>.tsv for inspection
   --step-mode              Space advances one op at a time (starts paused)
   --no-startup-pause       Skip startup delay and messages, start immediately
   --language LANG          Set vim filetype for syntax highlighting (default: auto)
@@ -404,6 +407,7 @@ while [[ $# -gt 0 ]]; do
         --replay|-r)        REPLAY_MODE=1; shift ;;
         --version|-V)       VERSION=1; shift ;;
         --dry-run|-d)       DRY_RUN=1; shift ;;
+        --annotate)         ANNOTATE=1; shift ;;
         --sync)             SYNC_MODE=1; shift ;;
         --word-diff|-w)     WORD_DIFF=1; shift ;;
         --step-mode)        STEP_MODE=1; shift ;;
@@ -550,7 +554,7 @@ while [[ $# -gt 0 ]]; do
                            --diff-stat --diff-highlight --bell --scroll --line-numbers \
                            --progress --verbose --dry-run --word-diff --no-optimize-sequence \
                            --left-to-right --no-left-to-right --output --snapshot --no-display \
-                           --no-vimrc --help --version --preset; do
+                           --no-vimrc --help --version --preset --annotate; do
                              _d=0; _w="${_wrong#--}"; _o="${_opt#--}"
                              _len=${#_w}; _olen=${#_o}
                              if [[ $_olen -gt $_len ]]; then _len=$_olen; fi
@@ -1512,6 +1516,32 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
             TIMED_OPS="$DECORATED_OPS"
         else
             debug_log "Stage 4: skipped (no decoration options)"
+        fi
+
+        # Stage 5: Annotate (add # old: / # new: comments before each hunk)
+        # Only run if --annotate is passed. Writes annotated ops to a
+        # separate file (doesn't affect the animation — the animator
+        # ignores comment lines). The annotated file is saved alongside
+        # the animation for inspection.
+        if [[ "$ANNOTATE" -eq 1 ]]; then
+            ANNOTATE_BIN=""
+            for d in "bin/ad_annotate" \
+                     "/usr/local/bin/ad_annotate"; do
+                if [[ -x "$d" ]]; then ANNOTATE_BIN="$d"; break; fi
+            done
+            if [[ -n "$ANNOTATE_BIN" ]]; then
+                ANNOTATED_OPS="$WORKDIR/annotated_ops.tsv"
+                "$ANNOTATE_BIN" "$OLD" "$NEW" < "$TIMED_OPS" > "$ANNOTATED_OPS" 2>/dev/null || true
+                # Copy to a predictable location for the user to find
+                ANNOTATED_OUTPUT="/tmp/ad_vim_ops_annotated_$$.tsv"
+                cp "$ANNOTATED_OPS" "$ANNOTATED_OUTPUT"
+                echo "ad_vim: annotated ops written to $ANNOTATED_OUTPUT" >&2
+                debug_log "Stage 5: annotate → $ANNOTATED_OUTPUT ($(wc -l < "$ANNOTATED_OUTPUT") lines)"
+                # Use the annotated ops for animation (animator ignores comments)
+                TIMED_OPS="$ANNOTATED_OPS"
+            else
+                echo "ad_vim: --annotate requested but ad_annotate not found. Run 'make tools'." >&2
+            fi
         fi
     else
         echo "ad_vim: pipeline executables not found (need ad_compute, ad_postprocess, ad_layer_pace)" >&2
