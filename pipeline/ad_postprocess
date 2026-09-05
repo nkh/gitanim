@@ -259,7 +259,10 @@ HELP
 done
 
 if [[ ${#LAYER_NAMES[@]} -eq 0 ]]; then
-    die "no layers specified (use --ad-layer=<name>); ad_postprocess has no default chain"
+    # Pass-through: no layers requested, just copy stdin to stdout.
+    # This is the documented default ("No layers run by default" — README).
+    cat
+    exit 0
 fi
 
 # ── Resolve all layers upfront (fail fast) ──────────────────────────────
