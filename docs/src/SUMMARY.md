@@ -30,5 +30,7 @@
 - [Design Docs](../design/README.md)
 - [Layers Reference](../design/LAYERS_REFERENCE.md)
 - [Layers Review](../design/LAYERS_REVIEW.md)
-- [Session Requirements](../design/AD_SESSION_REQUIREMENTS.md)
+- [Developing a Layer](../design/DEVELOPING_A_LAYER.md)
+- [Improvement Proposals](../design/IMPROVEMENT_PROPOSALS.md)
 - [Implementation Audit](../design/IMPLEMENTATION_AUDIT.md)
+- [Session Requirements](../design/AD_SESSION_REQUIREMENTS.md)

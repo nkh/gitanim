@@ -105,6 +105,7 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
     return n_out;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    __argc = argc; __argv = argv;
     return ad_layer_run(layer_line_delete_in_place);
 }

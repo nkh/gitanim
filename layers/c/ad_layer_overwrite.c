@@ -87,6 +87,7 @@ static int layer_overwrite(Op *ops, int n_ops, Op *out, int out_cap, int *line_o
     return out_count;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    __argc = argc; __argv = argv;
     return ad_layer_run(layer_overwrite);
 }

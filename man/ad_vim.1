@@ -706,6 +706,18 @@ Color theme for highlights
 
 .SS "Startup and control"
 .TP
+.B \-\-annotate
+Write annotated ops with
+.B # old:
+and
+.B # new:
+context comments before each hunk to
+.IR /tmp/ad_vim_ops_annotated_<pid>.tsv .
+The comments show the text content before/after each bundle of delete
+or insert ops, making it easier to understand the diff structure
+without watching the full animation. The annotated ops are also used
+for the animation itself (the animator ignores comment lines).
+.TP
 .B \-\-step-mode
 Space advances one op at a time (starts paused)
 .TP

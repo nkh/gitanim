@@ -1,0 +1,39 @@
+.TH AD_DOC_PROVENANCE 1 "2026-09-05" "ad 1.0" "User Commands"
+.SH NAME
+ad_doc_provenance \- print git provenance for a file
+.SH SYNOPSIS
+.B ad_doc_provenance
+.I <file>
+.br
+.B ad_doc_provenance
+.B \-\-help
+.SH DESCRIPTION
+.B ad_doc_provenance
+prints the git provenance for a given file: the commit that created it,
+the commit that last modified it, and the current repository HEAD.
+Useful for adding provenance headers to documentation files.
+.SH OUTPUT
+For each file, prints:
+.TP
+.B File:
+The file path.
+.TP
+.B Created:
+The commit hash, date, and message of the commit that first added the file.
+.TP
+.B Modified:
+The commit hash, date, and message of the commit that last changed the file.
+.TP
+.B HEAD:
+The current repository HEAD commit hash and date.
+.SH EXAMPLES
+.TP
+Check provenance of a README:
+.B ad_doc_provenance README.md
+.SH SEE ALSO
+.BR git (1),
+.BR git-log (1)
+.SH AUTHOR
+Written by the ad contributors.
+.SH COPYRIGHT
+Copyright (c) 2026 ad contributors. MIT License.

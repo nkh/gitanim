@@ -89,6 +89,7 @@ static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line
     return n_out;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    __argc = argc; __argv = argv;
     return ad_layer_run(layer_indent_last);
 }

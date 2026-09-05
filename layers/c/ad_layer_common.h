@@ -25,6 +25,10 @@
 #include <string.h>
 #include <stdarg.h>
 
+/* ── Globals for argv access (--help) ──────────────────────────────── */
+static int __argc = 0;
+static char **__argv = NULL;
+
 /* ── Constants ───────────────────────────────────────────────────────
  *
  * NOTE: C does not have `const` for true compile-time constants usable in
@@ -223,6 +227,20 @@ __attribute__((unused)) static int ad_layer_run(
     Hunk current_hunk = {0};
     int hunk_count = 0;
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
+
+    /* Check for --help / -h in argv */
+    for (int i = 1; i < __argc; i++) {
+        if (strcmp(__argv[i], "--help") == 0 || strcmp(__argv[i], "-h") == 0) {
+            const char *name = __argv[0] ? strrchr(__argv[0], '/') : NULL;
+            name = name ? name + 1 : (__argv[0] ? __argv[0] : "ad_layer");
+            fprintf(stderr, "Usage: %s < ops.tsv > processed.tsv\n", name);
+            fprintf(stderr, "  Reads V2 TSV ops from stdin, applies the layer transform, writes to stdout.\n");
+            fprintf(stderr, "  --help, -h   Show this help and exit.\n");
+            fprintf(stderr, "\n");
+            fprintf(stderr, "See man/%s.1 for full documentation.\n", name);
+            return 0;
+        }
+    }
 
     in_cap = AD_LAYER_INIT_CAPACITY;
     in_ops = (Op *)malloc(in_cap * sizeof(Op));
