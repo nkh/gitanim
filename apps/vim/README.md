@@ -6,7 +6,6 @@ that animates a diff inside vim.
 ## Contents
 
 - `ad_vim` — bash launcher (the main entry point)
-- `ad_vim.pl` — Perl parallel launcher (duplicate functionality; can be deleted)
 - `diffvim` — backward-compat wrapper that exec's `ad_vim` (preserves the old name)
 - `plugin.vim` — vim plugin entry point (defines the `:DiffVim` command)
 - `autoload_diffvim/` — vimscript animation engine (sourced by the launcher)
@@ -14,7 +13,6 @@ that animates a diff inside vim.
 ## Usage
 
     ./apps/vim/ad_vim old.py new.py
-    ./apps/vim/ad_vim old.py new.py   # backward-compat wrapper
 
 ## Configuration
 

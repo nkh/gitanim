@@ -2,12 +2,12 @@
 
 Helper scripts for the ad project.
 
-## Debugging tools
+## Session and inspection tools
 
 | Script          | What it does                                                   |
 | --------------- | -------------------------------------------------------------- |
-| `ad_session`    | Vim-only interactive op debugger (splits, F5/F6, folds, git)   |
-| `ad_tmux_watch` | tmux-based debugging tool (ad_watch + vim in panes)            |
+| `ad_session`    | Vim-only interactive session (splits, F5/F6, folds, git)       |
+| `ad_tmux_watch` | tmux-based session tool (ad_watch + vim in panes)              |
 | `ad_watch`      | Live-preview: displays old, new, diff — auto-refreshes on save |
 | `ad_gen_ops`    | Generates ops from old/new files + layer chain                 |
 | `ad_annotate.c` | C source for the annotation tool (builds to `bin/ad_annotate`) |

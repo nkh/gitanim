@@ -7,9 +7,10 @@ the ops to a buffer, rendering the animation to the terminal or vim.
 ## Contents
 
 - `c/ad.c` — C implementation (built to `bin/ad`)
-- `perl/ad.pl` — Perl fallback (produces identical output)
-- `perl/colorize.pl` — syntax highlighting helper for the animator
-- `tests/` — animator-specific tests (most tests live in `tests/`)
+- `perl/ad.pl` — Perl fallback (same op-stream contract; note: the Perl
+  animator does NOT yet have line-shift tracking for \n delete/insert,
+  so it may produce incorrect output for diffs that join or split lines.
+  The C animator is the default and handles these cases correctly.)
 
 ## Binary
 

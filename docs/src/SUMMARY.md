@@ -16,14 +16,11 @@
 - [Manpages](./manpages.md)
 - [Shell Completions](./completion.md)
 
-# Debugging
-- [Debugging Tools](./debugging.md)
-
-# Testing
-- [Testing](./testing.md)
-
 # Git Integration
-- [Git Integration](./git-integration.md)
+- [Git Workflows](./git-integration.md)
+
+# Tooling
+- [Session Inspector](./debugging.md)
 
 # Development
 - [Contributing](./contributing.md)
@@ -34,3 +31,4 @@
 - [Layers Reference](../design/LAYERS_REFERENCE.md)
 - [Layers Review](../design/LAYERS_REVIEW.md)
 - [Session Requirements](../design/AD_SESSION_REQUIREMENTS.md)
+- [Implementation Audit](../design/IMPLEMENTATION_AUDIT.md)
