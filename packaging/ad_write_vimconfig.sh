@@ -124,6 +124,7 @@ ad_write_vimconfig() {
         _ad_vstr snapshot_file "${SNAPSHOT_FILE:-}"
         _ad_vbool keep_dirty   "${KEEP_DIRTY:-0}"
         _ad_vstr timed_ops_file "${TIMED_OPS:-}"
+        _ad_vbool sync_mode    "${SYNC_MODE:-0}"
 
         # ── Misc ────────────────────────────────────────────────────
         _ad_vstr theme       "${THEME:-}"

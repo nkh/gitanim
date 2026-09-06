@@ -872,6 +872,7 @@ AD_MAX_HUNK_CHARS="$MAX_HUNK_CHARS"
 # MAX_WORD_CHARS is exported after --insert-pacing resolution (below)
 AD_OUTPUT="$OUTPUT_FILE"
 AD_SYNC="$SYNC_MODE"
+export AD_SYNC
 AD_CONTEXT="$CONTEXT_LINES"
 AD_WORD_DIFF="$([[ $WORD_DIFF -eq 1 ]] && echo 1 || echo '')"
 AD_STEP_MODE="$([[ $STEP_MODE -eq 1 ]] && echo 1 || echo '')"
@@ -1727,6 +1728,21 @@ let s:cur_l = 1
 let s:cur_c = 1
 let s:timed_stopped = 0
 let s:timed_speed = 1.0
+
+" Line-shift tracking (same logic as C animator — see animator/c/ad.c)
+" The op stream references line numbers in the ORIGINAL old file. As the
+" animator processes \n deletes (joins) and \n inserts (splits), the
+" buffer's actual line count diverges. We track:
+"   s:line_shift — running cumulative delta (+1 per \n insert, -1 per \n del)
+"   s:line_shift_at_hunk_start — frozen at HUNK header, used for within-hunk ops
+"   s:join_col_shift — dict: {op_line: col_offset} for lines joined in prior hunks
+"   s:hunk_first_op_pending — 1 until first op of hunk consumed (for col_offset)
+"   s:ops_pre_shifted — 1 if a layer already shifted op positions
+let s:line_shift = 0
+let s:line_shift_at_hunk_start = 0
+let s:join_col_shift = {}
+let s:hunk_first_op_pending = 0
+let s:ops_pre_shifted = 0
 " Read speed from AD_SPEED env var (set by --speed flag)
 if exists('$AD_SPEED') && !empty($AD_SPEED)
     let s:timed_speed = str2float($AD_SPEED)
@@ -1784,6 +1800,16 @@ endfunction
 function! s:LoadTimedOps() abort
     let s:timed_ops = readfile(s:timed_ops_file)
     let s:timed_idx = 0
+    " Detect if ops were pre-shifted by a layer (post-processed or timed)
+    " If so, the animator skips its own line_shift remapping.
+    let s:ops_pre_shifted = 0
+    for l:line in s:timed_ops[:10]  " check first 10 lines for header
+        if l:line =~# 'post-processed' || l:line =~# 'timed ops'
+            let s:ops_pre_shifted = 1
+            break
+        endif
+        if l:line =~# '^HUNK' | break | endif
+    endfor
 endfunction
 
 function! s:TimedPlaceCursor() abort
@@ -1817,8 +1843,21 @@ function! s:TimedPlaceCursor() abort
 endfunction
 
 function! s:TimedSetCursor(line, col) abort
-    let s:cur_l = a:line
-    let s:cur_c = a:col
+    " Apply line_shift_at_hunk_start (frozen at HUNK header).
+    " Skip if ops_pre_shifted (layer already shifted positions).
+    let l:eff_line = a:line
+    let l:eff_col = a:col
+    if !s:ops_pre_shifted
+        let l:eff_line = a:line + s:line_shift_at_hunk_start
+        " Col offset only for first op of hunk (if line was joined in prior hunk)
+        if s:hunk_first_op_pending && has_key(s:join_col_shift, a:line)
+            let l:eff_col = a:col + s:join_col_shift[a:line]
+        endif
+    endif
+    let s:hunk_first_op_pending = 0
+
+    let s:cur_l = l:eff_line
+    let s:cur_c = l:eff_col
     if s:cur_l < 1 | let s:cur_l = 1 | endif
     if s:cur_l > line('$')
         let s:cur_l = line('$')
@@ -1916,20 +1955,50 @@ function! s:TimedProcessBatch() abort
             " keep ops don't render
 
         elseif l:cmd ==# 'delete' && len(l:parts) >= 4
-            " For \n deletes (code 10), DON'T move the visual cursor —
-            " the join happens at the internal cursor, but the displayed
-            " cursor stays where the previous content op left it. This
-            " prevents the cursor from jumping UP to the preserved line
-            " above during \n deletes."
             let l:del_code = str2nr(l:parts[3])
-            if l:del_code != 10
-                call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+            let l:op_line = str2nr(l:parts[1])
+            let l:op_col = str2nr(l:parts[2])
+            if l:del_code == 10
+                " \n delete: join line L and L+1.
+                " Use line_shift_at_hunk_start for cursor positioning.
+                " Update line_shift and join_col_shift for subsequent hunks.
+                if !s:ops_pre_shifted
+                    let l:eff_line = l:op_line + s:line_shift_at_hunk_start
+                    let l:col_offset = 0
+                    if s:hunk_first_op_pending && has_key(s:join_col_shift, l:op_line)
+                        let l:col_offset = s:join_col_shift[l:op_line]
+                    endif
+                    let s:cur_l = l:eff_line
+                    let s:cur_c = l:op_col + l:col_offset
+                    " Clamp
+                    if s:cur_l < 1 | let s:cur_l = 1 | endif
+                    if s:cur_l > line('$') | let s:cur_l = line('$') | endif
+                    let l:max_col = strchars(getline(s:cur_l)) + 1
+                    if s:cur_c > l:max_col | let s:cur_c = l:max_col | endif
+                    if s:cur_c < 1 | let s:cur_c = 1 | endif
+                    " Record col offset for ops targeting op_line+1
+                    if s:cur_l < line('$')
+                        let s:join_col_shift[l:op_line] = get(s:join_col_shift, l:op_line, 0) + (s:cur_c - 1)
+                        let s:line_shift -= 1
+                    endif
+                else
+                    let s:cur_l = l:op_line
+                    let s:cur_c = l:op_col
+                endif
+                let s:hunk_first_op_pending = 0
+                call s:TimedDeleteChar(l:del_code)
+            else
+                call s:TimedSetCursor(l:op_line, l:op_col)
+                call s:TimedDeleteChar(l:del_code)
             endif
-            call s:TimedDeleteChar(l:del_code)
 
         elseif l:cmd ==# 'insert' && len(l:parts) >= 4
             call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
             call s:TimedInsertChar(str2nr(l:parts[3]))
+            " \n insert: line_shift += 1 (for next hunk's target_line)
+            if str2nr(l:parts[3]) == 10 && !s:ops_pre_shifted
+                let s:line_shift += 1
+            endif
 
         elseif l:cmd ==# 'delay' && len(l:parts) >= 3
             " delay\t<ms>\t<type> — render now, then return delay
@@ -1943,7 +2012,12 @@ function! s:TimedProcessBatch() abort
             return l:ms
 
         elseif l:cmd ==# 'HUNK' || l:cmd ==# 'HUNK_END'
-            " metadata — skip
+            " metadata — track hunk boundaries for line-shift tracking
+            if l:cmd ==# 'HUNK'
+                " Snapshot cumulative line_shift for this hunk's ops
+                let s:line_shift_at_hunk_start = s:line_shift
+                let s:hunk_first_op_pending = 1
+            endif
 
         elseif l:cmd ==# 'highlight' && len(l:parts) >= 7
             " highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur>
@@ -2162,11 +2236,24 @@ function! s:StartTimedAnimation() abort
     endif
 
     " --sync mode: run without timers (for testing/headless use)
+    " Check both env var and config file (config file is more reliable)
+    let s:sync_mode = 0
     if exists('$AD_SYNC') && !empty($AD_SYNC) && $AD_SYNC !=# '0'
+        let s:sync_mode = 1
+    endif
+    if exists('g:ad_sync_mode') && g:ad_sync_mode
+        let s:sync_mode = 1
+    endif
+    if s:sync_mode
         let s:timed_speed = 1000000.0
+        let l:sync_iter = 0
         while 1
             let l:delay = s:TimedProcessBatch()
+            let l:sync_iter += 1
             if l:delay == -1
+                break
+            endif
+            if l:sync_iter > 100000
                 break
             endif
         endwhile
@@ -2251,20 +2338,46 @@ ${VIM_RUNTIME:+let &runtimepath = '$VIM_RUNTIME'}
 syntax enable
 MINIRC
 
-    exec vim -f -n -u "$MINI_VIMRC" -U NONE \
+    # Keep stdin open with a FIFO so vim's event loop stays alive for
+    # timer-based animation. Without this, vim exits immediately on EOF
+    # when stdin is /dev/null or a pipe (headless/CI environments).
+    # The FIFO writer (sleep) keeps the read end from seeing EOF.
+    STDIN_FIFO="$WORKDIR/stdin_fifo"
+    mkfifo "$STDIN_FIFO"
+    sleep 99999 > "$STDIN_FIFO" &
+    FIFO_WRITER_PID=$!
+    trap "kill $FIFO_WRITER_PID 2>/dev/null; rm -f '$STDIN_FIFO'" EXIT
+
+    vim --not-a-term -f -n -u "$MINI_VIMRC" -U NONE \
         "$OLD" \
         -c "let g:diffvim_new_file = '$NEW'" \
         -c "let g:ad_config_file = '$VIMCONFIG'" \
         -c "source $VIMSCRIPT" \
-        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
+        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"} \
+        < "$STDIN_FIFO"
+    VIM_EXIT=$?
+    kill $FIFO_WRITER_PID 2>/dev/null
+    rm -f "$STDIN_FIFO"
+    exit $VIM_EXIT
 else
     # Default: load the user's vimrc (~/.vimrc or $MYVIMRC).
-    exec vim -f -n -U NONE \
+    STDIN_FIFO="$WORKDIR/stdin_fifo"
+    mkfifo "$STDIN_FIFO"
+    sleep 99999 > "$STDIN_FIFO" &
+    FIFO_WRITER_PID=$!
+    trap "kill $FIFO_WRITER_PID 2>/dev/null; rm -f '$STDIN_FIFO'" EXIT
+
+    vim --not-a-term -f -n -U NONE \
         "$OLD" \
         -c "set nomore noswapfile shortmess+=A" \
         -c "syntax enable" \
         -c "let g:diffvim_new_file = '$NEW'" \
         -c "let g:ad_config_file = '$VIMCONFIG'" \
         -c "source $VIMSCRIPT" \
-        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
+        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"} \
+        < "$STDIN_FIFO"
+    VIM_EXIT=$?
+    kill $FIFO_WRITER_PID 2>/dev/null
+    rm -f "$STDIN_FIFO"
+    exit $VIM_EXIT
 fi
