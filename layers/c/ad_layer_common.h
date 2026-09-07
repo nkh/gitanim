@@ -57,10 +57,12 @@ static char **__argv = NULL;
 /* ── Op struct ─────────────────────────────────────────────────────── */
 
 typedef struct {
-    char type[AD_LAYER_TYPE_LEN];  /* "keep", "delete", "insert", "overwrite_insert" */
+    char type[AD_LAYER_TYPE_LEN];  /* "keep", "delete", "insert", "overwrite_insert",
+                                    * "delete_line", "insert_line", "delay", etc. */
     int  code;               /* char code (10=\n, 32=space, 9=tab, etc.) */
     int  line;               /* 1-indexed line number */
     int  col;                /* 1-indexed column number */
+    char *text;              /* text for insert_line ops (NULL otherwise) */
 } Op;
 
 /* ── Hunk struct ───────────────────────────────────────────────────── */
@@ -95,6 +97,7 @@ static const char *ad_layer_char_repr(int code) {
 /* ── TSV Parsing ──────────────────────────────────────────────────── */
 
 static int ad_layer_parse_op(const char *line, Op *op) {
+    op->text = NULL;  /* default: no text */
     char type[AD_LAYER_TYPE_LEN];
     int l, c, code;
     int n = sscanf(line, "%19s\t%d\t%d\t%d", type, &l, &c, &code);
@@ -106,6 +109,36 @@ static int ad_layer_parse_op(const char *line, Op *op) {
         op->line = l;
         op->col = c;
         op->code = code;
+        return 1;
+    }
+    /* Try insert_line format: insert_line\t<line>\t<text> */
+    if (sscanf(line, "%19s\t%d", type, &l) >= 2 &&
+        strcmp(type, "insert_line") == 0) {
+        strcpy(op->type, "insert_line");
+        op->line = l;
+        op->col = 0;
+        op->code = 0;
+        /* Extract text (everything after the second tab) */
+        const char *p = line;
+        int tab_count = 0;
+        while (*p && tab_count < 2) {
+            if (*p == '\t') tab_count++;
+            p++;
+        }
+        if (*p) {
+            op->text = strdup(p);
+        } else {
+            op->text = strdup("");
+        }
+        return 1;
+    }
+    /* Try delete_line format: delete_line\t<line> */
+    if (sscanf(line, "%19s\t%d", type, &l) >= 2 &&
+        strcmp(type, "delete_line") == 0) {
+        strcpy(op->type, "delete_line");
+        op->line = l;
+        op->col = 0;
+        op->code = 0;
         return 1;
     }
     return 0;
@@ -140,8 +173,18 @@ __attribute__((unused)) static int ad_layer_parse_tsv(char *line, char *toks[], 
 /* ── TSV Writing ──────────────────────────────────────────────────── */
 
 static void ad_layer_write_op(Op *op) {
-    printf("%s\t%d\t%d\t%d\t%s\n", op->type, op->line, op->col,
-           op->code, ad_layer_char_repr(op->code));
+    if (strcmp(op->type, "insert_line") == 0) {
+        /* insert_line\t<line>\t<text> */
+        printf("%s\t%d\t%s\n", op->type, op->line,
+               op->text ? op->text : "");
+    } else if (strcmp(op->type, "delete_line") == 0) {
+        /* delete_line\t<line> */
+        printf("%s\t%d\n", op->type, op->line);
+    } else {
+        /* Standard format: type\tline\tcol\tcode\tchar_repr */
+        printf("%s\t%d\t%d\t%d\t%s\n", op->type, op->line, op->col,
+               op->code, ad_layer_char_repr(op->code));
+    }
 }
 
 static void ad_layer_write_hunk(Hunk *h) {

@@ -1012,6 +1012,70 @@ int main(int argc, char **argv) {
                 disp_c = 0;
                 render();
             }
+        } else if (strcmp(cmd, "delete_line") == 0 && ntok >= 2) {
+            /* delete_line\t<L> — remove line L from the buffer (atomic).
+             * Used by ad_layer_line_replace for whole-line replacement.
+             * Applies line_shift remapping like other ops. */
+            int op_line = atoi(toks[1]);
+            int eff_line_1idx = ops_pre_shifted ? op_line : (op_line + line_shift_at_hunk_start);
+            int target_l = eff_line_1idx - 1;
+            if (target_l < 0) target_l = 0;
+            if (target_l >= n_lines) target_l = n_lines - 1;
+            /* Remove the line at target_l */
+            if (target_l < n_lines - 1) {
+                free(lines[target_l]);
+                for (int i = target_l; i < n_lines - 1; i++)
+                    lines[i] = lines[i + 1];
+                n_lines--;
+                line_shift -= 1;
+            } else {
+                /* Last (or only) line — clear it */
+                free(lines[target_l]);
+                lines[target_l] = strdup("");
+                if (n_lines > 1) {
+                    n_lines--;
+                    line_shift -= 1;
+                }
+            }
+            cursor_l = target_l;
+            if (cursor_l >= n_lines) cursor_l = n_lines - 1;
+            cursor_c = 0;
+            disp_l = cursor_l;
+            disp_c = 0;
+            mark_modified(cursor_l);
+            render();
+        } else if (strcmp(cmd, "insert_line") == 0 && ntok >= 3) {
+            /* insert_line\t<L>\t<text> — insert a new line at L with text.
+             * Text is the 3rd+ tab-separated field (may contain tabs).
+             * Used by ad_layer_line_replace for whole-line replacement. */
+            int op_line = atoi(toks[1]);
+            int eff_line_1idx = ops_pre_shifted ? op_line : (op_line + line_shift_at_hunk_start);
+            int target_l = eff_line_1idx - 1;
+            if (target_l < 0) target_l = 0;
+            if (target_l > n_lines) target_l = n_lines;
+            /* Reconstruct text from remaining tokens (join with tab) */
+            char text[MAX_LINE_LEN];
+            text[0] = 0;
+            if (ntok > 2) {
+                strcpy(text, toks[2]);
+                for (int ti = 3; ti < ntok; ti++) {
+                    strncat(text, "\t", sizeof(text) - strlen(text) - 1);
+                    strncat(text, toks[ti], sizeof(text) - strlen(text) - 1);
+                }
+            }
+            /* Insert a new line at target_l */
+            ensure_lines_capacity(n_lines + 1);
+            for (int i = n_lines; i > target_l; i--)
+                lines[i] = lines[i - 1];
+            lines[target_l] = strdup(text);
+            n_lines++;
+            line_shift += 1;
+            cursor_l = target_l;
+            cursor_c = 0;
+            disp_l = cursor_l;
+            disp_c = 0;
+            mark_modified(cursor_l);
+            render();
         } else if (strcmp(cmd, "snapshot") == 0 && ntok >= 2) {
             buffer_write(toks[1]);
         } else if (strcmp(cmd, "done") == 0 || strcmp(cmd, "EOF") == 0) {

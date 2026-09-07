@@ -2100,6 +2100,51 @@ function! s:TimedProcessBatch() abort
                 execute 'w! ' . g:diffvim.output_file
             endif
 
+        elseif l:cmd ==# 'delete_line' && len(l:parts) >= 2
+            " delete_line\t<L> — remove line L atomically
+            let l:op_line = str2nr(l:parts[1])
+            let l:eff_line = l:op_line
+            if !s:ops_pre_shifted
+                let l:eff_line = l:op_line + s:line_shift_at_hunk_start
+            endif
+            let s:hunk_first_op_pending = 0
+            if l:eff_line >= 1 && l:eff_line <= line('$')
+                execute l:eff_line . 'delete _'
+                if !s:ops_pre_shifted
+                    let s:line_shift -= 1
+                endif
+            endif
+            let s:cur_l = l:eff_line
+            if s:cur_l > line('$') | let s:cur_l = line('$') | endif
+            let s:cur_c = 1
+            let s:needs_redraw = 1
+
+        elseif l:cmd ==# 'insert_line' && len(l:parts) >= 3
+            " insert_line\t<L>\t<text> — insert new line L with text
+            let l:op_line = str2nr(l:parts[1])
+            let l:eff_line = l:op_line
+            if !s:ops_pre_shifted
+                let l:eff_line = l:op_line + s:line_shift_at_hunk_start
+            endif
+            let s:hunk_first_op_pending = 0
+            " Reconstruct text from parts[2:] (may contain tabs)
+            let l:text = join(l:parts[2:], "\t")
+            " Insert at eff_line (1-indexed). append() inserts AFTER line N,
+            " so use eff_line-1 to insert BEFORE.
+            if l:eff_line <= 1
+                call append(0, l:text)
+            elseif l:eff_line <= line('$') + 1
+                call append(l:eff_line - 1, l:text)
+            else
+                call append(line('$'), l:text)
+            endif
+            if !s:ops_pre_shifted
+                let s:line_shift += 1
+            endif
+            let s:cur_l = l:eff_line
+            let s:cur_c = 1
+            let s:needs_redraw = 1
+
         elseif l:cmd ==# 'done' || l:cmd ==# 'EOF'
             let s:timed_stopped = 1
             if s:needs_redraw

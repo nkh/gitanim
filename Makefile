@@ -59,7 +59,8 @@ LAYER_BINS := \
     bin/ad_layer_line_delete_in_place \
     bin/ad_layer_skip_indent \
     bin/ad_layer_pace \
-    bin/ad_layer_highlight
+    bin/ad_layer_highlight \
+    bin/ad_layer_line_replace
 
 ALL_BINS := $(COMPUTE_BIN) $(ANIMATOR_BIN) $(LAYER_BINS)
 
@@ -102,6 +103,8 @@ bin/ad_layer_skip_indent: layers/c/ad_layer_skip_indent.c
 bin/ad_layer_pace: layers/c/ad_layer_pace.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 bin/ad_layer_highlight: layers/c/ad_layer_highlight.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_line_replace: layers/c/ad_layer_line_replace.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 
 # --- Tools (C binaries) -----------------------------------------------
@@ -183,10 +186,10 @@ docs:
 # Per-layer test files. Each layer bin depends on its test, and each
 # test target rebuilds the layer bin if needed.
 .PHONY: test test-layers test-unit test-minimal test-l2r test-property \
-        test-examples test-indent-last test-pipeline-options \
-        test-layers-discovery \
-        test-layer-reorder test-layer-overwrite test-layer-indent-last \
-        test-layer-line_delete_in_place test-layer-pace test-layer-highlight
+	test-examples test-indent-last test-pipeline-options \
+	test-layers-discovery \
+	test-layer-reorder test-layer-overwrite test-layer-indent-last \
+	test-layer-line_delete_in_place test-layer-pace test-layer-highlight
 
 test: test-layers test-unit test-minimal test-l2r test-property test-fuzz test-indent-last test-pipeline-options test-layers-discovery
 	@echo ""
