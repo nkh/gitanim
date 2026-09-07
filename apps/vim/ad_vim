@@ -2338,46 +2338,66 @@ ${VIM_RUNTIME:+let &runtimepath = '$VIM_RUNTIME'}
 syntax enable
 MINIRC
 
-    # Keep stdin open with a FIFO so vim's event loop stays alive for
-    # timer-based animation. Without this, vim exits immediately on EOF
-    # when stdin is /dev/null or a pipe (headless/CI environments).
-    # The FIFO writer (sleep) keeps the read end from seeing EOF.
-    STDIN_FIFO="$WORKDIR/stdin_fifo"
-    mkfifo "$STDIN_FIFO"
-    sleep 99999 > "$STDIN_FIFO" &
-    FIFO_WRITER_PID=$!
-    trap "kill $FIFO_WRITER_PID 2>/dev/null; rm -f '$STDIN_FIFO'" EXIT
-
-    vim --not-a-term -f -n -u "$MINI_VIMRC" -U NONE \
-        "$OLD" \
-        -c "let g:diffvim_new_file = '$NEW'" \
-        -c "let g:ad_config_file = '$VIMCONFIG'" \
-        -c "source $VIMSCRIPT" \
-        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"} \
-        < "$STDIN_FIFO"
-    VIM_EXIT=$?
-    kill $FIFO_WRITER_PID 2>/dev/null
-    rm -f "$STDIN_FIFO"
-    exit $VIM_EXIT
+    VIM_ARGS=(--not-a-term -f -n -u "$MINI_VIMRC" -U NONE)
 else
-    # Default: load the user's vimrc (~/.vimrc or $MYVIMRC).
+    VIM_ARGS=(--not-a-term -f -n -U NONE)
+fi
+
+# Check if stdin is a TTY. If yes, let vim read from the real terminal
+# (interactive mode — user needs keystrokes to save/quit after animation).
+# If no (headless/CI/pipe), use a FIFO to keep stdin open so vim's event
+# loop stays alive for timer-based animation.
+STDIN_REDIRECT=""
+FIFO_WRITER_PID=""
+if [[ ! -t 0 ]]; then
     STDIN_FIFO="$WORKDIR/stdin_fifo"
     mkfifo "$STDIN_FIFO"
     sleep 99999 > "$STDIN_FIFO" &
     FIFO_WRITER_PID=$!
     trap "kill $FIFO_WRITER_PID 2>/dev/null; rm -f '$STDIN_FIFO'" EXIT
-
-    vim --not-a-term -f -n -U NONE \
-        "$OLD" \
-        -c "set nomore noswapfile shortmess+=A" \
-        -c "syntax enable" \
-        -c "let g:diffvim_new_file = '$NEW'" \
-        -c "let g:ad_config_file = '$VIMCONFIG'" \
-        -c "source $VIMSCRIPT" \
-        ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"} \
-        < "$STDIN_FIFO"
-    VIM_EXIT=$?
-    kill $FIFO_WRITER_PID 2>/dev/null
-    rm -f "$STDIN_FIFO"
-    exit $VIM_EXIT
+    STDIN_REDIRECT="< $STDIN_FIFO"
 fi
+
+if [[ $NO_VIMRC -eq 1 ]]; then
+    if [[ -n "$STDIN_REDIRECT" ]]; then
+        vim "${VIM_ARGS[@]}" \
+            "$OLD" \
+            -c "let g:diffvim_new_file = '$NEW'" \
+            -c "let g:ad_config_file = '$VIMCONFIG'" \
+            -c "source $VIMSCRIPT" \
+            ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"} \
+            < "$STDIN_FIFO"
+    else
+        vim "${VIM_ARGS[@]}" \
+            "$OLD" \
+            -c "let g:diffvim_new_file = '$NEW'" \
+            -c "let g:ad_config_file = '$VIMCONFIG'" \
+            -c "source $VIMSCRIPT" \
+            ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
+    fi
+else
+    if [[ -n "$STDIN_REDIRECT" ]]; then
+        vim "${VIM_ARGS[@]}" \
+            -c "set nomore noswapfile shortmess+=A" \
+            -c "syntax enable" \
+            "$OLD" \
+            -c "let g:diffvim_new_file = '$NEW'" \
+            -c "let g:ad_config_file = '$VIMCONFIG'" \
+            -c "source $VIMSCRIPT" \
+            ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"} \
+            < "$STDIN_FIFO"
+    else
+        vim "${VIM_ARGS[@]}" \
+            -c "set nomore noswapfile shortmess+=A" \
+            -c "syntax enable" \
+            "$OLD" \
+            -c "let g:diffvim_new_file = '$NEW'" \
+            -c "let g:ad_config_file = '$VIMCONFIG'" \
+            -c "source $VIMSCRIPT" \
+            ${FILE_PAIRS_VIM:+-c "$FILE_PAIRS_VIM"}
+    fi
+fi
+VIM_EXIT=$?
+[[ -n "$FIFO_WRITER_PID" ]] && kill "$FIFO_WRITER_PID" 2>/dev/null
+rm -f "$WORKDIR/stdin_fifo" 2>/dev/null
+exit $VIM_EXIT
