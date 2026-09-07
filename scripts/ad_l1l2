@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# ad_l1l2 — Find L1 (last good line) and L2 (first bad line) by applying
+# ops to the old file and comparing against the new file line-by-line.
+#
+# Usage:
+#   ad_l1l2 <oldfile> <newfile> <opsfile>
+#
+# Output (to stdout):
+#   L1=<last good line> (0 if first line is already bad)
+#   L2=<first bad line> (0 if all lines match)
+#   L_TOTAL=<total lines in new file>
+#
+# If the buffer matches the new file completely, L2=0 and L1=L_TOTAL.
+#
+# The script runs the C animator in headless mode to produce a snapshot,
+# then compares line-by-line.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [[ $# -lt 3 ]]; then
+    echo "Usage: ad_l1l2 <oldfile> <newfile> <opsfile>" >&2
+    exit 1
+fi
+
+OLD="$1"
+NEW="$2"
+OPS="$3"
+
+# Run the animator in headless mode to produce a snapshot
+SNAP=$(mktemp)
+trap "rm -f '$SNAP'" EXIT
+
+"$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$SNAP" "$OLD" < "$OPS" 2>/dev/null | cat -v > /dev/null  # discard stdout
+
+# Compare line-by-line
+# L1 = last line where snap matches new (0 if line 1 differs)
+# L2 = first line where snap differs from new (0 if all match)
+L1=0
+L2=0
+L_TOTAL=$(wc -l < "$NEW" 2>/dev/null || echo 0)
+S_TOTAL=$(wc -l < "$SNAP" 2>/dev/null || echo 0)
+
+# Use the larger of the two line counts
+[[ $S_TOTAL -gt $L_TOTAL ]] && L_TOTAL=$S_TOTAL
+
+i=0
+while [[ $i -lt $L_TOTAL ]]; do
+    i=$((i + 1))
+    new_line=$(sed -n "${i}p" "$NEW" 2>/dev/null || echo "")
+    snap_line=$(sed -n "${i}p" "$SNAP" 2>/dev/null || echo "")
+    if [[ "$new_line" == "$snap_line" ]]; then
+        L1=$i
+    else
+        L2=$i
+        break
+    fi
+done
+
+# If we reached the end without finding a difference
+if [[ $L2 -eq 0 ]]; then
+    L1=$L_TOTAL
+fi
+
+# Output (clean, no ANSI codes)
+printf 'L1=%d\nL2=%d\nL_TOTAL=%d\n' "$L1" "$L2" "$L_TOTAL"

@@ -415,6 +415,190 @@ function! s:AdToggleAnnotate()
     let s:ad_auto_gen = 0
 endfunction
 
+" --- L1/L2 check (bisect) ---
+" L1 = last line where old+ops matches new
+" L2 = first line where old+ops differs from new
+" Run automatically on session start and on ops.tsv save.
+
+let s:l1 = 0
+let s:l2 = 0
+let s:l_total = 0
+let s:fold_identical = 0
+
+function! s:AdL1L2()
+    " Save ops buffer if modified
+    let l:ops_buf = bufnr(s:ops_file)
+    if l:ops_buf != -1 && getbufvar(l:ops_buf, '&modified')
+        call s:AdGoToOps()
+        write
+    endif
+
+    " Run the L1/L2 check script
+    " Look for ad_l1l2 relative to the animator binary
+    let l:script = ''
+    for l:candidate in [
+        \ fnamemodify(s:animator, ':p:h') . '/../scripts/ad_l1l2',
+        \ fnamemodify(s:animator, ':p:h') . '/ad_l1l2',
+        \ 'ad_l1l2'
+        \ ]
+        if executable(l:candidate)
+            let l:script = l:candidate
+            break
+        endif
+    endfor
+    if l:script ==# ''
+        echoerr 'ad_l1l2 script not found'
+        return
+    endif
+    " Use absolute paths for the L1/L2 script
+    let l:old_abs = fnamemodify(s:old_file, ':p')
+    let l:new_abs = fnamemodify(s:new_file, ':p')
+    let l:ops_abs = fnamemodify(s:ops_file, ':p')
+    let l:cmd = l:script . ' ' . l:old_abs . ' ' . l:new_abs . ' ' . l:ops_abs
+    let l:output = system(l:cmd)
+
+    " Parse output — handle both newline-separated and space-separated
+    let l:output_clean = substitute(l:output, '\s\+', '\n', 'g')
+    for l:line in split(l:output_clean, "\n")
+        let l:line = trim(l:line)
+        if l:line =~# '^L1='
+            let s:l1 = str2nr(substitute(l:line, '^L1=', '', ''))
+        elseif l:line =~# '^L2='
+            let s:l2 = str2nr(substitute(l:line, '^L2=', '', ''))
+        elseif l:line =~# '^L_TOTAL='
+            let s:l_total = str2nr(substitute(l:line, '^L_TOTAL=', '', ''))
+        endif
+    endfor
+
+    " Update status line
+    if s:l2 == 0
+        echo 'L1/L2: ALL OK (' . s:l1 . '/' . s:l_total . ' lines match)'
+    else
+        echohl WarningMsg
+        echo 'L1/L2: OK 1-' . s:l1 . ', BAD at ' . s:l2 . ' (total ' . s:l_total . ')'
+        echohl None
+    endif
+
+    " Update result buffer — run animator if result is empty
+    let l:result_buf = bufnr(s:result_file)
+    if l:result_buf != -1
+        " Check if result file is empty or doesn't exist
+        if !filereadable(s:result_file) || getfsize(s:result_file) == 0
+            " Run animator to produce initial snapshot
+            let l:cmd = s:animator . ' --no-display --speed 1000 --snapshot ' . s:result_file . ' ' . s:old_file . ' < ' . s:ops_file
+            call system(l:cmd)
+        endif
+        call s:AdGoToResult()
+        setlocal modifiable noreadonly
+        edit!
+        setlocal nomodifiable readonly
+        diffupdate
+    endif
+    call s:AdGoToOps()
+
+    " Re-apply folds if fold-identical is active
+    if s:fold_identical
+        call s:AdFoldIdentical()
+    endif
+endfunction
+
+" <leader>b: Manual L1/L2 re-run (also runs on save)
+command! AdBisect call s:AdL1L2()
+nnoremap <leader>b :call <SID>AdL1L2()<CR>
+
+" Auto-run L1/L2 on ops.tsv save
+augroup AdL1L2
+    autocmd!
+    autocmd BufWritePost <buffer> call s:AdL1L2()
+augroup END
+
+" --- Fold identical lines ---
+" <leader>f: Fold lines in the result buffer that match the old file
+" (i.e., lines that no op touched). Shows "— N lines identical —".
+
+command! AdFoldIdentical call s:AdFoldIdentical()
+nnoremap <leader>f :call <SID>AdFoldIdentical()<CR>
+
+function! s:AdFoldIdentical()
+    let s:fold_identical = !s:fold_identical
+    if !s:fold_identical
+        " Unfold everything
+        call s:AdGoToResult()
+        normal! zR
+        call s:AdGoToOps()
+        echo 'Fold identical: OFF'
+        return
+    endif
+
+    " Run L1/L2 first to get current state
+    call s:AdL1L2()
+
+    " Fold lines 1..L1 in the result buffer (they match the new file)
+    if s:l1 > 0
+        call s:AdGoToResult()
+        setlocal foldmethod=manual
+        if s:l1 >= 2
+            execute '1,' . (s:l1) . 'fold'
+        endif
+        call s:AdGoToOps()
+    endif
+    echo 'Fold identical: ON (folded lines 1-' . s:l1 . ')'
+endfunction
+
+" --- Trim command ---
+" <leader>t: Create trimmed files (old, new, ops) starting from L2.
+" Prompts for a filename prefix. Files are saved in the session directory.
+
+command! AdTrim call s:AdTrim()
+nnoremap <leader>t :call <SID>AdTrim()<CR>
+
+function! s:AdTrim()
+    " Run L1/L2 first to get current state
+    call s:AdL1L2()
+
+    if s:l2 == 0
+        echo 'Nothing to trim — all lines match!'
+        return
+    endif
+
+    " Prompt for filename prefix
+    let l:prefix = input('Trim filename prefix: ', 'trimmed_')
+    if l:prefix ==# ''
+        echo 'Trim cancelled'
+        return
+    endif
+
+    " Create trimmed files in the session directory
+    let l:session_dir = expand('%:p:h')
+    let l:old_trim = l:session_dir . '/' . l:prefix . 'old'
+    let l:new_trim = l:session_dir . '/' . l:prefix . 'new'
+    let l:ops_trim = l:session_dir . '/' . l:prefix . 'ops.tsv'
+
+    " Trim old file: keep lines from L2 onward
+    let l:cmd = 'tail -n +' . s:l2 . ' ' . s:old_file . ' > ' . l:old_trim
+    call system(l:cmd)
+
+    " Trim new file: keep lines from L2 onward
+    let l:cmd = 'tail -n +' . s:l2 . ' ' . s:new_file . ' > ' . l:new_trim
+    call system(l:cmd)
+
+    " Trim ops: keep only ops with line >= L2, rebase line numbers
+    " (subtract L2-1 so they start at line 1)
+    let l:awk_cmd = 'awk -F"\t" \'
+    let l:awk_cmd .= '''{if ($1 == "HUNK" || $1 == "HUNK_END" || $1 ~ /^#/) {'
+    let l:awk_cmd .= 'if ($1 == "HUNK" && NF >= 2) {$2 = $2 - ' . (s:l2 - 1) . '; if ($2 < 1) $2 = 1} '
+    let l:awk_cmd .= 'print; next} '
+    let l:awk_cmd .= 'if (NF >= 2 && $2 + 0 >= ' . s:l2 . ') {$2 = $2 - ' . (s:l2 - 1) . '; print}}\' '
+    let l:awk_cmd .= s:ops_file . ' > ' . l:ops_trim
+    call system(l:awk_cmd)
+
+    echo 'Trimmed files created:'
+    echo '  ' . l:old_trim
+    echo '  ' . l:new_trim
+    echo '  ' . l:ops_trim
+    echo 'To work on them: ad_session ' . l:old_trim . ' ' . l:new_trim . ' ' . l:ops_trim
+endfunction
+
 " <leader>?: Show help
 command! AdHelp call s:AdHelp()
 nnoremap <leader>? :call <SID>AdHelp()<CR>
@@ -434,6 +618,9 @@ function! s:AdHelp()
     echo "  <leader>H   Unfold all"
     echo "  <leader>k   Toggle keep-op folding"
     echo "  <leader>a   Toggle annotations (# old: / # new:)"
+    echo "  <leader>b   Re-run L1/L2 check (also auto-runs on save)"
+    echo "  <leader>f   Fold identical lines (lines 1..L1)"
+    echo "  <leader>t   Trim: create reduced files from L2 onward"
     echo "  <leader>?   Show this help"
     if s:layer_file != ''
         echo ""
@@ -446,6 +633,9 @@ endfunction
 if s:fold_hunks_start
     call s:AdFoldHunks()
 endif
+
+" --- Run L1/L2 check on session start ---
+call s:AdL1L2()
 
 " --- Status message ---
 echo "ad_session: " . s:session_dir
