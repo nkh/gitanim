@@ -1,7 +1,7 @@
-# ad_vim Vocabulary
+# ad Vocabulary
 
-Think of ad_vim as a tiny movie studio for your code. The old file
-is the "before" shot, the new file is the "after" shot, and ad_vim
+Think of `ad` as a tiny movie studio for your code. The old file
+is the "before" shot, the new file is the "after" shot, and `ad`
 films the transformation — typing, deleting, and rearranging — as if
 a human were doing it live.
 
@@ -15,6 +15,20 @@ a human were doing it live.
 | **new file** | The "after" — what the code should look like when done |
 | **snapshot** | A photo of the buffer at a specific moment. The final snapshot is the result. |
 | **colormap** | A makeup file — each line of source code, pre-colored with syntax highlighting (ANSI codes). Applied to the buffer for visual flair. |
+| **op stream** | The TSV file containing all operations (keep/delete/insert/etc.) that transform old into new. Produced by compute, modified by layers, consumed by the animator. |
+
+---
+
+## The Two Animators
+
+The project has two animators that apply the same op stream:
+
+| Animator | Language | When to use |
+|----------|----------|-------------|
+| **`ad_vim`** | Vimscript (embedded in `apps/vim/ad_vim`) | Interactive use — watch the animation inside vim, review diffs, use keyboard controls. Slower for large files. |
+| **`bin/ad`** | C (in `animator/c/ad.c`) | Headless — testing, CI, when you just want the output. Faster and more reliable. Invoke via `ad_pipeline` or directly with precomputed ops. |
+
+Both animators apply the SAME op stream. If they produce different output, one has a bug. The C animator is the reference implementation.
 
 ---
 
@@ -23,13 +37,13 @@ a human were doing it live.
 Think of the pipeline as an assembly line. Each stage takes the
 previous stage's output, does one job, and passes it along.
 
-| Stage | Job | Analogy |
-|-------|-----|---------|
-| **compute** | Figures out WHAT changed (char-level diff) | The script — "remove this, add that" |
-| **postprocess** | Figures out the ORDER and POSITION of each change | The storyboard — "do this first, then that, at this line and column" |
-| **pace** | Adds TIMING — how long to pause between each action | The director's timing notes — "pause here for drama" |
-| **decorate** | Adds VISUAL FX — highlights, dimming, fold markers | The special effects department |
-| **animate** | PLAYS the animation — applies ops to a virtual buffer and renders | The screening — the audience watches |
+| Stage | Binary | Job | Analogy |
+|-------|--------|-----|---------|
+| **compute** | `bin/ad_compute` | Figures out WHAT changed (char-level diff) | The script — "remove this, add that" |
+| **postprocess** | `pipeline/ad_postprocess` | Runs the layer chain — transforms ops (reorder, merge, etc.) | The storyboard — "do this first, then that, at this line and column" |
+| **pace** | `bin/ad_layer_pace` | Adds TIMING — how long to pause between each action | The director's timing notes — "pause here for drama" |
+| **decorate** | `bin/ad_layer_highlight` | Adds VISUAL FX — highlights, dimming, fold markers | The special effects department |
+| **animate** | `bin/ad` or `apps/vim/ad_vim` | PLAYS the animation — applies ops to a virtual buffer and renders | The screening — the audience watches |
 
 ---
 
@@ -37,15 +51,19 @@ previous stage's output, does one job, and passes it along.
 
 Every action in the animation is an "op" — a single instruction.
 
-| Op | What it does | Think of it as |
-|----|-------------|----------------|
-| **keep** | "This char is fine — leave it, move cursor forward" | A walk-on extra |
-| **delete** | "This char shouldn't be here — remove it" | A cut scene |
-| **insert** | "Add this new char right here" | A new line of dialogue |
-| **delay** | "Wait N milliseconds before the next op" | A dramatic pause |
-| **highlight** | "Flash this region with color" | A spotlight |
-| **glide** | "Smoothly move the cursor from line A to line B" | A camera pan |
-| **HUNK** | "A new section of changes starts here" | A new scene |
+| Op | Format | What it does |
+|----|--------|-------------|
+| **keep** | `keep\t<line>\t<col>\t<code>` | "This char is fine — leave it, move cursor forward" |
+| **delete** | `delete\t<line>\t<col>\t<code>` | "This char shouldn't be here — remove it" |
+| **insert** | `insert\t<line>\t<col>\t<code>` | "Add this new char right here" |
+| **delete_line** | `delete_line\t<line>` | "Remove this entire line atomically" (used by line_replace layer) |
+| **insert_line** | `insert_line\t<line>\t<text>` | "Insert this entire line atomically" (used by line_replace layer) |
+| **delay** | `delay\t<ms>\t<type>` | "Wait N milliseconds before the next op" |
+| **highlight** | `highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur>` | "Flash this region with color" |
+| **glide** | `glide\t<from>\t<to>\t<ms>\t<show>` | "Smoothly move the cursor from line A to line B" |
+| **HUNK** | `HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>` | "A new section of changes starts here" |
+| **HUNK_END** | `HUNK_END` | "End of this section" |
+| **EOF** | `EOF` or `done` | "End of op stream" |
 
 ---
 
@@ -56,6 +74,8 @@ Every action in the animation is an "op" — a single instruction.
 | **line** | 1-indexed row number (line 1 is the first line) |
 | **col** | 1-indexed column (character position, not bytes — Unicode-aware) |
 | **target line** | Where in the old file a hunk begins |
+| **line_shift** | Cumulative delta from \n deletes (joins, -1) and \n inserts (splits, +1). Used to remap op line numbers to buffer line numbers. |
+| **ops_pre_shifted** | Flag set when a position-changing layer (reorder, overwrite, etc.) has already shifted op positions. The animator skips its own line_shift remapping when this is set. |
 
 ---
 
@@ -74,6 +94,46 @@ HUNK  <target_line>  <del_count>  <ins_count>  <is_end_insert>  <is_end_delete>
 | **ins count** | How many new lines are being added |
 | **is_end_insert** | 1 if we're appending at the very end of the file |
 | **is_end_delete** | 1 if we're chopping off the end of the file |
+
+---
+
+## Layers
+
+Layers are standalone executables that transform the op stream. They
+are chained by `ad_postprocess` in the order specified by `--ad-layer`
+flags.
+
+| Layer | What it does |
+|-------|-------------|
+| **ad_layer_reorder** | Reorders ops within each line (deletes before inserts) |
+| **ad_layer_overwrite** | Merges adjacent delete+insert into overwrite_insert |
+| **ad_layer_indent_last** | Moves leading whitespace deletes to end of line |
+| **ad_layer_line_delete_in_place** | Deletes whole lines on their own line (not joined to previous) |
+| **ad_layer_skip_indent** | Skips animation for indent-only changes |
+| **ad_layer_pace** | Inserts delay ops between content ops |
+| **ad_layer_highlight** | Inserts highlight/dim/fold/sign decoration ops |
+| **ad_layer_line_replace** | Collapses char ops into delete_line/insert_line (whole-line replacement) |
+
+---
+
+## L1/L2 Debugging
+
+The L1/L2 tool (`scripts/ad_l1l2`) tests the **op stream** (not the
+animator). It applies the ops to the old file using the C animator
+(the reference implementation), then compares the result against the
+new file line-by-line.
+
+| Term | Meaning |
+|------|---------|
+| **L1** | Last line where old+ops matches new (everything up to here is correct) |
+| **L2** | First line where old+ops differs from new (the bug starts here). 0 = all match. |
+| **L_TOTAL** | Total lines compared (max of buffer and new file) |
+
+Usage in `ad_session`:
+- Runs automatically on session start and on ops.tsv save
+- `<leader>b`: manual re-run
+- `<leader>f`: fold identical lines (folds 1..L1)
+- `<leader>t`: trim — create reduced files from L2 onward
 
 ---
 

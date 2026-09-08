@@ -32,10 +32,11 @@ Use it for:
 # Build
 make
 
-# Animate in vim
+# Animate in vim (interactive, uses the vimscript engine)
 ./apps/vim/ad_vim old.py new.py
 
-# Or run headless (no vim, just the pipeline)
+# Or run headless with the C animator (no vim, just the pipeline)
+# This is faster and more reliable for testing/CI
 ./pipeline/ad_pipeline old.py new.py
 
 # Animate your last commit
@@ -44,6 +45,20 @@ make
 # Replay a file's last 5 commits
 ./apps/vim/ad_vim --replay src/main.py --from HEAD~5 --to HEAD
 ```
+
+### Two animators
+
+The project has two animators that apply the same op stream:
+
+- **`ad_vim`** (vimscript) — interactive, runs inside vim. Use this for
+  watching the animation and reviewing diffs. Slower for large files.
+- **`bin/ad`** (C) — headless, runs in the terminal. Use this for
+  testing, CI, and when you just want the output without animation.
+  Invoke via `./pipeline/ad_pipeline` or directly with precomputed ops:
+  ```bash
+  bin/ad_compute old.py new.py /tmp/ops.tsv
+  bin/ad --no-display --speed 1000 --snapshot out.txt old.py < /tmp/ops.tsv
+  ```
 
 ## How it works
 
