@@ -28,7 +28,8 @@
 using namespace std;
 using Clock = chrono::high_resolution_clock;
 
-enum OpType { OP_KEEP, OP_DELETE, OP_INSERT };
+enum OpType { OP_KEEP, OP_DELETE, OP_INSERT,
+              OP_KEEP_LINE, OP_JOIN_LINES, OP_SPLIT_LINE };
 
 struct LineOp { OpType type; int a_idx, b_idx; };
 struct CharOp { OpType type; int code; };
@@ -775,6 +776,28 @@ int main(int argc, char** argv) {
             if (do_semantic) {
                 h.char_ops = semantic_cleanup(move(h.char_ops));
             }
+            /* Post-process: replace \n char ops with line-level ops.
+             * - keep \n     → OP_KEEP_LINE (line boundary, advance cur_line)
+             * - delete \n   → OP_JOIN_LINES (join current line with next)
+             * - insert \n   → OP_SPLIT_LINE (split current line at cursor) */
+            {
+                vector<CharOp> final_ops;
+                final_ops.reserve(h.char_ops.size());
+                for (auto& op : h.char_ops) {
+                    if (op.code == 10) {
+                        if (op.type == OP_KEEP) {
+                            final_ops.push_back({OP_KEEP_LINE, 0});
+                        } else if (op.type == OP_DELETE) {
+                            final_ops.push_back({OP_JOIN_LINES, 0});
+                        } else { /* OP_INSERT */
+                            final_ops.push_back({OP_SPLIT_LINE, 0});
+                        }
+                    } else {
+                        final_ops.push_back(op);
+                    }
+                }
+                h.char_ops = move(final_ops);
+            }
             hunks.push_back(move(h));
         }
     }
@@ -803,16 +826,24 @@ int main(int argc, char** argv) {
         int cur_line = adjusted_target;
         int cur_col = 1;
         for (auto& op : h.char_ops) {
-            const char* type = op.type == OP_KEEP ? "keep" :
-                               op.type == OP_DELETE ? "delete" : "insert";
-            out << type << "\t" << cur_line << "\t" << cur_col << "\t"
-                << op.code << "\t" << char_repr(op.code) << "\n";
-            if (op.code == 10) {
-                if (op.type != OP_DELETE) {
-                    cur_line++;
-                    cur_col = 1;
-                }
+            if (op.type == OP_KEEP_LINE) {
+                out << "keep_line\t" << cur_line << "\n";
+                cur_line++;
+                cur_col = 1;
+            } else if (op.type == OP_JOIN_LINES) {
+                out << "join_lines\t" << cur_line << "\n";
+                /* cur_line stays — joined content is on same line */
+                /* cur_col stays — at end of line where join happened */
+            } else if (op.type == OP_SPLIT_LINE) {
+                out << "split_line\t" << cur_line << "\t" << cur_col << "\n";
+                cur_line++;
+                cur_col = 1;
             } else {
+                const char* type = op.type == OP_KEEP ? "keep" :
+                                   op.type == OP_DELETE ? "delete" : "insert";
+                out << type << "\t" << cur_line << "\t" << cur_col << "\t"
+                    << op.code << "\t" << char_repr(op.code) << "\n";
+                /* No more code==10 possible — all \n ops became line ops */
                 if (op.type == OP_KEEP || op.type == OP_INSERT)
                     cur_col++;
             }
