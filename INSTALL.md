@@ -109,6 +109,7 @@ make install PREFIX=$HOME/.local
 | `scripts/ad_watch`        | Live-preview tool (displays old, new, diff)           |
 | `scripts/ad_gen_ops`      | Generates ops from old/new files + layer chain        |
 | `scripts/ad_annotate`     | Built binary (same as `bin/ad_annotate`)              |
+| `scripts/ad_l1l2`         | L1/L2 bisect: finds where ops start failing           |
 
 ### Perl fallbacks (in `layers/perl/`, `animator/perl/`)
 

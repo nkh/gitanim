@@ -1,0 +1,65 @@
+.TH AD_L1L2 1 "2026-09-08" "ad 1.0" "User Commands"
+.SH NAME
+ad_l1l2 \- find where ops start failing (L1/L2 bisect)
+.SH SYNOPSIS
+.B ad_l1l2
+.I <oldfile>
+.I <newfile>
+.I <opsfile>
+.SH DESCRIPTION
+.B ad_l1l2
+applies the given op stream to the old file (using the C animator in
+headless mode), then compares the resulting buffer against the new file
+line-by-line. It reports:
+.TP
+.B L1
+The last line where the buffer matches the new file (0 if line 1 already
+differs). Everything up to L1 is confirmed correct.
+.TP
+.B L2
+The first line where the buffer differs from the new file (0 if all lines
+match). The bug starts at L2.
+.TP
+.B L_TOTAL
+Total lines compared (max of buffer and new file).
+.SH PURPOSE
+This tool tests the **op stream** (produced by the diff engine + layer
+chain), NOT the animator. The animator is the reference implementation
+that applies ops. If the ops are correct, the animator produces correct
+output. If the ops are wrong, L1/L2 pinpoints where.
+.SH USAGE IN AD_SESSION
+.B ad_session
+runs L1/L2 automatically on session start and on ops.tsv save. The
+result is shown in the status line:
+.PP
+.RS
+L1/L2: ALL OK (123/123 lines match)
+.br
+L1/L2: OK 1-42, BAD at 43 (total 123)
+.RE
+.PP
+Commands:
+.TP
+.B <leader>b
+Re-run L1/L2 check manually.
+.TP
+.B <leader>f
+Fold identical lines (folds lines 1..L1 in the result buffer).
+.TP
+.B <leader>t
+Trim: create reduced files starting from L2 (prompts for prefix).
+.SH EXAMPLES
+.TP
+Check a single example:
+.B ad_l1l2 old.py new.py ops.tsv
+.TP
+Check with a layer chain:
+.B ad_postprocess --ad-layer=ad_layer_reorder < raw.tsv > post.tsv
+.br
+.B ad_l1l2 old.py new.py post.tsv
+.SH SEE ALSO
+.BR ad (1),
+.BR ad_session (1),
+.BR ad_postprocess (1)
+.SH AUTHOR
+Written by the ad contributors.
