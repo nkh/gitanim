@@ -744,11 +744,11 @@ int main(int argc, char **argv) {
         suppress_render = (seek_op > 0 && op_count < seek_op);
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') {
-            /* Detect "post-processed" or "timed" header — means a layer
-             * (reorder, pace, etc.) has already shifted op positions to
-             * match the buffer state. In that case, the animator should
-             * NOT apply its own line_shift remapping (would double-count). */
-            if (strstr(line, "post-processed") || strstr(line, "timed ops")) ops_pre_shifted = 1;
+            /* Detect "post-processed" header — means a position-changing
+             * layer (reorder, overwrite, etc.) already shifted op positions.
+             * The pace layer adds delays but doesn't change positions, so
+             * "timed ops" header alone should NOT trigger pre-shifted mode. */
+            if (strstr(line, "post-processed")) ops_pre_shifted = 1;
             continue;
         }
         if (suppress_render) op_count++;

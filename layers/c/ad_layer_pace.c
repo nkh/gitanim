@@ -863,7 +863,22 @@ int main(int argc, char **argv) {
     parse_args(argc, argv);
     apply_speeds();
 
-    printf("# diffvim timed ops v2\n");
+    /* Check if input was post-processed (by a position-changing layer) */
+    int was_post_processed = 0;
+    {
+        char peek_buf[MAX_LINE];
+        long pos = ftell(stdin);
+        if (fgets(peek_buf, sizeof(peek_buf), stdin)) {
+            if (strstr(peek_buf, "post-processed"))
+                was_post_processed = 1;
+        }
+        fseek(stdin, pos, SEEK_SET);
+    }
+
+    printf("# diffvim timed ops v2");
+    if (was_post_processed)
+        printf(" (post-processed)");
+    printf("\n");
     printf("# delete_pacing %s\n", delete_pacing);
     printf("# insert_pacing %s\n", insert_pacing);
 

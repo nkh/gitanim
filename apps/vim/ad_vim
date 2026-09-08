@@ -1800,11 +1800,14 @@ endfunction
 function! s:LoadTimedOps() abort
     let s:timed_ops = readfile(s:timed_ops_file)
     let s:timed_idx = 0
-    " Detect if ops were pre-shifted by a layer (post-processed or timed)
-    " If so, the animator skips its own line_shift remapping.
+    " Detect if ops were pre-shifted by a position-changing layer
+    " (post-processed by reorder, overwrite, etc.).
+    " The pace layer adds delays but doesn't change positions, so
+    " 'timed ops' header alone should NOT trigger pre-shifted mode.
+    " Only 'post-processed' (from ad_postprocess with layers) triggers it.
     let s:ops_pre_shifted = 0
     for l:line in s:timed_ops[:10]  " check first 10 lines for header
-        if l:line =~# 'post-processed' || l:line =~# 'timed ops'
+        if l:line =~# 'post-processed'
             let s:ops_pre_shifted = 1
             break
         endif
@@ -1993,10 +1996,13 @@ function! s:TimedProcessBatch() abort
             endif
 
         elseif l:cmd ==# 'insert' && len(l:parts) >= 4
-            call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
-            call s:TimedInsertChar(str2nr(l:parts[3]))
+            let l:op_line = str2nr(l:parts[1])
+            let l:op_col = str2nr(l:parts[2])
+            let l:op_code = str2nr(l:parts[3])
+            call s:TimedSetCursor(l:op_line, l:op_col)
+            call s:TimedInsertChar(l:op_code)
             " \n insert: line_shift += 1 (for next hunk's target_line)
-            if str2nr(l:parts[3]) == 10 && !s:ops_pre_shifted
+            if l:op_code == 10 && !s:ops_pre_shifted
                 let s:line_shift += 1
             endif
 
