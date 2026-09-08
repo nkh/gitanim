@@ -164,14 +164,14 @@ static char *buffer_get_line_str(Buffer *buf, int line_1idx) {
 }
 
 /* Apply a delete op to the buffer. */
-static void buffer_apply_delete(Buffer *buf, int line_1idx, int col_1idx, int code) {
+static void buffer_apply_delete(Buffer *buf, int line_1idx, int col_1idx, const char *type) {
     int idx = line_1idx - 1;
     int col = col_1idx - 1;
 
     if (idx < 0 || idx >= buf->n_lines) return;
 
-    if (code == CHAR_NEWLINE) {
-        /* \n delete: join this line with the next line */
+    if (strcmp(type, "join_lines") == 0) {
+        /* join_lines: join this line with the next line */
         if (idx + 1 < buf->n_lines) {
             int next_len = buf->line_lens[idx + 1];
             int cur_len = buf->line_lens[idx];
@@ -205,7 +205,7 @@ static void buffer_apply_delete(Buffer *buf, int line_1idx, int col_1idx, int co
 }
 
 /* Apply an insert op to the buffer. */
-static void buffer_apply_insert(Buffer *buf, int line_1idx, int col_1idx, int code) {
+static void buffer_apply_insert(Buffer *buf, int line_1idx, int col_1idx, const char *type) {
     int idx = line_1idx - 1;
     int col = col_1idx - 1;
 
@@ -231,8 +231,8 @@ static void buffer_apply_insert(Buffer *buf, int line_1idx, int col_1idx, int co
         buf->line_lens[idx] = 0;
     }
 
-    if (code == CHAR_NEWLINE) {
-        /* \n insert: split line at col */
+    if (strcmp(type, "split_line") == 0) {
+        /* split_line: split line at col */
         int cur_len = buf->line_lens[idx];
         if (col > cur_len) col = cur_len;
 
@@ -270,7 +270,7 @@ static void buffer_apply_insert(Buffer *buf, int line_1idx, int col_1idx, int co
         buf->lines[idx] = (int *)realloc(buf->lines[idx], (cur_len + 2) * sizeof(int));
         memmove(&buf->lines[idx][col + 1], &buf->lines[idx][col],
             (cur_len - col) * sizeof(int));
-        buf->lines[idx][col] = code;
+        buf->lines[idx][col] = ' ';  /* non-\n char insert */
         buf->line_lens[idx]++;
     }
 }
@@ -447,8 +447,8 @@ int main(int argc, char **argv) {
 
             /* For keeps: split on \n or line change */
             if (strcmp(first_op.type, "keep") == 0) {
-                if (first_op.code == CHAR_NEWLINE) break;  /* current is \n keep */
-                if (next_op.code == CHAR_NEWLINE) break;   /* next is \n keep */
+                if (strcmp(first_op.type, "keep_line") == 0) break;  /* current is \n keep */
+                if (strcmp(next_op.type, "keep_line") == 0) break;   /* next is \n keep */
                 if (next_op.line != first_op.line) break;   /* line changed */
             }
 
@@ -465,7 +465,7 @@ int main(int argc, char **argv) {
                 int text_len = 0;
                 for (int k = 0; k < n_bundle && text_len < MAX_OUT_TEXT - 10; k++) {
                     int code = bundle[k].code;
-                    if (code == CHAR_NEWLINE) {
+                    if (strcmp(bundle[k].type, "keep_line") == 0 || strcmp(bundle[k].type, "join_lines") == 0 || strcmp(bundle[k].type, "split_line") == 0) {
                         text[text_len++] = '\\'; text[text_len++] = 'n';
                     } else if (code == CHAR_TAB) {
                         text[text_len++] = '\\'; text[text_len++] = 't';
@@ -498,7 +498,7 @@ int main(int argc, char **argv) {
 
             /* Apply all deletes to buffer */
             for (int k = 0; k < n_bundle; k++) {
-                buffer_apply_delete(&buf, bundle[k].line, bundle[k].col, bundle[k].code);
+                buffer_apply_delete(&buf, bundle[k].line, bundle[k].col, bundle[k].type);
             }
 
             /* Get line content after deletes */
@@ -520,7 +520,7 @@ int main(int argc, char **argv) {
 
             /* Apply all inserts to buffer */
             for (int k = 0; k < n_bundle; k++) {
-                buffer_apply_insert(&buf, bundle[k].line, bundle[k].col, bundle[k].code);
+                buffer_apply_insert(&buf, bundle[k].line, bundle[k].col, bundle[k].type);
             }
 
             /* Get line content after inserts */

@@ -56,6 +56,9 @@ Every action in the animation is an "op" — a single instruction.
 | **keep** | `keep\t<line>\t<col>\t<code>` | "This char is fine — leave it, move cursor forward" |
 | **delete** | `delete\t<line>\t<col>\t<code>` | "This char shouldn't be here — remove it" |
 | **insert** | `insert\t<line>\t<col>\t<code>` | "Add this new char right here" |
+| **keep_line** | `keep_line\t<L>` | "Line L is unchanged — advance to next line" (replaces old `keep \n`) |
+| **join_lines** | `join_lines\t<L>` | "Join line L with L+1" (replaces old `delete \n`) |
+| **split_line** | `split_line\t<L>\t<col>` | "Split line L at col C" (replaces old `insert \n`) |
 | **delete_line** | `delete_line\t<line>` | "Remove this entire line atomically" (used by line_replace layer) |
 | **insert_line** | `insert_line\t<line>\t<text>` | "Insert this entire line atomically" (used by line_replace layer) |
 | **delay** | `delay\t<ms>\t<type>` | "Wait N milliseconds before the next op" |
@@ -64,6 +67,11 @@ Every action in the animation is an "op" — a single instruction.
 | **HUNK** | `HUNK\t<target>\t<del>\t<ins>\t<end_ins>\t<end_del>` | "A new section of changes starts here" |
 | **HUNK_END** | `HUNK_END` | "End of this section" |
 | **EOF** | `EOF` or `done` | "End of op stream" |
+
+**Note:** Char ops (keep/delete/insert) NEVER contain code 10 (`\n`).
+Line boundaries are explicit line-level ops: `keep_line`, `join_lines`,
+`split_line`. This separation simplifies all layers — no `\n`
+special-casing needed.
 
 ---
 
