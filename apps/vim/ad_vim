@@ -1837,64 +1837,36 @@ function! s:TimedSetCursor(line, col) abort
 endfunction
 
 function! s:TimedInsertChar(code) abort
-    if a:code == 10
-        let l:line = getline(s:cur_l)
-        let l:byte = byteidx(l:line, s:cur_c - 1)
-        if l:byte < 0 | let l:byte = strlen(l:line) | endif
-        let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
-        let l:after = strpart(l:line, l:byte)
-        call setline(s:cur_l, l:before)
-        call append(s:cur_l, l:after)
-        let s:cur_l += 1
-        let s:cur_c = 1
-    else
-        let l:ch = nr2char(a:code)
-        let l:line = getline(s:cur_l)
-        let l:byte = byteidx(l:line, s:cur_c - 1)
-        if l:byte < 0 | let l:byte = strlen(l:line) | endif
-        let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
-        let l:after = strpart(l:line, l:byte)
-        call setline(s:cur_l, l:before . l:ch . l:after)
-        let s:cur_c += 1
-    endif
+    " No more code==10 — \n insert is handled by split_line op
+    let l:ch = nr2char(a:code)
+    let l:line = getline(s:cur_l)
+    let l:byte = byteidx(l:line, s:cur_c - 1)
+    if l:byte < 0 | let l:byte = strlen(l:line) | endif
+    let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+    let l:after = strpart(l:line, l:byte)
+    call setline(s:cur_l, l:before . l:ch . l:after)
+    let s:cur_c += 1
     let s:needs_redraw = 1
 endfunction
 
 function! s:TimedDeleteChar(code) abort
-    if a:code == 10
-        " Delete \n — join current line with the next line.
-        " Natural result of removing a newline from a line-based buffer.
-        " No special cases. If there is no next line, the op is a no-op —
-        " the postprocess must not emit delete-\n at the last line.
-        if s:cur_l < line('$')
-            let l:cur = getline(s:cur_l)
-            let l:next = getline(s:cur_l + 1)
-            call setline(s:cur_l, l:cur . l:next)
-            execute s:cur_l + 1 . 'delete _'
-        endif
-    else
-        let l:line = getline(s:cur_l)
-        let l:byte = byteidx(l:line, s:cur_c - 1)
-        if l:byte < 0 | let l:byte = strlen(l:line) | endif
-        if l:byte < strlen(l:line)
-            let l:next = byteidx(l:line, s:cur_c)
-            if l:next < 0 | let l:next = strlen(l:line) | endif
-            let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
-            let l:after = strpart(l:line, l:next)
-            call setline(s:cur_l, l:before . l:after)
-        endif
+    " No more code==10 — \n delete is handled by join_lines op
+    let l:line = getline(s:cur_l)
+    let l:byte = byteidx(l:line, s:cur_c - 1)
+    if l:byte < 0 | let l:byte = strlen(l:line) | endif
+    if l:byte < strlen(l:line)
+        let l:next = byteidx(l:line, s:cur_c)
+        if l:next < 0 | let l:next = strlen(l:line) | endif
+        let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+        let l:after = strpart(l:line, l:next)
+        call setline(s:cur_l, l:before . l:after)
     endif
     let s:needs_redraw = 1
 endfunction
 
 function! s:TimedKeepChar(code) abort
-    if a:code == 10
-        let s:cur_l += 1
-        if s:cur_l > line('$') | let s:cur_l = line('$') | endif
-        let s:cur_c = 1
-    else
-        let s:cur_c += 1
-    endif
+    " No more code==10 — \n is handled by keep_line op
+    let s:cur_c += 1
 endfunction
 
 " Process ops until a delay is hit or stream ends.
@@ -1929,6 +1901,35 @@ function! s:TimedProcessBatch() abort
         elseif l:cmd ==# 'insert' && len(l:parts) >= 4
             call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
             call s:TimedInsertChar(str2nr(l:parts[3]))
+
+        elseif l:cmd ==# 'keep_line' && len(l:parts) >= 2
+            " keep_line\t<L> — advance to next line (no buffer change)
+            call s:TimedSetCursor(str2nr(l:parts[1]), 1)
+
+        elseif l:cmd ==# 'join_lines' && len(l:parts) >= 2
+            " join_lines\t<L> — join line L with L+1
+            call s:TimedSetCursor(str2nr(l:parts[1]), 1)
+            if s:cur_l < line('$')
+                let l:cur = getline(s:cur_l)
+                let l:next = getline(s:cur_l + 1)
+                call setline(s:cur_l, l:cur . l:next)
+                execute s:cur_l + 1 . 'delete _'
+            endif
+            let s:needs_redraw = 1
+
+        elseif l:cmd ==# 'split_line' && len(l:parts) >= 3
+            " split_line\t<L>\t<col> — split line L at col C
+            call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+            let l:line = getline(s:cur_l)
+            let l:byte = byteidx(l:line, s:cur_c - 1)
+            if l:byte < 0 | let l:byte = strlen(l:line) | endif
+            let l:before = l:byte > 0 ? strpart(l:line, 0, l:byte) : ''
+            let l:after = strpart(l:line, l:byte)
+            call setline(s:cur_l, l:before)
+            call append(s:cur_l, l:after)
+            let s:cur_l += 1
+            let s:cur_c = 1
+            let s:needs_redraw = 1
 
         elseif l:cmd ==# 'delay' && len(l:parts) >= 3
             " delay\t<ms>\t<type> — render now, then return delay

@@ -348,112 +348,56 @@ void set_cursor(int line, int col) {
 }
 
 void keep_char(int code) {
-    /* Note: with per-op positioning, keep_char only advances the cursor
-     * within the same line. Line transitions are handled by set_cursor()
-     * calls (next op carries the new line). */
-    if (code == 10) {
-        cursor_l++;
-        if (cursor_l >= n_lines) cursor_l = n_lines - 1;
-        cursor_c = 0;
-    } else {
-        cursor_c++;
-    }
-    /* Update displayed cursor to match */
+    /* No more code==10 — \n is handled by keep_line op */
+    (void)code;  /* parameter kept for API compatibility */
+    cursor_c++;
     disp_l = cursor_l;
     disp_c = cursor_c;
 }
 
 void delete_char(int code) {
-    if (code == 10) {
-        /* Delete \n — join current line with the next line.
-         * This is the natural result of removing a newline character
-         * from a line-based buffer. No special cases. If there is no
-         * next line (cursor at last line), the op is a no-op — the
-         * postprocess must not emit delete-\n at the last line.
-         *
-         * IMPORTANT: do NOT update disp_l/disp_c here. The visual
-         * cursor stays at its previous position (the line being
-         * deleted), while the internal cursor_l is used for the join.
-         * This prevents the cursor from visually jumping UP to the
-         * preserved line above when deleting a \n. */
-        if (cursor_l < n_lines - 1) {
-            char *cur = lines[cursor_l];
-            char *next = lines[cursor_l + 1];
-            int newlen = strlen(cur) + strlen(next) + 1;
-            char *joined = malloc(newlen);
-            strcpy(joined, cur);
-            strcat(joined, next);
-            free(lines[cursor_l]);
-            free(lines[cursor_l + 1]);
-            lines[cursor_l] = joined;
-            for (int i = cursor_l + 1; i < n_lines - 1; i++)
-                lines[i] = lines[i + 1];
-            n_lines--;
-        }
-        /* Clamp displayed cursor to new buffer bounds */
-        if (disp_l >= n_lines) disp_l = n_lines - 1;
-        if (disp_l < 0) disp_l = 0;
-    } else {
-        int byte = char_to_byte(cursor_l, cursor_c);
-        char *s = lines[cursor_l];
-        int byte_len = strlen(s);
-        int next = byte + 1;
-        while (next < byte_len && (s[next] & 0xC0) == 0x80) next++;
-        memmove(s + byte, s + next, byte_len - next + 1);
-        /* Update displayed cursor to match */
-        disp_l = cursor_l;
-        disp_c = cursor_c;
-    }
+    /* No more code==10 — \n delete is handled by join_lines op */
+    (void)code;
+    int byte = char_to_byte(cursor_l, cursor_c);
+    char *s = lines[cursor_l];
+    int byte_len = strlen(s);
+    int next = byte + 1;
+    while (next < byte_len && (s[next] & 0xC0) == 0x80) next++;
+    memmove(s + byte, s + next, byte_len - next + 1);
+    disp_l = cursor_l;
+    disp_c = cursor_c;
 }
 
 void insert_char(int code) {
-    if (code == 10) {
-        /* Split line */
-        int byte = char_to_byte(cursor_l, cursor_c);
-        char *s = lines[cursor_l];
-        char *before = strndup(s, byte);
-        char *after = strdup(s + byte);
-        free(lines[cursor_l]);
-        lines[cursor_l] = before;
-        /* Shift lines down — ensure capacity first */
-        ensure_lines_capacity(n_lines + 1);
-        for (int i = n_lines; i > cursor_l + 1; i--)
-            lines[i] = lines[i - 1];
-        lines[cursor_l + 1] = after;
-        n_lines++;
-        cursor_l++;
-        cursor_c = 0;
+    /* No more code==10 — \n insert is handled by split_line op */
+    int byte = char_to_byte(cursor_l, cursor_c);
+    char *s = lines[cursor_l];
+    int len = strlen(s);
+    char buf[8];
+    int blen;
+    if (code < 0x80) {
+        buf[0] = code; blen = 1;
+    } else if (code < 0x800) {
+        buf[0] = 0xC0 | (code >> 6);
+        buf[1] = 0x80 | (code & 0x3F);
+        blen = 2;
+    } else if (code < 0x10000) {
+        buf[0] = 0xE0 | (code >> 12);
+        buf[1] = 0x80 | ((code >> 6) & 0x3F);
+        buf[2] = 0x80 | (code & 0x3F);
+        blen = 3;
     } else {
-        int byte = char_to_byte(cursor_l, cursor_c);
-        char *s = lines[cursor_l];
-        int len = strlen(s);
-        char buf[8];
-        int blen;
-        if (code < 0x80) {
-            buf[0] = code; blen = 1;
-        } else if (code < 0x800) {
-            buf[0] = 0xC0 | (code >> 6);
-            buf[1] = 0x80 | (code & 0x3F);
-            blen = 2;
-        } else if (code < 0x10000) {
-            buf[0] = 0xE0 | (code >> 12);
-            buf[1] = 0x80 | ((code >> 6) & 0x3F);
-            buf[2] = 0x80 | (code & 0x3F);
-            blen = 3;
-        } else {
-            /* 4-byte UTF-8 (code points >= 0x10000) */
-            buf[0] = 0xF0 | (code >> 18);
-            buf[1] = 0x80 | ((code >> 12) & 0x3F);
-            buf[2] = 0x80 | ((code >> 6) & 0x3F);
-            buf[3] = 0x80 | (code & 0x3F);
-            blen = 4;
-        }
-        { char *_tmp = realloc(s, len + blen + 1); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } s = _tmp; }
-        memmove(s + byte + blen, s + byte, len - byte + 1);
-        memcpy(s + byte, buf, blen);
-        lines[cursor_l] = s;
-        cursor_c++;
+        buf[0] = 0xF0 | (code >> 18);
+        buf[1] = 0x80 | ((code >> 12) & 0x3F);
+        buf[2] = 0x80 | ((code >> 6) & 0x3F);
+        buf[3] = 0x80 | (code & 0x3F);
+        blen = 4;
     }
+    { char *_tmp = realloc(s, len + blen + 1); if (!_tmp) { fprintf(stderr, "out of memory\n"); exit(1); } s = _tmp; }
+    memmove(s + byte + blen, s + byte, len - byte + 1);
+    memcpy(s + byte, buf, blen);
+    lines[cursor_l] = s;
+    cursor_c++;
 }
 
 void batch_delete(int n) {
@@ -759,21 +703,10 @@ int main(int argc, char **argv) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
             int code = atoi(toks[3]);
-            if (code == 10) {
-                /* \n delete: join line L and L+1.
-                 * The animator is dumb — just set cursor and delete.
-                 * Positions are already correct (fixed by layers). */
-                set_cursor(op_line, op_col);
-                /* disp_l/disp_c NOT updated — visual cursor stays put */
-                delete_char(code);
-                mark_modified(cursor_l);
-                render();
-            } else {
-                set_cursor(op_line, op_col);
-                delete_char(code);
-                mark_modified(cursor_l);
-                render();
-            }
+            set_cursor(op_line, op_col);
+            delete_char(code);
+            mark_modified(cursor_l);
+            render();
         } else if ((strcmp(cmd, "insert") == 0 || strcmp(cmd, "overwrite_insert") == 0) && ntok >= 4) {
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
@@ -784,6 +717,56 @@ int main(int argc, char **argv) {
                 delete_char(code);
             }
             insert_char(code);
+            mark_modified(cursor_l);
+            render();
+        } else if (strcmp(cmd, "keep_line") == 0 && ntok >= 2) {
+            /* keep_line\t<L> — advance to next line (no buffer change) */
+            int op_line = atoi(toks[1]);
+            set_cursor(op_line, 1);
+            render();
+        } else if (strcmp(cmd, "join_lines") == 0 && ntok >= 2) {
+            /* join_lines\t<L> — join line L with L+1 */
+            int op_line = atoi(toks[1]);
+            set_cursor(op_line, 1);
+            if (cursor_l < n_lines - 1) {
+                char *cur = lines[cursor_l];
+                char *next = lines[cursor_l + 1];
+                int newlen = strlen(cur) + strlen(next) + 1;
+                char *joined = malloc(newlen);
+                strcpy(joined, cur);
+                strcat(joined, next);
+                free(lines[cursor_l]);
+                free(lines[cursor_l + 1]);
+                lines[cursor_l] = joined;
+                for (int i = cursor_l + 1; i < n_lines - 1; i++)
+                    lines[i] = lines[i + 1];
+                n_lines--;
+            }
+            /* disp_l/disp_c NOT updated — visual cursor stays put */
+            if (disp_l >= n_lines) disp_l = n_lines - 1;
+            if (disp_l < 0) disp_l = 0;
+            mark_modified(cursor_l);
+            render();
+        } else if (strcmp(cmd, "split_line") == 0 && ntok >= 3) {
+            /* split_line\t<L>\t<col> — split line L at col C */
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            set_cursor(op_line, op_col);
+            int byte = char_to_byte(cursor_l, cursor_c);
+            char *s = lines[cursor_l];
+            char *before = strndup(s, byte);
+            char *after = strdup(s + byte);
+            free(lines[cursor_l]);
+            lines[cursor_l] = before;
+            ensure_lines_capacity(n_lines + 1);
+            for (int i = n_lines; i > cursor_l + 1; i--)
+                lines[i] = lines[i - 1];
+            lines[cursor_l + 1] = after;
+            n_lines++;
+            cursor_l++;
+            cursor_c = 0;
+            disp_l = cursor_l;
+            disp_c = cursor_c;
             mark_modified(cursor_l);
             render();
         } else if (strcmp(cmd, "delay") == 0 && ntok >= 3) {
