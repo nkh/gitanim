@@ -73,7 +73,7 @@ static int layer_line_replace(Op *ops, int n_ops, Op *out, int out_cap,
         if (ad_layer_is_debug_op(&ops[i])) continue;
         if (strncmp(ops[i].type, "HUNK", 4) == 0) continue;
 
-        if (ops[i].code == AD_LAYER_CHAR_NEWLINE) {
+        if (ad_layer_is_line_op(&ops[i])) {
             if (strcmp(ops[i].type, "delete") != 0) {
                 virtual_line++;
                 if (virtual_line >= MAX_LINES) virtual_line = MAX_LINES - 1;
@@ -127,7 +127,7 @@ static int layer_line_replace(Op *ops, int n_ops, Op *out, int out_cap,
             continue;
         }
 
-        if (ops[i].code == AD_LAYER_CHAR_NEWLINE) {
+        if (ad_layer_is_line_op(&ops[i])) {
             int skip = 0;
             /* Initialize virtual_line from first non-boundary op */
             if (virtual_line == -1 && ops[i].line > 0)

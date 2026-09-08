@@ -45,20 +45,20 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
         /* ── Pattern 1: DELETE (joiner \n, content, content's \n) ── */
         if (i + 2 < n_work
             && strcmp(work[i].type, "delete") == 0
-            && work[i].code == AD_LAYER_CHAR_NEWLINE) {
+            && ad_layer_is_line_op(&work[i])) {
 
             if (strcmp(work[i+1].type, "delete") == 0
-                && work[i+1].code != AD_LAYER_CHAR_NEWLINE) {
+                && !ad_layer_is_line_op(&work[i+1])) {
 
                 int ce = i + 1;
                 while (ce < n_work
                        && strcmp(work[ce].type, "delete") == 0
-                       && work[ce].code != AD_LAYER_CHAR_NEWLINE)
+                       && !ad_layer_is_line_op(&work[ce]))
                     ce++;
 
                 if (ce < n_work
                     && strcmp(work[ce].type, "delete") == 0
-                    && work[ce].code == AD_LAYER_CHAR_NEWLINE) {
+                    && ad_layer_is_line_op(&work[ce])) {
 
                     int content_count = ce - (i + 1);
 

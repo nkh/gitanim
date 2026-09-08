@@ -24,52 +24,45 @@ static int layer_reorder(Op *ops, int n_ops, Op *out, int out_cap, int *line_off
     int out_count = 0, segment_start = 0;
 
     /* ── Pass 1: 4-sweep within segments ──
-     * Segments are bounded by keeps and \n ops. Within a segment, emit
-     * non-\n deletes first, then non-\n inserts, then debug ops.
-     * Boundaries (keeps and \n ops) are emitted in place, in their
-     * original positions in the stream. */
+     * Segments are bounded by keeps and line ops (keep_line, join_lines,
+     * split_line). Within a segment, emit deletes first, then inserts,
+     * then debug ops. Boundaries are emitted in place. */
     for (int i = 0; i <= n_ops; i++) {
         int is_boundary = (i == n_ops);
         if (i < n_ops && !ad_layer_is_debug_op(&ops[i]))
-            if (strcmp(ops[i].type, "keep") == 0 || ops[i].code == AD_LAYER_CHAR_NEWLINE)
+            if (strcmp(ops[i].type, "keep") == 0 || ad_layer_is_line_op(&ops[i]))
                 is_boundary = 1;
 
         if (is_boundary) {
-            /* Sweep 1: non-\n deletes */
+            /* Sweep 1: deletes */
             for (int j = segment_start; j < i; j++)
                 if (!ad_layer_is_debug_op(&ops[j]) &&
                     strcmp(ops[j].type, "delete") == 0 &&
-                    ops[j].code != AD_LAYER_CHAR_NEWLINE && out_count < out_cap)
+                    !ad_layer_is_line_op(&ops[j]) && out_count < out_cap)
                     out[out_count++] = ops[j];
-            /* Sweep 2: non-\n inserts/overwrite_inserts */
+            /* Sweep 2: inserts/overwrite_inserts */
             for (int j = segment_start; j < i; j++)
                 if (!ad_layer_is_debug_op(&ops[j]) &&
                     (strcmp(ops[j].type, "insert") == 0 ||
                      strcmp(ops[j].type, "overwrite_insert") == 0) &&
-                    ops[j].code != AD_LAYER_CHAR_NEWLINE && out_count < out_cap)
+                    !ad_layer_is_line_op(&ops[j]) && out_count < out_cap)
                     out[out_count++] = ops[j];
             /* Sweep 3: debug ops (in original order) */
             for (int j = segment_start; j < i; j++)
                 if (ad_layer_is_debug_op(&ops[j]) && out_count < out_cap)
                     out[out_count++] = ops[j];
-            /* Emit the boundary op itself (keep or \n) in place. */
+            /* Emit the boundary op itself (keep or line op) in place. */
             if (i < n_ops && out_count < out_cap)
                 out[out_count++] = ops[i];
             segment_start = i + 1;
         }
     }
 
-    /* Pass 2 was a position recomputation walk. It has been REMOVED
-     * because the diff engine now produces correct positions (with
-     * cumulative line_shift across hunks). The reorder layer should
-     * only reorder ops within segments, not recompute positions.
-     * Recomputing positions here would double-count the line shift. */
-
-    /* Update line_offset: cumulative \n_ins - \n_del from output ops. */
+    /* Update line_offset: net split_line - join_lines from output ops. */
     int ni = 0, nd = 0;
     for (int j = 0; j < out_count; j++) {
-        if (strcmp(out[j].type, "insert") == 0 && out[j].code == AD_LAYER_CHAR_NEWLINE) ni++;
-        if (strcmp(out[j].type, "delete") == 0 && out[j].code == AD_LAYER_CHAR_NEWLINE) nd++;
+        if (strcmp(out[j].type, "split_line") == 0) ni++;
+        if (strcmp(out[j].type, "join_lines") == 0) nd++;
     }
     *line_offset += ni - nd;
 

@@ -389,9 +389,9 @@ static void pace_delete_char(char *line) {
         buf2[MAX_LINE - 1] = 0;
         char *t2[AD_LAYER_MAX_TOKENS];
         int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
-        int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
+        (void)n2;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 == AD_LAYER_CHAR_NEWLINE || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || strcmp(t2[0], "join_lines") == 0 || l2 != start_line)
             break;
         i++;
     }
@@ -488,9 +488,9 @@ static void pace_delete_rapid_eol(char *line) {
         buf2[MAX_LINE - 1] = 0;
         char *t2[AD_LAYER_MAX_TOKENS];
         int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
-        int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
+        (void)n2;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 == AD_LAYER_CHAR_NEWLINE || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || strcmp(t2[0], "join_lines") == 0 || l2 != start_line)
             break;
         i++;
     }
@@ -537,7 +537,7 @@ static void pace_delete_rapid_identical(char *line) {
         int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
         int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 != start_code || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || strcmp(t2[0], "join_lines") == 0 || c2 != start_code || l2 != start_line)
             break;
         i++;
     }
@@ -579,9 +579,9 @@ static void pace_delete_awd(char *line) {
         buf2[MAX_LINE - 1] = 0;
         char *t2[AD_LAYER_MAX_TOKENS];
         int n2 = ad_layer_parse_tsv(buf2, t2, AD_LAYER_MAX_TOKENS);
-        int c2 = (n2 >= 4) ? atoi(t2[3]) : 0;
+        (void)n2;
         int l2 = (n2 >= 2) ? atoi(t2[1]) : 0;
-        if (strcmp(t2[0], "delete") != 0 || c2 == AD_LAYER_CHAR_NEWLINE || l2 != start_line)
+        if (strcmp(t2[0], "delete") != 0 || strcmp(t2[0], "join_lines") == 0 || l2 != start_line)
             break;
         i++;
     }
@@ -709,8 +709,8 @@ static void handle_delete_newline(char *line) {
             abuf[MAX_LINE - 1] = 0;
             char *at[AD_LAYER_MAX_TOKENS];
             int an = ad_layer_parse_tsv(abuf, at, AD_LAYER_MAX_TOKENS);
-            int ac = (an >= 4) ? atoi(at[3]) : 0;
-            if (strcmp(at[0], "delete") != 0 || ac != AD_LAYER_CHAR_NEWLINE) break;
+            (void)an;
+            if (strcmp(at[0], "delete") != 0 && strcmp(at[0], "join_lines") != 0) break;
             i++;
         }
         int count = i - start_idx;
@@ -774,7 +774,7 @@ static void handle_insert(char *line) {
     strncpy(tbuf, line, MAX_LINE - 1);
     tbuf[MAX_LINE - 1] = 0;
     int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
-    int code = (nt >= 4) ? atoi(toks[3]) : 0;
+    (void)nt;
 
     /* Insert delay based on type and insert-pacing mode */
     if (strcmp(toks[0], "overwrite_insert") == 0) {
@@ -787,7 +787,7 @@ static void handle_insert(char *line) {
          * a whitespace char or end of inserts, pause. */
         /* Count \n inserts for changed_lines before the word-pacing
          * return skips the check below. */
-        if (code == AD_LAYER_CHAR_NEWLINE) {
+        if (strcmp(toks[0], "split_line") == 0) {
             changed_lines++;
             if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
                 && n_lines > pause_after_threshold) {
@@ -803,9 +803,9 @@ static void handle_insert(char *line) {
             ibuf2[MAX_LINE - 1] = 0;
             char *it2[AD_LAYER_MAX_TOKENS];
             int in2 = ad_layer_parse_tsv(ibuf2, it2, AD_LAYER_MAX_TOKENS);
-            int ic2 = (in2 >= 4) ? atoi(it2[3]) : 0;
+            (void)in2;
             int il2 = (in2 >= 2) ? atoi(it2[1]) : 0;
-            if (strcmp(it2[0], "insert") != 0 || ic2 == AD_LAYER_CHAR_NEWLINE || il2 != start_line)
+            if (strcmp(it2[0], "insert") != 0 || strcmp(it2[0], "split_line") == 0 || il2 != start_line)
                 break;
             i++;
         }
@@ -837,8 +837,8 @@ static void handle_insert(char *line) {
         emit_paced_delay(char_delay, "char");
     }
 
-    if (code == AD_LAYER_CHAR_NEWLINE) {
-        /* \n insert — counts as a changed line */
+    if (strcmp(toks[0], "split_line") == 0) {
+        /* Line split — counts as a changed line */
         changed_lines++;
         if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
             && n_lines > pause_after_threshold) {
@@ -951,7 +951,7 @@ int main(int argc, char **argv) {
         strncpy(tbuf, all_lines[i], MAX_LINE - 1);
         tbuf[MAX_LINE - 1] = 0;
         int nt = ad_layer_parse_tsv(tbuf, toks, AD_LAYER_MAX_TOKENS);
-
+        (void)nt;
         if (strcmp(toks[0], "HUNK") == 0) {
             handle_hunk(all_lines[i]);
             continue;
@@ -967,16 +967,19 @@ int main(int argc, char **argv) {
             handle_keep(all_lines[i]);
         } else if (strcmp(toks[0], "delete") == 0) {
             track_op_type("delete");
-            int code = (nt >= 4) ? atoi(toks[3]) : 0;
-            if (code == AD_LAYER_CHAR_NEWLINE) {
-                handle_delete_newline(all_lines[i]);
-            } else {
-                handle_delete_char(all_lines[i]);
-            }
+            handle_delete_char(all_lines[i]);
         } else if (strcmp(toks[0], "insert") == 0
                    || strcmp(toks[0], "overwrite_insert") == 0) {
             track_op_type("insert");
             handle_insert(all_lines[i]);
+        } else if (strcmp(toks[0], "keep_line") == 0) {
+            handle_keep(all_lines[i]);
+        } else if (strcmp(toks[0], "join_lines") == 0) {
+            handle_delete_newline(all_lines[i]);
+            changed_lines++;
+        } else if (strcmp(toks[0], "split_line") == 0) {
+            handle_insert(all_lines[i]);
+            changed_lines++;
         } else if (strcmp(toks[0], "delay") == 0) {
             handle_delay(all_lines[i]);
         } else {

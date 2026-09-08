@@ -132,6 +132,27 @@ static int ad_layer_parse_op(const char *line, Op *op) {
         }
         return 1;
     }
+    /* Try keep_line format: keep_line\t<line> */
+    if (sscanf(line, "%19s\t%d", type, &l) >= 2 &&
+        strcmp(type, "keep_line") == 0) {
+        strcpy(op->type, "keep_line");
+        op->line = l; op->col = 0; op->code = 0;
+        return 1;
+    }
+    /* Try join_lines format: join_lines\t<line> */
+    if (sscanf(line, "%19s\t%d", type, &l) >= 2 &&
+        strcmp(type, "join_lines") == 0) {
+        strcpy(op->type, "join_lines");
+        op->line = l; op->col = 0; op->code = 0;
+        return 1;
+    }
+    /* Try split_line format: split_line\t<line>\t<col> */
+    if (sscanf(line, "%19s\t%d\t%d", type, &l, &c) >= 3 &&
+        strcmp(type, "split_line") == 0) {
+        strcpy(op->type, "split_line");
+        op->line = l; op->col = c; op->code = 0;
+        return 1;
+    }
     /* Try delete_line format: delete_line\t<line> */
     if (sscanf(line, "%19s\t%d", type, &l) >= 2 &&
         strcmp(type, "delete_line") == 0) {
@@ -173,7 +194,13 @@ __attribute__((unused)) static int ad_layer_parse_tsv(char *line, char *toks[], 
 /* ── TSV Writing ──────────────────────────────────────────────────── */
 
 static void ad_layer_write_op(Op *op) {
-    if (strcmp(op->type, "insert_line") == 0) {
+    if (strcmp(op->type, "keep_line") == 0) {
+        printf("keep_line\t%d\n", op->line);
+    } else if (strcmp(op->type, "join_lines") == 0) {
+        printf("join_lines\t%d\n", op->line);
+    } else if (strcmp(op->type, "split_line") == 0) {
+        printf("split_line\t%d\t%d\n", op->line, op->col);
+    } else if (strcmp(op->type, "insert_line") == 0) {
         /* insert_line\t<line>\t<text> */
         printf("%s\t%d\t%s\n", op->type, op->line,
                op->text ? op->text : "");
@@ -200,6 +227,15 @@ static void ad_layer_write_hunk_end(void) {
 
 __attribute__((unused)) static int ad_layer_is_debug_op(Op *op) {
     return strcmp(op->type, "debug") == 0;
+}
+
+/* Check if an op is a line-level op (keep_line, join_lines, split_line).
+ * These replace the old code==10 (\n) char ops. Line ops are segment
+ * boundaries in layers — they delimit line segments. */
+__attribute__((unused)) static int ad_layer_is_line_op(Op *op) {
+    return strcmp(op->type, "keep_line") == 0 ||
+           strcmp(op->type, "join_lines") == 0 ||
+           strcmp(op->type, "split_line") == 0;
 }
 
 /* ── Shared position-walk function ──────────────────────────────────

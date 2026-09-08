@@ -30,7 +30,7 @@ static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line
     for (int i = 0; i <= n_ops; i++) {
         int is_boundary = (i == n_ops);
         if (!is_boundary && i > seg_start) {
-            if (ops[i].code == AD_LAYER_CHAR_NEWLINE && !ad_layer_is_debug_op(&ops[i]))
+            if (ad_layer_is_line_op(&ops[i]) && !ad_layer_is_debug_op(&ops[i]))
                 is_boundary = 1;
             if (!is_boundary && !ad_layer_is_debug_op(&ops[i]) && !ad_layer_is_debug_op(&ops[i-1]))
                 if (ops[i].line != ops[i-1].line)
@@ -59,7 +59,7 @@ static int layer_indent_last(Op *ops, int n_ops, Op *out, int out_cap, int *line
                     /* Find \n op at the tail of the segment. */
                     int nl = -1;
                     for (int j = i - 1; j >= indent_end; j--) {
-                        if (!ad_layer_is_debug_op(&ops[j]) && ops[j].code == AD_LAYER_CHAR_NEWLINE) {
+                        if (!ad_layer_is_debug_op(&ops[j]) && ad_layer_is_line_op(&ops[j])) {
                             nl = j; break;
                         }
                     }

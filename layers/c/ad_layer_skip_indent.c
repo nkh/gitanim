@@ -57,7 +57,7 @@ static int layer_skip_indent(Op *ops, int n_ops, Op *out, int out_cap,
             strcmp(ops[i].type, "insert") == 0 ||
             strcmp(ops[i].type, "overwrite_insert") == 0) {
             has_change = 1;
-            if (ops[i].code != AD_LAYER_CHAR_SPACE && ops[i].code != AD_LAYER_CHAR_TAB && ops[i].code != AD_LAYER_CHAR_NEWLINE) {
+            if (ops[i].code != AD_LAYER_CHAR_SPACE && ops[i].code != AD_LAYER_CHAR_TAB && !ad_layer_is_line_op(&ops[i])) {
                 is_indent_only = 0;
                 break;
             }
