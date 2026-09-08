@@ -58,45 +58,19 @@ static int cursor_c = 0; /* 0-indexed — internal */
 static int disp_l = 0;  /* 0-indexed — displayed cursor (what render() shows) */
 static int disp_c = 0;  /* 0-indexed — displayed cursor */
 
-/* ── Line-shift tracking ────────────────────────────────────────────────
- * The op stream references line numbers as they were in the ORIGINAL
- * old file. But as the animator processes \n deletes (joins) and
- * \n inserts (splits), the buffer's actual line count diverges from
- * the op stream's line numbers.
- *
- * The diff engine emits ops with a cur_line that starts at the hunk's
- * target_line (OLD coords) and advances on \n ops within the hunk.
- * So within a hunk, op_line = target_line + within_hunk_offset.
- * Across hunks, target_line is in OLD coords, but the buffer has
- * shifted by the cumulative delta of previous hunks.
- *
- * Strategy:
- *   - line_shift_at_hunk_start: cumulative line delta from PREVIOUS
- *     hunks. Set when we see a HUNK header. Used to remap ops in the
- *     current hunk: effective_line = op_line + line_shift_at_hunk_start.
- *   - line_shift: running tally including current hunk's deltas.
- *     At HUNK_END, line_shift_at_hunk_start = line_shift.
- *
- *   - join_col_shift[L]: when a \n delete at line L joins L and L+1,
- *       subsequent ops targeting "line L+1, col C" must be remapped
- *       to "line L, col C + len(original_line_L_content)". We store
- *       the byte-length of the original line L content so the col
- *       adjustment is correct.
+/* ── Animator state ──────────────────────────────────────────────────
+ * The animator is a DUMB BUFFER. It applies ops as-is — no position
+ * remapping, no line-shift tracking. All computation (including
+ * position fixing after \n delete/insert) is done by the layers
+ * BEFORE the animator sees the ops. The animator just:
+ *   1. Reads an op
+ *   2. Moves cursor to (line, col) — as-is
+ *   3. Applies the char operation
+ *   4. Handles delay/highlight (animator-specific, no buffer effect)
  */
-static int line_shift = 0;
-static int line_shift_at_hunk_start = 0;
-static int current_hunk_target_line = 0;  /* target_line of the current hunk */
-static int hunk_first_op_pending = 0;  /* 1 until the first op of the hunk is processed */
-static int *join_col_shift = NULL;   /* join_col_shift[L] = chars to add to col when joining at L */
-static int join_col_shift_cap = 0;
-/* Separate shift for delete_line/insert_line ops. These ops change the
- * buffer's line count and need their own tracking, independent of the
- * char ops' line_shift (which is skipped when ops_pre_shifted). */
-static int line_op_shift = 0;
 
 static int no_display = 0;
 static int debug_trace = 0;  /* AD_TRACE=1 → print op processing to stderr */
-static int ops_pre_shifted = 0;  /* 1 if a layer (e.g. reorder) already shifted op positions */
 static int show_line_numbers = 0;
 static int show_progress = 0;
 static int verbose = 0;
@@ -344,60 +318,24 @@ int char_to_byte(int l, int col) {
     return byte; /* past end of string */
 }
 
-/* Ensure join_col_shift array is large enough for the given op_line index. */
-static void ensure_join_col_shift(int needed) {
-    if (needed < join_col_shift_cap) return;
-    int new_cap = join_col_shift_cap == 0 ? 1024 : join_col_shift_cap;
-    while (new_cap <= needed) new_cap *= 2;
-    int *tmp = (int *)realloc(join_col_shift, new_cap * sizeof(int));
-    if (!tmp) { fprintf(stderr, "out of memory (join_col_shift)\n"); exit(1); }
-    join_col_shift = tmp;
-    /* Zero out new entries */
-    for (int i = join_col_shift_cap; i < new_cap; i++) join_col_shift[i] = 0;
-    join_col_shift_cap = new_cap;
-}
-
 /* Set cursor position (1-indexed line/col → 0-indexed internal).
  * Clamps to buffer bounds. When the target line is past the end of
  * the buffer (end-insert case), the cursor is placed at the END of
  * the last line so subsequent inserts append after existing content.
  *
- * Applies line_shift remap: the op stream's (line, col) are in terms
- * of the ORIGINAL old file. After \n deletes (joins) and \n inserts
- * (splits), the buffer's actual line layout diverges. We remap here.
+ * The animator is DUMB — it uses (line, col) as-is. All position
+ * computation is done by the layers before the animator sees the ops.
  */
 void set_cursor(int line, int col) {
-    /* Apply line_shift_at_hunk_start: op_line → effective buffer line.
-     * Within a hunk, the diff engine's cur_line already accounts for
-     * \n ops in THIS hunk, so we use the line_shift value from the
-     * START of the hunk (not the running tally).
-     *
-     * If ops_pre_shifted (a layer like reorder already shifted positions),
-     * skip the line_shift remapping — the ops' line numbers are already
-     * in effective buffer coordinates. */
-    int eff_line_1idx = ops_pre_shifted ? line : (line + line_shift_at_hunk_start);
-    cursor_l = eff_line_1idx - 1;
+    cursor_l = line - 1;
     if (cursor_l < 0) cursor_l = 0;
-    /* Apply col offset for joins: ONLY for the FIRST op of a hunk
-     * (when the hunk's target_line was previously joined into an
-     * earlier line by a \n delete in a PRIOR hunk). Within the hunk,
-     * the diff engine's cur_col is self-consistent after my fix.
-     * Skip if ops_pre_shifted (layer already handled positions). */
-    int col_offset = 0;
-    if (!ops_pre_shifted && hunk_first_op_pending && line >= 1 && line - 1 < join_col_shift_cap)
-        col_offset = join_col_shift[line - 1];
-    int eff_col_1idx = col + col_offset;
-    if (debug_trace) fprintf(stderr, "  set_cursor(line=%d, col=%d) → eff_line=%d col_offset=%d eff_col=%d first=%d pre=%d\n",
-        line, col, eff_line_1idx, col_offset, eff_col_1idx, hunk_first_op_pending, ops_pre_shifted);
-    hunk_first_op_pending = 0;  /* consume the first-op flag */
-
     if (cursor_l >= n_lines) {
         /* Past end of buffer — clamp to last line, position at END. */
         cursor_l = n_lines - 1;
-        cursor_c = line_chars(cursor_l);  /* END of last line (0-indexed = past last char) */
+        cursor_c = line_chars(cursor_l);  /* END of last line */
         return;
     }
-    cursor_c = eff_col_1idx - 1;
+    cursor_c = col - 1;
     if (cursor_c < 0) cursor_c = 0;
     int max_col = line_chars(cursor_l);
     if (cursor_c > max_col) cursor_c = max_col;
@@ -744,11 +682,6 @@ int main(int argc, char **argv) {
         suppress_render = (seek_op > 0 && op_count < seek_op);
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') {
-            /* Detect "post-processed" header — means a position-changing
-             * layer (reorder, overwrite, etc.) already shifted op positions.
-             * The pace layer adds delays but doesn't change positions, so
-             * "timed ops" header alone should NOT trigger pre-shifted mode. */
-            if (strstr(line, "post-processed")) ops_pre_shifted = 1;
             continue;
         }
         if (suppress_render) op_count++;
@@ -828,43 +761,11 @@ int main(int argc, char **argv) {
             int code = atoi(toks[3]);
             if (code == 10) {
                 /* \n delete: join line L and L+1.
-                 * Use line_shift_at_hunk_start for cursor positioning
-                 * (within-hunk ops use the diff engine's cur_line which
-                 * is self-consistent). But update line_shift (running
-                 * tally) so subsequent hunks get the right offset.
-                 * Skip remapping if ops_pre_shifted. */
-                int eff_line_1idx = ops_pre_shifted ? op_line : (op_line + line_shift_at_hunk_start);
-                cursor_l = eff_line_1idx - 1;
-                if (cursor_l < 0) cursor_l = 0;
-                if (cursor_l >= n_lines) cursor_l = n_lines - 1;
-                /* Col offset only for the first op of a hunk, and only
-                 * if ops not pre-shifted. */
-                int col_offset = 0;
-                if (!ops_pre_shifted && hunk_first_op_pending && op_line >= 1 && op_line - 1 < join_col_shift_cap)
-                    col_offset = join_col_shift[op_line - 1];
-                hunk_first_op_pending = 0;
-                cursor_c = (op_col - 1) + col_offset;
-                if (cursor_c < 0) cursor_c = 0;
-                int max_col = line_chars(cursor_l);
-                if (cursor_c > max_col) cursor_c = max_col;
-                if (debug_trace) fprintf(stderr, "DELETE\\n op_line=%d op_col=%d → cursor_l=%d cursor_c=%d n_lines=%d line_shift=%d lss=%d\n",
-                    op_line, op_col, cursor_l, cursor_c, n_lines, line_shift, line_shift_at_hunk_start);
-
-                /* Record the col offset for ops that will target
-                 * op_line+1 (which will be merged into this line).
-                 * Skip if ops_pre_shifted. */
-                if (!ops_pre_shifted) {
-                    ensure_join_col_shift(op_line);
-                    if (cursor_l < n_lines - 1) {
-                        int existing = (op_line < join_col_shift_cap) ? join_col_shift[op_line] : 0;
-                        join_col_shift[op_line] = existing + cursor_c;
-                        line_shift -= 1;
-                    }
-                }
+                 * The animator is dumb — just set cursor and delete.
+                 * Positions are already correct (fixed by layers). */
+                set_cursor(op_line, op_col);
                 /* disp_l/disp_c NOT updated — visual cursor stays put */
                 delete_char(code);
-                if (debug_trace) fprintf(stderr, "   → after delete: cursor_l=%d cursor_c=%d n_lines=%d line_shift=%d\n",
-                    cursor_l, cursor_c, n_lines, line_shift);
                 mark_modified(cursor_l);
                 render();
             } else {
@@ -878,23 +779,11 @@ int main(int argc, char **argv) {
             int op_col = atoi(toks[2]);
             int code = atoi(toks[3]);
             set_cursor(op_line, op_col);
-            if (debug_trace) fprintf(stderr, "INSERT op_line=%d op_col=%d code=%d → cursor_l=%d cursor_c=%d n_lines=%d line_shift=%d lss=%d\n",
-                op_line, op_col, code, cursor_l, cursor_c, n_lines, line_shift, line_shift_at_hunk_start);
             if (strcmp(cmd, "overwrite_insert") == 0) {
                 /* Overwrite: delete the char at cursor first, then insert */
-                delete_char(code);  /* code parameter ignored for non-\n */
+                delete_char(code);
             }
             insert_char(code);
-            if (code == 10) {
-                /* \n insert: split line. Within the hunk, the diff
-                 * engine's cur_line already advances, so within-hunk
-                 * ops use line_shift_at_hunk_start (unchanged). But
-                 * the running line_shift must increment so the NEXT
-                 * hunk's target_line is remapped correctly. */
-                line_shift += 1;
-            }
-            if (debug_trace) fprintf(stderr, "   → after insert: cursor_l=%d cursor_c=%d n_lines=%d line_shift=%d\n",
-                cursor_l, cursor_c, n_lines, line_shift);
             mark_modified(cursor_l);
             render();
         } else if (strcmp(cmd, "delay") == 0 && ntok >= 3) {
@@ -912,23 +801,9 @@ int main(int argc, char **argv) {
             if (!no_display) sleep_with_kb(ms);
         } else if (strcmp(cmd, "HUNK") == 0 || strcmp(cmd, "HUNK_END") == 0) {
             /* Metadata — track hunk boundaries for the skip feature */
-            if (strcmp(cmd, "HUNK") == 0 && ntok >= 2) {
+            if (strcmp(cmd, "HUNK") == 0) {
                 in_hunk = 1;
-                /* If user asked to skip to next hunk, this is the next hunk — reset */
                 skip_to_next_hunk = 0;
-                /* Snapshot the cumulative line_shift for this hunk's ops.
-                 * Within the hunk, ops use line_shift_at_hunk_start
-                 * (frozen at hunk start). The running line_shift
-                 * continues to accumulate from \n deletes/inserts
-                 * within this hunk, and will be picked up at the next
-                 * HUNK header. */
-                line_shift_at_hunk_start = line_shift;
-                /* Record the hunk's target_line (OLD coords) so we can
-                 * skip join_col_shift for ops within this hunk. */
-                current_hunk_target_line = atoi(toks[1]);
-                /* Mark that the next op is the first of this hunk —
-                 * only the first op gets join_col_shift applied. */
-                hunk_first_op_pending = 1;
             } else {
                 in_hunk = 0;
             }
@@ -1018,11 +893,9 @@ int main(int argc, char **argv) {
             }
         } else if (strcmp(cmd, "delete_line") == 0 && ntok >= 2) {
             /* delete_line\t<L> — remove line L from the buffer (atomic).
-             * Uses line_op_shift (separate from char ops' line_shift) to
-             * track the cumulative effect of delete_line/insert_line ops. */
-            int op_line = atoi(toks[1]);
-            int eff_line_1idx = op_line + line_op_shift;
-            int target_l = eff_line_1idx - 1;
+             * The animator is dumb — uses L as-is. Positions are already
+             * correct (fixed by layers). */
+            int target_l = atoi(toks[1]) - 1;
             if (target_l < 0) target_l = 0;
             if (target_l >= n_lines) target_l = n_lines - 1;
             /* Remove the line at target_l */
@@ -1031,14 +904,12 @@ int main(int argc, char **argv) {
                 for (int i = target_l; i < n_lines - 1; i++)
                     lines[i] = lines[i + 1];
                 n_lines--;
-                line_op_shift -= 1;
             } else {
                 /* Last (or only) line — clear it */
                 free(lines[target_l]);
                 lines[target_l] = strdup("");
                 if (n_lines > 1) {
                     n_lines--;
-                    line_op_shift -= 1;
                 }
             }
             cursor_l = target_l;
@@ -1050,10 +921,8 @@ int main(int argc, char **argv) {
             render();
         } else if (strcmp(cmd, "insert_line") == 0 && ntok >= 3) {
             /* insert_line\t<L>\t<text> — insert a new line at L with text.
-             * Uses line_op_shift for position tracking. */
-            int op_line = atoi(toks[1]);
-            int eff_line_1idx = op_line + line_op_shift;
-            int target_l = eff_line_1idx - 1;
+             * The animator is dumb — uses L as-is. */
+            int target_l = atoi(toks[1]) - 1;
             if (target_l < 0) target_l = 0;
             if (target_l > n_lines) target_l = n_lines;
             /* Reconstruct text from remaining tokens (join with tab) */
@@ -1072,7 +941,6 @@ int main(int argc, char **argv) {
                 lines[i] = lines[i - 1];
             lines[target_l] = strdup(text);
             n_lines++;
-            line_op_shift += 1;
             cursor_l = target_l;
             cursor_c = 0;
             disp_l = cursor_l;

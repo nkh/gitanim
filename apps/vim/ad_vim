@@ -1728,21 +1728,9 @@ let s:cur_l = 1
 let s:cur_c = 1
 let s:timed_stopped = 0
 let s:timed_speed = 1.0
-
-" Line-shift tracking (same logic as C animator — see animator/c/ad.c)
-" The op stream references line numbers in the ORIGINAL old file. As the
-" animator processes \n deletes (joins) and \n inserts (splits), the
-" buffer's actual line count diverges. We track:
-"   s:line_shift — running cumulative delta (+1 per \n insert, -1 per \n del)
-"   s:line_shift_at_hunk_start — frozen at HUNK header, used for within-hunk ops
-"   s:join_col_shift — dict: {op_line: col_offset} for lines joined in prior hunks
-"   s:hunk_first_op_pending — 1 until first op of hunk consumed (for col_offset)
-"   s:ops_pre_shifted — 1 if a layer already shifted op positions
-let s:line_shift = 0
-let s:line_shift_at_hunk_start = 0
-let s:join_col_shift = {}
-let s:hunk_first_op_pending = 0
-let s:ops_pre_shifted = 0
+" The animator is a DUMB BUFFER. It applies ops as-is — no position
+" remapping, no line-shift tracking. All computation is done by the
+" layers before the animator sees the ops.
 " Read speed from AD_SPEED env var (set by --speed flag)
 if exists('$AD_SPEED') && !empty($AD_SPEED)
     let s:timed_speed = str2float($AD_SPEED)
@@ -1800,19 +1788,6 @@ endfunction
 function! s:LoadTimedOps() abort
     let s:timed_ops = readfile(s:timed_ops_file)
     let s:timed_idx = 0
-    " Detect if ops were pre-shifted by a position-changing layer
-    " (post-processed by reorder, overwrite, etc.).
-    " The pace layer adds delays but doesn't change positions, so
-    " 'timed ops' header alone should NOT trigger pre-shifted mode.
-    " Only 'post-processed' (from ad_postprocess with layers) triggers it.
-    let s:ops_pre_shifted = 0
-    for l:line in s:timed_ops[:10]  " check first 10 lines for header
-        if l:line =~# 'post-processed'
-            let s:ops_pre_shifted = 1
-            break
-        endif
-        if l:line =~# '^HUNK' | break | endif
-    endfor
 endfunction
 
 function! s:TimedPlaceCursor() abort
@@ -1846,21 +1821,10 @@ function! s:TimedPlaceCursor() abort
 endfunction
 
 function! s:TimedSetCursor(line, col) abort
-    " Apply line_shift_at_hunk_start (frozen at HUNK header).
-    " Skip if ops_pre_shifted (layer already shifted positions).
-    let l:eff_line = a:line
-    let l:eff_col = a:col
-    if !s:ops_pre_shifted
-        let l:eff_line = a:line + s:line_shift_at_hunk_start
-        " Col offset only for first op of hunk (if line was joined in prior hunk)
-        if s:hunk_first_op_pending && has_key(s:join_col_shift, a:line)
-            let l:eff_col = a:col + s:join_col_shift[a:line]
-        endif
-    endif
-    let s:hunk_first_op_pending = 0
-
-    let s:cur_l = l:eff_line
-    let s:cur_c = l:eff_col
+    " The animator is DUMB — uses (line, col) as-is.
+    " All position computation is done by the layers.
+    let s:cur_l = a:line
+    let s:cur_c = a:col
     if s:cur_l < 1 | let s:cur_l = 1 | endif
     if s:cur_l > line('$')
         let s:cur_l = line('$')
@@ -1958,53 +1922,13 @@ function! s:TimedProcessBatch() abort
             " keep ops don't render
 
         elseif l:cmd ==# 'delete' && len(l:parts) >= 4
-            let l:del_code = str2nr(l:parts[3])
-            let l:op_line = str2nr(l:parts[1])
-            let l:op_col = str2nr(l:parts[2])
-            if l:del_code == 10
-                " \n delete: join line L and L+1.
-                " Use line_shift_at_hunk_start for cursor positioning.
-                " Update line_shift and join_col_shift for subsequent hunks.
-                if !s:ops_pre_shifted
-                    let l:eff_line = l:op_line + s:line_shift_at_hunk_start
-                    let l:col_offset = 0
-                    if s:hunk_first_op_pending && has_key(s:join_col_shift, l:op_line)
-                        let l:col_offset = s:join_col_shift[l:op_line]
-                    endif
-                    let s:cur_l = l:eff_line
-                    let s:cur_c = l:op_col + l:col_offset
-                    " Clamp
-                    if s:cur_l < 1 | let s:cur_l = 1 | endif
-                    if s:cur_l > line('$') | let s:cur_l = line('$') | endif
-                    let l:max_col = strchars(getline(s:cur_l)) + 1
-                    if s:cur_c > l:max_col | let s:cur_c = l:max_col | endif
-                    if s:cur_c < 1 | let s:cur_c = 1 | endif
-                    " Record col offset for ops targeting op_line+1
-                    if s:cur_l < line('$')
-                        let s:join_col_shift[l:op_line] = get(s:join_col_shift, l:op_line, 0) + (s:cur_c - 1)
-                        let s:line_shift -= 1
-                    endif
-                else
-                    let s:cur_l = l:op_line
-                    let s:cur_c = l:op_col
-                endif
-                let s:hunk_first_op_pending = 0
-                call s:TimedDeleteChar(l:del_code)
-            else
-                call s:TimedSetCursor(l:op_line, l:op_col)
-                call s:TimedDeleteChar(l:del_code)
-            endif
+            " The animator is dumb — just set cursor and delete.
+            call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+            call s:TimedDeleteChar(str2nr(l:parts[3]))
 
         elseif l:cmd ==# 'insert' && len(l:parts) >= 4
-            let l:op_line = str2nr(l:parts[1])
-            let l:op_col = str2nr(l:parts[2])
-            let l:op_code = str2nr(l:parts[3])
-            call s:TimedSetCursor(l:op_line, l:op_col)
-            call s:TimedInsertChar(l:op_code)
-            " \n insert: line_shift += 1 (for next hunk's target_line)
-            if l:op_code == 10 && !s:ops_pre_shifted
-                let s:line_shift += 1
-            endif
+            call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+            call s:TimedInsertChar(str2nr(l:parts[3]))
 
         elseif l:cmd ==# 'delay' && len(l:parts) >= 3
             " delay\t<ms>\t<type> — render now, then return delay
@@ -2018,12 +1942,7 @@ function! s:TimedProcessBatch() abort
             return l:ms
 
         elseif l:cmd ==# 'HUNK' || l:cmd ==# 'HUNK_END'
-            " metadata — track hunk boundaries for line-shift tracking
-            if l:cmd ==# 'HUNK'
-                " Snapshot cumulative line_shift for this hunk's ops
-                let s:line_shift_at_hunk_start = s:line_shift
-                let s:hunk_first_op_pending = 1
-            endif
+            " metadata — no action needed (animator is dumb)
 
         elseif l:cmd ==# 'highlight' && len(l:parts) >= 7
             " highlight\t<sl>\t<sc>\t<el>\t<ec>\t<type>\t<dur>
@@ -2107,47 +2026,28 @@ function! s:TimedProcessBatch() abort
             endif
 
         elseif l:cmd ==# 'delete_line' && len(l:parts) >= 2
-            " delete_line\t<L> — remove line L atomically
+            " delete_line\t<L> — remove line L atomically (dumb animator)
             let l:op_line = str2nr(l:parts[1])
-            let l:eff_line = l:op_line
-            if !s:ops_pre_shifted
-                let l:eff_line = l:op_line + s:line_shift_at_hunk_start
+            if l:op_line >= 1 && l:op_line <= line('$')
+                execute l:op_line . 'delete _'
             endif
-            let s:hunk_first_op_pending = 0
-            if l:eff_line >= 1 && l:eff_line <= line('$')
-                execute l:eff_line . 'delete _'
-                if !s:ops_pre_shifted
-                    let s:line_shift -= 1
-                endif
-            endif
-            let s:cur_l = l:eff_line
+            let s:cur_l = l:op_line
             if s:cur_l > line('$') | let s:cur_l = line('$') | endif
             let s:cur_c = 1
             let s:needs_redraw = 1
 
         elseif l:cmd ==# 'insert_line' && len(l:parts) >= 3
-            " insert_line\t<L>\t<text> — insert new line L with text
+            " insert_line\t<L>\t<text> — insert new line L (dumb animator)
             let l:op_line = str2nr(l:parts[1])
-            let l:eff_line = l:op_line
-            if !s:ops_pre_shifted
-                let l:eff_line = l:op_line + s:line_shift_at_hunk_start
-            endif
-            let s:hunk_first_op_pending = 0
-            " Reconstruct text from parts[2:] (may contain tabs)
             let l:text = join(l:parts[2:], "\t")
-            " Insert at eff_line (1-indexed). append() inserts AFTER line N,
-            " so use eff_line-1 to insert BEFORE.
-            if l:eff_line <= 1
+            if l:op_line <= 1
                 call append(0, l:text)
-            elseif l:eff_line <= line('$') + 1
-                call append(l:eff_line - 1, l:text)
+            elseif l:op_line <= line('$') + 1
+                call append(l:op_line - 1, l:text)
             else
                 call append(line('$'), l:text)
             endif
-            if !s:ops_pre_shifted
-                let s:line_shift += 1
-            endif
-            let s:cur_l = l:eff_line
+            let s:cur_l = l:op_line
             let s:cur_c = 1
             let s:needs_redraw = 1
 

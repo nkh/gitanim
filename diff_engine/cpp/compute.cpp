@@ -791,13 +791,16 @@ int main(int argc, char** argv) {
     out << "# optimize_sequence 1\n";
     out << "# left_to_right 0\n";
     out << "# hunk_count " << hunks.size() << "\n";
+    int cumulative_line_shift = 0;  /* net \n_ins - \n_del from prior hunks */
     for (auto& h : hunks) {
-        out << "HUNK\t" << h.target_line << "\t" << h.deleted_count << "\t"
+        /* Adjust target_line by the cumulative line shift from prior hunks
+         * so that positions match the buffer state when the animator applies
+         * them. The animator is dumb — it uses positions as-is. */
+        int adjusted_target = h.target_line + cumulative_line_shift;
+        out << "HUNK\t" << adjusted_target << "\t" << h.deleted_count << "\t"
             << h.inserted_count << "\t" << h.is_end_insert << "\t" << h.is_end_delete << "\n";
-        /* Track line/col within this hunk. Start at target_line, col 1.
-         * keep/insert advance col; delete stays at same col.
-         * '\n' (code 10) advances line, resets col. */
-        int cur_line = h.target_line;
+        /* Track line/col within this hunk. Start at adjusted_target, col 1. */
+        int cur_line = adjusted_target;
         int cur_col = 1;
         for (auto& op : h.char_ops) {
             const char* type = op.type == OP_KEEP ? "keep" :
@@ -805,23 +808,18 @@ int main(int argc, char** argv) {
             out << type << "\t" << cur_line << "\t" << cur_col << "\t"
                 << op.code << "\t" << char_repr(op.code) << "\n";
             if (op.code == 10) {
-                /* For \n keep/insert: advance to next line (content moves down).
-                 * For \n delete: DON'T advance — the join brings the next
-                 * line's content TO the current line, so subsequent ops
-                 * on the joined content target the SAME line. */
                 if (op.type != OP_DELETE) {
                     cur_line++;
                     cur_col = 1;
                 }
-                /* For \n delete: col stays (the join happens AT the cursor,
-                 * and the joined content begins right where the \n was). */
             } else {
                 if (op.type == OP_KEEP || op.type == OP_INSERT)
                     cur_col++;
-                /* delete: col stays */
             }
         }
         out << "HUNK_END\n";
+        /* Update cumulative line shift for next hunk */
+        cumulative_line_shift += h.inserted_count - h.deleted_count;
     }
     out << "\n";  /* blank line at bottom */
     out.close();
