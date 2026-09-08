@@ -89,6 +89,10 @@ static int current_hunk_target_line = 0;  /* target_line of the current hunk */
 static int hunk_first_op_pending = 0;  /* 1 until the first op of the hunk is processed */
 static int *join_col_shift = NULL;   /* join_col_shift[L] = chars to add to col when joining at L */
 static int join_col_shift_cap = 0;
+/* Separate shift for delete_line/insert_line ops. These ops change the
+ * buffer's line count and need their own tracking, independent of the
+ * char ops' line_shift (which is skipped when ops_pre_shifted). */
+static int line_op_shift = 0;
 
 static int no_display = 0;
 static int debug_trace = 0;  /* AD_TRACE=1 → print op processing to stderr */
@@ -1014,10 +1018,10 @@ int main(int argc, char **argv) {
             }
         } else if (strcmp(cmd, "delete_line") == 0 && ntok >= 2) {
             /* delete_line\t<L> — remove line L from the buffer (atomic).
-             * Used by ad_layer_line_replace for whole-line replacement.
-             * Applies line_shift remapping like other ops. */
+             * Uses line_op_shift (separate from char ops' line_shift) to
+             * track the cumulative effect of delete_line/insert_line ops. */
             int op_line = atoi(toks[1]);
-            int eff_line_1idx = ops_pre_shifted ? op_line : (op_line + line_shift_at_hunk_start);
+            int eff_line_1idx = op_line + line_op_shift;
             int target_l = eff_line_1idx - 1;
             if (target_l < 0) target_l = 0;
             if (target_l >= n_lines) target_l = n_lines - 1;
@@ -1027,14 +1031,14 @@ int main(int argc, char **argv) {
                 for (int i = target_l; i < n_lines - 1; i++)
                     lines[i] = lines[i + 1];
                 n_lines--;
-                line_shift -= 1;
+                line_op_shift -= 1;
             } else {
                 /* Last (or only) line — clear it */
                 free(lines[target_l]);
                 lines[target_l] = strdup("");
                 if (n_lines > 1) {
                     n_lines--;
-                    line_shift -= 1;
+                    line_op_shift -= 1;
                 }
             }
             cursor_l = target_l;
@@ -1046,10 +1050,9 @@ int main(int argc, char **argv) {
             render();
         } else if (strcmp(cmd, "insert_line") == 0 && ntok >= 3) {
             /* insert_line\t<L>\t<text> — insert a new line at L with text.
-             * Text is the 3rd+ tab-separated field (may contain tabs).
-             * Used by ad_layer_line_replace for whole-line replacement. */
+             * Uses line_op_shift for position tracking. */
             int op_line = atoi(toks[1]);
-            int eff_line_1idx = ops_pre_shifted ? op_line : (op_line + line_shift_at_hunk_start);
+            int eff_line_1idx = op_line + line_op_shift;
             int target_l = eff_line_1idx - 1;
             if (target_l < 0) target_l = 0;
             if (target_l > n_lines) target_l = n_lines;
@@ -1069,7 +1072,7 @@ int main(int argc, char **argv) {
                 lines[i] = lines[i - 1];
             lines[target_l] = strdup(text);
             n_lines++;
-            line_shift += 1;
+            line_op_shift += 1;
             cursor_l = target_l;
             cursor_c = 0;
             disp_l = cursor_l;

@@ -1,169 +1,201 @@
 /* ad_layer_line_replace.c — Replace char ops with line-level ops.
  *
- * Detects when a line's char ops amount to a full content replacement
- * (all old chars deleted, all new chars inserted) and collapses them
- * into:
+ * For ANY line that has at least one delete or insert op, collapse all
+ * its char ops into:
  *   delete_line\t<L>
- *   insert_line\t<L>\t<new_text>
+ *   insert_line\t<L>\t<final_text>
  *   delay\t<line_delay_ms>\tline   (if --line-delay-ms > 0)
  *
- * Lines that are only partially changed (some keeps) are passed through
- * as char ops — the layer only fires for full replacements.
+ * The <final_text> is the line's content AFTER applying all ops (keeps,
+ * deletes, inserts) to the original line. Even a single-char change
+ * produces a delete_line + insert_line.
  *
- * This produces "line-by-line" animation: the animator deletes the old
- * line and inserts the new one atomically. With --line-delay-ms 0, the
- * change is instant (no flicker). With --line-delay-ms 300, the viewer
- * sees the line disappear, pause, then reappear.
+ * Lines with only keeps (no changes) are passed through as char ops.
+ *
+ * The layer groups ops by line number (not by \n boundaries) to handle
+ * the diff engine's interleaved op layout correctly.
  *
  * Usage:
  *   ad_layer_line_replace [--line-delay-ms N] < ops.tsv > replaced.tsv
  *   ad_layer_line_replace --help
- *
- * Build: make layers
  */
 #include "ad_layer_common.h"
 
-static int line_delay_ms = 0;  /* 0 = instant, >0 = visible delay */
+static int line_delay_ms = 0;
 
-/* (is_full_line_change removed — the logic is now inline in
- * layer_line_replace for better same-line detection.) */
+/* Max lines we can track */
+#define MAX_LINES 100000
+
+/* Per-line info */
+typedef struct {
+    int has_change;       /* has any delete or insert */
+    int has_keep;         /* has any keep */
+    int line_num;         /* the line number (1-indexed) */
+    char *final_text;     /* final line text after applying all ops */
+    int text_len;         /* length of final_text */
+    int text_cap;         /* capacity of final_text */
+} LineInfo;
+
+/* Ensure final_text has enough capacity */
+static void line_ensure_cap(LineInfo *li, int needed) {
+    if (needed < li->text_cap) return;
+    int new_cap = li->text_cap == 0 ? 256 : li->text_cap;
+    while (new_cap <= needed) new_cap *= 2;
+    char *tmp = realloc(li->final_text, new_cap);
+    if (!tmp) return;  /* out of memory — text will be truncated */
+    li->final_text = tmp;
+    li->text_cap = new_cap;
+}
+
+/* Append a char to final_text */
+static void line_append_char(LineInfo *li, int code) {
+    if (li->text_len >= li->text_cap - 1)
+        line_ensure_cap(li, li->text_len + 2);
+    if (li->text_len < li->text_cap - 1) {
+        if (code == AD_LAYER_CHAR_SPACE) li->final_text[li->text_len++] = ' ';
+        else if (code == AD_LAYER_CHAR_TAB) li->final_text[li->text_len++] = '\t';
+        else if (code >= 32 && code < 127) li->final_text[li->text_len++] = (char)code;
+        else if (code == AD_LAYER_CHAR_NEWLINE) ;
+        else li->final_text[li->text_len++] = '?';
+    }
+}
 
 static int layer_line_replace(Op *ops, int n_ops, Op *out, int out_cap,
                                int *line_offset) {
+    /* Pass 1: scan all ops, build final text for each virtual line.
+     * Track virtual line numbers because the diff engine's line field
+     * doesn't advance on \n delete. */
+    static LineInfo lines[MAX_LINES];
+    memset(lines, 0, sizeof(lines));
+
+    int virtual_line = -1;  /* will be set from first op's line */
+    for (int i = 0; i < n_ops; i++) {
+        if (ad_layer_is_debug_op(&ops[i])) continue;
+        if (strncmp(ops[i].type, "HUNK", 4) == 0) continue;
+
+        if (ops[i].code == AD_LAYER_CHAR_NEWLINE) {
+            if (strcmp(ops[i].type, "delete") != 0) {
+                virtual_line++;
+                if (virtual_line >= MAX_LINES) virtual_line = MAX_LINES - 1;
+            }
+            continue;
+        }
+
+        /* Initialize virtual_line from the first op's line field */
+        if (virtual_line == -1 && ops[i].line > 0)
+            virtual_line = ops[i].line;
+
+        int ln = virtual_line;
+        if (ln <= 0 || ln >= MAX_LINES) continue;
+
+        if (strcmp(ops[i].type, "delete") == 0 ||
+            strcmp(ops[i].type, "insert") == 0 ||
+            strcmp(ops[i].type, "overwrite_insert") == 0) {
+            lines[ln].has_change = 1;
+        }
+        if (strcmp(ops[i].type, "keep") == 0) {
+            lines[ln].has_keep = 1;
+            line_append_char(&lines[ln], ops[i].code);
+        } else if (strcmp(ops[i].type, "insert") == 0 ||
+                   strcmp(ops[i].type, "overwrite_insert") == 0) {
+            line_append_char(&lines[ln], ops[i].code);
+        }
+        lines[ln].line_num = ln;
+    }
+
+    /* Null-terminate all final_text */
+    for (int ln = 1; ln < MAX_LINES; ln++) {
+        if (lines[ln].final_text) {
+            line_ensure_cap(&lines[ln], lines[ln].text_len + 1);
+            if (lines[ln].text_len < lines[ln].text_cap)
+                lines[ln].final_text[lines[ln].text_len] = 0;
+        }
+    }
+
+    /* Pass 2: emit ops, collapsing changed lines */
     int out_count = 0;
-
-    /* Strategy: walk ops, collecting them per line. When we see a \n op,
-     * flush the current line's collected ops. If they constitute a full
-     * line change (no keeps), collapse to delete_line/insert_line.
-     *
-     * We track the "current line" as the diff engine's cur_line — which
-     * advances on \n keep/insert but not \n delete. We track it by
-     * looking at the line field of ops.
-     *
-     * Simpler approach: just pass everything through for now, but
-     * detect SEQUENCES of same-line ops between \n boundaries.
-     * If a sequence has only deletes (no keeps, no inserts) for one line,
-     * collapse to delete_line. If only inserts, collapse to insert_line.
-     * If both deletes and inserts (no keeps), collapse to both.
-     */
-
-    int seg_start = 0;
-    int prev_collapsed = 0;
-
-    for (int i = 0; i <= n_ops; i++) {
-        int is_boundary = (i == n_ops);
-        if (i < n_ops && !ad_layer_is_debug_op(&ops[i])) {
-            if (ops[i].code == AD_LAYER_CHAR_NEWLINE ||
-                strncmp(ops[i].type, "HUNK", 4) == 0)
-                is_boundary = 1;
+    int i = 0;
+    virtual_line = -1;
+    static int emitted[MAX_LINES];
+    memset(emitted, 0, sizeof(emitted));
+    while (i < n_ops) {
+        if (ad_layer_is_debug_op(&ops[i]) ||
+            strncmp(ops[i].type, "HUNK", 4) == 0) {
+            if (out_count < out_cap)
+                out[out_count++] = ops[i];
+            i++;
+            continue;
         }
 
-        if (is_boundary) {
-            /* Check if all ops in [seg_start, i) target the same line
-             * and have no keeps */
-            int seg_line = 0;
-            int same_line = 1;
-            int has_keep = 0;
-            int has_delete = 0;
-            int has_insert = 0;
-
-            for (int j = seg_start; j < i; j++) {
-                if (ad_layer_is_debug_op(&ops[j])) continue;
-                if (ops[j].code == AD_LAYER_CHAR_NEWLINE) continue;
-                if (ops[j].line == 0) continue;
-
-                if (seg_line == 0)
-                    seg_line = ops[j].line;
-                else if (ops[j].line != seg_line) {
-                    same_line = 0;
-                    break;
-                }
-
-                if (strcmp(ops[j].type, "keep") == 0) has_keep = 1;
-                if (strcmp(ops[j].type, "delete") == 0) has_delete = 1;
-                if (strcmp(ops[j].type, "insert") == 0 ||
-                    strcmp(ops[j].type, "overwrite_insert") == 0) has_insert = 1;
-            }
-
-            int collapsed = (same_line && !has_keep && (has_delete || has_insert));
-
-            if (collapsed) {
-                /* Build insert text */
-                char new_text[AD_LAYER_MAX_LINE];
-                int text_len = 0;
-                int n_ins = 0;
-                int ins_cols[256];
-                int ins_codes[256];
-                for (int j = seg_start; j < i && n_ins < 256; j++) {
-                    if (ad_layer_is_debug_op(&ops[j])) continue;
-                    if (ops[j].code == AD_LAYER_CHAR_NEWLINE) continue;
-                    if (strcmp(ops[j].type, "insert") == 0 ||
-                        strcmp(ops[j].type, "overwrite_insert") == 0) {
-                        ins_cols[n_ins] = ops[j].col;
-                        ins_codes[n_ins] = ops[j].code;
-                        n_ins++;
-                    }
-                }
-                for (int a = 0; a < n_ins - 1; a++) {
-                    for (int b = 0; b < n_ins - 1 - a; b++) {
-                        if (ins_cols[b] > ins_cols[b + 1]) {
-                            int tmp = ins_cols[b]; ins_cols[b] = ins_cols[b + 1]; ins_cols[b + 1] = tmp;
-                            tmp = ins_codes[b]; ins_codes[b] = ins_codes[b + 1]; ins_codes[b + 1] = tmp;
-                        }
-                    }
-                }
-                for (int a = 0; a < n_ins && text_len < (int)sizeof(new_text) - 1; a++) {
-                    if (ins_codes[a] == AD_LAYER_CHAR_SPACE) new_text[text_len++] = ' ';
-                    else if (ins_codes[a] == AD_LAYER_CHAR_TAB) new_text[text_len++] = '\t';
-                    else if (ins_codes[a] >= 32 && ins_codes[a] < 127) new_text[text_len++] = (char)ins_codes[a];
-                    else if (ins_codes[a] == AD_LAYER_CHAR_NEWLINE) ;
-                    else new_text[text_len++] = '?';
-                }
-                new_text[text_len] = 0;
-
-                if (has_delete) {
-                    Op dl_op = {0};
-                    strcpy(dl_op.type, "delete_line");
-                    dl_op.line = seg_line;
-                    dl_op.text = NULL;
-                    if (out_count < out_cap)
-                        out[out_count++] = dl_op;
-                }
-                if (has_insert) {
-                    Op il_op = {0};
-                    strcpy(il_op.type, "insert_line");
-                    il_op.line = seg_line;
-                    il_op.text = strdup(new_text);
-                    if (out_count < out_cap)
-                        out[out_count++] = il_op;
-                }
-                if (line_delay_ms > 0) {
-                    Op delay_op = {0};
-                    strcpy(delay_op.type, "delay");
-                    delay_op.code = line_delay_ms;
-                    delay_op.text = NULL;
-                    if (out_count < out_cap)
-                        out[out_count++] = delay_op;
-                }
-            } else {
-                for (int j = seg_start; j < i && out_count < out_cap; j++)
-                    out[out_count++] = ops[j];
-            }
-
-            /* Emit boundary — skip \n delete/insert if collapsed */
-            if (i < n_ops && out_count < out_cap) {
-                int skip = 0;
-                if (ops[i].code == AD_LAYER_CHAR_NEWLINE &&
-                    (strcmp(ops[i].type, "delete") == 0 ||
-                     strcmp(ops[i].type, "insert") == 0) &&
-                    (collapsed || prev_collapsed))
+        if (ops[i].code == AD_LAYER_CHAR_NEWLINE) {
+            int skip = 0;
+            /* Initialize virtual_line from first non-boundary op */
+            if (virtual_line == -1 && ops[i].line > 0)
+                virtual_line = ops[i].line;
+            int ln = virtual_line;
+            if (strcmp(ops[i].type, "delete") == 0) {
+                if (ln > 0 && ln < MAX_LINES && lines[ln].has_change)
                     skip = 1;
-                if (!skip)
-                    out[out_count++] = ops[i];
+            } else {
+                if (ln > 0 && ln < MAX_LINES && lines[ln].has_change)
+                    skip = 1;
+                if (!skip && ln + 1 < MAX_LINES && lines[ln + 1].has_change)
+                    skip = 1;
+                virtual_line++;
+                if (virtual_line >= MAX_LINES) virtual_line = MAX_LINES - 1;
             }
-            prev_collapsed = collapsed;
-            seg_start = i + 1;
+            if (!skip && out_count < out_cap)
+                out[out_count++] = ops[i];
+            i++;
+            continue;
         }
+
+        /* Initialize virtual_line from first op's line field */
+        if (virtual_line == -1 && ops[i].line > 0)
+            virtual_line = ops[i].line;
+        int ln = virtual_line;
+        if (ln <= 0 || ln >= MAX_LINES || !lines[ln].has_change) {
+            if (out_count < out_cap)
+                out[out_count++] = ops[i];
+            i++;
+            continue;
+        }
+
+        /* Line has changes — skip all its ops, emit delete_line+insert_line
+         * once */
+        if (!emitted[ln]) {
+            Op dl_op = {0};
+            strcpy(dl_op.type, "delete_line");
+            dl_op.line = ln;
+            dl_op.text = NULL;
+            if (out_count < out_cap)
+                out[out_count++] = dl_op;
+
+            Op il_op = {0};
+            strcpy(il_op.type, "insert_line");
+            il_op.line = ln;
+            il_op.text = strdup(lines[ln].final_text ? lines[ln].final_text : "");
+            if (out_count < out_cap)
+                out[out_count++] = il_op;
+
+            if (line_delay_ms > 0) {
+                Op delay_op = {0};
+                strcpy(delay_op.type, "delay");
+                delay_op.code = line_delay_ms;
+                delay_op.text = NULL;
+                if (out_count < out_cap)
+                    out[out_count++] = delay_op;
+            }
+            emitted[ln] = 1;
+        }
+
+        /* Skip this op (it's part of a collapsed line) */
+        i++;
+    }
+
+    /* Free line texts */
+    for (int ln = 1; ln < MAX_LINES; ln++) {
+        free(lines[ln].final_text);
     }
 
     int ni = 0, nd = 0;
@@ -190,11 +222,11 @@ int main(int argc, char **argv) {
                 "Options:\n"
                 "  --line-delay-ms N  Delay after each line replacement (default: 0 = instant)\n"
                 "  --help, -h         Show this help\n\n"
-                "Detects when a line's char ops amount to a full content replacement\n"
-                "(all old chars deleted, all new chars inserted, no keeps) and collapses\n"
-                "them into delete_line + insert_line ops. The animator applies these\n"
-                "atomically — no flicker. With --line-delay-ms > 0, a delay is inserted\n"
-                "so the change is visible.\n");
+                "For ANY line that has at least one delete or insert op, collapses\n"
+                "all its char ops into delete_line + insert_line. The insert_line\n"
+                "text is the final line content after applying all ops (keeps +\n"
+                "deletes + inserts). Even a single-char change produces a full\n"
+                "delete_line + insert_line.\n");
             return 0;
         }
     }
