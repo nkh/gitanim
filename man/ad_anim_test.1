@@ -1,0 +1,60 @@
+.TH AD_ANIM_TEST 1 "2026-09-09" "ad 1.0" "User Commands"
+.SH NAME
+ad_anim_test \- test animation by taking per-op snapshots
+.SH SYNOPSIS
+.B ad_anim_test
+.I <oldfile>
+.I <newfile>
+.I <opsfile>
+.RB [ --check-in-place ]
+.SH DESCRIPTION
+.B ad_anim_test
+tests the ANIMATION (intermediate states), not just the final output.
+It takes a snapshot after EACH op using the C animator's
+.B --seek
+flag, and verifies:
+.PP
+.RS
+1. The buffer never contains garbage (no chars at wrong positions)
+.br
+2. Content is deleted in place (not joined to another line first)
+.br
+3.
+.B join_lines
+only happens on empty lines (all content already deleted)
+.RE
+.SH OPTIONS
+.TP
+.B --check-in-place
+Enable in-place deletion checks. Verifies that content deletes happen
+at the correct line number (not after a join moved content to a
+different line). Also checks that
+.B join_lines
+only happens on empty lines.
+.SH WHY THIS IS NEEDED
+L1/L2 (
+.BR ad_l1l2 )
+only tests the final output: old + ops = new. It cannot detect visual
+issues like content jumping between lines before being deleted.
+.PP
+.B ad_anim_test
+catches these issues by checking the buffer state after each op.
+.SH EXAMPLES
+.TP
+Test a simple animation:
+.B ad_anim_test old.py new.py ops.tsv
+.TP
+Test with in-place checks:
+.B ad_anim_test old.py new.py ops.tsv --check-in-place
+.TP
+Test with a layer chain:
+.B ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_delete_in_place < raw.tsv > post.tsv
+.br
+.B ad_anim_test old.py new.py post.tsv --check-in-place
+.SH SEE ALSO
+.BR ad (1),
+.BR ad_l1l2 (1),
+.BR ad_postprocess (1),
+.BR ad_session (1)
+.SH AUTHOR
+Written by the ad contributors.

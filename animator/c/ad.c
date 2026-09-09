@@ -587,13 +587,25 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--version") == 0) { printf("ad 2.0\n"); exit(0); }
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr, "Usage: ad [options] <oldfile>\n");
+            fprintf(stderr, "  Reads timed ops from stdin, animates the transformation.\n\n");
+            fprintf(stderr, "  --no-display         Run headless (no terminal rendering)\n");
+            fprintf(stderr, "  --speed N            Speed multiplier (default: 1.0)\n");
+            fprintf(stderr, "  --snapshot FILE      Write final buffer to FILE\n");
+            fprintf(stderr, "  --output FILE        Same as --snapshot\n");
+            fprintf(stderr, "  --seek N             Apply first N ops (suppress render for ops < N)\n");
+            fprintf(stderr, "                       Used by ad_anim_test for per-op snapshots\n");
             fprintf(stderr, "  --colormap-old FILE  ANSI-colored lines for old file\n");
             fprintf(stderr, "  --colormap-new FILE  ANSI-colored lines for new file\n");
             fprintf(stderr, "  --line-numbers       Show line numbers in the margin\n");
             fprintf(stderr, "  --progress           Show progress bar at bottom\n");
+            fprintf(stderr, "  --diff-stat          Show changed/total line overlay\n");
+            fprintf(stderr, "  --diff-highlight     Highlight modified lines\n");
+            fprintf(stderr, "  --bell               Ring bell on errors\n");
+            fprintf(stderr, "  --scroll MODE        zz|zt|zb|none (default: zz)\n");
             fprintf(stderr, "  --verbose            Show timing info on stderr\n");
             fprintf(stderr, "  --dry-run            Show what would be animated without running\n");
             fprintf(stderr, "  --version            Print version and exit\n");
+            fprintf(stderr, "  --help, -h           Show this help\n");
             exit(0);
         } else if (argv[i][0] != '-') strncpy(old_file_path, argv[i], 255);
     }

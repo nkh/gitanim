@@ -110,6 +110,7 @@ make install PREFIX=$HOME/.local
 | `scripts/ad_gen_ops`      | Generates ops from old/new files + layer chain        |
 | `scripts/ad_annotate`     | Built binary (same as `bin/ad_annotate`)              |
 | `scripts/ad_l1l2`         | L1/L2 bisect: finds where ops start failing           |
+| `scripts/ad_anim_test`    | Animation test: per-op snapshots, in-place checks     |
 
 ### Perl fallbacks (in `layers/perl/`, `animator/perl/`)
 

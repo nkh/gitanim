@@ -34,20 +34,79 @@ generates ops, initializes git, and launches vim with a split layout.
 
 ### Shortcuts
 
-| Key         | Action                                 |
-| ----------- | -------------------------------------- |
-| F5          | Run animation in terminal split        |
-| F6          | Run snapshot, update result.txt + diff |
-| `<leader>c` | Git commit                             |
-| `<leader>q` | Commit and quit                        |
-| `<leader>Q` | Quit without commit                    |
-| `<leader>g` | Regenerate ops from layers             |
-| `<leader>d` | Reopen diff split                      |
-| `<leader>h` | Fold all hunks except current          |
-| `<leader>H` | Unfold all                             |
-| `<leader>k` | Toggle keep-op folding                 |
-| `<leader>a` | Toggle annotations                     |
-| `<leader>?` | Show help                              |
+| Key         | Action                                      |
+| ----------- | ------------------------------------------- |
+| F5          | Run animation in terminal split             |
+| F6          | Run snapshot, update result.txt + diff      |
+| `<leader>c` | Git commit                                  |
+| `<leader>q` | Commit and quit                             |
+| `<leader>Q` | Quit without commit                         |
+| `<leader>g` | Regenerate ops from layers                  |
+| `<leader>d` | Reopen diff split                           |
+| `<leader>h` | Fold all hunks except current               |
+| `<leader>H` | Unfold all                                  |
+| `<leader>k` | Toggle keep-op folding                      |
+| `<leader>a` | Toggle annotations                          |
+| `<leader>b` | Re-run L1/L2 check (also auto-runs on save) |
+| `<leader>f` | Fold identical lines (lines 1..L1)          |
+| `<leader>t` | Trim: create reduced files from L2          |
+| `<leader>?` | Show help                                   |
+
+## L1/L2 debugging (ad_l1l2)
+
+Tests the **op stream** (not the animator). Applies ops to old file
+using the C animator (reference implementation), compares result
+against new file line-by-line.
+
+- **L1** = last line where old+ops matches new (correct up to here)
+- **L2** = first line where old+ops differs (bug starts here). 0 = all match.
+
+```bash
+# Standalone
+./scripts/ad_l1l2 old.py new.py ops.tsv
+
+# In ad_session: auto-runs on start and on ops.tsv save
+# <leader>b to re-run manually
+# <leader>f to fold identical lines (1..L1)
+# <leader>t to trim (create reduced files from L2 onward)
+```
+
+## Animation testing (ad_anim_test)
+
+Tests the **animation** (intermediate states), not just the final output.
+Takes a snapshot after EACH op and checks:
+
+1. Content is deleted in place (not joined to another line first)
+2. `join_lines` only happens on empty lines
+3. No buffer corruption
+
+```bash
+# Basic test
+./scripts/ad_anim_test old.py new.py ops.tsv
+
+# With in-place deletion checks (for testing LDI layer)
+./scripts/ad_anim_test old.py new.py ops.tsv --check-in-place
+
+# Test with a layer chain
+./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_delete_in_place < raw.tsv > post.tsv
+./scripts/ad_anim_test old.py new.py post.tsv --check-in-place
+```
+
+### How it works
+
+Uses the C animator's `--seek N` flag: applies the first N ops (suppressing
+render for ops < N), then takes a snapshot. This is slow (re-runs the
+animator from scratch for each op) but catches visual issues that L1/L2
+cannot detect.
+
+### What L1/L2 vs ad_anim_test detect
+
+| Issue                                       | L1/L2   | ad_anim_test  |
+| ------------------------------------------- | ------- | ------------- |
+| Final output wrong (old+ops ≠ new)          | ✓       | ✓             |
+| Content jumps between lines before deletion | ✗       | ✓             |
+| join_lines on non-empty line                | ✗       | ✓             |
+| Indent deletes before content deletes       | ✗       | ✓             |
 
 ## ad_tmux_watch (tmux alternative)
 
@@ -105,11 +164,11 @@ content before and after each bundle of ops:
 
 ```
 # keep: "hello " (line 1, cols 1-6)
-keep	1	1	104	'h'
-keep	1	2	101	'e'
+keep    1       1       104     'h'
+keep    1       2       101     'e'
 # old: "hello world"
 # new: "hello rld"
-delete	1	7	119	'w'
+delete  1       7       119     'w'
 ```
 
 ## EOF op
@@ -118,4 +177,4 @@ Add `EOF` on its own line in the op file to mark the end of the op list.
 Any ops after `EOF` are ignored by all tools (animator, layers, pace).
 
 ```
-keep	1	1	104	'h'
+keep    1       1       104     'h'
