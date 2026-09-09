@@ -86,15 +86,15 @@ TSV to stdout. You can chain any layers in any order:
 
 ## Layers
 
-| Layer                           | What it does                                |
-| ------------------------------- | ------------------------------------------- |
-| `ad_layer_reorder`              | Deletes before inserts within each line     |
-| `ad_layer_overwrite`            | Merge adjacent delete+insert into overwrite |
-| `ad_layer_indent_last`          | Move whitespace deletes to end of line      |
-| `ad_layer_line_delete_in_place` | Delete content before joining lines         |
-| `ad_layer_skip_indent`          | Skip animation for indent-only changes      |
-| `ad_layer_pace`                 | Add timing delays between ops               |
-| `ad_layer_highlight`            | Add highlight/dim/fold decorations          |
+| Layer                           | What it does                                        |               |
+| ------------------------------- | --------------------------------------------------- | ------------- |
+| `ad_layer_reorder`              | Deletes before inserts within each line             |               |
+| `ad_layer_overwrite`            | Merge adjacent delete+insert into overwrite         |               |
+| `ad_layer_indent_last`          | Move whitespace deletes to end of line              |               |
+| `ad_layer_line_delete_in_place` | Delete content before joining lines (`--mode batch\ | interleaved`) |
+| `ad_layer_skip_indent`          | Skip animation for indent-only changes              |               |
+| `ad_layer_pace`                 | Add timing delays between ops                       |               |
+| `ad_layer_highlight`            | Add highlight/dim/fold decorations                  |               |
 
 No layers run by default. Add them explicitly:
 ```bash
@@ -102,6 +102,26 @@ No layers run by default. Add them explicitly:
 ```
 
 Or use a `.ad_layers` file to define layer groups (see [INSTALL.md](INSTALL.md)).
+
+### Layer options
+
+Some layers accept options. Pass them via `--ad-layer-arg`:
+
+```bash
+# Use line_delete_in_place in interleaved mode
+./pipeline/ad_postprocess \
+    --ad-layer=ad_layer_reorder \
+    --ad-layer=ad_layer_line_delete_in_place \
+    --ad-layer-arg=ad_layer_line_delete_in_place:--mode=interleaved \
+    < raw.tsv > post.tsv
+
+# Then animate:
+./apps/vim/ad_vim --precomputed post.tsv old.py new.py
+```
+
+Available modes for `ad_layer_line_delete_in_place`:
+- `--mode batch` (default) — delete all content first, then join all empty lines
+- `--mode interleaved` — delete each line's content, then immediately join
 
 ## Good git usage
 
@@ -163,6 +183,24 @@ intent before applying it.
 See [docs/src/git-integration.md](docs/src/git-integration.md) for the
 full set of git flags (`--replay`, `--git-rev`, `--git-blame`,
 multi-file replay).
+
+## Scripts and Tools
+
+| Tool                      | What it does                                              |
+| ------------------------- | --------------------------------------------------------- |
+| `apps/vim/ad_vim`         | Main entry point — animates a diff in vim                 |
+| `pipeline/ad_pipeline`    | Headless pipeline (C animator, no vim)                    |
+| `pipeline/ad_postprocess` | Layer orchestrator — chains layers via `--ad-layer`       |
+| `scripts/ad_session`      | Interactive vim debugger with L1/L2, folds, git           |
+| `scripts/ad_gen_ops`      | Generate ops from old/new files + layer chain             |
+| `scripts/ad_annotate`     | Add `# old:` / `# new:` context comments to ops           |
+| `scripts/ad_l1l2`         | Find where ops start failing (L1=last good, L2=first bad) |
+| `scripts/ad_anim_test`    | Test animation: per-op snapshots, in-place checks         |
+| `scripts/ad_watch`        | Live-preview old/new/diff, auto-refresh on save           |
+| `scripts/ad_tmux_watch`   | tmux-based session tool                                   |
+| `bin/ad_compute`          | Diff engine — produces char-level ops from old/new files  |
+| `bin/ad`                  | C animator — applies ops to a buffer, headless            |
+| `bin/ad_layer_*`          | Layer binaries (reorder, overwrite, indent_last, etc.)    |
 
 ## Installation
 

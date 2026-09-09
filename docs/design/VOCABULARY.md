@@ -116,7 +116,7 @@ flags.
 | **ad_layer_reorder** | Reorders ops within each line (deletes before inserts) |
 | **ad_layer_overwrite** | Merges adjacent delete+insert into overwrite_insert |
 | **ad_layer_indent_last** | Moves leading whitespace deletes to end of line |
-| **ad_layer_line_delete_in_place** | Deletes whole lines on their own line (not joined to previous) |
+| **ad_layer_line_delete_in_place** | Reorders ops so content is deleted BEFORE lines are joined. Two modes: `--mode batch` (delete all content first, then join all) and `--mode interleaved` (delete content → join → delete next → join). Default: batch. |
 | **ad_layer_skip_indent** | Skips animation for indent-only changes |
 | **ad_layer_pace** | Inserts delay ops between content ops |
 | **ad_layer_highlight** | Inserts highlight/dim/fold/sign decoration ops |
