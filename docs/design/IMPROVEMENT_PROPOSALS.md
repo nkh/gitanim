@@ -7,8 +7,24 @@ and framed from the user's perspective.
 Status markers:
 - ✅ already implemented
 - ⬜ not yet implemented (proposal)
+- 🔄 partially implemented / needs work
 
-Items are grouped by tool, then ordered roughly by impact.
+Last updated: 2026-09-09 (reflects `refactor/no-newline-in-char-ops` branch)
+
+## Recent progress (2026-09)
+
+- ✅ Removed `\n` from char ops — line boundaries are now explicit
+  `keep_line`/`join_lines`/`split_line` ops
+- ✅ Animators are dumb buffers — no position computation
+- ✅ `ad_layer_overwrite`: 28/42 → 42/42 (removed position recomputation)
+- ✅ `ad_layer_line_delete_in_place`: now works (42/42), two modes
+  (`--mode batch` / `--mode interleaved`)
+- ✅ L1/L2 redesigned: applies ops hunk by hunk, reports which hunk
+  failed (`L2_HUNK`)
+- ✅ `ad_anim_test`: per-op snapshot testing tool
+- 🔄 `ad_layer_line_replace`: 1/42 (needs rewrite)
+- 🔄 `ad_layer_skip_indent`: 40/42 (2 failures on large examples)
+- ⬜ Perl twins not yet updated for new op types
 
 ---
 
