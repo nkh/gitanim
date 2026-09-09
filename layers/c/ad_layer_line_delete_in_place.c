@@ -134,6 +134,11 @@ int main(int argc, char **argv) {
                 ldi_mode = 1;
             else
                 ldi_mode = 0;  /* batch (default) */
+        } else if (strncmp(argv[i], "--mode=", 7) == 0) {
+            if (strcmp(argv[i] + 7, "interleaved") == 0)
+                ldi_mode = 1;
+            else
+                ldi_mode = 0;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr,
                 "ad_layer_line_delete_in_place — delete content before joining lines\n\n"

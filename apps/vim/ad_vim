@@ -143,6 +143,7 @@ LINE_DELETE_IN_PLACE="0"
 # --ad-layer-path=<dir>.
 EXTRA_PP_LAYERS=()
 EXTRA_PP_PATHS=()
+declare -A EXTRA_PP_LAYER_ARGS
 # Display options (forwarded to C animator)
 DIFF_STAT="0"
 DIFF_HIGHLIGHT="0"
@@ -480,12 +481,39 @@ while [[ $# -gt 0 ]]; do
         # the search path (bin/ and layers/perl/ by default; override
         # with --ad-layer-path). See docs/src/plugin-layers.md.
         --ad-layer=*)
-            EXTRA_PP_LAYERS+=("${1#--ad-layer=}")
+            # Parse layer name and optional args (separated by spaces or colons)
+            # Examples:
+            #   --ad-layer=ad_layer_reorder
+            #   --ad-layer=ad_layer_line_delete_in_place:--mode=interleaved
+            #   --ad-layer=ad_layer_line_delete_in_place:--mode:interleaved
+            layer_spec="${1#--ad-layer=}"
+            # Split on first colon: name=args
+            layer_name="${layer_spec%%:*}"
+            if [[ "$layer_spec" == *:* && "$layer_name" != "$layer_spec" ]]; then
+                layer_args="${layer_spec#*:}"
+                EXTRA_PP_LAYERS+=("$layer_name")
+                # Convert colons to spaces and add each arg
+                EXTRA_PP_LAYER_ARGS["$layer_name"]="${layer_args//:/ }"
+            else
+                EXTRA_PP_LAYERS+=("$layer_spec")
+            fi
             shift
             ;;
         --ad-layer)
-            EXTRA_PP_LAYERS+=("$2")
+            # --ad-layer NAME [args...] — next arg is layer name,
+            # following args until next -- are layer arguments
+            layer_name="$2"
             shift 2
+            EXTRA_PP_LAYERS+=("$layer_name")
+            # Collect args until next -- flag
+            layer_args=""
+            while [[ $# -gt 0 && "$1" != --* ]]; do
+                layer_args="$layer_args $1"
+                shift
+            done
+            if [[ -n "$layer_args" ]]; then
+                EXTRA_PP_LAYER_ARGS["$layer_name"]="$layer_args"
+            fi
             ;;
         --ad-layer-path=*)
             EXTRA_PP_PATHS+=("${1#--ad-layer-path=}")
@@ -1439,6 +1467,13 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         [[ ${#EXTRA_PP_LAYERS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_LAYERS[@]/#/--ad-layer=}")
         # Extra search paths from --ad-layer-path=<dir>.
         [[ ${#EXTRA_PP_PATHS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_PATHS[@]/#/--ad-layer-path=}")
+        # Layer arguments from --ad-layer=NAME:ARG or --ad-layer NAME ARG
+        for layer_name in "${!EXTRA_PP_LAYER_ARGS[@]}"; do
+            args="${EXTRA_PP_LAYER_ARGS[$layer_name]}"
+            for arg in $args; do
+                POSTPROCESS_ARGS+=("--ad-layer-arg=${layer_name}:${arg}")
+            done
+        done
         debug_log "Stage 2: postprocess ${POSTPROCESS_ARGS[*]}"
 
         "$POSTPROCESS_BIN" "${POSTPROCESS_ARGS[@]}" < "$RAW_OPS" > "$POST_OPS" 2>/dev/null
