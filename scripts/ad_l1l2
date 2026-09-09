@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
-# ad_l1l2 — Find L1 (last good line) and L2 (first bad line) by applying
-# ops to the old file and comparing against the new file line-by-line.
+# ad_l1l2 — Find where ops start producing wrong output.
 #
-# Usage:
-#   ad_l1l2 <oldfile> <newfile> <opsfile>
+# Applies ops incrementally, checking after each HUNK whether the
+# buffer matches the new file up to the point the hunk has modified.
 #
-# Output (to stdout):
-#   L1=<last good line> (0 if first line is already bad)
-#   L2=<first bad line> (0 if all lines match)
-#   L_TOTAL=<total lines in new file>
+# L1 = last line where buffer matches new (correct up to here)
+# L2 = first line where buffer differs from new (error starts here)
+# L2_HUNK = hunk number where the error was detected
 #
-# If the buffer matches the new file completely, L2=0 and L1=L_TOTAL.
-#
-# The script runs the C animator in headless mode to produce a snapshot,
-# then compares line-by-line.
+# Usage: ad_l1l2 <oldfile> <newfile> <opsfile>
 
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [[ $# -lt 3 ]]; then
@@ -28,40 +22,141 @@ OLD="$1"
 NEW="$2"
 OPS="$3"
 
-# Run the animator in headless mode to produce a snapshot
-SNAP=$(mktemp)
-trap "rm -f '$SNAP'" EXIT
+L_TOTAL=$(wc -l < "$NEW" 2>/dev/null || echo 0)
 
-"$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$SNAP" "$OLD" < "$OPS" 2>/dev/null | cat -v > /dev/null  # discard stdout
+TMPDIR=$(mktemp -d)
+trap "rm -rf '$TMPDIR'" EXIT
 
-# Compare line-by-line
-# L1 = last line where snap matches new (0 if line 1 differs)
-# L2 = first line where snap differs from new (0 if all match)
+# Split the op file into per-hunk files, then build incrementally
+# with a snapshot after each hunk.
+awk -v tmpdir="$TMPDIR" '
+BEGIN { hunk_num = 0; op_count = 0 }
+
+/^#/ { next }  # skip comments
+/^$/ { next }  # skip empty
+
+/^HUNK\t/ {
+    hunk_num++
+    op_count = 0
+    # Start a new hunk file
+    close(tmpdir "/hunk_" hunk_num ".tsv")
+    print "HUNK\t" > tmpdir "/hunk_" hunk_num ".tsv"
+    next
+}
+
+/^HUNK_END/ {
+    print "HUNK_END" >> tmpdir "/hunk_" hunk_num ".tsv"
+    close(tmpdir "/hunk_" hunk_num ".tsv")
+    next
+}
+
+# Op line — write to current hunk file
+{ print >> tmpdir "/hunk_" hunk_num ".tsv"; op_count++ }
+
+END {
+    print hunk_num > tmpdir "/total_hunks.txt"
+}
+' "$OPS"
+
+TOTAL_HUNKS=$(cat "$TMPDIR/total_hunks.txt" 2>/dev/null || echo 0)
+
+# Build incremental op streams: hunk 1, hunk 1+2, hunk 1+2+3, etc.
+# For each, run the animator and check the buffer against the new file.
+#
+# To check: after applying hunks 1..N, the buffer should match the
+# new file on all lines that hunks 1..N have touched. Lines not yet
+# touched may still have old content.
+#
+# We compare the buffer up to the LAST line touched by hunk N.
+# The last line touched = the hunk's target + max(del_count, ins_count) - 1
+# (adjusted by cumulative line shift).
+
 L1=0
 L2=0
-L_TOTAL=$(wc -l < "$NEW" 2>/dev/null || echo 0)
-S_TOTAL=$(wc -l < "$SNAP" 2>/dev/null || echo 0)
+L2_HUNK=0
+CUM_SHIFT=0  # cumulative line shift (ins_count - del_count)
 
-# Use the larger of the two line counts
-[[ $S_TOTAL -gt $L_TOTAL ]] && L_TOTAL=$S_TOTAL
+# Copy the header (comments) to the incremental stream
+grep '^#' "$OPS" > "$TMPDIR/header.tsv"
 
-i=0
-while [[ $i -lt $L_TOTAL ]]; do
-    i=$((i + 1))
-    new_line=$(sed -n "${i}p" "$NEW" 2>/dev/null || echo "")
-    snap_line=$(sed -n "${i}p" "$SNAP" 2>/dev/null || echo "")
-    if [[ "$new_line" == "$snap_line" ]]; then
-        L1=$i
-    else
-        L2=$i
-        break
+for h in $(seq 1 "$TOTAL_HUNKS"); do
+    [[ -f "$TMPDIR/hunk_$h.tsv" ]] || continue
+
+    # Build incremental stream: header + hunk 1..h + EOF
+    cat "$TMPDIR/header.tsv" > "$TMPDIR/incr.tsv"
+    for k in $(seq 1 "$h"); do
+        [[ -f "$TMPDIR/hunk_$k.tsv" ]] && cat "$TMPDIR/hunk_$k.tsv" >> "$TMPDIR/incr.tsv"
+    done
+    echo "EOF" >> "$TMPDIR/incr.tsv"
+
+    # Parse hunk header to get target, del, ins
+    HUNK_LINE=$(head -1 "$TMPDIR/hunk_$h.tsv")
+    TARGET=$(echo "$HUNK_LINE" | cut -f2)
+    DEL_COUNT=$(echo "$HUNK_LINE" | cut -f3)
+    INS_COUNT=$(echo "$HUNK_LINE" | cut -f4)
+
+    # Adjusted target (accounting for cumulative shift)
+    ADJ_TARGET=$((TARGET + CUM_SHIFT))
+
+    # Last line touched by this hunk = adjusted_target + max(del, ins) - 1
+    MAX_LINES=$DEL_COUNT
+    [[ $INS_COUNT -gt $MAX_LINES ]] && MAX_LINES=$INS_COUNT
+    LAST_LINE=$((ADJ_TARGET + MAX_LINES - 1))
+    [[ $LAST_LINE -lt 1 ]] && LAST_LINE=1
+
+    # Run animator
+    "$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/snap_$h.tsv" "$OLD" < "$TMPDIR/incr.tsv" > /dev/null 2>/dev/null || true
+
+    # Check if animator crashed (no snapshot file)
+    if [[ ! -f "$TMPDIR/snap_$h.tsv" ]]; then
+        L2=1
+        L1=0
+        L2_HUNK=$h
+        printf 'L1=%d\nL2=%d\nL2_HUNK=%d\nL_TOTAL=%d\n' "$L1" "$L2" "$L2_HUNK" "$L_TOTAL"
+        printf 'ERROR: animator crashed at hunk %d (ops produce invalid output)\n' "$h" >&2
+        exit 0
     fi
+
+    for i in $(seq 1 "$LAST_LINE"); do
+        new_line=$(sed -n "${i}p" "$NEW" 2>/dev/null || echo "")
+        snap_line=$(sed -n "${i}p" "$TMPDIR/snap_$h.tsv" 2>/dev/null || echo "")
+        if [[ "$new_line" != "$snap_line" ]]; then
+            L2=$i
+            L1=$((i - 1))
+            L2_HUNK=$h
+            # Found the error — output and exit
+            printf 'L1=%d\nL2=%d\nL2_HUNK=%d\nL_TOTAL=%d\n' "$L1" "$L2" "$L2_HUNK" "$L_TOTAL"
+            exit 0
+        fi
+        L1=$i
+    done
+
+    # Update cumulative shift
+    CUM_SHIFT=$((CUM_SHIFT + INS_COUNT - DEL_COUNT))
 done
 
-# If we reached the end without finding a difference
-if [[ $L2 -eq 0 ]]; then
-    L1=$L_TOTAL
+# All hunks passed — check the final output
+"$ROOT/bin/ad" --no-display --speed 1000 --snapshot "$TMPDIR/snap_final.tsv" "$OLD" < "$OPS" > /dev/null 2>/dev/null || true
+if [[ ! -f "$TMPDIR/snap_final.tsv" ]]; then
+    L2=1
+    L1=0
+    L2_HUNK=$TOTAL_HUNKS
+    printf 'L1=%d\nL2=%d\nL2_HUNK=%d\nL_TOTAL=%d\n' "$L1" "$L2" "$L2_HUNK" "$L_TOTAL"
+    printf 'ERROR: animator crashed on final output (ops produce invalid output)\n' >&2
+    exit 0
+fi
+if [[ -f "$TMPDIR/snap_final.tsv" ]]; then
+    for i in $(seq 1 "$L_TOTAL"); do
+        new_line=$(sed -n "${i}p" "$NEW" 2>/dev/null || echo "")
+        snap_line=$(sed -n "${i}p" "$TMPDIR/snap_final.tsv" 2>/dev/null || echo "")
+        if [[ "$new_line" != "$snap_line" ]]; then
+            L2=$i
+            L1=$((i - 1))
+            L2_HUNK=$TOTAL_HUNKS
+            break
+        fi
+        L1=$i
+    done
 fi
 
-# Output (clean, no ANSI codes)
-printf 'L1=%d\nL2=%d\nL_TOTAL=%d\n' "$L1" "$L2" "$L_TOTAL"
+printf 'L1=%d\nL2=%d\nL2_HUNK=%d\nL_TOTAL=%d\n' "$L1" "$L2" "$L2_HUNK" "$L_TOTAL"
