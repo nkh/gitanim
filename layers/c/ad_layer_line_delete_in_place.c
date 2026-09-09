@@ -1,31 +1,21 @@
-/* ad_layer_line_delete_in_place.c — reorder ops so lines are created
- * before content fills them, and content is deleted before lines are
- * joined.
+/* ad_layer_line_delete_in_place.c — Delete content BEFORE joining lines.
  *
- * Two patterns are handled:
+ * When the diff engine deletes multiple consecutive lines, it produces:
  *
- * 1. DELETE pattern (join then delete → delete in place):
+ *   delete(line1 chars)  → join_lines → delete(line2 chars) → join_lines → ...
  *
- *    delete(\n)            ← joiner \n (joins two lines)
- *    delete(content)...    ← content on the joined line
- *    delete(\n)            ← content's own \n
- *    →
- *    delete(content)...    ← content deleted first (on its own line)
- *    delete(\n)            ← content's \n (removes empty line)
- *    [joiner \n stays, re-iterate]
- *    [decrement line of later ops by 1]
+ * The join_lines pulls line2's content UP to line1 before it's deleted.
+ * Visually, the user sees content jumping up before disappearing.
  *
- * 2. INSERT pattern (content typed on existing line → line created first):
+ * This layer detects: join_lines(L) + delete(content at L) + join_lines(L)
+ * and reorders to: delete(content at L+1) + join_lines(L+1)
+ * The first join_lines(L) stays in place for re-iteration.
  *
- *    insert(content)...    ← new content typed on existing line
- *    insert(\n)            ← \n that creates the new line
- *    →
- *    insert(\n)            ← \n FIRST (creates empty line, pushes old content down)
- *    insert(content)...    ← content fills the new empty line
- *    [drop the \n at end — already created by the front \n]
+ * After the reorder, content is deleted in place (at its own line number)
+ * before the join removes the now-empty line.
  *
- * Both patterns work purely by op code, not by line number. This makes
- * the layer work on any input (raw compute, post-reorder, etc.).
+ * Build: make layers
+ * Usage:  ad_postprocess --ad-layer=ad_layer_line_delete_in_place < ops.tsv
  */
 #include "ad_layer_common.h"
 
@@ -41,61 +31,74 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
     int i = 0;
 
     while (i < n_work) {
+        /* Pattern: join_lines(L) + delete(content) + join_lines(L)
+         *
+         * The content between two join_lines belongs to the line that
+         * was joined IN (line L+1). Moving it to line L+1 and placing
+         * it BEFORE the join means the content is deleted in place. */
 
-        /* ── Pattern 1: DELETE (joiner \n, content, content's \n) ── */
         if (i + 2 < n_work
-            && strcmp(work[i].type, "delete") == 0
-            && ad_layer_is_line_op(&work[i])) {
+            && strcmp(work[i].type, "join_lines") == 0) {
 
-            if (strcmp(work[i+1].type, "delete") == 0
-                && !ad_layer_is_line_op(&work[i+1])) {
+            /* Scan forward for content deletes (all type="delete", not line ops) */
+            int ce = i + 1;
+            while (ce < n_work
+                   && strcmp(work[ce].type, "delete") == 0
+                   && !ad_layer_is_line_op(&work[ce]))
+                ce++;
 
-                int ce = i + 1;
-                while (ce < n_work
-                       && strcmp(work[ce].type, "delete") == 0
-                       && !ad_layer_is_line_op(&work[ce]))
-                    ce++;
+            /* Check: is there a trailing join_lines? */
+            if (ce > i + 1  /* at least one content delete */
+                && ce < n_work
+                && strcmp(work[ce].type, "join_lines") == 0) {
 
-                if (ce < n_work
-                    && strcmp(work[ce].type, "delete") == 0
-                    && ad_layer_is_line_op(&work[ce])) {
-
-                    int content_count = ce - (i + 1);
-
-                    /* Emit content deletes. Their positions were recomputed
-                     * by reorder to be on the JOINED line (same as joiner).
-                     * But we're moving them BEFORE the joiner \n, so at
-                     * execution time the join hasn't happened — the content
-                     * is still on the NEXT line. Increment line by 1. */
-                    for (int k = i + 1; k < ce && n_out < out_cap; k++) {
-                        Op tmp = work[k];
-                        tmp.line = work[i].line + 1;  /* content is on line after joiner */
-                        out[n_out++] = tmp;
-                    }
-                    /* Emit content's \n (also on the next line) */
-                    if (n_out < out_cap) {
-                        Op tmp = work[ce];
-                        tmp.line = work[i].line + 1;
-                        out[n_out++] = tmp;
-                    }
-
-                    for (int k = ce + 1; k < n_work; k++)
-                        work[k].line--;
-
-                    int removed = content_count + 1;
-                    int src = ce + 1;
-                    int dst = i + 1;
-                    int to_move = n_work - src;
-                    if (to_move > 0)
-                        memmove(&work[dst], &work[src], to_move * sizeof(Op));
-                    n_work -= removed;
-
+                /* Only reorder if the content deletes start at col 1.
+                 * Col 1 means a full line deletion (starting from the
+                 * beginning of the line). Deletes at col > 1 are partial
+                 * content from the middle of a joined line — moving
+                 * them would corrupt positions. */
+                int content_col = work[i + 1].col;
+                if (content_col != 1) {
+                    /* Partial content — don't reorder, emit as-is */
+                    if (n_out < out_cap)
+                        out[n_out++] = work[i];
+                    i++;
                     continue;
                 }
+
+                int joiner_line = work[i].line;
+
+                /* Emit content deletes at line+1 (before the join,
+                 * the content is on its own line) */
+                for (int k = i + 1; k < ce && n_out < out_cap; k++) {
+                    Op tmp = work[k];
+                    tmp.line = joiner_line + 1;
+                    out[n_out++] = tmp;
+                }
+                /* Emit the second join_lines at line+1 */
+                if (n_out < out_cap) {
+                    Op tmp = work[ce];
+                    tmp.line = joiner_line + 1;
+                    out[n_out++] = tmp;
+                }
+
+                /* Remove content + second join_lines from work[].
+                 * Keep the first join_lines at position i for re-iteration. */
+                int removed = (ce - (i + 1)) + 1;  /* content + 2nd join */
+                int src = ce + 1;
+                int dst = i + 1;
+                int to_move = n_work - src;
+                if (to_move > 0)
+                    memmove(&work[dst], &work[src], to_move * sizeof(Op));
+                n_work -= removed;
+
+                /* DON'T advance i — re-iterate at the joiner.
+                 * It may match another pattern (cascading joins). */
+                continue;
             }
         }
 
-        /* No match — emit op[i] unchanged. */
+        /* No match — emit op unchanged */
         if (n_out < out_cap)
             out[n_out++] = work[i];
         i++;
