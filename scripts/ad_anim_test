@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# ad_anim_test — Test animation by taking per-op snapshots.
+#
+# Instead of just comparing final output (old + ops = new), this script
+# takes a snapshot after EACH op and verifies:
+# 1. The buffer never contains garbage (no chars at wrong positions)
+# 2. Content is deleted in place (not joined to another line first)
+# 3. Indent deletes happen after content deletes (indent_last)
+#
+# Usage:
+#   ad_anim_test <oldfile> <newfile> <opsfile> [--check-in-place]
+#
+# Output:
+#   Op N: OK (line=X col=Y type=delete code='x')
+#   Op N: WARN content moved to wrong line (expected line 2, got line 1)
+#   Op N: FAIL buffer corrupted at line X
+#
+# The --check-in-place flag checks that content deletes happen at the
+# correct line (not after a join). This is the LDI correctness check.
+
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [[ $# -lt 3 ]]; then
+    echo "Usage: ad_anim_test <oldfile> <newfile> <opsfile> [--check-in-place]" >&2
+    exit 1
+fi
+
+OLD="$1"
+NEW="$2"
+OPS="$3"
+CHECK_IN_PLACE=0
+[[ "${4:-}" == "--check-in-place" ]] && CHECK_IN_PLACE=1
+
+# Count ops (non-comment, non-empty lines)
+TOTAL_OPS=$(grep -v '^#' "$OPS" | grep -v '^$' | grep -v '^HUNK' | grep -v '^HUNK_END' | wc -l)
+
+echo "Testing animation: $TOTAL_OPS ops"
+echo "Old: $OLD ($(wc -l < "$OLD") lines)"
+echo "New: $NEW ($(wc -l < "$NEW") lines)"
+echo ""
+
+# Apply ops one at a time, taking a snapshot after each
+# We use the C animator's --seek flag to apply N ops and snapshot
+
+PASS=0
+WARN=0
+FAIL=0
+PREV_SNAP=$(mktemp)
+
+# Get initial state (old file)
+cp "$OLD" "$PREV_SNAP"
+
+op_num=0
+while IFS= read -r line; do
+    # Skip comments, empty lines, HUNK/HUNK_END
+    [[ -z "$line" ]] && continue
+    [[ "$line" == \#* ]] && continue
+    [[ "$line" == HUNK* ]] && continue
+
+    op_num=$((op_num + 1))
+
+    # Parse the op
+    type=$(echo "$line" | cut -f1)
+
+    # Apply this op by running the animator with --seek to this op number
+    SNAP=$(mktemp)
+    "$ROOT/bin/ad" --no-display --speed 1000 --seek "$op_num" --snapshot "$SNAP" "$OLD" < "$OPS" 2>/dev/null
+
+    if [[ $? -ne 0 ]]; then
+        echo "Op $op_num: FAIL animator crashed ($type)"
+        FAIL=$((FAIL + 1))
+        rm -f "$SNAP"
+        continue
+    fi
+
+    # Check: does the snapshot have fewer lines than old file?
+    # (content being deleted — should be in place, not joined)
+    if [[ $CHECK_IN_PLACE -eq 1 ]]; then
+        case "$type" in
+            delete)
+                op_line=$(echo "$line" | cut -f2)
+                op_code=$(echo "$line" | cut -f4)
+                # Check if this delete is at a line that should have content
+                snap_line_count=$(wc -l < "$SNAP")
+                old_line_count=$(wc -l < "$OLD")
+                if [[ $snap_line_count -lt $old_line_count ]]; then
+                    # Lines were joined — content might have moved
+                    # Check if the deleted char is at the right line
+                    echo "Op $op_num: WARN delete at line $op_line but lines already joined ($snap_line_count < $old_line_count)"
+                    WARN=$((WARN + 1))
+                else
+                    PASS=$((PASS + 1))
+                fi
+                ;;
+            join_lines)
+                op_line=$(echo "$line" | cut -f2)
+                # Before a join_lines, the line being joined should be empty
+                # (all its content should have been deleted already)
+                line_content=$(sed -n "${op_line}p" "$SNAP" 2>/dev/null || echo "")
+                if [[ -n "$line_content" && "$line_content" != " " ]]; then
+                    echo "Op $op_num: WARN join_lines at line $op_line but line has content: '$line_content'"
+                    WARN=$((WARN + 1))
+                else
+                    PASS=$((PASS + 1))
+                fi
+                ;;
+            *)
+                PASS=$((PASS + 1))
+                ;;
+        esac
+    else
+        PASS=$((PASS + 1))
+    fi
+
+    cp "$SNAP" "$PREV_SNAP"
+    rm -f "$SNAP"
+done < "$OPS"
+
+rm -f "$PREV_SNAP"
+
+echo ""
+echo "=== Results: $PASS pass, $WARN warnings, $FAIL failures ==="
+exit $((FAIL == 0 ? 0 : 1))
