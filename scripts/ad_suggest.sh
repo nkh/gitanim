@@ -46,34 +46,72 @@ HELP
     esac
 fi
 
+# Levenshtein edit distance between two strings.
+# Uses awk for the DP matrix — option names are short, so the subprocess
+# overhead is negligible for a one-shot suggestion lookup. Returns the
+# distance on stdout (empty string -> length of the other string).
+#
+# Correct DP recurrence:
+#   d[i][j] = min(d[i-1][j] + 1,            # deletion
+#                d[i][j-1] + 1,            # insertion
+#                d[i-1][j-1] + cost)       # substitution (0 if equal)
+#   d[0][j] = j, d[i][0] = i
+#
+# Two rolling rows (prev, cur) keep memory at O(min(m,n)).
+# The substitution cost is held in a variable named `subst` rather than
+# `sub` because `sub` is a built-in awk function and mawk rejects it as
+# a variable name.
+_lev_distance() {
+    awk -v a="$1" -v b="$2" 'BEGIN {
+        alen = length(a); blen = length(b)
+        if (alen == 0) { print blen; exit }
+        if (blen == 0) { print alen; exit }
+        # Initialise prev row: d[0][j] = j
+        for (j = 0; j <= blen; j++) prev[j] = j
+        for (i = 1; i <= alen; i++) {
+            cur[0] = i  # d[i][0] = i
+            ai = substr(a, i, 1)
+            for (j = 1; j <= blen; j++) {
+                cost = (ai == substr(b, j, 1)) ? 0 : 1
+                del = prev[j] + 1
+                ins = cur[j-1] + 1
+                # NOTE: variable is `subst`, not `sub` — `sub` is a
+                # built-in awk function and mawk rejects using it as
+                # a variable name.
+                subst = prev[j-1] + cost
+                m = del
+                if (ins < m) m = ins
+                if (subst < m) m = subst
+                cur[j] = m
+            }
+            for (j = 0; j <= blen; j++) prev[j] = cur[j]
+        }
+        print prev[blen]
+    }'
+}
+
 dv_suggest_option() {
     local wrong="$1"
     shift
     local available=("$@")
     local best=""
     local best_dist=999
-    
+    # Strip leading "--" from the wrong option once; each candidate also
+    # gets stripped so the common "--" prefix doesn't pad the distance.
+    local w="${wrong#--}"
+
     for opt in "${available[@]}"; do
-        # Simple Levenshtein-like distance: count character differences
-        local dist=0
-        local i=0
-        local w="${wrong#--}"  # strip --
         local o="${opt#--}"
-        local len=${#w}
-        local olen=${#o}
-        [[ $olen -gt $len ]] && len=$olen
-        for ((i=0; i<len; i++)); do
-            local wc="${w:$i:1}"
-            local oc="${o:$i:1}"
-            [[ "$wc" != "$oc" ]] && ((dist++))
-        done
+        local dist
+        dist=$(_lev_distance "$w" "$o")
         if [[ $dist -lt $best_dist ]]; then
             best_dist=$dist
             best="$opt"
         fi
     done
-    
-    # Only suggest if the distance is small enough (within 50% of the option length)
+
+    # Only suggest if the distance is small enough (within 50% of the
+    # wrong option's length — same threshold the naive version used).
     local threshold=$(( ${#wrong} / 2 ))
     if [[ $best_dist -le $threshold && -n "$best" ]]; then
         echo "  Did you mean: $best?" >&2

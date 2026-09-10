@@ -381,6 +381,35 @@ SEE ALSO:
 USAGE
 }
 
+# Levenshtein edit distance between two strings. Uses awk for the DP
+# matrix; option names are short so the subprocess overhead is
+# negligible for a one-shot suggestion lookup. Variable is named
+# `subst` (not `sub`) because `sub` is a built-in awk function.
+_lev_distance() {
+    awk -v a="$1" -v b="$2" 'BEGIN {
+        alen = length(a); blen = length(b)
+        if (alen == 0) { print blen; exit }
+        if (blen == 0) { print alen; exit }
+        for (j = 0; j <= blen; j++) prev[j] = j
+        for (i = 1; i <= alen; i++) {
+            cur[0] = i
+            ai = substr(a, i, 1)
+            for (j = 1; j <= blen; j++) {
+                cost = (ai == substr(b, j, 1)) ? 0 : 1
+                del = prev[j] + 1
+                ins = cur[j-1] + 1
+                subst = prev[j-1] + cost
+                m = del
+                if (ins < m) m = ins
+                if (subst < m) m = subst
+                cur[j] = m
+            }
+            for (j = 0; j <= blen; j++) prev[j] = cur[j]
+        }
+        print prev[blen]
+    }'
+}
+
 # Parse options
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -571,8 +600,9 @@ while [[ $# -gt 0 ]]; do
         --max-line-len)  MAX_LINE_LEN="$2"; shift 2 ;;
         --help|-h)       HELP=1; shift ;;
         --)              shift; while [[ $# -gt 0 ]]; do POSITIONAL+=("$1"); shift; done ;;
-        -*)              # Suggest closest option
+        -*)              # Suggest closest option (Levenshtein distance)
                          _wrong="$1"; _best=""; _best_d=999
+                         _wstripped="${_wrong#--}"
                          for _opt in --speed --delete-delay-ms --hunk-pause-ms --word-pause-ms \
                            --pacing --gaussian-jitter-pct \
                            --pause-after-lines --pause-after-threshold --pause-after-ms \
@@ -595,12 +625,8 @@ while [[ $# -gt 0 ]]; do
                            --no-startup-pause --startup-pause --startup-feedback \
                            --language --log-mode --log-file --no-log-timing --debug \
                            --multi --replay --git-rev --keep-dirty --precomputed; do
-                             _d=0; _w="${_wrong#--}"; _o="${_opt#--}"
-                             _len=${#_w}; _olen=${#_o}
-                             if [[ $_olen -gt $_len ]]; then _len=$_olen; fi
-                             for ((_i=0; _i<_len; _i++)); do
-                                 if [[ "${_w:_i:1}" != "${_o:_i:1}" ]]; then _d=$((_d+1)); fi
-                             done
+                             _o="${_opt#--}"
+                             _d=$(_lev_distance "$_wstripped" "$_o")
                              if [[ $_d -lt $_best_d ]]; then _best_d=$_d; _best=$_opt; fi
                          done
                          _thresh=$(( ${#_wrong} / 2 ))
