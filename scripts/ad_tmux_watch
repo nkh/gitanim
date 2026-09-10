@@ -45,6 +45,7 @@ DESCRIPTION
 OPTIONS
     --help, -h                Show this help and exit
     --ad-layer=<name>         Layer(s) for ad_gen_ops (if generating ops)
+    --ad-layer-path=<dir>     Add a directory to the layer search path
     --session-name=<name>     Custom session directory name
     --resume=<path>           Resume existing session
     --resume-latest           Resume most recent session

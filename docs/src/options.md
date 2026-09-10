@@ -92,6 +92,126 @@ Print version and exit.
 ### `--help` / `-h`
 Show help and exit.
 
+### `--snapshot FILE`
+Alias for `--output FILE`. Write the buffer to FILE after the animation.
+
+### `--no-display`
+Run the animator headless (no terminal rendering). Useful for testing
+and CI pipelines.
+
+### `--sync`
+Run without timers (synchronous mode). Useful for debugging timing issues.
+
+### `--annotate`
+Write annotated ops with `# old:` / `# new:` context comments to
+`/tmp/ad_vim_ops_annotated_<pid>.tsv`. Useful for understanding the
+diff structure without watching the animation.
+
+### `--startup-pause`
+Show config + help before starting.
+
+### `--no-startup-pause`
+Skip startup delay and messages, start immediately.
+
+### `--startup-feedback` / `-F`
+Show progress in the status line during diff computation.
+
+### `--language LANG`
+Set vim filetype for syntax highlighting (default: auto-detect from
+file extension).
+
+### `--log-mode 1|2`
+Generate a log file without starting vim.
+
+### `--log-file FILE`
+Write log to FILE (default: `diffvim.log`).
+
+### `--no-log-timing`
+Disable timing info in log output.
+
+### `--debug`
+Enable verbose logging to `/tmp/diffvim-debug.log`.
+
+### `--bell`
+Ring terminal bell on potential errors.
+
+### `--diff-stat`
+Show diff statistics overlay (changed/total lines).
+
+### `--diff-highlight`
+Highlight modified lines with a subtle background.
+
+### `--line-numbers`
+Show line numbers in the margin.
+
+### `--progress`
+Show progress bar at the bottom.
+
+---
+
+## Postprocessing Layers
+
+### `--indent-last`
+Delete leading whitespace LAST (prevents left shift when removing
+indent).
+
+### `--line-delete-in-place`
+Delete whole lines on their own line (not joined to previous line
+first).
+
+### `--overwrite`
+In-place replacement instead of delete+insert.
+
+### `--ad-layer NAME[:ARGS]`
+Add a postprocess layer to the chain (after the default chain). Layer
+args follow the colon (colons or spaces as separators). Example:
+
+```bash
+ad_vim --ad-layer=ad_layer_line_delete_in_place:--mode=interleaved old.py new.py
+```
+
+### `--ad-layer-path DIR`
+Add a directory to the layer search path. May be given multiple times.
+
+### `--list-layers`
+Print available layers and exit (delegates to `ad_postprocess`).
+
+---
+
+## Cursor Movement
+
+### `--cursor-glide-ms N`
+Glide duration between hunks (0 = off, default: 0).
+
+### `--cursor-glide-show-intermediate 0|1`
+Show lines during glide (default: 1).
+
+---
+
+## Distance-Based Speed
+
+### `--distance-speed adaptive|off`
+Adaptive speed based on hunk distance.
+
+### `--distance-threshold N`
+Lines above which speed increases (default: 10).
+
+### `--distance-fast-mult F`
+Speed multiplier for long distances (default: 3.0).
+
+### `--distance-slow-mult F`
+Speed multiplier for short distances (default: 0.5).
+
+---
+
+## Flash Mode
+
+### `--flash-pause-ms N`
+Pause after highlight (default: 400).
+
+### `--flash-highlight-ms N`
+Highlight duration (default: 300).
+
 ---
 
 ## Diff Algorithm

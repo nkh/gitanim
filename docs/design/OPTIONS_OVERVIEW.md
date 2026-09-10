@@ -4,6 +4,14 @@ This document shows how all the options influence the animation at a
 high level. It is NOT a reference — it is a visual guide to understand
 what can be done and how options interact.
 
+> **Note:** Some options shown in the diagrams below (e.g.
+> `--type-delay-ms`, `--delete-delay-ms`, `--hunk-pause-ms`,
+> `--word-pause-ms`, `--rapid-eol-delete`, `--rapid-identical-chars`)
+> were removed in the unified-options refactor. Their functionality is
+> now controlled by `--delete-pacing`, `--insert-pacing`, `--delete-speed`,
+> `--insert-speed`, and `--pacing`. See `man ad_vim` for the current
+> option list.
+
 ---
 
 ## The Animation Pipeline

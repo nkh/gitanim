@@ -1,4 +1,4 @@
-.TH AD 1 "2026-08-18" "ad 1.0" "User Commands"
+.TH AD 1 "2026-09-10" "ad 1.0" "User Commands"
 .SH NAME
 ad_vim \- animate a code diff in vim as if a human were typing it
 .SH SYNOPSIS
@@ -6,7 +6,6 @@ ad_vim \- animate a code diff in vim as if a human were typing it
 .RI [ options ]
 .RI <oldfile>
 .RI <newfile>
-
 .br
 .B ad_vim
 .RI [ options ]
@@ -14,32 +13,18 @@ ad_vim \- animate a code diff in vim as if a human were typing it
 .RI <old1:new1>
 .RI <old2:new2>
 \&...
-
 .br
 .B ad_vim
 .RI [ options ]
 .B \-\-replay
 .RI <file>
-.RB [ \-\-from
-.IR REV ]
-.RB [ \-\-to
-.IR REV ]
-
 .br
 .B ad_vim
 .RI [ options ]
-.B \-\-git-rev
+.B \-\-git\-rev
 .IR REV..REV
 .RI <file>
 [<file> ...]
-
-.br
-.B ad_vim
-.RI [ options ]
-.B \-\-diff
-.IR FILE
-.RB [ \-\-dry-run ]
-
 .br
 .B ad_vim
 .B \-\-version
@@ -59,34 +44,17 @@ vim buffer and can be edited, saved, or quit normally. By default the buffer
 is marked as not modified so
 .B :q
 quits cleanly; use
-.B --keep-dirty
+.B \-\-keep\-dirty
 to leave the buffer modified (then
 .B :q!
 is required).
-
-Three implementations are available:
-.TP
-.B ad_vim
-Bash launcher + embedded Vimscript engine. Uses vim's native
-.BR timer_start ()
-for async animation. No external dependencies beyond vim 8+. Best for
-everyday use.
-.TP
-.B ad_tmux
-Bash orchestrator + vim in a tmux pane. Bash sends Ex commands to vim via
-.BR tmux\ send-keys .
-Requires bash 4+, tmux 3+, vim 8+, diff, sed, awk.
-.TP
-.B ad_vim.pl
-Perl orchestrator + vim in a tmux pane. Same architecture as ad_tmux
-but with pluggable diff parser modules. Requires Perl 5.10+, tmux 3+, vim 8+.
 
 .SH OPTIONS
 
 .SS Core Options
 
 .TP
-.BR \-\-speed\  N
+.BR \-\-speed\  N \  \fR(\fB\-s\fR)
 Speed multiplier.
 .B 0.5
 = half speed,
@@ -100,7 +68,7 @@ Also settable via the
 variable in the config file (see CONFIGURATION section).
 
 .TP
-.BI \-\-output\  FILE
+.BI \-\-output\  FILE \  \fR(\fB\-o\fR)
 After the animation completes, write the buffer to
 .I FILE
 and quit vim. Also works with
@@ -108,12 +76,41 @@ and quit vim. Also works with
 (quit) \(em the buffer is written before stopping.
 
 .TP
+.B \-\-snapshot\ FILE
+Alias for
+.BR \-\-output .
+
+.TP
+.B \-\-no\-display
+Run the animator headless (no terminal rendering). Useful for testing
+and CI pipelines.
+
+.TP
+.B \-\-sync
+Run without timers (synchronous mode). Useful for debugging timing issues.
+
+.TP
+.BI \-\-context\  N \  \fR(\fB\-c\fR)
+Fold unchanged regions longer than 2*N lines, keeping N lines of context
+around each hunk. Default: 0 (no folding).
+
+.TP
+.BI \-\-max\-hunk\-chars\  N
+If a hunk has more than N changed characters, skip the char-by-char
+animation and apply the entire hunk instantly.
+
+.TP
+.BI \-\-max\-line\-len\  N
+Warn if any line exceeds N characters (char-level diff may be slow).
+Default: 10000.
+
+.TP
 .BR \-\-scroll\  zz | zt | zb | none
 Scroll the cursor to the specified position during animation:
 .RS
 .TP 4
 .B zz
-Center cursor on screen
+Center cursor on screen (default)
 .TP 4
 .B zt
 Cursor at top of screen
@@ -122,75 +119,70 @@ Cursor at top of screen
 Cursor at bottom of screen
 .TP 4
 .B none
-Don't force scroll (default)
+Don't force scroll
 .RE
 
 .TP
-.B \-\-multi
+.B \-\-multi\  \fR(\fB\-m\fR)
 Treat arguments as
 .I old:new
 pairs for multi-file animation. After finishing one file, the animation
 transitions to the next.
 
-.TP
-.BI \-\-context\  N
-Fold unchanged regions longer than 2*N lines, keeping N lines of context
-around each hunk. Default: 0 (no folding).
+.SS Compute / Diff Options
 
 .TP
-.B Compute tool selection
-The C++ compute tool
-.I bin/ad_compute
-is the default and is searched for in
-.IR bin/ad_compute  ,
-.IR /usr/local/bin/ ,
-and
-.IR ~/.local/bin/ .
-If found, ad_vim pre-computes the diff before launching vim (10-100x
-faster than the in-vim patience diff for large files). If not found, ad_vim
-falls back to the embedded vimscript patience diff
-.RI ( s:LineDiff / s:CharDiff )
-with a warning on stderr. (The
-.B --tool
-flag that used to select between C/C++/Rust/Go compute tools has been
-removed.)
-
-.TP
-.B \-\-precomputed FILE
+.BI \-\-precomputed\  FILE
 Use a pre-computed diff from FILE (typically produced by
 .BR ad_compute (1)).
-Bypasses the in-vim patience diff entirely.
-
-.SS Unified Options
-
-These are the recommended option selectors. Each replaces multiple
-individual flags from earlier versions.
+Bypasses the in-vim patience diff entirely. By default
+.B ad_vim
+uses
+.I bin/ad_compute
+and falls back to the built-in vimscript LCS if not found.
 
 .TP
-.BR \-\-delete-pacing\  char | rapid-eol | rapid-identical | accel | word | instant
+.B \-\-word\-diff\  \fR(\fB\-w\fR)
+Use word-level diff instead of char-level. Groups changes by word
+(non-space sequences), producing more natural typing patterns.
+
+.TP
+.BR \-\-algorithm\  PATIENCE \  \fR(\fB\-a\fR)
+Deprecated. Patience diff is now the only algorithm. The flag is accepted
+for backward compatibility but has no effect.
+
+.SS Pacing \(em Deletion
+
+.TP
+.BR \-\-delete\-pacing\  char | rapid\-eol | rapid\-identical | accel | word | instant | flash
 Unified deletion strategy (default:
 .BR word ).
-.IP \(bu 3
+.RS
+.TP 4
 .B char
-\(em one char at a time
-.IP \(bu 3
-.B rapid-eol
-\(em rapid shot at end of line
-.IP \(bu 3
-.B rapid-identical
-\(em accelerate identical char runs
-.IP \(bu 3
+One char at a time (no acceleration)
+.TP 4
+.B rapid\-eol
+Rapid shot at end of line
+.TP 4
+.B rapid\-identical
+Accelerate identical char runs (---, ===)
+.TP 4
 .B accel
-\(em accelerate through long runs
-.IP \(bu 3
+Accelerate through long runs (slow\(->fast\(->slow)
+.TP 4
 .B word
-\(em word-by-word with acceleration (default; char→word→rapid progression)
-.IP \(bu 3
+Word-by-word with acceleration (default; char\(->word\(->rapid progression)
+.TP 4
 .B instant
-\(em all strategies enabled (fastest)
+All strategies enabled (fastest)
+.TP 4
+.B flash
+Flash highlight then instant delete
+.RE
 
 .TP
-.BR \-\-delete-speed\  slow | normal | fast | instant
+.BR \-\-delete\-speed\  slow | normal | fast | instant
 Deletion speed multiplier (default:
 .BR normal ).
 .B fast
@@ -199,121 +191,303 @@ halves all delete delays;
 sets them to 1ms.
 
 .TP
-.BI \-\-delete-threshold \ N
+.BI \-\-delete\-threshold\  N
 Minimum chars to trigger rapid/word modes (default: 3).
 
-.TP
-.BR \-\-insert-pacing\  char | word | accel
-Unified insertion strategy (default:
-.BR char ).
-.IP \(bu 3
-.B char
-\(em one char at a time
-.IP \(bu 3
-.B word
-\(em batch short words (<=8 chars) instantly
-.IP \(bu 3
-.B accel
-\(em accelerate char-by-char inserts
+.SS Pacing \(em Insertion
 
 .TP
-.BR \-\-insert-speed\  slow | normal | fast
+.BR \-\-insert\-pacing\  char | word | accel
+Unified insertion strategy (default:
+.BR char ).
+.RS
+.TP 4
+.B char
+One char at a time (default)
+.TP 4
+.B word
+Batch short words (<=8 chars) instantly
+.TP 4
+.B accel
+Accelerate char-by-char inserts (slow\(->fast\(->pause)
+.RE
+
+.TP
+.BR \-\-insert\-speed\  slow | normal | fast
 Insertion speed multiplier (default:
 .BR normal ).
 .B fast
 halves TYPE_DELAY_MS and WORD_PAUSE_MS.
 
+.SS Pacing \(em Timing Mode
+
 .TP
 .BR \-\-pacing\  uniform | adaptive | gaussian | review
 Unified timing mode (default:
 .BR uniform ).
-.IP \(bu 3
+.RS
+.TP 4
 .B uniform
-\(em fixed delays, no jitter
-.IP \(bu 3
+Fixed delays, no jitter
+.TP 4
 .B adaptive
-\(em slow down in complex regions
-.IP \(bu 3
+Slow down in complex regions
+.TP 4
 .B gaussian
-\(em add human-like timing jitter
-.IP \(bu 3
+Add human-like timing jitter
+.TP 4
 .B review
-\(em pause every 5 lines in large hunks
+Pause every 5 lines in large hunks
+.RE
+
+.SS Highlighting and Display
 
 .TP
 .BR \-\-highlight\  none | inline | word | hunk
 Unified highlight mode (default:
 .BR none ).
-.IP \(bu 3
+.RS
+.TP 4
 .B none
-\(em no highlighting
-.IP \(bu 3
+No highlighting
+.TP 4
 .B inline
-\(em paint freshly typed/deleted chars
-.IP \(bu 3
+Paint freshly typed/deleted chars
+.TP 4
 .B word
-\(em highlight the word at cursor before change
-.IP \(bu 3
+Highlight the word at cursor before change
+.TP 4
 .B hunk
-\(em highlight the entire hunk
-
-.SS Diff Options
-
-.TP
-.BR \-\-parser\  perl
-(ad_vim.pl only) Diff parser to use. Only
-.B perl
-is supported (pure-Perl Patience algorithm, no external dependencies).
-The flag is accepted for backwards compatibility but has no effect
-since the diff2html parser was removed.
+Highlight the entire hunk
+.RE
 
 .TP
-.B \-\-word-diff
-Use word-level diff instead of char-level. Groups changes by word
-(non-space sequences), producing more natural typing patterns.
+.BI \-\-highlight\-color\  COLOR
+Highlight group (default: DiffChange).
 
 .TP
-.B \-\-algorithm
-Deprecated. Patience diff is now the only algorithm. The flag is accepted
-for backward compatibility but has no effect.
+.BI \-\-highlight\-duration\-ms\  N
+Highlight duration in ms (default: 1000).
 
 .TP
-.BI \-\-max-hunk-chars\  N
-If a hunk has more than N changed characters, skip the char-by-char
-animation and apply the entire hunk instantly.
+.B \-\-dim\-unchanged\  \fR(\fB\-D\fR)
+Dim unchanged anchor lines to draw the eye to changes.
 
 .TP
-.BI \-\-max-line-len\  N
-Warn if any line exceeds N characters (char-level diff may be slow).
-Default: 10000.
+.BI \-\-dim\-unchanged\-pct\  N
+Dimming percentage 0-100 (default: 60).
+
+.TP
+.B \-\-sign\-column
+Show +/- signs in the sign column during animation.
+
+.TP
+.B \-\-git\-blame\  \fR(\fB\-g\fR)
+Echo git blame for the target line of each hunk.
+
+.TP
+.B \-\-diff\-stat
+Show diff statistics overlay (changed/total lines).
+
+.TP
+.B \-\-diff\-highlight
+Highlight modified lines with a subtle background.
+
+.TP
+.B \-\-bell
+Ring terminal bell on potential errors.
+
+.TP
+.BR \-\-theme\  dark | light | high\-contrast \  \fR(\fB\-t\fR)
+Color scheme for highlights.
+
+.TP
+.BI \-\-language\  LANG
+Set vim filetype for syntax highlighting (default: auto-detect from file
+extension).
+
+.SS Postprocessing Layers
+
+.TP
+.B \-\-indent\-last
+Delete leading whitespace LAST (prevents left shift when removing indent).
+
+.TP
+.B \-\-line\-delete\-in\-place
+Delete whole lines on their own line (not joined to previous line first).
+
+.TP
+.B \-\-overwrite
+In-place replacement instead of delete+insert.
+
+.TP
+.BI \-\-ad\-layer\  NAME\fR[:\fIARGS\fR]
+Add a postprocess layer to the chain (after the default chain). The layer
+is looked up in the search path
+.RI ( bin/ ,
+.IR layers/perl/ ;
+override with
+.BR \-\-ad\-layer\-path ).
+Layer args follow the colon (use colons or spaces as separators).
+Examples:
+.RS
+.PP
+.nf
+\-\-ad\-layer=ad_layer_reorder
+\-\-ad\-layer=ad_layer_line_delete_in_place:\-\-mode=interleaved
+\-\-ad\-layer NAME arg1 arg2
+.fi
+.RE
+
+.TP
+.BI \-\-ad\-layer\-path\  DIR
+Add DIR to the layer search path. May be given multiple times.
+
+.TP
+.B \-\-list\-layers
+Print available layers and exit (delegates to
+.BR ad_postprocess (1)).
+
+.SS Cursor Movement
+
+.TP
+.BI \-\-cursor\-glide\-ms\  N
+Glide duration between hunks (0=off, default: 0).
+
+.TP
+.BI \-\-cursor\-glide\-show\-intermediate\  0 | 1
+Show lines during glide (default: 1).
+
+.SS Distance-Based Speed
+
+.TP
+.BR \-\-distance\-speed\  adaptive | off
+Adaptive speed based on hunk distance.
+
+.TP
+.BI \-\-distance\-threshold\  N
+Lines above which speed increases (default: 10).
+
+.TP
+.BI \-\-distance\-fast\-mult\  F
+Speed multiplier for long distances (default: 3.0).
+
+.TP
+.BI \-\-distance\-slow\-mult\  F
+Speed multiplier for short distances (default: 0.5).
+
+.SS Flash Mode
+
+.TP
+.BI \-\-flash\-pause\-ms\  N
+Pause after highlight (default: 400).
+
+.TP
+.BI \-\-flash\-highlight\-ms\  N
+Highlight duration (default: 300).
 
 .SS Git Options
 
 .TP
-.B \-\-replay
+.B \-\-replay\  \fR(\fB\-r\fR)
 Animate git history for the given file(s). For each commit in the range,
 extracts the old version and animates the transformation to the next commit.
 
 .TP
-.BI \-\-from\  REV
-Git revision to start replay from. Default:
-.BR HEAD~5 .
-
-.TP
-.BI \-\-to\  REV
-Git revision to end replay at. Default:
-.BR HEAD .
-
-.TP
-.BI \-\-git-rev\  REV..REV
+.BI \-\-git\-rev\  REV..REV \  \fR(\fB\-R\fR)
 Animate a git commit range using
 .I REV..REV
-syntax. Shorthand for
-.B \-\-replay \-\-from REV1 \-\-to REV2.
+syntax (e.g.
+.BR HEAD~3..HEAD ).
+
+.SS Startup and Logging
 
 .TP
-.B \-\-git-blame
-Show git blame information for each changed line.
+.B \-\-startup\-pause
+Show config + help before starting.
+
+.TP
+.B \-\-no\-startup\-pause
+Skip startup delay and messages, start immediately.
+
+.TP
+.B \-\-startup\-feedback\  \fR(\fB\-F\fR)
+Show progress in status line during diff computation.
+
+.TP
+.B \-\-step\-mode
+Space advances one op at a time (starts paused).
+
+.TP
+.B \-\-annotate
+Write annotated ops with
+.B # old:
+and
+.B # new:
+context comments before each hunk to
+.IR /tmp/ad_vim_ops_annotated_<pid>.tsv .
+The comments show the text content before/after each bundle of delete
+or insert ops, making it easier to understand the diff structure
+without watching the full animation. The annotated ops are also used
+for the animation itself (the animator ignores comment lines).
+
+.TP
+.B \-\-keep\-dirty
+Leave buffer modified; require
+.B :q!
+to quit (default: off).
+
+.TP
+.B \-\-no\-vimrc\  \fR(\fB\-N\fR)
+Don't load user's ~/.vimrc (isolated vim, default: off).
+
+.TP
+.BI \-\-preset\  NAME \  \fR(\fB\-p\fR)
+Apply named preset:
+.RS
+.TP 4
+.B fast\-delete
+\-\-delete\-pacing word \-\-delete\-speed fast
+.TP 4
+.B review
+\-\-pacing review \-\-highlight hunk \-\-dim\-unchanged
+.TP 4
+.B demo
+\-\-pacing gaussian \-\-speed 0.7 \-\-highlight inline
+.TP 4
+.B ai\-code
+\-\-highlight inline \-\-pacing adaptive
+.RE
+
+.TP
+.BI \-\-log\-mode\  1 | 2
+Generate a log file without starting vim.
+
+.TP
+.BI \-\-log\-file\  FILE
+Write log to FILE (default: diffvim.log).
+
+.TP
+.B \-\-no\-log\-timing
+Disable timing info in log output.
+
+.TP
+.B \-\-debug
+Enable verbose logging to /tmp/diffvim-debug.log.
+
+.SS Informational
+
+.TP
+.B \-\-dry\-run\  \fR(\fB\-d\fR)
+Print diff hunks without launching vim.
+
+.TP
+.B \-\-version\  \fR(\fB\-V\fR)
+Print version and exit.
+
+.TP
+.B \-\-help\  \fR(\fB\-h\fR)
+Show help and exit.
 
 .SH CONTROLS
 During animation, the following keys are active in vim normal mode:
@@ -322,15 +496,12 @@ During animation, the following keys are active in vim normal mode:
 .TP
 .B <Space>
 Pause / resume the animation. In
-.B \-\-step-mode ,
+.B \-\-step\-mode ,
 advances one char op instead.
 .TP
 .B n
 Skip current hunk: apply all remaining character operations instantly,
-then pause for review. Press
-.B n
-again to advance to the next hunk. This is the "review mode" \(em apply
-one hunk at a time, pausing between each.
+then pause for review.
 .TP
 .B b
 Back to previous hunk: revert the buffer to the state before the
@@ -341,7 +512,7 @@ Stop the animation. By default the buffer is then marked as not modified
 so
 .B :q
 quits cleanly. Use
-.B \-\-keep-dirty
+.B \-\-keep\-dirty
 to require
 .B :q!
 instead.
@@ -357,58 +528,32 @@ Slow down: divide the current speed by 1.5.
 .B =
 Reset speed to 1.0x.
 
-.SS Multi-File Navigation
+.SS Multi-File Navigation (only with \-\-multi)
 .TP
 .B ]
-Next file (in multi-file mode). Applies all remaining hunks instantly
-and loads the next file pair.
+Next file. Applies all remaining hunks instantly and loads the next file pair.
 .TP
 .B [
-Previous file (in multi-file mode). Loads the previous file pair.
+Previous file. Loads the previous file pair.
 
-.SS Granular Navigation
+.SS Git Replay Controls (only with \-\-replay or \-\-git\-rev)
 .TP
-.B B
-(Shift-B) Go back one char op.
+.B )
+Next commit in the replay sequence.
 .TP
-.B N
-(Shift-N) Skip to next file (multi-file mode).
-.TP
-.B Ctrl-B
-Go back to the beginning.
-.TP
-.B Ctrl-N
-Skip to the end.
-
-.SS Undo/Redo
-.TP
-.B u
-Undo last hunk (revert to previous snapshot).
-.TP
-.B Ctrl-r
-Redo hunk.
+.B (
+Previous commit in the replay sequence.
 
 .SS Display
 .TP
 .B ?
-Toggle full-screen help overlay.
-.TP
-.B f
-Toggle fold on/off (with
-.BR \-\-context ).
-
-.SS Progress
-A progress message is shown in the vim status line:
-.RS
-.PP
-.nf
-ad_vim: hunk 3/7 (42%) | speed 2.3x | PAUSED
-.fi
-.RE
+Show in-vim help.
 
 .SH CONFIGURATION
-ad_vim reads configuration from a file at startup, with CLI flags
-overriding per-invocation. There are NO environment variables.
+.B ad_vim
+reads configuration from a file at startup, with CLI flags overriding
+per-invocation. There are NO environment variables read directly by the
+launcher.
 
 .SS Config file location
 Following the XDG Base Directory Specification, the config file is at:
@@ -428,8 +573,6 @@ $XDG_CONFIG_HOME/ad/config
 3. CLI flags             (per-invocation, highest priority)
 .fi
 .RE
-.PP
-No environment variables. No ~/.diffvimrc fallback.
 
 .SS Config file format
 The config file is sourced as bash. Set variables using UPPER_CASE names
@@ -446,13 +589,6 @@ CURSOR_GLIDE_MS=100
 HIGHLIGHT_MODE=inline
 .fi
 .RE
-
-.SS Available variables
-See
-.B ad_vim --help
-for the full list of CLI flags and their corresponding config variables.
-Every CLI flag has a config variable equivalent (e.g. --delete-pacing
-maps to DELETE_PACING).
 
 .SH EXAMPLES
 
@@ -486,30 +622,27 @@ ad_vim \-\-output result.py old.py new.py
 ad_vim \-\-scroll zz \-\-highlight hunk \-\-context 0 old.py new.py
 
 # High-contrast theme
-ad_vim \-\-theme high-contrast old.py new.py
+ad_vim \-\-theme high\-contrast old.py new.py
 .fi
 
-.SS Diff Algorithms
+.SS Diff Options
 .PP
 .nf
-# Use patience diff for more human-readable hunks
-ad_vim \-\-algorithm patience old.py new.py
-
 # Word-level diff
-ad_vim \-\-word-diff old.py new.py
+ad_vim \-\-word\-diff old.py new.py
 .fi
 
 .SS Unified Options
 .PP
 .nf
 # Deletion strategy: word-by-word with acceleration
-ad_vim \-\-delete-pacing word old.py new.py
+ad_vim \-\-delete\-pacing word old.py new.py
 
 # Fast deletion for large refactors
-ad_vim \-\-delete-pacing instant \-\-delete-speed fast old.py new.py
+ad_vim \-\-delete\-pacing instant \-\-delete\-speed fast old.py new.py
 
 # Insertion strategy: batch short words
-ad_vim \-\-insert-pacing word old.py new.py
+ad_vim \-\-insert\-pacing word old.py new.py
 
 # Timing: human-like jitter
 ad_vim \-\-pacing gaussian old.py new.py
@@ -524,6 +657,16 @@ ad_vim \-\-highlight inline old.py new.py
 ad_vim \-\-highlight hunk old.py new.py
 .fi
 
+.SS Postprocess Layers
+.PP
+.nf
+# Delete whole lines in place (not joined to previous)
+ad_vim \-\-line\-delete\-in\-place old.py new.py
+
+# Add a custom layer with arguments
+ad_vim \-\-ad\-layer=ad_layer_line_delete_in_place:\-\-mode=interleaved old.py new.py
+.fi
+
 .SS Buffer State After Animation
 .PP
 .nf
@@ -531,7 +674,7 @@ ad_vim \-\-highlight hunk old.py new.py
 ad_vim old.py new.py
 
 # Keep buffer modified; ':q!' required to quit
-ad_vim \-\-keep-dirty old.py new.py
+ad_vim \-\-keep\-dirty old.py new.py
 .fi
 
 .SS Multi-file Animation
@@ -543,41 +686,25 @@ ad_vim \-\-multi old1.py:new1.py old2.py:new2.py
 .SS Git Integration
 .PP
 .nf
-# Replay last 5 commits of a file
+# Replay history of a file
 ad_vim \-\-replay src/main.py
 
-# Specific commit range
-ad_vim \-\-replay src/main.py \-\-from v1.0 \-\-to HEAD
-
-# Using \-\-git-rev syntax
-ad_vim \-\-git-rev HEAD~3..HEAD src/main.py
+# Using \-\-git\-rev syntax for a specific range
+ad_vim \-\-git\-rev HEAD~3..HEAD src/main.py
 
 # Show git blame during animation
-ad_vim \-\-git-blame old.py new.py
-.fi
-
-.SS Unified Diff Input
-.PP
-.nf
-# Animate from a patch file
-ad_vim \-\-diff my.patch
-
-# From stdin
-git diff | ad_vim \-\-diff \-
+ad_vim \-\-git\-blame old.py new.py
 .fi
 
 .SS Debugging
 .PP
 .nf
 # Dry run (print ops without launching vim)
-ad_vim \-\-dry-run old.py new.py
+ad_vim \-\-dry\-run old.py new.py
 
 # Verbose logging
 ad_vim \-\-debug old.py new.py
-cat /tmp/ad-debug.log
-
-# Compare parsers
-ad_vim \-\-parser-compare old.py new.py
+cat /tmp/diffvim-debug.log
 .fi
 
 .SS Vim Plugin
@@ -590,163 +717,39 @@ ad_vim \-\-parser-compare old.py new.py
 
 .SH FILES
 .TP
-.I DiffVim/Parser/Perl.pm
-Pure-Perl Patience diff parser module (used by ad_vim.pl).
+.I apps/vim/ad_vim
+Bash launcher + embedded Vimscript engine (this tool).
 .TP
-.I plugin/diffvim.vim
+.I apps/vim/ad_vim.pl
+Perl orchestrator + vim in a tmux pane (separate tool, see
+.BR ad_vim (1)).
+.TP
+.I apps/vim/plugin.vim
 Vim plugin providing the
 .B :Diffvim
 command for running inside an existing vim session.
 .TP
-.I autoload/diffvim/engine.vim
+.I apps/vim/autoload_diffvim/engine.vim
 Standalone vimscript engine (sourced by the plugin).
 .TP
 .I completion/ad_vim.bash
 Bash shell completion script.
 .TP
-.I completion/__ad_vim
+.I completion/_ad_vim
 Zsh shell completion script.
 .TP
 .I completion/ad_vim.fish
 Fish shell completion script.
-.TP
-.I packaging/diffvim.rb
-Homebrew formula for macOS installation.
-
-.SH "NEW OPTIONS (Category A/B/C)"
-
-.SS "Pacing"
-.TP
-.BR \-\-pacing \ \fIuniform|adaptive|gaussian|review\fR
-Timing mode (default: uniform).
-.RS
-.TP
-uniform
-Fixed delays, no modification
-.TP
-adaptive
-Speed up for long runs of same-type ops (20% faster after 5 ops, 40% after 10, 60% after 20)
-.TP
-gaussian
-Add +-N% random jitter to each delay for human-like typing
-.TP
-review
-Everything 2x slower for code review mode
-.RE
-.TP
-.BI \-\-gaussian-jitter-pct \ N
-Jitter percentage for gaussian mode (default: 20)
-.TP
-.BI \-\-pause-after-lines \ N
-Pause after every N changed lines (default: 0=off)
-.TP
-.BI \-\-pause-after-threshold \ N
-Only pause if file has >N lines (default: 50)
-.TP
-.BI \-\-pause-after-ms \ N
-Pause duration in ms (default: 500)
-
-.SS "Delete strategies"
-.TP
-.BR \-\-delete-pacing \ \fIchar|rapid-eol|rapid-identical|word|instant\fR
-Deletion strategy (default: word)
-.TP
-.B \-\-accel-delete
-Enable multi-line accelerated deletion (slow start, accelerate, slow end)
-.TP
-.BI \-\-accel-delete-start-ms \ N
-Initial slow delay for accel-delete (default: 80)
-.TP
-.BI \-\-accel-delete-min-ms \ N
-Minimum accelerated delay (default: 10)
-.TP
-.BI \-\-accel-delete-accel \ F
-Acceleration factor 0.0-1.0 (default: 0.85)
-.TP
-.BI \-\-block-delete-size \ N
-Group deletes into blocks of N, pause before/after (default: 3)
-.TP
-.BI \-\-pause-before-delete-ms \ N
-Pause before a delete block (default: 200)
-.TP
-.BI \-\-pause-after-delete-ms \ N
-Pause after a delete block (default: 200)
-
-.SS "Highlighting and display"
-.TP
-.BR \-\-highlight \ \fInone|inline|word|hunk\fR
-Highlight mode (default: none)
-.TP
-.BI \-\-highlight-duration-ms \ N
-Highlight duration in ms (default: 200)
-.TP
-.B \-\-dim-unchanged
-Dim unchanged anchor lines
-.TP
-.BI \-\-dim-unchanged-pct \ N
-Dimming percentage 0-100 (default: 60)
-.TP
-.BI \-\-context \ N
-Fold unchanged regions >2N lines, keep N context lines
-.TP
-.B \-\-fold-unchanged
-Fold all unchanged regions
-.TP
-.B \-\-sign-column
-Show +/- signs in the sign column
-.TP
-.B \-\-git-blame
-Echo git blame for the target line of each hunk
-.TP
-.BI \-\-max-hunk-chars \ N
-Skip animation for hunks with >N changed chars (0=off)
-.TP
-.BR \-\-theme \ \fIdark|light|high-contrast\fR
-Color theme for highlights
-
-.SS "Startup and control"
-.TP
-.B \-\-annotate
-Write annotated ops with
-.B # old:
-and
-.B # new:
-context comments before each hunk to
-.IR /tmp/ad_vim_ops_annotated_<pid>.tsv .
-The comments show the text content before/after each bundle of delete
-or insert ops, making it easier to understand the diff structure
-without watching the full animation. The annotated ops are also used
-for the animation itself (the animator ignores comment lines).
-.TP
-.B \-\-step-mode
-Space advances one op at a time (starts paused)
-.TP
-.B \-\-startup-pause
-Show config + help before starting
-.TP
-.B \-\-debug
-Enable verbose logging to /tmp/ad-debug.log
-.TP
-.BI \-\-log-mode \ 1|2
-Generate a log file without starting vim
-.TP
-.BI \-\-log-file \ FILE
-Write log to FILE (default: diffvim.log)
-.TP
-.B \-\-no-log-timing
-Disable timing info in log output
-
-.SS "Scroll"
-.TP
-.BR \-\-scroll \ \fIzz|zt|zb|none\fR
-Scroll cursor to center/top/bottom/none (default: zz)
 
 .SH SEE ALSO
+.BR ad (1),
+.BR ad_compute (1),
+.BR ad_pipeline (1),
+.BR ad_postprocess (1),
+.BR ad_tmux (1),
 .BR vim (1),
-.BR tmux (1),
 .BR diff (1),
-.BR git (1),
-.BR perl (1)
+.BR git (1)
 
 .SH BUGS
 .TP
@@ -754,21 +757,10 @@ Trailing newline changes
 If the only difference between old and new is a trailing newline, the
 animation may not handle it correctly.
 .TP
-tmux send-keys race conditions
-.B ad_tmux
-and
-.B ad_vim.pl
-can experience race conditions where Ex command text leaks into normal
-mode when commands are sent faster than vim processes them. The
-.B ad_vim
-implementation does not have this issue. Use
-.B \-\-remote
-(ad_vim.pl) for an alternative that avoids tmux.
-.TP
 Large files
 The Patience diff is O(N\(muM) in memory. For files with
 more than 10,000 lines, use
-.B \-\-max-hunk-chars
+.B \-\-max\-hunk\-chars
 to skip large hunks.
 
 .SH AUTHOR

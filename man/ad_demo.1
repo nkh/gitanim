@@ -1,43 +1,37 @@
-.TH AD_DEMO 1 "2026-08-21" "ad 2.0" "ad scripts"
+.TH AD_DEMO 1 "2026-09-10" "ad 2.0" "ad scripts"
 .SH NAME
 ad_demo \- demo runner with preset examples
 .SH SYNOPSIS
 .B ad_demo
-[\fIoptions\fR] [\fIargs\fR]
 .SH DESCRIPTION
-NAME\fR
-    ad_demo.sh — Run demo animations for common use cases\fR
-\fR
-SYNOPSIS\fR
-    ad_demo.sh [-h|--help]\fR
-\fR
-DESCRIPTION\fR
-    Runs three pre-configured ad_vim animations end-to-end through the\fR
-    ad_pipeline driver (compute → postprocess → pace → animator)\fR
-    in --no-display mode, so no terminal animator UI is shown — the\fR
-    pipeline simply runs to completion and prints progress.\fR
-\fR
-    The demos exercised are:\fR
-      1. Small Python      — tests/tests/examples/01_small_python   (speed 2)\fR
-      2. Python Classes    — tests/tests/examples/32_python_classes  (speed 2)\fR
-      3. Large Python      — tests/tests/examples/33_large_python    (speed 5)\fR
-\fR
-    Use this script to smoke-test the pipeline after a build, or as a\fR
-    quick "does it work?" check.\fR
-\fR
-OPTIONS\fR
-    -h, --help     Show this help message and exit 0.\fR
-                   This script takes no other arguments.\fR
-\fR
-EXAMPLES\fR
-    ad_demo.sh\fR
-        Run all three demo animations.\fR
-\fR
-    ad_demo.sh --help\fR
-        Show this help message.\fR
+.B ad_demo
+runs three pre-configured ad_vim animations end-to-end through the
+.BR ad_pipeline (1)
+driver (compute \(-> postprocess \(-> pace \(-> animator) in
+.B \-\-no\-display
+mode, so no terminal animator UI is shown \(em the pipeline simply
+runs to completion and prints progress.
+.PP
+The demos exercised are:
+.PP
+.RS
+.nf
+1. Small Python    \(em tests/examples/01_small_python   (speed 2)
+2. Python Classes  \(em tests/examples/32_python_classes  (speed 2)
+3. Large Python    \(em tests/examples/33_large_python    (speed 5)
+.fi
+.RE
+.PP
+Use this script to smoke-test the pipeline after a build, or as a
+quick "does it work?" check.
 .SH OPTIONS
 .TP
-.B \-h, \-\-help
-Show detailed help and exit
+.BR \-h , " \-\-help"
+Show detailed help and exit. This script takes no other arguments.
+.SH EXAMPLES
+.TP
+.B ad_demo
+Run all three demo animations.
 .SH "SEE ALSO"
-.BR ad_vim (1)
+.BR ad_vim (1),
+.BR ad_pipeline (1)

@@ -1,43 +1,98 @@
-.TH AD_SNAPSHOT 1 "2026-08-21" "ad 2.0" "ad scripts"
+.TH AD_SNAPSHOT 1 "2026-09-10" "ad 2.0" "ad scripts"
 .SH NAME
-ad_snapshot \- per-op HTML snapshots for documentation
+ad_snapshot \- per-op HTML snapshots of the animator buffer
 .SH SYNOPSIS
 .B ad_snapshot
-[\fIoptions\fR] [\fIargs\fR]
+[\fIoptions\fR] <oldfile> <newfile>
 .SH DESCRIPTION
-NAME\fR
-    snapshot_per_op.sh — Per-op HTML snapshot visualizer for diffvim\fR
-\fR
-SYNOPSIS\fR
-    snapshot_per_op.sh [-h|--help]\fR
-    snapshot_per_op.sh [options] <oldfile> <newfile>\fR
-\fR
-DESCRIPTION\fR
-    Runs the ad_vim pipeline (compute → postprocess → pace) on an\fR
-    old/new file pair, then takes a snapshot of the animator's buffer\fR
-    after every keep / delete / insert op and renders all those\fR
-    snapshots into a single browsable HTML page (one entry per op,\fR
-    with the changed character highlighted).\fR
-\fR
-    The HTML page is written to /tmp/ad_snapshots/snapshots.html —\fR
-    open it in a browser to step through the animation op-by-op.\fR
-\fR
-OPTIONS\fR
-    -h, --help              Show this help message and exit 0.\fR
-    --show-keep             Show keep ops (default: hidden). When\fR
-                            hidden, each delete/insert entry still\fR
-                            shows the buffer state (the result after\fR
-                            the op was applied).\fR
-    --show-pacing           Include delay ops in the output\fR
-                            (default: excluded).\fR
-    --context N             Show only N lines of context around the\fR
-                            changed line (default: -1 = show whole\fR
-                            buffer; 0 = show only the changed line).\fR
-    --frame-op              Show a frame/border around each op entry\fR
-                            (default: off).\fR
+.B ad_snapshot
+runs the ad pipeline
+.RI ( compute \(-> postprocess \(-> pace )
+on an old/new file pair, then takes a snapshot of the animator's buffer
+after every keep / delete / insert op and renders all those snapshots
+into a single browsable HTML page (one entry per op, with the changed
+character highlighted).
+.PP
+The HTML page is written to
+.IR /tmp/ad_snapshots/snapshots.html .
+Open it in a browser to step through the animation op-by-op.
+.PP
+.B ad_snapshot
+accepts all
+.BR ad_vim (1)
+options in addition to its own (see below). Routed pipeline options:
+.RS
+.IP \(bu 3
+.B \-\-indent-last ,
+.B \-\-overwrite ,
+.B \-\-line-delete-in-place ,
+.B \-\-ad-layer ,
+.B \-\-ad-layer-path
+\(-> postprocess
+.IP \(bu 3
+.B \-\-delete-pacing ,
+.B \-\-insert-pacing ,
+.B \-\-delete-speed ,
+.B \-\-insert-speed ,
+.B \-\-pacing ,
+.B \-\-cursor-glide-ms ,
+.B \-\-distance-speed ,
+.B \-\-flash-pause-ms ,
+.B \-\-flash-highlight-ms
+\(-> pace
+.IP \(bu 3
+.B \-\-highlight ,
+.B \-\-dim-unchanged ,
+.B \-\-fold-unchanged ,
+.B \-\-sign-column ,
+.B \-\-git-blame
+\(-> decorate
+.IP \(bu 3
+.B \-\-diff-stat ,
+.B \-\-diff-highlight ,
+.B \-\-bell ,
+.B \-\-scroll
+\(-> animator
+.RE
 .SH OPTIONS
 .TP
-.B \-h, \-\-help
-Show detailed help and exit
+.BR \-h , " \-\-help"
+Show detailed help and exit.
+.TP
+.B \-\-show\-keep
+Show keep ops in the snapshot stream (default: hidden). When hidden,
+each delete/insert entry still shows the buffer state (the result after
+the op was applied).
+.TP
+.B \-\-show\-pacing
+Include delay (pace) ops in the snapshot stream (default: excluded).
+.TP
+.BI \-\-context\  N
+Show only N lines of context around the changed line (default: -1 = show
+whole buffer; 0 = show only the changed line).
+.TP
+.B \-\-frame\-op
+Show a frame/border around each op entry (default: off).
+.TP
+.B \-\-no\-buffer\-frame
+Remove the buffer border (default: on).
+.TP
+.BI \-\-font\-size\  N
+Font size in px (default: 14).
+.TP
+.B \-\-trace
+Enable the op-tracing debugging UI.
+.SH EXAMPLES
+.TP
+Basic usage:
+.B ad_snapshot old.py new.py
+.TP
+With word-delete pacing and inline highlight:
+.B ad_snapshot \-\-delete-pacing word \-\-highlight inline old.py new.py
+.TP
+Open the result:
+.BR "xdg-open /tmp/ad_snapshots/snapshots.html" .
 .SH "SEE ALSO"
-.BR ad_vim (1)
+.BR ad_vim (1),
+.BR ad_pipeline (1),
+.BR ad (1)

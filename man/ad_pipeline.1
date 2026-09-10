@@ -34,52 +34,144 @@ Options for ad (e.g. \-\-animator\-no\-display, \-\-animator\-speed 2.0)
 .PP
 Unprefixed options (e.g. \-\-speed, \-\-no\-display) go to the animator.
 .SH OPTIONS
+
+.SS Direct Options
+
 .TP
 .B \-\-no\-display
-Process without rendering (write snapshot only).
+Process without rendering (write snapshot only). Passed to the animator.
+
 .TP
-.B \-\-speed N
-Speed multiplier (0.5=half, 2=double, 5=5x).
+.BI \-\-speed\  N
+Speed multiplier (0.5=half, 2=double, 5=5x). Passed to the animator.
+
 .TP
-.B \-\-snapshot FILE
-Write final buffer to FILE.
+.BI \-\-snapshot\  FILE
+Write final buffer to FILE. Passed to the animator.
+
 .TP
-.B \-\-output FILE
-Write result to FILE after animation.
+.BI \-\-output\  FILE
+Alias for
+.BR \-\-snapshot .
+Passed to the animator.
+
 .TP
 .B \-\-indent\-last
-Enable the indent_last layer.
+Enable the indent_last postprocess layer (shorthand for
+.BR \-\-postprocess\-indent\-last ).
+
 .TP
 .B \-\-overwrite
-Enable the overwrite layer.
+Enable the overwrite postprocess layer (shorthand for
+.BR \-\-postprocess\-overwrite ).
+
 .TP
 .B \-\-line\-delete\-in\-place
-Enable the line_delete_in_place layer.
+Enable the line_delete_in_place postprocess layer (shorthand for
+.BR \-\-postprocess\-line\-delete\-in\-place ).
+
 .TP
-.B \-\-ad\-layer=NAME
-Add a layer to the postprocess chain. Repeatable. See
+.BI \-\-ad\-layer\  NAME\fR[:\fIARGS\fR]
+Add a layer to the postprocess chain. Repeatable. Layer args follow the
+colon (colons or spaces as separators). See
 .BR ad_postprocess (1).
+
 .TP
-.B \-\-ad\-layer\-path=DIR
+.BI \-\-ad\-layer\-path\  DIR
 Add a directory to the layer search path. Repeatable.
-.TP
-.B \-\-ad\-layer\-arg=LAYER:ARG
-Pass ARG to LAYER only.
-.TP
-.B \-\-ad\-layer\-profile
-Print per-layer timing to stderr.
-.TP
-.B \-\-ad\-layer\-dry\-run
-Print the layer chain and exit without executing.
-.TP
-.B \-\-ad\-layer\-keep\-temps
-Keep intermediate files for debugging.
+
 .TP
 .B \-\-list\-layers
-List available layers and exit.
+List available layers and exit (delegates to
+.BR ad_postprocess (1)).
+
+.TP
+.B \-\-syntax
+Generate syntax colormap files for the animator (via
+.BR ad_colorize ).
+Usually auto-detected; rarely needed directly.
+
+.TP
+.B \-\-scroll\  zz|zt|zb|none
+Passed to the animator. Scroll cursor to center/top/bottom/none.
+
+.TP
+.B \-\-diff\-stat
+Passed to the animator. Show diff stat overlay.
+
+.TP
+.B \-\-diff\-highlight
+Passed to the animator. Highlight modified lines.
+
+.TP
+.B \-\-bell
+Passed to the animator. Ring bell on errors.
+
+.TP
+.B \-\-line\-numbers
+Passed to the animator. Show line numbers in the margin.
+
+.TP
+.B \-\-progress
+Passed to the animator. Show progress bar at bottom.
+
+.TP
+.B \-\-verbose
+Show timing info on stderr.
+
+.TP
+.B \-\-dry\-run
+Show what would be animated without running.
+
 .TP
 .B \-\-help, \-h
 Show help and exit.
+
+.SS Prefix-Routed Options
+
+The following prefixes route options to a specific pipeline stage by
+stripping the prefix and passing the remainder (with
+.B \-\-
+prepended) to that stage. For example,
+.B \-\-postprocess\-ad\-layer\-arg=LAYER:ARG
+becomes
+.B \-\-ad\-layer\-arg=LAYER:ARG
+when passed to
+.BR ad_postprocess .
+
+.TP
+.B \-\-compute\-*
+Pass through to
+.BR ad_compute (1).
+Example:
+.B \-\-compute\-word\-diff
+
+.TP
+.B \-\-postprocess\-*
+Pass through to
+.BR ad_postprocess (1).
+This is how you reach
+.BR \-\-ad\-layer\-arg ,
+.BR \-\-ad\-layer\-profile ,
+.BR \-\-ad\-layer\-dry\-run ,
+.BR \-\-ad\-layer\-keep\-temps ,
+.BR \-\-ad\-layer\-passthrough ,
+etc. Example:
+.B \-\-postprocess\-ad\-layer\-profile
+
+.TP
+.B \-\-pace\-*
+Pass through to
+.BR ad_layer_pace (1).
+Example:
+.B \-\-pace\-delete\-pacing\ word
+
+.TP
+.B \-\-animator\-*
+Pass through to
+.BR ad (1).
+Example:
+.B \-\-animator\-no\-display
 .SH CONFIGURATION
 No environment variables. Use CLI flags or the config file at
 $XDG_CONFIG_HOME/ad/config (defaults to ~/.config/ad/config).

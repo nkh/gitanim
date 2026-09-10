@@ -1,43 +1,40 @@
-.TH AD_PACKAGE 1 "2026-08-21" "ad 2.0" "ad scripts"
+.TH AD_PACKAGE 1 "2026-09-10" "ad 2.0" "ad scripts"
 .SH NAME
 ad_package \- package the project for distribution
 .SH SYNOPSIS
 .B ad_package
-[\fIoptions\fR] [\fIargs\fR]
+.RI [ version ]
 .SH DESCRIPTION
-NAME\fR
-    ad_package.sh — Create a release tarball with pre-built binaries\fR
-\fR
-SYNOPSIS\fR
-    ad_package.sh [-h|--help]\fR
-    ad_package.sh [version]\fR
-\fR
-DESCRIPTION\fR
-    Builds the C binaries (compute, animator-c, postprocess, pace) from\fR
-    source, then archives them together with the Perl pipeline, the\fR
-    launcher scripts (diffvim, ad_vim.pl, ad_tmux, ad_compare),\fR
-    the Vim plugin (plugin/, autoload/, completion/, man/, DiffVim/),\fR
-    the tests/tests/examples/, the scripts/, README, CHANGELOG and LICENSE into a\fR
-    single distributable .tar.gz.\fR
-\fR
-    The resulting tarball is written to /tmp/ad-<version>.tar.gz.\fR
-\fR
-OPTIONS\fR
-    -h, --help     Show this help message and exit 0.\fR
-    version        Version string to embed in the tarball filename.\fR
-                   Defaults to "2.0" if not supplied.\fR
-\fR
-EXAMPLES\fR
-    ad_package.sh\fR
-        Build the 2.0 release tarball at /tmp/ad-2.0.tar.gz.\fR
-\fR
-    ad_package.sh 2.3.1\fR
-        Build the 2.3.1 release tarball at /tmp/ad-2.3.1.tar.gz.\fR
-\fR
-    ad_package.sh --help\fR
+.B ad_package
+builds the C binaries (compute, animator-c, postprocess, pace) from
+source, then archives them together with the Perl pipeline, the
+launcher scripts (ad_vim, ad_vim.pl, ad_tmux, ad_compare), the Vim
+plugin (plugin/, autoload/, completion/, man/, DiffVim/), the
+tests/examples/, the scripts/, README, CHANGELOG and LICENSE into a
+single distributable
+.IR .tar.gz .
+.PP
+The resulting tarball is written to
+.IR /tmp/ad-<version>.tar.gz .
 .SH OPTIONS
 .TP
-.B \-h, \-\-help
-Show detailed help and exit
+.BR \-h , " \-\-help"
+Show detailed help and exit.
+.SH ARGUMENTS
+.TP
+.I version
+Version string to embed in the tarball filename. Defaults to
+.I 2.0
+if not supplied.
+.SH EXAMPLES
+.TP
+.B ad_package
+Build the 2.0 release tarball at
+.IR /tmp/ad-2.0.tar.gz .
+.TP
+.B ad_package 2.3.1
+Build the 2.3.1 release tarball at
+.IR /tmp/ad-2.3.1.tar.gz .
 .SH "SEE ALSO"
-.BR ad_vim (1)
+.BR ad_vim (1),
+.BR ad_pipeline (1)

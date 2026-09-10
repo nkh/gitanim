@@ -6,12 +6,16 @@ ad_doc_provenance \- print git provenance for a file
 .I <file>
 .br
 .B ad_doc_provenance
-.B \-\-help
+.BR \-\-help " | " \-h
 .SH DESCRIPTION
 .B ad_doc_provenance
 prints the git provenance for a given file: the commit that created it,
 the commit that last modified it, and the current repository HEAD.
 Useful for adding provenance headers to documentation files.
+.SH OPTIONS
+.TP
+.BR \-\-help , " \-h"
+Show help and exit.
 .SH OUTPUT
 For each file, prints:
 .TP

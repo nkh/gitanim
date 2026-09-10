@@ -108,6 +108,7 @@ void parse_args(int argc, char **argv) {
             fprintf(stderr, "  --fold-unchanged                  Fold unchanged regions\n");
             fprintf(stderr, "  --sign-column                     Place +/- signs\n");
             fprintf(stderr, "  --git-blame                       Insert blame markers\n");
+            fprintf(stderr, "  --old-file=PATH                   Path to old file (for git-blame)\n");
             fprintf(stderr, "  --max-hunk-chars N                Skip animation for hunks >N chars\n");
             fprintf(stderr, "  --theme dark|light|high-contrast  Color theme\n");
             exit(0);

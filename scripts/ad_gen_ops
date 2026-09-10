@@ -49,6 +49,7 @@ OPTIONS
     --ad-layer=<name>      Add a layer to the postprocess chain.
                             Layers run in argv order.
     --ad-layer-path=<dir>  Add a search path for layers.
+    --annotate             Add # old: / # new: comments before each hunk.
     --delete-pacing=MODE   Delete pacing mode (char|word|rapid-eol|...).
     --insert-pacing=MODE   Insert pacing mode (char|word|accel|...).
     --help, -h             Show this help and exit.

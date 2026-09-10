@@ -230,6 +230,9 @@ Short forms in parentheses (e.g. -s for --speed).
 CORE OPTIONS:
   --speed N (-s)           Speed multiplier: 0.5=half speed, 2=double, 5=5x
   --output FILE (-o)       Write result to FILE after animation, then quit
+  --snapshot FILE          Alias for --output
+  --no-display             Run the animator headless (no terminal rendering)
+  --sync                   Run without timers (synchronous mode, for debugging)
   --context N (-c)         Fold unchanged regions >2N lines, keep N context
                            (0 = fold all unchanged regions)
   --max-hunk-chars N       If a hunk has >N changed chars, apply instantly
@@ -262,7 +265,6 @@ CORE OPTIONS:
   --log-mode 1|2           Generate log file without starting vim
   --log-file FILE          Write log to FILE (default: diffvim.log)
   --no-log-timing          Disable timing info in log output
-  --diff FILE              Animate a unified diff file (- for stdin)
   --theme dark|light|high-contrast (-t)  Color scheme for highlights
   --debug                  Enable verbose logging to /tmp/diffvim-debug.log
   --help, -h               Show this help
@@ -313,6 +315,12 @@ POSTPROCESSING:
   --indent-last           Delete leading whitespace LAST (prevents left shift)
   --line-delete-in-place  Delete whole lines on their own line (not joined to previous)
   --overwrite             In-place replacement instead of delete+insert
+  --ad-layer=NAME[:ARGS]  Add a postprocess layer to the chain
+                           (e.g. --ad-layer=ad_layer_reorder)
+                           Layer args follow the colon (colons or spaces as separators)
+  --ad-layer NAME [args]  Same, with separate args
+  --ad-layer-path DIR     Add DIR to the layer search path (may be given multiple times)
+  --list-layers           Print available layers and exit
 
 CURSOR MOVEMENT:
   --cursor-glide-ms N      Glide duration between hunks (0=off, default: 0)
@@ -565,8 +573,8 @@ while [[ $# -gt 0 ]]; do
         --)              shift; while [[ $# -gt 0 ]]; do POSITIONAL+=("$1"); shift; done ;;
         -*)              # Suggest closest option
                          _wrong="$1"; _best=""; _best_d=999
-                         for _opt in --speed --tick-ms --type-delay-ms --delete-delay-ms \
-                           --hunk-pause-ms --word-pause-ms --pacing --gaussian-jitter-pct \
+                         for _opt in --speed --delete-delay-ms --hunk-pause-ms --word-pause-ms \
+                           --pacing --gaussian-jitter-pct \
                            --pause-after-lines --pause-after-threshold --pause-after-ms \
                            --delete-pacing --delete-speed --delete-threshold \
                            --insert-pacing --insert-speed --accel-delete \
@@ -575,14 +583,18 @@ while [[ $# -gt 0 ]]; do
                            --flash-pause-ms --flash-highlight-ms --cursor-glide-ms \
                            --cursor-glide-show-intermediate --distance-speed \
                            --distance-threshold --distance-fast-mult --distance-slow-mult \
-                           --indent-last \
-                           --overwrite --highlight --highlight-color --highlight-duration-ms \
+                           --indent-last --line-delete-in-place \
+                           --overwrite --ad-layer --ad-layer-path --list-layers \
+                           --highlight --highlight-color --highlight-duration-ms \
                            --dim-unchanged --dim-unchanged-pct --fold-unchanged --context \
-                           --sign-column --git-blame --max-hunk-chars --theme \
+                           --sign-column --git-blame --max-hunk-chars --theme --max-line-len \
                            --diff-stat --diff-highlight --bell --scroll --line-numbers \
-                           --progress --verbose --dry-run --word-diff --no-optimize-sequence \
-                           --left-to-right --no-left-to-right --output --snapshot --no-display \
-                           --no-vimrc --help --version --preset --annotate; do
+                           --progress --verbose --dry-run --word-diff --algorithm \
+                           --output --snapshot --no-display --sync \
+                           --no-vimrc --help --version --preset --annotate --step-mode \
+                           --no-startup-pause --startup-pause --startup-feedback \
+                           --language --log-mode --log-file --no-log-timing --debug \
+                           --multi --replay --git-rev --keep-dirty --precomputed; do
                              _d=0; _w="${_wrong#--}"; _o="${_opt#--}"
                              _len=${#_w}; _olen=${#_o}
                              if [[ $_olen -gt $_len ]]; then _len=$_olen; fi

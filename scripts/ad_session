@@ -47,11 +47,13 @@ DESCRIPTION
 OPTIONS
     --help, -h                Show this help and exit
     --ad-layer=<name>         Layer(s) for ad_gen_ops (if generating ops)
+    --ad-layer-path=<dir>     Add a directory to the layer search path
     --session-name=<name>     Custom session directory name
     --resume=<path>           Resume existing session
     --resume-latest           Resume most recent session
     --list-sessions           List sessions and exit
     --no-generate             Don't generate ops if opfile missing
+    --annotate                Generate annotated ops with # old: / # new: comments
     --fold-context=<N>        Context lines around non-keep ops (default: 5)
     --fold-hunks              Start with all hunks folded
     --layer-file=<file>       Layer group file (default: .ad_layers)

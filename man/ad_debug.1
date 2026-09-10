@@ -1,43 +1,60 @@
-.TH AD_DEBUG 1 "2026-08-21" "ad 2.0" "ad scripts"
+.TH AD_DEBUG 1 "2026-09-10" "ad 2.0" "ad scripts"
 .SH NAME
 ad_debug \- interactive pipeline debugger
 .SH SYNOPSIS
 .B ad_debug
-[\fIoptions\fR] [\fIargs\fR]
+.RI [ options ] " <oldfile> " <newfile>
 .SH DESCRIPTION
-NAME\fR
-    ad_debug.sh — Debugging tool for the ad_vim pipeline\fR
-\fR
-SYNOPSIS\fR
-    ad_debug.sh [-h|--help]\fR
-    ad_debug.sh [--keep] <oldfile> <newfile>\fR
-\fR
-DESCRIPTION\fR
-    Takes an old and new file, runs the full ad_vim pipeline (compute →\fR
-    postprocess → pace → animator) stage by stage, prints diagnostic\fR
-    information to the terminal, AND writes the intermediate output of\fR
-    each stage to disk under /tmp/ad_debug/ so you can inspect it with\fR
-    any external tool (less, cat -A, diff, wc, etc.).\fR
-\fR
-    Stage files produced:\fR
-      /tmp/ad_debug/raw.txt    — Stage 1 (ad_compute output)\fR
-      /tmp/ad_debug/post.txt   — Stage 2 (ad_postprocess output)\fR
-      /tmp/ad_debug/timed.txt  — Stage 3 (ad_layer_pace output)\fR
-      /tmp/ad_debug/snap.txt   — Stage 4 (ad final buffer)\fR
-\fR
-    The script then compares the animator's final buffer (snap.txt)\fR
-    against the new file and reports either a MATCH or a MISMATCH\fR
-    (printing the diff in the latter case).\fR
-\fR
-OPTIONS\fR
-    -h, --help     Show this help message and exit 0.\fR
-    --keep         Do not clear /tmp/ad_debug/ before running. Useful\fR
-                   when you want to compare stage files across runs.\fR
-    <oldfile>      Path to the original/source file (initial buffer).\fR
-    <newfile>      Path to the target file the animation should produce.\fR
+.B ad_debug
+takes an old and new file, runs the full ad_vim pipeline
+(compute \(-> postprocess \(-> pace \(-> animator) stage by stage,
+prints diagnostic information to the terminal, AND writes the
+intermediate output of each stage to disk under
+.I /tmp/ad_debug/
+so you can inspect it with any external tool (less, cat -A, diff, wc,
+etc.).
+.PP
+Stage files produced:
+.TP
+.I /tmp/ad_debug/raw.txt
+Stage 1 (ad_compute output)
+.TP
+.I /tmp/ad_debug/post.txt
+Stage 2 (ad_postprocess output)
+.TP
+.I /tmp/ad_debug/timed.txt
+Stage 3 (ad_layer_pace output)
+.TP
+.I /tmp/ad_debug/snap.txt
+Stage 4 (ad final buffer)
+.PP
+The script then compares the animator's final buffer (snap.txt)
+against the new file and reports either a MATCH or a MISMATCH (printing
+the diff in the latter case).
 .SH OPTIONS
 .TP
-.B \-h, \-\-help
-Show detailed help and exit
+.BR \-h , " \-\-help"
+Show detailed help and exit.
+.TP
+.B \-\-keep
+Do not clear
+.I /tmp/ad_debug/
+before running. Useful when you want to compare stage files across runs.
+.SH ARGUMENTS
+.TP
+.I <oldfile>
+Path to the original/source file (initial buffer).
+.TP
+.I <newfile>
+Path to the target file the animation should produce.
+.SH EXAMPLES
+.TP
+.B ad_debug old.py new.py
+Run the full pipeline and report MATCH/MISMATCH.
+.TP
+.B ad_debug \-\-keep old.py new.py
+Keep previous stage files for comparison.
 .SH "SEE ALSO"
-.BR ad_vim (1)
+.BR ad_vim (1),
+.BR ad_pipeline (1),
+.BR ad_snapshot (1)

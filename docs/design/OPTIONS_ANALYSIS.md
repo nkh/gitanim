@@ -6,6 +6,14 @@ This document analyzes all ad_vim options for redundancy, grouping
 opportunities, and potential improvements. It is a professional analysis
 — no code changes are proposed, only observations and recommendations.
 
+> **Note:** This analysis was written before the unified-options
+> refactor. Several options discussed here (e.g. `--type-delay-ms`,
+> `--delete-delay-ms`, `--hunk-pause-ms`, `--word-pause-ms`,
+> `--rapid-eol-delete`, `--rapid-identical-chars`, `--word-accel`,
+> `--max-word-chars`, `--op-order`, `--semantic-cleanup`,
+> `--indent-aware`, `--left-to-right`) have since been removed or
+> replaced. The current option set is documented in `man ad_vim`.
+
 ---
 
 ## 1. Redundant Options

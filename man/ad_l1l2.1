@@ -8,9 +8,9 @@ ad_l1l2 \- find where ops start failing (L1/L2 bisect)
 .I <opsfile>
 .SH DESCRIPTION
 .B ad_l1l2
-applies the given op stream to the old file (using the C animator in
-headless mode), then compares the resulting buffer against the new file
-line-by-line. It reports:
+applies the given op stream to the old file using the C animator in
+headless mode, applying ops hunk by hunk and checking the buffer state
+after each hunk against the new file. It reports:
 .TP
 .B L1
 The last line where the buffer matches the new file (0 if line 1 already
@@ -20,8 +20,16 @@ differs). Everything up to L1 is confirmed correct.
 The first line where the buffer differs from the new file (0 if all lines
 match). The bug starts at L2.
 .TP
+.B L2_HUNK
+The hunk index where the first error was introduced. Pinpoints which
+hunk's ops are wrong, not just which line is wrong.
+.TP
 .B L_TOTAL
 Total lines compared (max of buffer and new file).
+.TP
+.B MATCH / MISMATCH
+Final verdict: whether the animator's buffer matches the new file after
+all ops are applied.
 .SH PURPOSE
 This tool tests the **op stream** (produced by the diff engine + layer
 chain), NOT the animator. The animator is the reference implementation

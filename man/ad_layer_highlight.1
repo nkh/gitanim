@@ -54,6 +54,13 @@ Place +/- signs in the sign column for changed lines
 .B \-\-git-blame
 Insert blame markers (requires git repository)
 .TP
+.BI \-\-old-file\=PATH
+Path to the old file (used by
+.B \-\-git-blame
+to look up blame info). Required when
+.B \-\-git-blame
+is enabled.
+.TP
 .BI \-\-max-hunk-chars \ N
 Skip animation for hunks with >N changed chars (emit skip_hunk op)
 .TP

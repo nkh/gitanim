@@ -92,10 +92,11 @@ The pipeline runs 4 stages:
 
 Option routing by prefix:
   --compute-*       Options for ad_compute
-                    (e.g. --compute-algorithm patience)
+                    (e.g. --compute-word-diff, --compute-semantic-cleanup)
   --postprocess-*   Options for ad_postprocess
-                    (e.g. --postprocess-op-order optimize,
-                          --postprocess-semantic-cleanup)
+                    (e.g. --postprocess-ad-layer=NAME,
+                          --postprocess-ad-layer-arg=LAYER:ARG,
+                          --postprocess-list-layers)
   --pace-*          Options for ad_layer_pace
                     (e.g. --pace-delete-pacing word,
                           --pace-delete-speed fast,
@@ -118,7 +119,7 @@ If it is missing, the pipeline falls back to the Perl builtin LCS.
 Examples:
   ad_pipeline old.py new.py
   ad_pipeline --pace-delete-pacing word --no-display --snapshot out.txt old.py new.py
-  ad_pipeline --compute-algorithm patience --postprocess-semantic-cleanup --pace-pacing gaussian old.py new.py
+  ad_pipeline --compute-word-diff --postprocess-ad-layer=ad_layer_reorder --pace-pacing gaussian old.py new.py
 
 Environment:
   (use --compute-bin=PATH instead)

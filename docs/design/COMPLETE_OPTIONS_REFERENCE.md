@@ -34,29 +34,17 @@ ad_vim --speed 2 old.py new.py
 ad_vim --speed 0.5 old.py new.py
 ```
 
-### --type-delay-ms N
-Delay between typed characters (default: 80).
-```bash
-ad_vim --type-delay-ms 40 old.py new.py
-```
+### [REMOVED: --type-delay-ms]
+Per-character delay is now controlled by `--insert-speed slow|normal|fast`.
 
-### --delete-delay-ms N
-Delay between deleted characters (default: 80).
-```bash
-ad_vim --delete-delay-ms 40 old.py new.py
-```
+### [REMOVED: --delete-delay-ms]
+Per-character delete delay is now controlled by `--delete-speed slow|normal|fast|instant`.
 
-### --hunk-pause-ms N
-Pause between hunks (default: 200).
-```bash
-ad_vim --hunk-pause-ms 500 old.py new.py
-```
+### [REMOVED: --hunk-pause-ms]
+Use `--pacing review` to pause between hunks.
 
-### --word-pause-ms N
-Pause after a word (default: 150).
-```bash
-ad_vim --word-pause-ms 300 old.py new.py
-```
+### [REMOVED: --word-pause-ms]
+Use `--insert-pacing word` to batch short words.
 
 ---
 

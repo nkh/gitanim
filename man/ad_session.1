@@ -52,6 +52,25 @@ List sessions and exit.
 .B --no-generate
 Don't generate ops if opfile missing.
 .TP
+.B --annotate
+Generate annotated ops with
+.B # old:
+and
+.B # new:
+context comments. Useful for understanding the diff structure without
+watching the animation.
+.TP
+.BI --ad-layer-path= DIR
+Add a directory to the layer search path (when generating ops with
+.BR --ad-layer ).
+Repeatable.
+.TP
+.BI --layer-file= FILE
+Layer group file (default:
+.IR .ad_layers ).
+Each line is a layer name (or layer:name args); the file is read and
+each layer is added to the chain.
+.TP
 .BI --fold-context= N
 Context lines around non-keep ops (default: 5).
 .TP

@@ -4,6 +4,15 @@ ad_tmux_watch \- open ad_watch + vim in a tmux window with vertical split
 .SH SYNOPSIS
 .B ad_tmux_watch
 <oldfile> <newfile> <opfile> [--ad-layer=<name>]... [options]
+.br
+.B ad_tmux_watch
+--resume <session_dir>
+.br
+.B ad_tmux_watch
+--resume-latest
+.br
+.B ad_tmux_watch
+--list-sessions
 .SH DESCRIPTION
 .B ad_tmux_watch
 creates a new tmux window with two panes side by side:
@@ -32,7 +41,7 @@ options.
 .BR --help ", " -h
 Show help and exit.
 .TP
-.BI --ad-layer= NAMERe
+.BI --ad-layer= NAME
 Pass to
 .B ad_gen_ops
 (if generating ops). Repeatable.
@@ -53,6 +62,24 @@ Pass to
 Pass to
 .B ad_watch
 (keep highlight/dim/fold/sign/marker ops).
+.TP
+.BI --session-name= NAME
+Custom session directory name (default: auto-generated from oldfile name).
+.TP
+.BI --resume= PATH
+Resume an existing session at PATH.
+.TP
+.B --resume-latest
+Resume the most recent session.
+.TP
+.B --list-sessions
+List all sessions and exit.
+.TP
+.BI --fold-context= N
+Context lines around non-keep ops (default: 5).
+.TP
+.B --fold-hunks
+Start with all hunks folded.
 .SH EXAMPLES
 .TP
 Basic usage \(em generates ops if /tmp/ops.tsv doesn't exist:
