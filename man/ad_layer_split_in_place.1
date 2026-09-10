@@ -1,0 +1,56 @@
+.TH AD_LAYER_SPLIT_IN_PLACE 1 "2026-09-11" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_split_in_place \- insert content AFTER splitting lines (prevents concatenation)
+.SH SYNOPSIS
+.B ad_layer_split_in_place
+< raw_ops > split_ops
+.SH DESCRIPTION
+.B ad_layer_split_in_place
+reorders the pattern:
+.RS
+.nf
+insert(L, col 1, chars)+  \(->  split_line(L, K)
+.fi
+.RE
+to:
+.RS
+.nf
+split_line(L, col 1)  \(->  insert(L, col 1, chars)+
+.fi
+.RE
+.PP
+so the split happens FIRST (creating an empty line L, with the old
+content moving to line L+1), then the inserts fill the empty line L.
+Without this reorder, the inserted text and the old content are
+momentarily concatenated on line L before the split separates them
+\(em a visual "join then move" artifact.
+.PP
+Only matches when there IS old content on the line (detected by
+checking if the op after the split_line is a
+.B keep
+or
+.B keep_line
+on line L+1). When the line is empty (e.g. end-of-file inserts),
+the pattern is left unchanged.
+.PP
+Only matches full-line insertions (inserts starting at col 1).
+Partial content at col > 1 is left unchanged.
+.PP
+Symmetric of
+.BR ad_layer_line_delete_in_place .
+.SH OPTIONS
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH INPUT/OUTPUT
+V2 TSV format. Input should be raw compute output or post-reorder.
+.SH EXAMPLES
+.TP
+.B ad_layer_split_in_place < raw_ops.txt > split_ops.txt
+Reorder insert-then-split patterns.
+.SH SEE ALSO
+.BR ad_postprocess (1),
+.BR ad_layer_line_delete_in_place (1),
+.BR ad (1)
+.PP
+.I docs/src/plugin-layers.md

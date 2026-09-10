@@ -57,6 +57,7 @@ LAYER_BINS := \
     bin/ad_layer_overwrite \
     bin/ad_layer_indent_last \
     bin/ad_layer_line_delete_in_place \
+    bin/ad_layer_split_in_place \
     bin/ad_layer_skip_indent \
     bin/ad_layer_pace \
     bin/ad_layer_highlight \
@@ -97,6 +98,8 @@ bin/ad_layer_overwrite: layers/c/ad_layer_overwrite.c
 bin/ad_layer_indent_last: layers/c/ad_layer_indent_last.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 bin/ad_layer_line_delete_in_place: layers/c/ad_layer_line_delete_in_place.c
+	$(CC) $(CFLAGS) -I layers/c -o $@ $<
+bin/ad_layer_split_in_place: layers/c/ad_layer_split_in_place.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
 bin/ad_layer_skip_indent: layers/c/ad_layer_skip_indent.c
 	$(CC) $(CFLAGS) -I layers/c -o $@ $<
@@ -315,6 +318,7 @@ check:
 	        "layers/c/ad_layer_overwrite.c:bin/ad_layer_overwrite" \
 	        "layers/c/ad_layer_indent_last.c:bin/ad_layer_indent_last" \
 	        "layers/c/ad_layer_line_delete_in_place.c:bin/ad_layer_line_delete_in_place" \
+                "layers/c/ad_layer_split_in_place.c:bin/ad_layer_split_in_place" \
 	        "layers/c/ad_layer_pace.c:bin/ad_layer_pace" \
 	        "layers/c/ad_layer_highlight.c:bin/ad_layer_highlight"; do \
 	        src=$${src_bin%%:*}; \

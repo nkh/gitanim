@@ -20,6 +20,7 @@ declare -a TOOLS=(
     "bin/ad_layer_overwrite"
     "bin/ad_layer_indent_last"
     "bin/ad_layer_line_delete_in_place"
+    "bin/ad_layer_split_in_place"
     "bin/ad_layer_skip_indent"
     "bin/ad_layer_pace"
     "bin/ad_layer_highlight"
