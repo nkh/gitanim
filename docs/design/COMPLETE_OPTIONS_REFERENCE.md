@@ -34,12 +34,6 @@ ad_vim --speed 2 old.py new.py
 ad_vim --speed 0.5 old.py new.py
 ```
 
-### --tick-ms N
-Animation frame interval in ms (default: 200).
-```bash
-ad_vim --tick-ms 100 old.py new.py
-```
-
 ### --type-delay-ms N
 Delay between typed characters (default: 80).
 ```bash

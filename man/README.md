@@ -35,6 +35,9 @@ Manpages for all ad tools.
 | `ad_tune.1`                       | Interactive tuner          |
 | `ad_tmux.1`                       | tmux launcher              |
 | `ad_package.1`                    | Packaging script           |
+| `ad_doc_provenance.1`              | Git provenance tool        |
+| `ad_anim_test.1`                   | Animation test tool        |
+| `ad_l1l2.1`                        | L1/L2 bisect tool          |
 | `verify_md5.1`                    | MD5 verification           |
 | `test_vimscript_animator.1`       | Vimscript animator test    |
 

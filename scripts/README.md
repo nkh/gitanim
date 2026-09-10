@@ -17,7 +17,7 @@ Helper scripts for the ad project.
 | Script          | What it does                                                   | When to use                                                  |
 | --------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | `ad_l1l2`       | L1/L2 bisect: applies ops hunk by hunk, finds first error      | Finding which hunk/layer produces wrong ops                  |
-| `ad_anim_test`  | Animation test: per-op snapshots via `--seek`, in-place checks | Testing animation quality (content jumps, join on non-empty) |
+| `ad_anim_test`  | Animation test: injects `snapshot` ops into the stream, in-place checks | Testing animation quality (content jumps, join on non-empty) |
 | `audit_help.sh` | Checks that every script/binary has `--help` and a manpage     | Auditing documentation completeness                          |
 
 ## Utility scripts
@@ -33,7 +33,7 @@ Helper scripts for the ad project.
 | `ad_replay.sh`       | Replay a recorded animation                 | Reviewing animations                          |
 | `ad_record.sh`       | Record animation to a file                  | Capturing animations for replay               |
 | `ad_demo.sh`         | Demo runner with preset examples            | Showcasing features                           |
-| `ad_suggest.sh`      | Suggest options for a given diff            | Option discovery                              |
+| `ad_suggest.sh`    | Helper library sourced by ad_vim/ad_pipeline for "Did you mean?" option suggestions | Sourceable library, not a standalone CLI |
 | `ad_tune.sh`         | Interactive option tuner (tmux)             | Fine-tuning pacing/timing                     |
 | `ad_package.sh`      | Package the project for distribution        | Releases                                      |
 | `ad_doc_provenance`  | Print git provenance for a file             | Document traceability                         |

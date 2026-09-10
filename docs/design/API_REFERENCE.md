@@ -208,7 +208,7 @@ void render(void);
 ```
 Render the current buffer state to the terminal. Respects scroll mode
 (zz/zt/zb/none), viewport height, and diff-stat overlay. No-op if
-`no_display` or `suppress_render` is set.
+`no_display` is set.
 
 #### `cleanup_handler`
 ```c

@@ -105,7 +105,7 @@ canceling pairs are already handled.
 ### 2.2 All timing options
 
 **Current state:** 15+ separate delay/pause options:
-- `--type-delay-ms`, `--delete-delay-ms`, `--tick-ms`
+- `--type-delay-ms`, `--delete-delay-ms`
 - `--hunk-pause-ms`, `--word-pause-ms`, `--word-end-pause-ms`
 - `--line-change-pause-ms`, `--pause-after-ms`
 - `--pause-before-delete-ms`, `--pause-after-delete-ms`

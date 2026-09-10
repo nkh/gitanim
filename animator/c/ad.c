@@ -75,8 +75,6 @@ static int show_line_numbers = 0;
 static int show_progress = 0;
 static int verbose = 0;
 static int dry_run = 0;
-static int seek_op = 0;  /* #70: start at this op index */
-static int suppress_render = 0;  /* When 1, render() is a no-op (used by --seek) */
 static int show_diff_stat = 0;  /* #76: diff stat overlay */
 static int bell_on_error = 0;  /* #40: terminal bell on error */
 static int diff_highlight = 0;  /* #24: green/red highlighting */
@@ -418,7 +416,7 @@ void batch_insert(int *codes, int count) {
 }
 
 void render(void) {
-    if (no_display || suppress_render) return;
+    if (no_display) return;
     printf("\033[2J\033[H");
 
     /* Get terminal height (default 24 if unavailable) */
@@ -575,7 +573,6 @@ int main(int argc, char **argv) {
         else if (strcmp(argv[i], "--progress") == 0) show_progress = 1;
         else if (strcmp(argv[i], "--verbose") == 0) verbose = 1;
         else if (strcmp(argv[i], "--dry-run") == 0) dry_run = 1;
-        else if (strcmp(argv[i], "--seek") == 0 && i+1 < argc) seek_op = atoi(argv[++i]);
         else if (strcmp(argv[i], "--diff-stat") == 0) show_diff_stat = 1;
         else if (strcmp(argv[i], "--bell") == 0) bell_on_error = 1;
         else if (strcmp(argv[i], "--diff-highlight") == 0) diff_highlight = 1;
@@ -592,8 +589,6 @@ int main(int argc, char **argv) {
             fprintf(stderr, "  --speed N            Speed multiplier (default: 1.0)\n");
             fprintf(stderr, "  --snapshot FILE      Write final buffer to FILE\n");
             fprintf(stderr, "  --output FILE        Same as --snapshot\n");
-            fprintf(stderr, "  --seek N             Apply first N ops (suppress render for ops < N)\n");
-            fprintf(stderr, "                       Used by ad_anim_test for per-op snapshots\n");
             fprintf(stderr, "  --colormap-old FILE  ANSI-colored lines for old file\n");
             fprintf(stderr, "  --colormap-new FILE  ANSI-colored lines for new file\n");
             fprintf(stderr, "  --line-numbers       Show line numbers in the margin\n");
@@ -630,17 +625,8 @@ int main(int argc, char **argv) {
     if (!no_display) printf("\033[?25l");
 
     char line[MAX_LINE_LEN];
-    int op_count = 0;
     int ops_total = 0;
     while (fgets(line, sizeof(line), stdin)) {
-        /* #70: Seek — apply ops but suppress rendering until we reach
-         * the seek position. This maintains buffer state. */
-        suppress_render = (seek_op > 0 && op_count < seek_op);
-        line[strcspn(line, "\n")] = 0;
-        if (line[0] == 0 || line[0] == '#') {
-            continue;
-        }
-        if (suppress_render) op_count++;
         line[strcspn(line, "\n")] = 0;
         if (line[0] == 0 || line[0] == '#') continue;
 

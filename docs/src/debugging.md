@@ -94,10 +94,12 @@ Takes a snapshot after EACH op and checks:
 
 ### How it works
 
-Uses the C animator's `--seek N` flag: applies the first N ops (suppressing
-render for ops < N), then takes a snapshot. This is slow (re-runs the
-animator from scratch for each op) but catches visual issues that L1/L2
-cannot detect.
+Injects `snapshot\t<file>` ops at interesting points in the op stream
+(before/after each `join_lines`, `split_line`, and `keep_line`), then
+runs the C animator once. The animator (a dumb buffer) writes the
+buffer state to each snapshot file when it encounters the `snapshot`
+op. This catches visual issues that L1/L2 cannot detect, without
+re-running the animator per checkpoint.
 
 ### What L1/L2 vs ad_anim_test detect
 

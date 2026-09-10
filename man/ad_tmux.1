@@ -18,10 +18,6 @@ ad_tmux \- animate a code diff in vim inside a tmux pane (bash + tmux variant)
 .RI [ options ]
 .B \-\-replay
 .RI <file>
-.RB [ \-\-from
-.IR REV ]
-.RB [ \-\-to
-.IR REV ]
 .br
 .B ad_tmux
 .B \-\-version
@@ -68,7 +64,7 @@ in
 .BR ad_vim .
 
 .TP
-.B \-\-tmux-session NAME
+.B \-\-session\-name NAME
 Override the tmux session name (default: a unique name based on PID).
 
 .SH CONTROLS
@@ -119,10 +115,6 @@ inside a fresh tmux session.
 .TP
 .B ad_tmux --speed 2 --word-diff a.py b.py
 Animate at 2x speed with word-level diffing.
-.TP
-.B ad_tmux --replay main.py --from HEAD~10 --to HEAD
-Animate the last 10 commits' changes to
-.IR main.py .
 
 .SH SEE ALSO
 .BR ad_vim (1),

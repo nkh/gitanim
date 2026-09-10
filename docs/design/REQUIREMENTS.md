@@ -198,8 +198,9 @@ Reads timed V2 TSV from stdin, applies ops to a buffer, renders to terminal.
 
 **Features:** Cursor glide with ease-in-out acceleration, scroll modes
 (zz/zt/zb/none), syntax highlighting via colormap files, diff stat overlay,
-terminal bell on error, `--seek` to start at op N, `--no-display` for
-headless testing.
+terminal bell on error, `--no-display` for headless testing. Per-op
+checkpoint testing is done by injecting `snapshot` ops into the stream;
+the animator has no seek primitive.
 
 ### 4.5 Vim Application (`apps/vim/`)
 

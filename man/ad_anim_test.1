@@ -10,9 +10,11 @@ ad_anim_test \- test animation by taking per-op snapshots
 .SH DESCRIPTION
 .B ad_anim_test
 tests the ANIMATION (intermediate states), not just the final output.
-It takes a snapshot after EACH op using the C animator's
-.B --seek
-flag, and verifies:
+It injects
+.B snapshot
+ops into the op stream and runs the C animator once; the animator
+writes the buffer state to each snapshot file as it encounters the
+snapshot op. It then verifies:
 .PP
 .RS
 1. The buffer never contains garbage (no chars at wrong positions)

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ad_anim_test — Test animation by inserting snapshot ops into the stream.
 #
-# Instead of using --seek (which re-runs the animator from scratch for
-# each op), this tool inserts `snapshot\t<file>` ops at interesting
-# points in the op stream, then runs the animator ONCE. The animator
-# (a dumb buffer) just writes the buffer to each snapshot file when
-# it encounters the snapshot op.
+# Inserts `snapshot\t<file>` ops at interesting points in the op stream,
+# then runs the animator ONCE. The animator (a dumb buffer) just writes
+# the buffer to each snapshot file when it encounters the snapshot op.
+# This avoids re-running the animator per checkpoint — the animator
+# has no seek/snapshot-loop primitive of its own.
 #
 # Checkpoints are inserted:
 #   - Before each join_lines (to check if the line is empty)

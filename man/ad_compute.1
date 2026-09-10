@@ -70,25 +70,11 @@ to read the diff from stdin.
 
 .SH OPTIONS
 .TP
-.B \-\-algorithm patience
-Diff algorithm (default:
-Patience).
-(Myers was removed: it OOMs on 15K-line files and produces the same
-op count as patience.)
+.B \-\-semantic\-cleanup
+Merge adjacent delete+insert pairs that cancel out.
 .TP
-.B \-\-word-diff
+.B \-\-word\-diff
 Batch word runs in char ops (instead of one char per op).
-.TP
-.B \-\-optimize-sequence
-Reorder ops within a line so deletes come before inserts (default:
-.IR on ).
-.TP
-.B \-\-no-optimize-sequence
-Disable op reordering within a line.
-.TP
-.B \-\-left-to-right
-Within each line, emit keeps (in original order), then deletes,
-then inserts. Useful for left-to-right reading flow.
 .TP
 .B \-\-diff
 Read a unified diff instead of two files. Positional args become

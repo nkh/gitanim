@@ -294,7 +294,7 @@ All user-facing env vars were removed. ~8 internal bridge/debug vars remain:
 | ✅   | #14     | Self-assignment removed                             |
 | ✅   | #15     | compute.pl CLI flags wired through                  |
 | ✅   | #16     | optimize_sequence removed                           |
-| ✅   | #17     | --seek fixed (suppress_render)                      |
+| ✅   | #17     | --seek removed entirely (broken-by-design; snapshot ops replace it) |
 | ✅   | #18     | Dead ternary fixed                                  |
 | ✅   | #19     | last_changed_line reset per hunk                    |
 | ❌   | #20     | pace.c word-pacing \n changed_lines — **NOT fixed** |

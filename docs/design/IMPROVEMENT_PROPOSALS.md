@@ -34,13 +34,15 @@ Last updated: 2026-09-09 (reflects `refactor/no-newline-in-char-ops` branch)
 stdin, applies each op to a virtual buffer (loaded from the old file),
 and renders the animation to the terminal. Supports `--no-display`
 (headless mode for testing), `--snapshot` (write final buffer to file),
-`--seek` (apply first N ops), `--speed`, scrolling, colormaps, and
-keyboard controls (pause, skip hunk, speed up/down).
+`--speed`, scrolling, colormaps, and keyboard controls (pause, skip
+hunk, speed up/down). The animator is a dumb buffer — it has no seek
+primitive. Per-op checkpoint testing is done by injecting `snapshot`
+ops into the stream, not by re-running the animator at a seek position.
 
 **When you use it:** Headless testing (`--no-display --snapshot`),
 CI pipelines, `ad_pipeline` (which calls it internally), and
-`ad_anim_test` (which uses `--seek` and snapshot ops for per-op
-checkpoint testing).
+`ad_anim_test` (which injects `snapshot` ops for per-op checkpoint
+testing).
 
 1. ⬜ **Inline char highlight** — paint each freshly-typed char green for
    200ms, each freshly-deleted char red for 200ms, using ANSI escape
@@ -888,8 +890,9 @@ for debug info.
 ## `ad_snapshot.sh`
 
 **What it is:** A script (`scripts/ad_snapshot.sh`) that takes per-op
-HTML snapshots — runs the animator with `--seek` for each op and
-produces an HTML page showing the buffer state.
+HTML snapshots — injects `snapshot` ops into the op stream and runs the
+animator once, then renders the snapshot files as an HTML page showing
+the buffer state at each step.
 
 **When you use it:** When you want a visual timeline of the animation
 for debugging or documentation.
@@ -913,7 +916,8 @@ earlier.
 
 1. ⬜ **Speed control** — `--speed N`.
 2. ⬜ **Pause/resume** — keyboard controls.
-3. ⬜ **Seek** — `--seek OP_N`.
+3. ⬜ **Snapshot injection** — `--snapshot-ops` to control where
+   `snapshot` ops are inserted (per op, per hunk, per N ops).
 4. ⬜ **Loop** — `--loop`.
 5. ⬜ **Reverse** — `--reverse`.
 6-20. (Same common options.)

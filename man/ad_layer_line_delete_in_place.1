@@ -39,8 +39,16 @@ is enabled, it runs INSTEAD of
 .B \-\-help, \-h
 Show help and exit.
 .TP
-.B \-\-debug
-Enable debug logging to /tmp/ad_debug/.
+.BI \-\-mode  batch|interleaved
+Two modes:
+.RS
+.IP \(bu 3
+.I batch
+(default): delete all content first, then join all empty lines. Fewer visual jumps.
+.IP \(bu 3
+.I interleaved:
+pass-through (diff engine's natural output). Delete content -> join -> delete next -> join. Each line disappears completely before the next is touched.
+.RE
 .SH INPUT/OUTPUT
 V2 TSV format. Input should be raw compute output (not post-reorder).
 .SH CONFIGURATION

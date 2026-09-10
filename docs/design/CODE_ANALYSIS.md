@@ -126,11 +126,14 @@ The function walks ops and pushes them one-by-one — output is identical to inp
 
 Fix: Either implement the intended optimization or delete the function and the CLI flags.
 
-#17 `animator/c/ad.c:650-656` — `--seek` is broken
+#17 `animator/c/ad.c` — `--seek` removed (was broken)
 
-Comment says "apply ops to maintain buffer state, but don't render" but code does `continue;`, which SKIPS applying entirely. After `--seek N`, the buffer is the original file, not the file at op N.
-
-Fix: Call op handlers without `render()` instead of `continue;`.
+`--seek` was broken: the comment said "apply ops to maintain buffer
+state, but don't render" but the code did `continue;`, which SKIPS
+applying entirely. After `--seek N`, the buffer was the original file,
+not the file at op N. Per-op checkpoint testing is now done by injecting
+`snapshot` ops into the stream (`scripts/ad_anim_test`), and `--seek`
+has been removed from the animator entirely.
 
 #18 `animator/c/ad.c:530` — Dead ternary
 

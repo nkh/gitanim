@@ -44,14 +44,11 @@ Highlight changed lines green/red.
 .B \-\-bell
 Ring terminal bell on error (cursor clamped to buffer bounds).
 .TP
-.BI \-\-tick\-ms  N
-Animation frame interval in ms. Default: 16 (~60fps).
+.B \-\-line\-numbers
+Show line numbers in the margin.
 .TP
-.BI \-\-seek  N
-Start animation at op N (apply ops 0..N silently, then animate from N).
-.TP
-.BI \-\-max\-line\-len  N
-Skip char-level diff for lines > N chars. Default: 1048576 (1MB).
+.B \-\-progress
+Show progress bar at bottom.
 .TP
 .B \-\-verbose
 Print debug info to stderr.
@@ -59,7 +56,7 @@ Print debug info to stderr.
 .B \-\-dry\-run
 Process ops without rendering (for timing tests).
 .TP
-.B \-\-version, \-V
+.B \-\-version
 Print version and exit.
 .TP
 .B \-\-help, \-h
