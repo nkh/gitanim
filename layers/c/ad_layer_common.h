@@ -162,6 +162,42 @@ static int ad_layer_parse_op(const char *line, Op *op) {
         op->code = 0;
         return 1;
     }
+    /* Try batch_insert format: batch_insert\t<line>\t<col>\t<codes>
+     * Store the codes string in op->text (like insert_line). */
+    if (sscanf(line, "%19s\t%d\t%d", type, &l, &c) >= 3 &&
+        strcmp(type, "batch_insert") == 0) {
+        strcpy(op->type, "batch_insert");
+        op->line = l;
+        op->col = c;
+        op->code = 0;
+        /* Extract codes (everything after the third tab) */
+        const char *p = line;
+        int tab_count = 0;
+        while (*p && tab_count < 3) {
+            if (*p == '\t') tab_count++;
+            p++;
+        }
+        op->text = strdup(*p ? p : "");
+        return 1;
+    }
+    /* Catch-all: if the type has at least a line number, parse it
+     * generically and pass through. This ensures unknown op types
+     * (delay, snapshot, highlight, etc.) are not dropped. */
+    {
+        char t2[AD_LAYER_TYPE_LEN];
+        int l2, c2, code2;
+        int n2 = sscanf(line, "%19s\t%d\t%d\t%d", t2, &l2, &c2, &code2);
+        if (n2 >= 1) {
+            /* Store the raw line in op->text so it can be written back verbatim */
+            strncpy(op->type, t2, AD_LAYER_TYPE_LEN - 1);
+            op->type[AD_LAYER_TYPE_LEN - 1] = 0;
+            op->line = (n2 >= 2) ? l2 : 0;
+            op->col = (n2 >= 3) ? c2 : 0;
+            op->code = (n2 >= 4) ? code2 : 0;
+            op->text = strdup(line);  /* store raw line for verbatim output */
+            return 1;
+        }
+    }
     return 0;
 }
 
@@ -207,6 +243,17 @@ static void ad_layer_write_op(Op *op) {
     } else if (strcmp(op->type, "delete_line") == 0) {
         /* delete_line\t<line> */
         printf("%s\t%d\n", op->type, op->line);
+    } else if (strcmp(op->type, "batch_insert") == 0) {
+        /* batch_insert\t<line>\t<col>\t<codes> */
+        printf("%s\t%d\t%d\t%s\n", op->type, op->line, op->col,
+               op->text ? op->text : "");
+    } else if (op->text && op->text[0] != '\0' &&
+               strchr(op->text, '\t') != NULL) {
+        /* Catch-all: if op->text contains the raw line (with tabs),
+         * write it verbatim. This passes through unknown op types
+         * (delay, snapshot, highlight, dim, fold, sign, marker, etc.)
+         * without dropping or mangling them. */
+        printf("%s\n", op->text);
     } else {
         /* Standard format: type\tline\tcol\tcode\tchar_repr */
         printf("%s\t%d\t%d\t%d\t%s\n", op->type, op->line, op->col,

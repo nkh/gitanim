@@ -653,10 +653,10 @@ int main(int argc, char **argv) {
             cleanup_handler(1);
             exit(1);
         }
-        if (strncmp(line, "batch_delete", 11) == 0 || strncmp(line, "batch_insert", 12) == 0) {
-            fprintf(stderr, "ad: ERROR: timed stream uses v1 'batch_delete'/'batch_insert'\n");
+        if (strncmp(line, "batch_delete", 11) == 0) {
+            fprintf(stderr, "ad: ERROR: timed stream uses v1 'batch_delete'\n");
             fprintf(stderr, "  Line: [%s]\n", line);
-            fprintf(stderr, "  v2 format uses single-char delete/insert ops (pace does not batch anymore)\n");
+            fprintf(stderr, "  v2 format uses single-char delete ops\n");
             cleanup_handler(1);
             exit(1);
         }
@@ -717,8 +717,8 @@ int main(int argc, char **argv) {
             insert_char(code);
             mark_modified(cursor_l);
             render();
-        } else if (strcmp(cmd, "insert_text") == 0 && ntok >= 3) {
-            /* insert_text\t<line>\t<col>\t<code1>,<code2>,...
+        } else if (strcmp(cmd, "batch_insert") == 0 && ntok >= 3) {
+            /* batch_insert\t<line>\t<col>\t<code1>,<code2>,...
              * Insert multiple chars at once (used for whitespace runs). */
             int op_line = atoi(toks[1]);
             int op_col = atoi(toks[2]);
