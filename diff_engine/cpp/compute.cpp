@@ -822,88 +822,56 @@ int main(int argc, char** argv) {
             {
                 vector<CharOp> final_ops;
                 final_ops.reserve(h.char_ops.size());
+                /* Track cursor position to know if deletes start at col 1 */
+                int track_col = 1;
                 int j = 0;
                 while (j < (int)h.char_ops.size()) {
-                    /* Check for delete_line pattern:
-                     * delete(c1) ... delete(cN) join_lines  (N >= 1)
-                     * Only collapse if the deletes are at the START of the
-                     * line — i.e., the previous op was a line boundary
-                     * (keep_line, join_lines, split_line) or this is the
-                     * first op in the hunk. If there are keep ops before
-                     * the deletes, the line has content that should be
-                     * kept — only PART of the line is being deleted. */
                     if (h.char_ops[j].type == OP_DELETE) {
                         int start = j;
-                        /* Check: is the previous op a line boundary? */
-                        bool at_line_start = (j == 0);
-                        if (j > 0) {
-                            OpType prev = h.char_ops[j - 1].type;
-                            if (prev == OP_KEEP_LINE || prev == OP_JOIN_LINES ||
-                                prev == OP_SPLIT_LINE || prev == OP_DELETE_LINE)
-                                at_line_start = true;
-                        }
+                        /* Check: previous op was a line boundary (col would be 1) */
+                        bool at_col_1 = (track_col == 1);
                         while (j < (int)h.char_ops.size()
                                && h.char_ops[j].type == OP_DELETE
                                && h.char_ops[j].code != 10)
                             j++;
                         int ndel = j - start;
-                        if (ndel > 0 && at_line_start
+                        if (ndel > 0 && at_col_1
                             && j < (int)h.char_ops.size()
                             && h.char_ops[j].type == OP_JOIN_LINES) {
-                            /* Since we scanned contiguous deletes and the
-                             * next op IS join_lines, this is a full-line
-                             * delete — no keeps between them. */
+                            /* Full-line delete: deletes start at col 1, cover
+                             * the entire line, and join_lines follows.
+                             * Collapse into delete_line. */
                             final_ops.push_back({OP_DELETE_LINE, 0});
                             j++; /* skip join_lines */
+                            /* After delete_line, cursor stays at same line, col=1 */
+                            track_col = 1;
                             continue;
                         }
                         /* Not a full-line delete — emit the deletes as-is */
                         for (int k = start; k < j; k++)
                             final_ops.push_back(h.char_ops[k]);
+                        /* Update tracked col: deletes don't advance col */
                         continue;
                     }
 
-                    /* Check for insert_line pattern:
-                     * insert(c1) ... insert(cN) split_line  (N >= 1) */
-                    if (h.char_ops[j].type == OP_INSERT) {
-                        int start = j;
-                        while (j < (int)h.char_ops.size()
-                               && h.char_ops[j].type == OP_INSERT
-                               && h.char_ops[j].code != 10)
-                            j++;
-                        int nins = j - start;
-                        if (nins > 0
-                            && j < (int)h.char_ops.size()
-                            && h.char_ops[j].type == OP_SPLIT_LINE) {
-                            /* Check that the next op after split is NOT a keep
-                             * on the same line (which would mean partial content).
-                             * If it's a keep_line or keep on the next line,
-                             * the inserts filled a whole new line. */
-                            int next = j + 1;
-                            bool is_whole_line = true;
-                            if (next < (int)h.char_ops.size()
-                                && h.char_ops[next].type == OP_KEEP) {
-                                /* There's keep content after the split — the
-                                 * inserts only filled PART of the line, not
-                                 * the whole line. Don't collapse. */
-                                is_whole_line = false;
-                            }
-                            if (is_whole_line) {
-                                /* For now, don't collapse inserts into insert_line
-                                 * (text storage in CharOp is complex). Just emit
-                                 * the original inserts as-is. */
-                                for (int k = start; k < j; k++)
-                                    final_ops.push_back(h.char_ops[k]);
-                                continue;
-                            }
-                        }
-                        /* Not a full-line insert — emit as-is */
-                        for (int k = start; k < j; k++)
-                            final_ops.push_back(h.char_ops[k]);
-                        continue;
+                    /* Update cursor tracking for non-delete ops */
+                    if (h.char_ops[j].type == OP_KEEP_LINE) {
+                        track_col = 1;
+                    } else if (h.char_ops[j].type == OP_JOIN_LINES) {
+                        /* join does NOT reset col — cursor stays at the
+                         * join point (end of current line's content).
+                         * The joined content from the next line starts
+                         * at this col. */
+                    } else if (h.char_ops[j].type == OP_SPLIT_LINE) {
+                        track_col = 1;  /* split advances to next line, col=1 */
+                    } else if (h.char_ops[j].type == OP_DELETE_LINE) {
+                        track_col = 1;
+                    } else if (h.char_ops[j].type == OP_KEEP) {
+                        track_col++;
+                    } else if (h.char_ops[j].type == OP_INSERT) {
+                        track_col++;
                     }
 
-                    /* Default: pass through */
                     final_ops.push_back(h.char_ops[j]);
                     j++;
                 }
