@@ -1,127 +1,22 @@
 /* ad_layer_split_in_place.c — Insert content AFTER splitting lines.
  *
- * Symmetric of ad_layer_line_delete_in_place.
+ * When the diff engine expands one old line into N new lines, it produces:
+ *   insert(L, col 1, chars)+ → split_line(L, K)
+ * The inserted text and old content are momentarily concatenated. This
+ * layer reorders to: split_line(L, 1) → insert(L, col 1, chars)+
  *
- * When the diff engine expands one old line into N new lines, it may
- * produce the pattern:
- *
- *   insert(line L, col 1, chars) → split_line(L, col K)
- *
- * where K = number of inserted chars + 1. Visually, the inserted text
- * and the old line's content are momentarily concatenated on line L
- * before the split separates them. The user sees the old content
- * briefly "joined" to the new content, then "moved" to line L+1.
- *
- * This layer reorders the pattern to:
- *
- *   split_line(L, col 1) → insert(line L, col 1, chars)
- *
- * so the split happens FIRST (creating an empty line L, with the old
- * content moving to line L+1), then the inserts fill the empty line L.
- * No concatenation.
- *
- * The layer also handles chained patterns: when N new lines are inserted
- * between two old lines, the diff engine produces
- *
- *   insert(L, col 1, chars) → split_line(L, K)
- *   → split_line(L+1, K')        ← already in good order
- *   → insert(L+2, col 1, chars)  ← already in good order
- *   → ...
- *
- * The first (insert + split) pair is reordered; the rest are already
- * in good order (split first, then insert on the new empty line).
- *
- * Only matches when inserts start at col 1 (full-line insertions).
- * Partial content at col > 1 is left unchanged.
+ * Safety: only reorders when the HUNK has del > 0 (old lines being
+ * replaced — the line exists and has content). For pure-insert hunks
+ * (del=0, end-of-file), the line might not exist in the buffer, so the
+ * split would clamp to the wrong line — skip.
  *
  * Build: make layers
  * Usage:  ad_layer_split_in_place < ops.tsv
  */
 #include "ad_layer_common.h"
 
-static int layer_split_in_place(Op *ops, int n_ops, Op *out, int out_cap, int *line_offset) {
-    (void)line_offset;
-
-    int n_out = 0;
-    int i = 0;
-
-    while (i < n_ops) {
-        /* Pattern: insert(line L, col 1, chars)+ + split_line(L, K)
-         * where K = (number of inserts) + 1.
-         *
-         * The split col K = (count of inserts at col 1 on line L) + 1
-         * because each insert at col c advances the next col to c+1,
-         * so after N inserts starting at col 1, the cursor is at col N+1,
-         * and the split happens there.
-         *
-         * We only reorder if the inserts START at col 1 (full-line
-         * insertion). The col 1 check is on the FIRST insert in the run.
-         */
-        if (i + 1 < n_ops
-            && strcmp(ops[i].type, "insert") == 0
-            && ops[i].col == 1) {
-
-            /* Scan forward for consecutive inserts on the same line */
-            int ie = i;
-            int insert_line = ops[i].line;
-            while (ie < n_ops
-                   && strcmp(ops[ie].type, "insert") == 0
-                   && ops[ie].line == insert_line
-                   && ops[ie].col == (ie - i) + 1) {
-                ie++;
-            }
-            int insert_count = ie - i;
-
-            /* Check: trailing split_line on the same line? */
-            if (insert_count > 0
-                && ie < n_ops
-                && strcmp(ops[ie].type, "split_line") == 0
-                && ops[ie].line == insert_line
-                && ops[ie].col == insert_count + 1) {
-
-                /* Only reorder if there IS old content on the line that
-                 * would get concatenated with the inserts. We detect this
-                 * by checking if the op AFTER the split_line is a `keep`
-                 * on line L+1 (the pushed old content). If the next op is
-                 * an `insert` or `split_line` (at col 1), the line was
-                 * empty — no old content, no concatenation, skip. */
-                int has_old_content = 0;
-                if (ie + 1 < n_ops) {
-                    Op *next = &ops[ie + 1];
-                    if (strcmp(next->type, "keep") == 0 && next->line == insert_line + 1)
-                        has_old_content = 1;
-                    else if (strcmp(next->type, "keep_line") == 0 && next->line == insert_line + 1)
-                        has_old_content = 1;
-                }
-
-                if (has_old_content) {
-                    /* Reorder: emit split_line FIRST (at col 1), then the
-                     * inserts (at col 1 on the now-empty line). */
-                    Op split_first = ops[ie];
-                    split_first.col = 1;
-                    if (n_out < out_cap)
-                        out[n_out++] = split_first;
-
-                    for (int k = i; k < ie && n_out < out_cap; k++) {
-                        out[n_out++] = ops[k];
-                    }
-
-                    i = ie + 1;  /* skip the original split_line */
-                    continue;
-                }
-                /* Fall through: no old content, emit unchanged */
-            }
-        }
-
-        /* No match — emit unchanged */
-        if (n_out < out_cap)
-            out[n_out++] = ops[i];
-        i++;
-    }
-
-    return n_out;
-}
-
+/* Custom main — does NOT use ad_layer_run because we need access to the
+ * HUNK header's del count to know if the line has existing content. */
 int main(int argc, char **argv) {
     __argc = argc; __argv = argv;
 
@@ -130,21 +25,138 @@ int main(int argc, char **argv) {
             fprintf(stderr,
                 "ad_layer_split_in_place — insert content after splitting lines\n\n"
                 "Usage: ad_layer_split_in_place < ops.tsv\n\n"
-                "Reorders the pattern:\n"
-                "  insert(L, col 1, chars)+ + split_line(L, K)\n"
-                "to:\n"
-                "  split_line(L, col 1) + insert(L, col 1, chars)+\n\n"
-                "so the split happens FIRST (creating an empty line L, with\n"
-                "the old content moving to line L+1), then the inserts fill\n"
-                "the empty line L. Without this reorder, the inserted text and\n"
-                "the old content are momentarily concatenated on line L before\n"
-                "the split separates them — a visual \"join then move\" artifact.\n\n"
-                "Only matches full-line insertions (col 1). Partial content at\n"
-                "col > 1 is left unchanged.\n\n"
-                "Symmetric of ad_layer_line_delete_in_place.\n");
+                "Reorders: insert(L,col1)+ + split_line(L,K)\n"
+                "      to: split_line(L,1) + insert(L,col1)+\n\n"
+                "Only reorders when the HUNK has del > 0 (line has old content).\n"
+                "Symmetric of ad_layer_line_delete_inplace.\n");
             return 0;
         }
     }
 
-    return ad_layer_run(layer_split_in_place);
+    char line[AD_LAYER_MAX_LINE];
+    Op *ops = NULL;
+    int n_ops = 0, cap = 0;
+    int in_hunk = 0;
+    int hunk_del = 0;
+    int hunk_end_insert = 0;
+
+    /* Read all lines, process per-hunk */
+    while (fgets(line, sizeof(line), stdin)) {
+        line[strcspn(line, "\n")] = 0;
+
+        /* Pass through comments and blank lines */
+        if (line[0] == '#' || line[0] == 0) {
+            printf("%s\n", line);
+            continue;
+        }
+
+        /* HUNK header — start collecting ops */
+        if (strncmp(line, "HUNK\t", 5) == 0) {
+            int t, d, i, ei, ed;
+            sscanf(line, "HUNK\t%d\t%d\t%d\t%d\t%d", &t, &d, &i, &ei, &ed);
+            hunk_del = d;
+            hunk_end_insert = ei;
+            
+            in_hunk = 1;
+            n_ops = 0;
+            printf("%s\n", line);
+            continue;
+        }
+
+        /* HUNK_END — process collected ops, then flush */
+        if (strncmp(line, "HUNK_END", 8) == 0) {
+            in_hunk = 0;
+
+            /* Process the collected ops for this hunk */
+            int i = 0;
+            while (i < n_ops) {
+                /* Pattern: insert(col1)+ + split_line(L, K) */
+                if (i + 1 < n_ops
+                    && strcmp(ops[i].type, "insert") == 0
+                    && ops[i].col == 1) {
+
+                    /* Scan forward for consecutive inserts on same line */
+                    int ie = i;
+                    int insert_line = ops[i].line;
+                    while (ie < n_ops
+                           && strcmp(ops[ie].type, "insert") == 0
+                           && ops[ie].line == insert_line
+                           && ops[ie].col == (ie - i) + 1)
+                        ie++;
+                    int insert_count = ie - i;
+
+                    /* Check: trailing split_line on same line? */
+                    if (insert_count > 0
+                        && ie < n_ops
+                        && strcmp(ops[ie].type, "split_line") == 0
+                        && ops[ie].line == insert_line
+                        && ops[ie].col == insert_count + 1
+                        && (hunk_del > 0 || !hunk_end_insert)) {
+
+                        /* Reorder: split_line FIRST (at col 1), then inserts */
+                        Op split_first = ops[ie];
+                        split_first.col = 1;
+                        printf("split_line\t%d\t1\n", split_first.line);
+                        for (int k = i; k < ie; k++)
+                            printf("%s\t%d\t%d\t%d\n", ops[k].type,
+                                   ops[k].line, ops[k].col, ops[k].code);
+                        i = ie + 1;
+                        continue;
+                    }
+                }
+
+                /* Emit unchanged */
+                Op *op = &ops[i];
+                if (op->code > 0)
+                    printf("%s\t%d\t%d\t%d\n", op->type, op->line, op->col, op->code);
+                else if (strcmp(op->type, "split_line") == 0)
+                    printf("split_line\t%d\t%d\n", op->line, op->col);
+                else if (strcmp(op->type, "join_lines") == 0)
+                    printf("join_lines\t%d\n", op->line);
+                else if (strcmp(op->type, "keep_line") == 0)
+                    printf("keep_line\t%d\n", op->line);
+                else
+                    printf("%s\t%d\t%d\t%d\n", op->type, op->line, op->col, op->code);
+                i++;
+            }
+
+            printf("HUNK_END\n");
+            n_ops = 0;
+            continue;
+        }
+
+        /* Collect ops within a hunk */
+        if (in_hunk) {
+            if (n_ops >= cap) {
+                cap = cap > 0 ? cap * 2 : 256;
+                ops = (Op *)realloc(ops, cap * sizeof(Op));
+            }
+            Op *op = &ops[n_ops];
+            memset(op, 0, sizeof(Op));
+            char type[AD_LAYER_TYPE_LEN];
+            int fld = sscanf(line, "%19s", type);
+            if (fld < 1) { n_ops++; continue; }
+            strncpy(op->type, type, AD_LAYER_TYPE_LEN - 1);
+            op->type[AD_LAYER_TYPE_LEN - 1] = 0;
+
+            if (strcmp(type, "split_line") == 0)
+                sscanf(line, "%*s\t%d\t%d", &op->line, &op->col);
+            else if (strcmp(type, "join_lines") == 0)
+                sscanf(line, "%*s\t%d", &op->line);
+            else if (strcmp(type, "keep_line") == 0)
+                sscanf(line, "%*s\t%d", &op->line);
+            else if (strcmp(type, "keep") == 0 || strcmp(type, "delete") == 0
+                     || strcmp(type, "insert") == 0)
+                sscanf(line, "%*s\t%d\t%d\t%d", &op->line, &op->col, &op->code);
+            else
+                sscanf(line, "%*s\t%d\t%d\t%d", &op->line, &op->col, &op->code);
+            n_ops++;
+        } else {
+            /* Outside hunk — pass through */
+            printf("%s\n", line);
+        }
+    }
+
+    free(ops);
+    return 0;
 }
