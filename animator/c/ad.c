@@ -763,6 +763,28 @@ int main(int argc, char **argv) {
             if (disp_l < 0) disp_l = 0;
             mark_modified(cursor_l);
             render();
+        } else if (strcmp(cmd, "delete_line") == 0 && ntok >= 2) {
+            /* delete_line\t<L> — delete the entire line L.
+             * The line is removed; subsequent lines shift up.
+             * No join_lines needed — the line just vanishes. */
+            int op_line = atoi(toks[1]);
+            set_cursor(op_line, 1);
+            if (cursor_l < n_lines && cursor_l >= 0) {
+                free(lines[cursor_l]);
+                for (int i = cursor_l; i < n_lines - 1; i++)
+                    lines[i] = lines[i + 1];
+                n_lines--;
+                /* If buffer is now empty, keep one empty line */
+                if (n_lines <= 0) {
+                    n_lines = 1;
+                    lines[0] = strdup("");
+                }
+            }
+            cursor_c = 1;
+            disp_l = cursor_l;
+            disp_c = 0;
+            mark_modified(cursor_l);
+            render();
         } else if (strcmp(cmd, "split_line") == 0 && ntok >= 3) {
             /* split_line\t<L>\t<col> — split line L at col C */
             int op_line = atoi(toks[1]);

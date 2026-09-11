@@ -29,7 +29,8 @@ using namespace std;
 using Clock = chrono::high_resolution_clock;
 
 enum OpType { OP_KEEP, OP_DELETE, OP_INSERT,
-              OP_KEEP_LINE, OP_JOIN_LINES, OP_SPLIT_LINE };
+              OP_KEEP_LINE, OP_JOIN_LINES, OP_SPLIT_LINE,
+              OP_DELETE_LINE, OP_INSERT_LINE };
 
 struct LineOp { OpType type; int a_idx, b_idx; };
 struct CharOp { OpType type; int code; };
@@ -798,6 +799,116 @@ int main(int argc, char** argv) {
                 }
                 h.char_ops = move(final_ops);
             }
+
+            /* Post-process: collapse whole-line deletions/insertions.
+             *
+             * When ALL content chars of a line are deleted AND the following
+             * join_lines deletes the \n, collapse into a single OP_DELETE_LINE.
+             * Similarly, when all inserted chars on a new line are followed
+             * by a split_line, collapse into OP_INSERT_LINE.
+             *
+             * Pattern for delete_line:
+             *   delete(c1) delete(c2) ... delete(cN) join_lines
+             *   where all deletes are on the same line and cover the ENTIRE
+             *   line content (col 1 through end).
+             *
+             * Pattern for insert_line:
+             *   insert(c1) insert(c2) ... insert(cN) split_line
+             *   where all inserts start at col 1.
+             *
+             * This prevents the "join then delete" visual where the next
+             * line's content jumps up before being deleted.
+             */
+            {
+                vector<CharOp> final_ops;
+                final_ops.reserve(h.char_ops.size());
+                int j = 0;
+                while (j < (int)h.char_ops.size()) {
+                    /* Check for delete_line pattern:
+                     * delete(c1) ... delete(cN) join_lines  (N >= 1)
+                     * Only collapse if the deletes are at the START of the
+                     * line — i.e., the previous op was a line boundary
+                     * (keep_line, join_lines, split_line) or this is the
+                     * first op in the hunk. If there are keep ops before
+                     * the deletes, the line has content that should be
+                     * kept — only PART of the line is being deleted. */
+                    if (h.char_ops[j].type == OP_DELETE) {
+                        int start = j;
+                        /* Check: is the previous op a line boundary? */
+                        bool at_line_start = (j == 0);
+                        if (j > 0) {
+                            OpType prev = h.char_ops[j - 1].type;
+                            if (prev == OP_KEEP_LINE || prev == OP_JOIN_LINES ||
+                                prev == OP_SPLIT_LINE || prev == OP_DELETE_LINE)
+                                at_line_start = true;
+                        }
+                        while (j < (int)h.char_ops.size()
+                               && h.char_ops[j].type == OP_DELETE
+                               && h.char_ops[j].code != 10)
+                            j++;
+                        int ndel = j - start;
+                        if (ndel > 0 && at_line_start
+                            && j < (int)h.char_ops.size()
+                            && h.char_ops[j].type == OP_JOIN_LINES) {
+                            /* Since we scanned contiguous deletes and the
+                             * next op IS join_lines, this is a full-line
+                             * delete — no keeps between them. */
+                            final_ops.push_back({OP_DELETE_LINE, 0});
+                            j++; /* skip join_lines */
+                            continue;
+                        }
+                        /* Not a full-line delete — emit the deletes as-is */
+                        for (int k = start; k < j; k++)
+                            final_ops.push_back(h.char_ops[k]);
+                        continue;
+                    }
+
+                    /* Check for insert_line pattern:
+                     * insert(c1) ... insert(cN) split_line  (N >= 1) */
+                    if (h.char_ops[j].type == OP_INSERT) {
+                        int start = j;
+                        while (j < (int)h.char_ops.size()
+                               && h.char_ops[j].type == OP_INSERT
+                               && h.char_ops[j].code != 10)
+                            j++;
+                        int nins = j - start;
+                        if (nins > 0
+                            && j < (int)h.char_ops.size()
+                            && h.char_ops[j].type == OP_SPLIT_LINE) {
+                            /* Check that the next op after split is NOT a keep
+                             * on the same line (which would mean partial content).
+                             * If it's a keep_line or keep on the next line,
+                             * the inserts filled a whole new line. */
+                            int next = j + 1;
+                            bool is_whole_line = true;
+                            if (next < (int)h.char_ops.size()
+                                && h.char_ops[next].type == OP_KEEP) {
+                                /* There's keep content after the split — the
+                                 * inserts only filled PART of the line, not
+                                 * the whole line. Don't collapse. */
+                                is_whole_line = false;
+                            }
+                            if (is_whole_line) {
+                                /* For now, don't collapse inserts into insert_line
+                                 * (text storage in CharOp is complex). Just emit
+                                 * the original inserts as-is. */
+                                for (int k = start; k < j; k++)
+                                    final_ops.push_back(h.char_ops[k]);
+                                continue;
+                            }
+                        }
+                        /* Not a full-line insert — emit as-is */
+                        for (int k = start; k < j; k++)
+                            final_ops.push_back(h.char_ops[k]);
+                        continue;
+                    }
+
+                    /* Default: pass through */
+                    final_ops.push_back(h.char_ops[j]);
+                    j++;
+                }
+                h.char_ops = move(final_ops);
+            }
             hunks.push_back(move(h));
         }
     }
@@ -838,6 +949,13 @@ int main(int argc, char** argv) {
                 out << "split_line\t" << cur_line << "\t" << cur_col << "\n";
                 cur_line++;
                 cur_col = 1;
+            } else if (op.type == OP_DELETE_LINE) {
+                /* delete_line\t<L> — delete the entire line L.
+                 * The line is removed from the buffer; subsequent lines
+                 * shift up. No join_lines needed — the line just vanishes. */
+                out << "delete_line\t" << cur_line << "\n";
+                /* cur_line stays — the NEXT line shifts up to cur_line.
+                 * cur_col stays at 1. */
             } else {
                 const char* type = op.type == OP_KEEP ? "keep" :
                                    op.type == OP_DELETE ? "delete" : "insert";

@@ -1,0 +1,11 @@
+# diffvim timed ops v2 (post-processed)
+# delete_pacing word
+# insert_pacing char
+HUNK	2	1	0	0	0
+delete_line	2
+HUNK_END
+delay	250	hunk
+HUNK	3	1	0	0	0
+delete_line	3
+HUNK_END
+
