@@ -138,6 +138,7 @@ OVERWRITE_MODE=0
 # Indent-last: delete leading whitespace last when deleting a whole line
 INDENT_LAST="0"
 LINE_DELETE_IN_PLACE="0"
+SPLIT_IN_PLACE="0"
 # Extra layers added via --ad-layer=<name>. Each becomes an --ad-layer
 # flag to the orchestrator. Search path can be extended with
 # --ad-layer-path=<dir>.
