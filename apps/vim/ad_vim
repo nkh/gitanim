@@ -314,6 +314,7 @@ HIGHLIGHTING:
 POSTPROCESSING:
   --indent-last           Delete leading whitespace LAST (prevents left shift)
   --line-delete-in-place  Delete whole lines on their own line (not joined to previous)
+  --split-in-place        Insert new line content AFTER splitting (not prepended to old)
   --overwrite             In-place replacement instead of delete+insert
   --ad-layer=NAME[:ARGS]  Add a postprocess layer to the chain
                            (e.g. --ad-layer=ad_layer_reorder)
@@ -513,6 +514,7 @@ while [[ $# -gt 0 ]]; do
         --indent-last)      INDENT_LAST=1; shift ;;
         --overwrite)        OVERWRITE_MODE=1; shift ;;
         --line-delete-in-place) LINE_DELETE_IN_PLACE=1; shift ;;
+        --split-in-place) SPLIT_IN_PLACE=1; shift ;;
         # Generic layer addition: --ad-layer=<name> adds a layer to the
         # chain (after the default chain). The layer is looked up in
         # the search path (bin/ and layers/perl/ by default; override
@@ -613,7 +615,7 @@ while [[ $# -gt 0 ]]; do
                            --flash-pause-ms --flash-highlight-ms --cursor-glide-ms \
                            --cursor-glide-show-intermediate --distance-speed \
                            --distance-threshold --distance-fast-mult --distance-slow-mult \
-                           --indent-last --line-delete-in-place \
+                           --indent-last --line-delete-in-place --split-in-place \
                            --overwrite --ad-layer --ad-layer-path --list-layers \
                            --highlight --highlight-color --highlight-duration-ms \
                            --dim-unchanged --dim-unchanged-pct --fold-unchanged --context \
@@ -1501,6 +1503,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         [[ "$OVERWRITE_MODE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_overwrite")
         [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_indent_last")
         [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_line_delete_in_place")
+        [[ "$SPLIT_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_split_in_place")
         # Extra layers from --ad-layer=<name> on the command line.
         [[ ${#EXTRA_PP_LAYERS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_LAYERS[@]/#/--ad-layer=}")
         # Extra search paths from --ad-layer-path=<dir>.
