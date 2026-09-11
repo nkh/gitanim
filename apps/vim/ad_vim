@@ -1979,6 +1979,15 @@ function! s:TimedProcessBatch() abort
             call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
             call s:TimedInsertChar(str2nr(l:parts[3]))
 
+        elseif l:cmd ==# 'insert_text' && len(l:parts) >= 3
+            " insert_text	<line>	<col>	<code1>,<code2>,...
+            call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
+            if len(l:parts) >= 4
+                for l:code_str in split(l:parts[3], ',')
+                    call s:TimedInsertChar(str2nr(l:code_str))
+                endfor
+            endif
+
         elseif l:cmd ==# 'keep_line' && len(l:parts) >= 2
             " keep_line\t<L> — advance to next line (no buffer change)
             call s:TimedSetCursor(str2nr(l:parts[1]), 1)

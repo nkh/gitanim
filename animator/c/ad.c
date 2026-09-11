@@ -717,6 +717,24 @@ int main(int argc, char **argv) {
             insert_char(code);
             mark_modified(cursor_l);
             render();
+        } else if (strcmp(cmd, "insert_text") == 0 && ntok >= 3) {
+            /* insert_text\t<line>\t<col>\t<code1>,<code2>,...
+             * Insert multiple chars at once (used for whitespace runs). */
+            int op_line = atoi(toks[1]);
+            int op_col = atoi(toks[2]);
+            set_cursor(op_line, op_col);
+            if (ntok >= 4) {
+                char *codes_str = toks[3];
+                char *saveptr = NULL;
+                char *tok = strtok_r(codes_str, ",", &saveptr);
+                while (tok) {
+                    int code = atoi(tok);
+                    insert_char(code);
+                    tok = strtok_r(NULL, ",", &saveptr);
+                }
+            }
+            mark_modified(cursor_l);
+            render();
         } else if (strcmp(cmd, "keep_line") == 0 && ntok >= 2) {
             /* keep_line\t<L> — advance to next line (no buffer change) */
             int op_line = atoi(toks[1]);
