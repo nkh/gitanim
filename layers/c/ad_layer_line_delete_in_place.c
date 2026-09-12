@@ -42,7 +42,54 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
     int i = 0;
 
     while (i < n_work) {
-        /* Pattern: join_lines(L) + delete(content at col 1) + join_lines(L) */
+        /* Pattern 1 (original): join_lines(L) + delete@col1+ + join_lines(L)
+         * Pattern 2 (NEW): DELETE(L, col)+ + JOIN_LINES(L) + DELETE(L, col)+
+         *   The deletes AFTER the join are on joined content (from line L+1).
+         *   Move them to BEFORE the join, with line changed to L+1.
+         *   Rule: line MUST NOT BE JOINED to delete the joined part. */
+
+        /* Check Pattern 2: any JOIN_LINES followed by DELETE ops */
+        if (strcmp(work[i].type, "join_lines") == 0
+            && i + 1 < n_work
+            && strcmp(work[i + 1].type, "delete") == 0
+            && !ad_layer_is_line_op(&work[i + 1])) {
+
+            int join_line = work[i].line;
+
+            /* Scan forward for all DELETE ops after the join */
+            int de = i + 1;
+            while (de < n_work
+                   && strcmp(work[de].type, "delete") == 0
+                   && !ad_layer_is_line_op(&work[de]))
+                de++;
+            int del_count = de - (i + 1);
+
+            if (del_count > 0 && ldi_mode == 0) {
+                /* The col of post-join deletes is relative to the JOINED
+                 * line (line L content + line L+1 content). On the original
+                 * line L+1, the col is: joined_col - (join_point - 1).
+                 * Where join_point = col of first post-join op (the col
+                 * where joined content starts). */
+                int join_point = work[i + 1].col;
+                /* Emit the DELETE ops with line = join_line + 1, col adjusted */
+                for (int k = i + 1; k < de && n_out < out_cap; k++) {
+                    Op tmp = work[k];
+                    tmp.line = join_line + 1;
+                    tmp.col = tmp.col - (join_point - 1);
+                    if (tmp.col < 1) tmp.col = 1;
+                    out[n_out++] = tmp;
+                }
+                /* Emit the JOIN_LINES (after the deletes) */
+                if (n_out < out_cap)
+                    out[n_out++] = work[i];
+
+                i = de;  /* skip past the moved deletes */
+                continue;
+            }
+            /* Interleaved mode or no deletes after join — fall through */
+        }
+
+        /* Check Pattern 1: join_lines(L) + delete@col1+ + join_lines(L) */
         if (i + 2 < n_work
             && strcmp(work[i].type, "join_lines") == 0) {
 

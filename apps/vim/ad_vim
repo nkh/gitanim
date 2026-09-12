@@ -2263,6 +2263,20 @@ function! s:StartTimedAnimation() abort
     " Apply theme before starting
     call s:ApplyTheme()
 
+    " Use a thin vertical bar cursor during animation (like insert mode)
+    " instead of the default block cursor in normal mode. Save the user's
+    " setting so we can restore it on quit.
+    let s:save_guicursor = &guicursor
+    set guicursor=n:ver25-Cursor
+    if exists('+t_BE')
+        let s:save_t_BE = &t_BE
+        set t_BE=
+    endif
+    " For terminal vim: send escape sequence for a bar cursor
+    let s:save_t_EI = &t_EI
+    let &t_EI = "\<Esc>[5 q"
+    redraw
+
     " Startup pause (wait for user to press Enter)
     call s:ShowStartup()
 
@@ -2333,6 +2347,16 @@ function! s:TimedQuit() abort
     " Mark buffer as not modified so :q quits cleanly (unless --keep-dirty)
     if !get(g:diffvim, 'keep_dirty', 0)
         setlocal nomodified
+    endif
+    " Restore cursor to user's settings
+    if exists('s:save_guicursor')
+        let &guicursor = s:save_guicursor
+    endif
+    if exists('s:save_t_EI')
+        let &t_EI = s:save_t_EI
+    endif
+    if exists('s:save_t_BE')
+        let &t_BE = s:save_t_BE
     endif
     " Restore cursor visibility
     echo ""
