@@ -139,6 +139,7 @@ OVERWRITE_MODE=0
 INDENT_LAST="0"
 LINE_DELETE_IN_PLACE="0"
 SPLIT_IN_PLACE="0"
+BATCH_WHITESPACE="0"
 # Extra layers added via --ad-layer=<name>. Each becomes an --ad-layer
 # flag to the orchestrator. Search path can be extended with
 # --ad-layer-path=<dir>.
@@ -316,6 +317,7 @@ POSTPROCESSING:
   --indent-last           Delete leading whitespace LAST (prevents left shift)
   --line-delete-in-place  Delete whole lines on their own line (not joined to previous)
   --split-in-place        Insert new line content AFTER splitting (not prepended to old)
+  --batch-whitespace      Batch consecutive whitespace inserts into one op (fewer delays)
   --overwrite             In-place replacement instead of delete+insert
   --ad-layer=NAME[:ARGS]  Add a postprocess layer to the chain
                            (e.g. --ad-layer=ad_layer_reorder)
@@ -516,6 +518,7 @@ while [[ $# -gt 0 ]]; do
         --overwrite)        OVERWRITE_MODE=1; shift ;;
         --line-delete-in-place) LINE_DELETE_IN_PLACE=1; shift ;;
         --split-in-place) SPLIT_IN_PLACE=1; shift ;;
+        --batch-whitespace) BATCH_WHITESPACE=1; shift ;;
         # Generic layer addition: --ad-layer=<name> adds a layer to the
         # chain (after the default chain). The layer is looked up in
         # the search path (bin/ and layers/perl/ by default; override
@@ -617,6 +620,7 @@ while [[ $# -gt 0 ]]; do
                            --cursor-glide-show-intermediate --distance-speed \
                            --distance-threshold --distance-fast-mult --distance-slow-mult \
                            --indent-last --line-delete-in-place --split-in-place \
+                           --batch-whitespace \
                            --overwrite --ad-layer --ad-layer-path --list-layers \
                            --highlight --highlight-color --highlight-duration-ms \
                            --dim-unchanged --dim-unchanged-pct --fold-unchanged --context \
@@ -1505,6 +1509,7 @@ if [[ -z "$PRECOMPUTED_FILE" ]]; then
         [[ "$INDENT_LAST" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_indent_last")
         [[ "$LINE_DELETE_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_line_delete_in_place")
         [[ "$SPLIT_IN_PLACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_split_in_place")
+        [[ "$BATCH_WHITESPACE" -eq 1 ]] && POSTPROCESS_ARGS+=("--ad-layer=ad_layer_batch_whitespace")
         # Extra layers from --ad-layer=<name> on the command line.
         [[ ${#EXTRA_PP_LAYERS[@]} -gt 0 ]] && POSTPROCESS_ARGS+=("${EXTRA_PP_LAYERS[@]/#/--ad-layer=}")
         # Extra search paths from --ad-layer-path=<dir>.
@@ -1980,7 +1985,7 @@ function! s:TimedProcessBatch() abort
             call s:TimedInsertChar(str2nr(l:parts[3]))
 
         elseif l:cmd ==# 'batch_insert' && len(l:parts) >= 3
-            " batch_insert	<line>	<col>	<code1>,<code2>,...
+            " batch_insert      <line>  <col>   <code1>,<code2>,...
             call s:TimedSetCursor(str2nr(l:parts[1]), str2nr(l:parts[2]))
             if len(l:parts) >= 4
                 for l:code_str in split(l:parts[3], ',')

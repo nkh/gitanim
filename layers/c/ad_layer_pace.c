@@ -980,6 +980,21 @@ int main(int argc, char **argv) {
         } else if (strcmp(toks[0], "split_line") == 0) {
             handle_insert(all_lines[i]);
             changed_lines++;
+        } else if (strcmp(toks[0], "batch_insert") == 0) {
+            /* batch_insert: pass through, add a delay after so the
+             * batched chars are visible before the next op. Without
+             * this, the animator renders all batched chars in one
+             * frame — a flash. */
+            passthrough(all_lines[i]);
+            i++;
+            emit_paced_delay(char_delay, "batch_insert");
+            changed_lines++;
+        } else if (strcmp(toks[0], "delete_line") == 0) {
+            /* delete_line: pass through, add a delay after (like delete) */
+            passthrough(all_lines[i]);
+            i++;
+            emit_paced_delay(delete_delay, "delete_line");
+            changed_lines++;
         } else if (strcmp(toks[0], "delay") == 0) {
             handle_delay(all_lines[i]);
         } else {
