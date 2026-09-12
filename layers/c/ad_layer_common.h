@@ -283,7 +283,8 @@ __attribute__((unused)) static int ad_layer_is_line_op(Op *op) {
     return strcmp(op->type, "keep_line") == 0 ||
            strcmp(op->type, "join_lines") == 0 ||
            strcmp(op->type, "split_line") == 0 ||
-           strcmp(op->type, "delete_line") == 0;
+           strcmp(op->type, "delete_line") == 0 ||
+           strcmp(op->type, "batch_insert") == 0;
 }
 
 /* ── Shared position-walk function ──────────────────────────────────
