@@ -838,17 +838,12 @@ int main(int argc, char** argv) {
                         if (ndel > 0 && at_col_1
                             && j < (int)h.char_ops.size()
                             && h.char_ops[j].type == OP_JOIN_LINES) {
-                            /* DON'T collapse to delete_line. Keep the
-                             * delete@col1+ + join_lines pattern so the
-                             * line_delete_in_place layer can move the
-                             * deletes to BEFORE the join. This gives
-                             * char-by-char animation (not instant vanish). */
-                            /* Emit the deletes as-is */
-                            for (int k = start; k < j; k++)
-                                final_ops.push_back(h.char_ops[k]);
-                            /* Emit join_lines as-is */
-                            final_ops.push_back(h.char_ops[j]);
+                            /* Full-line delete: deletes start at col 1, cover
+                             * the entire line, and join_lines follows.
+                             * Collapse into delete_line. */
+                            final_ops.push_back({OP_DELETE_LINE, 0});
                             j++; /* skip join_lines */
+                            /* After delete_line, cursor stays at same line, col=1 */
                             track_col = 1;
                             continue;
                         }
