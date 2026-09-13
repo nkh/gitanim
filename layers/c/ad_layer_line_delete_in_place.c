@@ -2,7 +2,7 @@
  *
  * When the diff engine deletes multiple consecutive lines, it produces:
  *
- *   delete(line1 chars) → join_lines → delete(line2 chars) → join_lines → ...
+ *   delete(line1 chars) -> join_lines -> delete(line2 chars) -> join_lines -> ...
  *
  * The join_lines pulls line2's content UP to line1 before it's deleted.
  * Visually, the user sees content jumping up before disappearing.
@@ -11,12 +11,12 @@
  *
  * --mode batch (default):
  *   Delete ALL content first, THEN join all empty lines.
- *   delete(line1) → delete(line2 at L+1) → join → join → ...
+ *   delete(line1) -> delete(line2 at L+1) -> join -> join -> ...
  *   Advantage: fewer visual jumps — all deletions happen in place.
  *
  * --mode interleaved:
  *   Delete each line's content, then immediately join the empty line.
- *   delete(line1) → join → delete(line2 at L+1) → join → ...
+ *   delete(line1) -> join -> delete(line2 at L+1) -> join -> ...
  *   Advantage: more incremental — each line disappears completely
  *   before the next is touched.
  *
@@ -65,6 +65,7 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
             int del_count = de - (i + 1);
 
             if (del_count > 0 && ldi_mode == 0) {
+                debug_log("Pattern 2: JOIN_LINES(%d) + %d DELETEs, join_point=%d\n", join_line, del_count, work[i+1].col);
                 /* The col of post-join deletes is relative to the JOINED
                  * line (line L content + line L+1 content). On the original
                  * line L+1, the col is: joined_col - (join_point - 1).
@@ -107,6 +108,9 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
 
                 /* Only reorder if content deletes start at col 1 */
                 int content_col = work[i + 1].col;
+                int joiner_line_dbg = work[i].line;
+                int content_count_dbg = ce - (i + 1);
+                debug_log("Pattern 1: JOIN_LINES(%d) + %d DELETEs at col %d\n", joiner_line_dbg, content_count_dbg, content_col);
                 if (content_col != 1) {
                     /* Partial content — don't reorder */
                     if (n_out < out_cap)
@@ -123,6 +127,7 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
                      * Emit content deletes at line+1, then join at line+1.
                      * The joiner stays for re-iteration (may match again).
                      * Result: all content deleted first, then all joins. */
+                    debug_log("Pattern 1 reorder: %d deletes line %d->%d, join line %d->%d\n", content_count, joiner_line, joiner_line+1, work[ce].line, joiner_line+1);
                     for (int k = i + 1; k < ce && n_out < out_cap; k++) {
                         Op tmp = work[k];
                         tmp.line = joiner_line + 1;
@@ -148,7 +153,7 @@ static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, 
                 } else {
                     /* ── Interleaved mode ──
                      * Don't reorder — emit as-is. This is algorithm B:
-                     * delete content → join → delete next content → join.
+                     * delete content -> join -> delete next content -> join.
                      * The join happens after each line's content is deleted,
                      * so the join only moves an empty line. The next line's
                      * content is then at the current line and gets deleted

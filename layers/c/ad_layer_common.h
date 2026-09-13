@@ -4,7 +4,7 @@
  *   1. Each layer is a standalone binary: reads TSV stdin → writes TSV stdout.
  *   2. The ad_layer_run() driver handles all I/O — layers just provide
  *      a transform function.
- *   3. No env vars, no debug dumps, no dead code.
+ *   3. --debug flag enables per-layer logging to stderr.
  *
  * Layer function signature:
  *   int layer_func(Op *in, int in_count, Op *out, int out_cap, int *line_offset);
@@ -25,9 +25,43 @@
 #include <string.h>
 #include <stdarg.h>
 
-/* ── Globals for argv access (--help) ──────────────────────────────── */
+/* ── Globals for argv access (--help, --debug) ────────────────────── */
 static int __argc = 0;
 static char **__argv = NULL;
+
+/* ── Debug logging ──────────────────────────────────────────────────
+ * When --debug is passed, ad_layer_debug=1 and debug_log() prints to
+ * stderr. Layers call debug_log() at key points: pattern detection,
+ * transformation decisions, counts.
+ *
+ * Usage in layers:
+ *   debug_log("Pattern matched: line %d, %d inserts at col 1\n", line, count);
+ *   debug_log("Action: moved split_line before inserts, col %d → 1\n", old_col);
+ *   debug_log("Result: %d patterns reordered\n", n_reordered);
+ */
+static int ad_layer_debug = 0;
+
+/* Get the layer name from argv[0] (basename, no path) */
+static const char *ad_layer_name(void) {
+    if (!__argv || !__argv[0]) return "ad_layer";
+    const char *p = strrchr(__argv[0], '/');
+    return p ? p + 1 : __argv[0];
+}
+
+/* Debug log — prints to stderr with layer name prefix when --debug is on */
+#define debug_log(fmt, ...) \
+    do { \
+        if (ad_layer_debug) \
+            fprintf(stderr, "[%s] " fmt, ad_layer_name(), ##__VA_ARGS__); \
+    } while (0)
+
+/* Check for --debug in argv. Call from main() before ad_layer_run(). */
+static int ad_layer_check_debug_flag(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--debug") == 0) return 1;
+    }
+    return 0;
+}
 
 /* ── Constants ───────────────────────────────────────────────────────
  *
@@ -356,7 +390,7 @@ __attribute__((unused)) static int ad_layer_run(
     int hunk_count = 0;
     int line_offset = 0;  /* cumulative (\n_ins - \n_del) from prior hunks */
 
-    /* Check for --help / -h in argv */
+    /* Check for --help / -h and --debug in argv */
     for (int i = 1; i < __argc; i++) {
         if (strcmp(__argv[i], "--help") == 0 || strcmp(__argv[i], "-h") == 0) {
             const char *name = __argv[0] ? strrchr(__argv[0], '/') : NULL;
@@ -364,11 +398,15 @@ __attribute__((unused)) static int ad_layer_run(
             fprintf(stderr, "Usage: %s < ops.tsv > processed.tsv\n", name);
             fprintf(stderr, "  Reads V2 TSV ops from stdin, applies the layer transform, writes to stdout.\n");
             fprintf(stderr, "  --help, -h   Show this help and exit.\n");
+            fprintf(stderr, "  --debug      Log pattern matches and transformations to stderr.\n");
             fprintf(stderr, "\n");
             fprintf(stderr, "See man/%s.1 for full documentation.\n", name);
             return 0;
         }
     }
+
+    /* Check for --debug */
+    ad_layer_debug = ad_layer_check_debug_flag(__argc, __argv);
 
     in_cap = AD_LAYER_INIT_CAPACITY;
     in_ops = (Op *)malloc(in_cap * sizeof(Op));
@@ -380,8 +418,10 @@ __attribute__((unused)) static int ad_layer_run(
         if (in_hunk && in_count > 0) {                                   \
             Op *out_ops = (Op *)malloc((in_count + AD_LAYER_OUTPUT_SLACK) * sizeof(Op)); \
             if (!out_ops) { fprintf(stderr, "out of memory\n"); return 1; } \
+            debug_log("HUNK %d: %d ops in\n", current_hunk.target, in_count); \
             int out_count = layer_func(in_ops, in_count, out_ops,       \
                                        in_count + AD_LAYER_OUTPUT_SLACK, &line_offset);  \
+            debug_log("HUNK %d: %d ops out\n", current_hunk.target, out_count); \
             ad_layer_write_hunk(&current_hunk);                         \
             for (int i = 0; i < out_count; i++)                         \
                 ad_layer_write_op(&out_ops[i]);                        \

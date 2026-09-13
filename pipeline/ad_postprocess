@@ -153,6 +153,7 @@ LAYER_PATHS=("${DEFAULT_LAYER_PATHS[@]}")
 declare -A LAYER_ARGS     # layer_name -> "arg1 arg2 ..."
 GLOBAL_PASSTHROUGH=()     # args passed to ALL layers
 DO_PROFILE=0
+INTERACTIVE=0
 DO_DRY_RUN=0
 KEEP_TEMPS=0
 
@@ -203,6 +204,11 @@ while [[ $# -gt 0 ]]; do
             KEEP_TEMPS=1
             shift
             ;;
+        --interactive)
+            INTERACTIVE=1
+            KEEP_TEMPS=1
+            shift
+            ;;
         --list-layers)
             list_layers
             exit 0
@@ -227,6 +233,8 @@ Layer chain:
   --ad-layer-dry-run         Print the chain and exit.
   --ad-layer-keep-temps      Keep intermediate files for debugging.
                               (uses pipe mode by default for speed)
+  --interactive              Pause after each layer, open vimdiff.
+                              Implies --ad-layer-keep-temps.
 
 <name> lookup:
   * Contains '/' → treated as a path.
@@ -239,7 +247,8 @@ I/O modes:
                      Files kept in $AD_TEMP_DIR (default: /tmp/ad_postprocess_$$)
 
 Environment:
-  Use --debug flag on each layer to enable debug dumps.
+  Use --debug flag on each layer to enable debug logging to stderr.
+  Use --interactive to pause after each layer and vimdiff before/after.
 
 See docs/src/plugin-layers.md for the full plugin contract.
 HELP
@@ -349,6 +358,40 @@ if [[ $KEEP_TEMPS -eq 1 ]]; then
         fi
 
         INFILE="$outfile"
+
+        if [[ $INTERACTIVE -eq 1 ]]; then
+            if [[ $i -eq 0 ]]; then
+                prev_file="$TEMP_DIR/00_input.tsv"
+            else
+                prev_file="$TEMP_DIR/$(printf '%02d' $i)_${prev_name}_output.tsv"
+            fi
+            echo "" >&2
+            echo "--- After layer $(printf '%d' $((i+1))): $name ---" >&2
+            echo "  before: $(wc -l < "$prev_file") lines, $(wc -c < "$prev_file") bytes" >&2
+            echo "  after:  $(wc -l < "$outfile") lines, $(wc -c < "$outfile") bytes" >&2
+            echo "  stderr: $(wc -l < "$errfile" 2>/dev/null || echo 0) lines" >&2
+            if [[ -s "$errfile" ]]; then
+                echo "  stderr output:" >&2
+                head -5 "$errfile" >&2
+            fi
+            echo "" >&2
+            # Read from /dev/tty (the actual terminal). In non-interactive
+            # environments (piped), this will fail and we just continue.
+            if [ -t 0 ] || [ -e /dev/tty ]; then
+                echo "Press Enter to vimdiff, 's' to skip, 'q' to quit..." >&2
+                read -r response < /dev/tty 2>/dev/null || response='s'
+                if [[ "$response" == "q" ]]; then
+                    echo "Quitting. Files kept in $TEMP_DIR" >&2
+                    exit 0
+                fi
+                if [[ "$response" != "s" ]]; then
+                    vimdiff "$prev_file" "$outfile" < /dev/tty > /dev/tty 2>&1 || true
+                fi
+            else
+                echo "  (no tty, skipping vimdiff)" >&2
+            fi
+        fi
+        prev_name="$name"
     done
 
     cat "$INFILE"

@@ -1,9 +1,9 @@
 /* ad_layer_split_in_place.c — Insert content AFTER splitting lines.
  *
  * When the diff engine expands one old line into N new lines, it produces:
- *   insert(L, col 1, chars)+ → split_line(L, K)
+ *   insert(L, col 1, chars)+ -> split_line(L, K)
  * The inserted text and old content are momentarily concatenated. This
- * layer reorders to: split_line(L, 1) → insert(L, col 1, chars)+
+ * layer reorders to: split_line(L, 1) -> insert(L, col 1, chars)+
  *
  * Safety: only reorders when the HUNK has del > 0 (old lines being
  * replaced — the line exists and has content). For pure-insert hunks
@@ -21,6 +21,7 @@ int main(int argc, char **argv) {
     __argc = argc; __argv = argv;
 
     for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--debug") == 0) { ad_layer_debug = 1; continue; }
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr,
                 "ad_layer_split_in_place — insert content after splitting lines\n\n"
@@ -93,7 +94,8 @@ int main(int argc, char **argv) {
                         && ops[ie].col == insert_count + 1
                         && (hunk_del > 0 || !hunk_end_insert)) {
 
-                        /* Reorder: split_line FIRST (at col 1), then inserts */
+                        debug_log("Pattern: line %d, %d inserts at col 1, split_line col %d -> 1\n", insert_line, insert_count, ops[ie].col);
+                    /* Reorder: split_line FIRST (at col 1), then inserts */
                         Op split_first = ops[ie];
                         split_first.col = 1;
                         printf("split_line\t%d\t1\n", split_first.line);

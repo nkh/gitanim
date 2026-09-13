@@ -16,12 +16,14 @@ static int is_ws(int code) { return code == WS_TAB || code == WS_SPACE; }
 int main(int argc, char **argv) {
     __argc = argc; __argv = argv;
     for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--debug") == 0) { ad_layer_debug = 1; continue; }
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr,
                 "ad_layer_batch_whitespace — batch whitespace insert ops\n\n"
                 "Usage: ad_layer_batch_whitespace < ops.tsv\n\n"
                 "Replaces runs of consecutive whitespace inserts (tab=9,\n"
                 "space=32) with a single batch_insert op.\n");
+            fprintf(stderr, "  --debug              Log batching to stderr.\n");
             return 0;
         }
     }
@@ -63,6 +65,7 @@ int main(int argc, char **argv) {
                     }
                     int count = i - start;
                     if (count >= 2) {
+                        debug_log("Batching: line %d, %d whitespace inserts at col %d\n", ln, count, col);
                         printf("batch_insert\t%d\t%d\t", ln, col);
                         for (int k = start; k < i; k++) {
                             int c = 0;
