@@ -77,6 +77,10 @@ $(ALL_BINS): | bin/
 
 bin/:
 	mkdir -p bin
+	@# Create symlinks for non-C binaries (pipeline/ and apps/ scripts)
+	@ln -sf ../pipeline/ad_postprocess bin/ad_postprocess 2>/dev/null || true
+	@ln -sf ../pipeline/ad_pipeline bin/ad_pipeline 2>/dev/null || true
+	@ln -sf ../apps/vim/ad_vim bin/ad_vim 2>/dev/null || true
 
 # Diff engine (C++)
 $(COMPUTE_BIN): diff_engine/cpp/compute.cpp
