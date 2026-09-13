@@ -1823,6 +1823,8 @@ if exists('$AD_SPEED') && !empty($AD_SPEED)
     if s:timed_speed <= 0 | let s:timed_speed = 1.0 | endif
 endif
 let s:timed_timer = -1
+let s:timed_paused = 0
+let s:timed_skip_hunk = 0
 let s:needs_redraw = 0
 
 " --- Read config from env vars ---

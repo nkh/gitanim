@@ -132,7 +132,7 @@ bin/ad_annotate: scripts/ad_annotate.c
 
 # --- Installation ---------------------------------------------------------
 
-.PHONY: install install-bin install-man install-comp install-docs
+.PHONY: install install-bin install-man install-comp install-docs reinstall
 
 install: install-bin install-man install-comp
 	@echo "Installed to $(PREFIX)"
@@ -176,6 +176,18 @@ install-comp:
 
 install-docs:
 	install -d $(DESTDIR)$(DOCDIR)
+	if [ -d docs/book ]; then \
+		cp -r docs/book/* $(DESTDIR)$(DOCDIR)/; \
+	else \
+		cp -r docs/src/*.md $(DESTDIR)$(DOCDIR)/; \
+	fi
+
+# Reinstall: clean, build, install binaries + manpages + completions
+reinstall: clean all install-bin install-man install-comp
+	@echo "Reinstalled to $(PREFIX)"
+	@echo "  binaries:   $(BINDIR)"
+	@echo "  manpages:   $(MANDIR)"
+	@echo "  completion:  $(COMPDIR)"
 	if [ -d docs/book ]; then \
 	        cp -r docs/book/* $(DESTDIR)$(DOCDIR)/; \
 	else \
@@ -361,6 +373,7 @@ help:
 	@echo "  make install-bin    Install binaries only"
 	@echo "  make install-man    Install manpages only"
 	@echo "  make install-comp   Install shell completions only"
+	@echo "  make reinstall     Clean, rebuild, install everything"
 	@echo "  make docs           Build mdBook documentation"
 	@echo "  make test           Run all tests"
 	@echo "  make test-layers    Run per-layer tests (TDD)"
