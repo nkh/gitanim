@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+
+class DataProcessor:
+    """Processes CSV data with configurable transformations."""
+
