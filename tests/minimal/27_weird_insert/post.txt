@@ -1,0 +1,127 @@
+# diffvim post-processed v2
+# algorithm patience
+# semantic_cleanup 0
+# word_diff 0
+# indent_aware 0
+# optimize_sequence 1
+# left_to_right 0
+# hunk_count 2
+HUNK	2	3	1	0	0
+join_lines	2
+insert	2	1	64	'@'
+insert	2	2	100	'd'
+insert	2	3	97	'a'
+insert	2	4	116	't'
+insert	2	5	97	'a'
+keep	2	6	99	'c'
+keep	2	7	108	'l'
+keep	2	8	97	'a'
+keep	2	9	115	's'
+keep	2	10	115	's'
+delete	2	11	32	space
+delete	2	11	68	'D'
+delete	2	11	97	'a'
+delete	2	11	116	't'
+delete	2	11	97	'a'
+delete	2	11	80	'P'
+delete	2	11	114	'r'
+delete	2	11	111	'o'
+delete	2	11	99	'c'
+delete	2	11	101	'e'
+delete	2	11	115	's'
+delete	2	11	115	's'
+delete	2	11	111	'o'
+delete	2	11	114	'r'
+delete	2	11	58	':'
+join_lines	2
+delete	2	11	32	space
+delete	2	11	32	space
+delete	2	11	32	space
+delete	2	11	32	space
+delete	2	11	34	'"'
+delete	2	11	34	'"'
+delete	2	11	34	'"'
+delete	2	11	80	'P'
+delete	2	11	114	'r'
+delete	2	11	111	'o'
+delete	2	11	99	'c'
+delete	2	11	101	'e'
+delete	2	11	115	's'
+delete	2	11	115	's'
+delete	2	11	101	'e'
+delete	2	11	115	's'
+delete	2	11	32	space
+delete	2	11	67	'C'
+delete	2	11	83	'S'
+delete	2	11	86	'V'
+delete	2	11	32	space
+delete	2	11	100	'd'
+delete	2	11	97	'a'
+delete	2	11	116	't'
+delete	2	11	97	'a'
+delete	2	11	32	space
+delete	2	11	119	'w'
+delete	2	11	105	'i'
+delete	2	11	116	't'
+delete	2	11	104	'h'
+delete	2	11	32	space
+delete	2	11	99	'c'
+delete	2	11	111	'o'
+delete	2	11	110	'n'
+delete	2	11	102	'f'
+delete	2	11	105	'i'
+delete	2	11	103	'g'
+delete	2	11	117	'u'
+delete	2	11	114	'r'
+delete	2	11	97	'a'
+delete	2	11	98	'b'
+delete	2	11	108	'l'
+delete	2	11	101	'e'
+delete	2	11	32	space
+delete	2	11	116	't'
+delete	2	11	114	'r'
+delete	2	11	97	'a'
+delete	2	11	110	'n'
+delete	2	11	115	's'
+delete	2	11	102	'f'
+delete	2	11	111	'o'
+delete	2	11	114	'r'
+delete	2	11	109	'm'
+delete	2	11	97	'a'
+delete	2	11	116	't'
+delete	2	11	105	'i'
+delete	2	11	111	'o'
+delete	2	11	110	'n'
+delete	2	11	115	's'
+delete	2	11	46	'.'
+delete	2	11	34	'"'
+delete	2	11	34	'"'
+delete	2	11	34	'"'
+HUNK_END
+HUNK	4	0	1	1	0
+split_line	4	1
+insert	5	1	99	'c'
+insert	5	2	108	'l'
+insert	5	3	97	'a'
+insert	5	4	115	's'
+insert	5	5	115	's'
+insert	5	6	32	space
+insert	5	7	80	'P'
+insert	5	8	114	'r'
+insert	5	9	111	'o'
+insert	5	10	99	'c'
+insert	5	11	101	'e'
+insert	5	12	115	's'
+insert	5	13	115	's'
+insert	5	14	105	'i'
+insert	5	15	110	'n'
+insert	5	16	103	'g'
+insert	5	17	82	'R'
+insert	5	18	101	'e'
+insert	5	19	115	's'
+insert	5	20	117	'u'
+insert	5	21	108	'l'
+insert	5	22	116	't'
+insert	5	23	58	':'
+HUNK_END
+

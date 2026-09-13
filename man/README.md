@@ -21,6 +21,7 @@ Manpages for all ad tools.
 | `ad_layer_indent_last.1`          | Indent-last layer          |
 | `ad_layer_line_delete_in_place.1` | Line-delete-in-place layer |
 | `ad_layer_split_in_place.1`      | Split-in-place layer      |
+| `ad_layer_join_insert_in_place.1` | Join-insert-in-place layer |
 | `ad_layer_pace.1`                 | Pace layer                 |
 | `ad_layer_highlight.1`            | Highlight layer            |
 | `ad_layer_skip_indent.1`          | Skip-indent layer          |

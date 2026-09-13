@@ -1,0 +1,182 @@
+# diffvim timed ops v2 (post-processed)
+# delete_pacing word
+# insert_pacing char
+HUNK	2	3	1	0	0
+join_lines	2
+delay	40	char
+insert	2	1	64	'@'
+delay	50	char
+insert	2	2	100	'd'
+delay	50	char
+insert	2	3	97	'a'
+delay	50	char
+insert	2	4	116	't'
+delay	50	char
+insert	2	5	97	'a'
+delay	50	char
+keep	2	6	99	'c'
+delay	1	char
+keep	2	7	108	'l'
+delay	1	char
+keep	2	8	97	'a'
+delay	1	char
+keep	2	9	115	's'
+delay	1	char
+keep	2	10	115	's'
+delay	1	char
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	68	'D'
+delay	80	awd_slow
+delete	2	11	97	'a'
+delay	80	awd_slow
+delete	2	11	116	't'
+delay	80	awd_slow
+delete	2	11	97	'a'
+delete	2	11	80	'P'
+delete	2	11	114	'r'
+delete	2	11	111	'o'
+delete	2	11	99	'c'
+delete	2	11	101	'e'
+delete	2	11	115	's'
+delete	2	11	115	's'
+delete	2	11	111	'o'
+delete	2	11	114	'r'
+delete	2	11	58	':'
+delay	68	awd_fast
+join_lines	2
+delay	40	char
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	34	'"'
+delay	80	awd_slow
+delete	2	11	34	'"'
+delay	80	awd_slow
+delete	2	11	34	'"'
+delay	80	awd_slow
+delete	2	11	80	'P'
+delete	2	11	114	'r'
+delete	2	11	111	'o'
+delete	2	11	99	'c'
+delete	2	11	101	'e'
+delete	2	11	115	's'
+delete	2	11	115	's'
+delete	2	11	101	'e'
+delete	2	11	115	's'
+delay	68	awd_fast
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	67	'C'
+delete	2	11	83	'S'
+delete	2	11	86	'V'
+delay	57	awd_fast
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	100	'd'
+delete	2	11	97	'a'
+delete	2	11	116	't'
+delete	2	11	97	'a'
+delay	49	awd_fast
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	119	'w'
+delete	2	11	105	'i'
+delete	2	11	116	't'
+delete	2	11	104	'h'
+delay	41	awd_fast
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	99	'c'
+delete	2	11	111	'o'
+delete	2	11	110	'n'
+delete	2	11	102	'f'
+delete	2	11	105	'i'
+delete	2	11	103	'g'
+delete	2	11	117	'u'
+delete	2	11	114	'r'
+delete	2	11	97	'a'
+delete	2	11	98	'b'
+delete	2	11	108	'l'
+delete	2	11	101	'e'
+delay	35	awd_fast
+delete	2	11	32	space
+delay	15	awd_skip
+delete	2	11	116	't'
+delete	2	11	114	'r'
+delete	2	11	97	'a'
+delete	2	11	110	'n'
+delete	2	11	115	's'
+delete	2	11	102	'f'
+delete	2	11	111	'o'
+delete	2	11	114	'r'
+delete	2	11	109	'm'
+delete	2	11	97	'a'
+delete	2	11	116	't'
+delete	2	11	105	'i'
+delete	2	11	111	'o'
+delete	2	11	110	'n'
+delete	2	11	115	's'
+delete	2	11	46	'.'
+delete	2	11	34	'"'
+delete	2	11	34	'"'
+delete	2	11	34	'"'
+delay	30	awd_fast
+HUNK_END
+delay	250	hunk
+HUNK	4	0	1	1	0
+split_line	4	1
+delay	50	char
+insert	5	1	99	'c'
+delay	50	char
+insert	5	2	108	'l'
+delay	50	char
+insert	5	3	97	'a'
+delay	50	char
+insert	5	4	115	's'
+delay	50	char
+insert	5	5	115	's'
+delay	50	char
+insert	5	6	32	space
+delay	50	char
+insert	5	7	80	'P'
+delay	50	char
+insert	5	8	114	'r'
+delay	50	char
+insert	5	9	111	'o'
+delay	50	char
+insert	5	10	99	'c'
+delay	50	char
+insert	5	11	101	'e'
+delay	50	char
+insert	5	12	115	's'
+delay	50	char
+insert	5	13	115	's'
+delay	50	char
+insert	5	14	105	'i'
+delay	50	char
+insert	5	15	110	'n'
+delay	50	char
+insert	5	16	103	'g'
+delay	50	char
+insert	5	17	82	'R'
+delay	50	char
+insert	5	18	101	'e'
+delay	50	char
+insert	5	19	115	's'
+delay	50	char
+insert	5	20	117	'u'
+delay	50	char
+insert	5	21	108	'l'
+delay	50	char
+insert	5	22	116	't'
+delay	50	char
+insert	5	23	58	':'
+delay	50	char
+HUNK_END
+

@@ -16,6 +16,7 @@ by the orchestrator (`pipeline/ad_postprocess`).
 | `ad_layer_indent_last.c`          | `ad_layer_indent_last`          | Moves leading whitespace deletes to end of line                                        |
 | `ad_layer_line_delete_in_place.c` | `ad_layer_line_delete_in_place` | Deletes content BEFORE joining lines. `--mode batch` (default) or `--mode interleaved` |
 | `ad_layer_split_in_place.c`       | `ad_layer_split_in_place`       | Inserts content AFTER splitting lines (symmetric of line_delete_in_place)                |
+| `ad_layer_join_insert_in_place.c` | `ad_layer_join_insert_in_place` | Moves inserts AFTER a join (prevents concatenation with joined content)                  |
 | `ad_layer_skip_indent.c`          | `ad_layer_skip_indent`          | Skips animation for indent-only changes                                                |
 | `ad_layer_pace.c`                 | `ad_layer_pace`                 | Inserts delay ops between content ops                                                  |
 | `ad_layer_highlight.c`            | `ad_layer_highlight`            | Inserts highlight/dim/fold ops                                                         |

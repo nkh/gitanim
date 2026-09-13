@@ -1,0 +1,18 @@
+.TH AD_LAYER_BATCH_WHITESPACE 1 "2026-09-13" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_batch_whitespace \- batch consecutive whitespace insert ops
+.SH SYNOPSIS
+.B ad_layer_batch_whitespace
+< ops.tsv > batched_ops.tsv
+.SH DESCRIPTION
+Replaces runs of consecutive whitespace insert ops with a single batch_insert op.
+.SH OPTIONS
+.TP
+.B \-\-debug
+Log batching decisions to stderr.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH SEE ALSO
+.BR ad_layer_pace (1),
+.BR ad_postprocess (1)

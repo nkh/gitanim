@@ -1,0 +1,50 @@
+.TH AD_LAYER_JOIN_INSERT_IN_PLACE 1 "2026-09-13" "ad 2.0" "ad layers"
+.SH NAME
+ad_layer_join_insert_in_place \- move inserts after a join (prevent concatenation)
+.SH SYNOPSIS
+.B ad_layer_join_insert_in_place
+< raw_ops > fixed_ops
+.SH DESCRIPTION
+.B ad_layer_join_insert_in_place
+handles the pattern:
+.PP
+.RS
+.nf
+join_lines(L) + insert(L, col 1, chars)+ + [keep(L, ...) | delete(L, ...)]*
+.fi
+.RE
+.PP
+The join pulls old content up to line L. Then inserts are typed at
+col 1 \(em in front of the old content. The user sees the new text
+concatenated with the old text ("@dataclass DataProcessor:").
+.PP
+This layer reorders to:
+.PP
+.RS
+.nf
+insert(L+1, col 1, chars)+ + [keep(L+1, ...) | delete(L+1, ...)]* + join_lines(L)
+.fi
+.RE
+.PP
+The inserts and deletes now happen on line L+1 (where the content
+originally was, before the join). The join happens AFTER \(em it joins
+the (empty) line L with the (modified) line L+1. No concatenation.
+.PP
+Only matches when there are inserts at col 1 after the join. If the
+ops after the join are only keeps and deletes (no inserts), the join
+is needed to bring the content to the right position \(em don't reorder.
+.SH OPTIONS
+.TP
+.B \-\-debug
+Log pattern matches and transformations to stderr.
+.TP
+.B \-\-help, \-h
+Show help and exit.
+.SH EXAMPLES
+.TP
+.B ad_layer_join_insert_in_place < raw_ops.txt > fixed_ops.txt
+Move inserts after joins.
+.SH SEE ALSO
+.BR ad_layer_line_delete_in_place (1),
+.BR ad_layer_split_in_place (1),
+.BR ad_postprocess (1)
