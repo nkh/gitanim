@@ -214,7 +214,7 @@ docs:
 	test-examples test-indent-last test-pipeline-options \
 	test-layers-discovery \
 	test-layer-reorder test-layer-overwrite test-layer-indent-last \
-	test-layer-line_delete_in_place test-layer-pace test-layer-highlight
+	test-layer-line_delete_in_place test-layer-pace test-layer-highlight test-layer-contracts
 
 test: test-layers test-unit test-minimal test-l2r test-property test-fuzz test-indent-last test-pipeline-options test-layers-discovery
 	@echo ""
@@ -256,8 +256,14 @@ test-layer-skip_indent: bin/ad_layer_skip_indent
 
 test-layers: test-layer-reorder test-layer-overwrite test-layer-indent_last \
 	     test-layer-line_delete_in_place test-layer-skip_indent \
-	     test-layer-pace test-layer-highlight
+	     test-layer-pace test-layer-highlight test-layer-contracts
 	@echo "=== All layer tests passed ==="
+
+# Contract tests for ALL layers — hand-crafted input op streams,
+# not snapshot tests. Verifies each layer fires on its documented pattern.
+test-layer-contracts:
+	@echo "=== Layer contract tests (all 9 layers) ==="
+	@set -o pipefail; perl tests/test_layer_contracts.pl 2>&1 | tail -20
 
 # Cross-cutting tests
 test-unit:

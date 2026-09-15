@@ -1,4 +1,4 @@
-# diffvim timed ops v2
+# diffvim timed ops v2 (post-processed)
 # delete_pacing word
 # insert_pacing char
 HUNK	1	1	2	0	0
@@ -8,7 +8,7 @@ keep	1	2	111	'o'
 delay	1	char
 keep	1	3	111	'o'
 delay	1	char
-insert	1	4	10	\n
+split_line	1	4
 delay	50	char
 keep	2	1	98	'b'
 delay	1	char

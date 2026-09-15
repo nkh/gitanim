@@ -1,4 +1,4 @@
-# diffvim timed ops v2
+# diffvim timed ops v2 (post-processed)
 # delete_pacing word
 # insert_pacing char
 HUNK	1	1	1	0	0

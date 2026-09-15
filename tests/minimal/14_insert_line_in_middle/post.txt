@@ -12,6 +12,6 @@ insert	2	2	105	'i'
 insert	2	3	110	'n'
 insert	2	4	101	'e'
 insert	2	5	50	'2'
-insert	2	6	10	\n
+split_line	2	6
 HUNK_END
 

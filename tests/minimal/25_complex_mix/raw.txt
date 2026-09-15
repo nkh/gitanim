@@ -18,32 +18,32 @@ insert	3	8	106	'j'
 insert	3	9	115	's'
 insert	3	10	111	'o'
 insert	3	11	110	'n'
-insert	3	12	10	\n
+split_line	3	12
 HUNK_END
-HUNK	5	1	1	0	0
-keep	5	1	32	space
-keep	5	2	32	space
-keep	5	3	32	space
-keep	5	4	32	space
-keep	5	5	112	'p'
-keep	5	6	114	'r'
-keep	5	7	105	'i'
-keep	5	8	110	'n'
-keep	5	9	116	't'
-keep	5	10	40	'('
-keep	5	11	39	'''
-keep	5	12	104	'h'
-keep	5	13	101	'e'
-keep	5	14	108	'l'
-keep	5	15	108	'l'
-keep	5	16	111	'o'
-insert	5	17	32	space
-insert	5	18	119	'w'
-insert	5	19	111	'o'
-insert	5	20	114	'r'
-insert	5	21	108	'l'
-insert	5	22	100	'd'
-keep	5	23	39	'''
-keep	5	24	41	')'
+HUNK	6	1	1	0	0
+keep	6	1	32	space
+keep	6	2	32	space
+keep	6	3	32	space
+keep	6	4	32	space
+keep	6	5	112	'p'
+keep	6	6	114	'r'
+keep	6	7	105	'i'
+keep	6	8	110	'n'
+keep	6	9	116	't'
+keep	6	10	40	'('
+keep	6	11	39	'''
+keep	6	12	104	'h'
+keep	6	13	101	'e'
+keep	6	14	108	'l'
+keep	6	15	108	'l'
+keep	6	16	111	'o'
+insert	6	17	32	space
+insert	6	18	119	'w'
+insert	6	19	111	'o'
+insert	6	20	114	'r'
+insert	6	21	108	'l'
+insert	6	22	100	'd'
+keep	6	23	39	'''
+keep	6	24	41	')'
 HUNK_END
 

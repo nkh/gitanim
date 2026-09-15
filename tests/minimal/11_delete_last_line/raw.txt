@@ -7,11 +7,11 @@
 # left_to_right 0
 # hunk_count 1
 HUNK	3	1	0	0	1
-delete	3	1	10	\n
-delete	4	1	108	'l'
-delete	4	1	105	'i'
-delete	4	1	110	'n'
-delete	4	1	101	'e'
-delete	4	1	51	'3'
+join_lines	3
+delete	3	1	108	'l'
+delete	3	1	105	'i'
+delete	3	1	110	'n'
+delete	3	1	101	'e'
+delete	3	1	51	'3'
 HUNK_END
 

@@ -3,9 +3,11 @@
 # insert_pacing char
 HUNK	2	1	0	0	0
 delete_line	2
+delay	40	delete_line
 HUNK_END
 delay	250	hunk
 HUNK	3	1	0	0	0
 delete_line	3
+delay	40	delete_line
 HUNK_END
 

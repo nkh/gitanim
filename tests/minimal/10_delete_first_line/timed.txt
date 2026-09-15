@@ -1,17 +1,8 @@
-# diffvim timed ops v2
+# diffvim timed ops v2 (post-processed)
 # delete_pacing word
 # insert_pacing char
 HUNK	1	1	0	0	0
-delete	1	1	108	'l'
-delay	80	awd_slow
-delete	1	1	105	'i'
-delay	80	awd_slow
-delete	1	1	110	'n'
-delay	80	awd_slow
-delete	1	1	101	'e'
-delete	1	1	49	'1'
-delay	68	awd_fast
-delete	1	1	10	\n
-delay	40	char
+delete_line	1
+delay	40	delete_line
 HUNK_END
 

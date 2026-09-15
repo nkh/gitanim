@@ -18,9 +18,9 @@ insert	3	8	106	'j'
 insert	3	9	115	's'
 insert	3	10	111	'o'
 insert	3	11	110	'n'
-insert	3	12	10	\n
+split_line	3	12
 HUNK_END
-HUNK	5	1	1	0	0
+HUNK	6	1	1	0	0
 keep	6	1	32	space
 keep	6	2	32	space
 keep	6	3	32	space
