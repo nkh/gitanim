@@ -4,6 +4,12 @@
  * into overwrite_insert. Operates ONLY on non-\n ops — never touches
  * 'delete \n' or 'insert \n' ops.
  *
+ * Any delete immediately followed by an insert at the same (line, col)
+ * is merged. No guards — the previous guards (prev_is_delete_same_pos
+ * and next_is_insert_same_line) blocked legitimate merges on multi-char
+ * replacements like hello→greet, producing backspace+retype flicker
+ * instead of clean overwrite.
+ *
  * Position handling:
  *   - For non-\n ops: recompute (current_line, current_col) based on
  *     keeps/inserts/overwrite_inserts advancing the cursor.
@@ -18,28 +24,14 @@ static int layer_overwrite(Op *ops, int n_ops, Op *out, int out_cap, int *line_o
 
     while (i < n_ops) {
         int can_merge = 0;
-        /* Only merge non-\n delete + non-\n insert at the same (line, col). */
+        /* Merge any non-\n delete + non-\n insert at the same (line, col).
+         * No guards — see file header comment for rationale. */
         if (i + 1 < n_ops
             && strcmp(ops[i].type, "delete") == 0 && !ad_layer_is_line_op(&ops[i])
             && strcmp(ops[i+1].type, "insert") == 0 && !ad_layer_is_line_op(&ops[i+1])
             && ops[i].line == ops[i+1].line
             && ops[i].col == ops[i+1].col) {
-            /* Check prev_is_delete_same_pos (previous op was a delete at the same position) */
-            int prev_is_delete_same_pos = 0;
-            if (i > 0
-                && strcmp(ops[i-1].type, "delete") == 0 && !ad_layer_is_line_op(&ops[i-1])
-                && ops[i-1].line == ops[i].line
-                && ops[i-1].col == ops[i].col) {
-                prev_is_delete_same_pos = 1;
-            }
-            /* Check next_is_insert_same_line (next-next op is an insert at the same line) */
-            int next_is_insert_same_line = 0;
-            if (i + 2 < n_ops
-                && strcmp(ops[i+2].type, "insert") == 0 && !ad_layer_is_line_op(&ops[i+2])
-                && ops[i+2].line == ops[i+1].line) {
-                next_is_insert_same_line = 1;
-            }
-            if (!prev_is_delete_same_pos && !next_is_insert_same_line) can_merge = 1;
+            can_merge = 1;
         }
 
         if (can_merge && out_count < out_cap) {

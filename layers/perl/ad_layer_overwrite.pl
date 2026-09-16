@@ -9,10 +9,8 @@
 # Algorithm (mirror of the C version):
 #   1. Walk ops in each hunk.
 #   2. If op[i] is a non-newline delete AND op[i+1] is a non-newline
-#      insert AND they have the same (line, col), AND the previous op
-#      was NOT a delete at the same position (pd), AND the op after
-#      next is NOT an insert at the same line (ni), then merge them
-#      into a single overwrite_insert op.
+#      insert AND they have the same (line, col), merge them into a
+#      single overwrite_insert op. No guards (see C file header).
 #   3. Otherwise, pass the op through unchanged.
 #   4. After merging, walk the output and set (line, col) on every op.
 #
@@ -92,22 +90,10 @@ sub transform_hunk {
             && $in[$i+1]{type} eq 'insert' && $in[$i+1]{code} != 10
             && $in[$i]{line} == $in[$i+1]{line}
             && $in[$i]{col}  == $in[$i+1]{col}) {
-            # Check pd (previous op was a delete at the same position).
-            my $pd = 0;
-            if ($i > 0
-                && $in[$i-1]{type} eq 'delete' && $in[$i-1]{code} != 10
-                && $in[$i-1]{line} == $in[$i]{line}
-                && $in[$i-1]{col}  == $in[$i]{col}) {
-                $pd = 1;
-            }
-            # Check ni (op after next is an insert at the same line).
-            my $ni = 0;
-            if ($i + 2 < $n
-                && $in[$i+2]{type} eq 'insert' && $in[$i+2]{code} != 10
-                && $in[$i+2]{line} == $in[$i+1]{line}) {
-                $ni = 1;
-            }
-            $can_merge = 1 if !$pd && !$ni;
+            # No guards — any delete+insert at same (line,col) merges.
+            # See C file header for rationale (previous guards blocked
+            # legitimate multi-char merges like hello→greet).
+            $can_merge = 1;
         }
 
         if ($can_merge) {

@@ -216,7 +216,7 @@ docs:
 	test-layer-reorder test-layer-overwrite test-layer-indent-last \
 	test-layer-line_delete_in_place test-layer-pace test-layer-highlight test-layer-contracts
 
-test: test-layers test-unit test-minimal test-l2r test-property test-fuzz test-indent-last test-pipeline-options test-layers-discovery
+test: test-layers test-unit test-minimal test-l2r test-property test-property-reversed test-fuzz test-indent-last test-pipeline-options test-layers-discovery test-reversed
 	@echo ""
 	@echo "=== All tests passed ==="
 
@@ -281,6 +281,12 @@ test-minimal:
 	@echo "=== Minimal test cases ==="
 	@bash tests/run_minimal_tests.sh 2>&1 | tail -1
 
+# Reversed-direction tests: run every minimal + example case with file
+# order swapped (new -> old). Verifies the pipeline is symmetric.
+test-reversed:
+	@echo "=== Reversed-direction tests (new -> old) ==="
+	@set -o pipefail; bash tests/run_all_tests_reversed.sh 2>&1 | tail -5
+
 test-l2r:
 	@echo "=== l2r algorithm tests ==="
 	@bash diff_engine/tests/l2r/test_l2r.sh 2>&1 | tail -1
@@ -288,6 +294,11 @@ test-l2r:
 test-property:
 	@echo "=== Property-based tests ==="
 	@perl tests/test_property.pl 2>&1 | tail -5
+
+# Property test with file order reversed (new -> old).
+test-property-reversed:
+	@echo "=== Property-based tests (reversed: new -> old) ==="
+	@set -o pipefail; perl tests/test_property_reversed.pl 2>&1 | tail -5
 
 test-examples:
 	@echo "=== All examples through the pipeline (canonical test corpus) ==="

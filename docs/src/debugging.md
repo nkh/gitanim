@@ -180,3 +180,8 @@ Any ops after `EOF` are ignored by all tools (animator, layers, pace).
 
 ```
 keep    1       1       104     'h'
+keep    1       2       101     'e'
+insert  1       3       108     'l'
+EOF
+```
+
