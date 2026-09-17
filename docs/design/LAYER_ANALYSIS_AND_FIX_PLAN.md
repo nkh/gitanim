@@ -289,30 +289,111 @@ cases. None of these touch `ad_layer_overwrite`.
 
 ---
 
-### 4.3 `ad_layer_indent_last` — WORKS (after test fix)
+### 4.3 `ad_layer_indent_last` — BROKEN (Phase 2 fix applied 2026-09-17)
 
 **Contract:** For each line segment that starts with leading
-whitespace deletes, move those whitespace deletes to AFTER the
-content deletes. Bump content op cols by `+n_indent`.
+whitespace deletes (space OR tab), move those whitespace deletes to
+AFTER the content deletes AND BEFORE the trailing `\n` char op. Bump
+content op cols by `+n_indent`. Indent deletes are placed at col 1.
+The `\n` op (if any) is emitted LAST (after the indent deletes), not
+in the middle of the segment.
+
+**Correct output order:** `content (col +n_indent) → indent (col 1) →
+\n op (original position)`.
 
 **Source:** `layers/c/ad_layer_indent_last.c`, function
-`layer_indent_last`, lines 26-90.
+`layer_indent_last`.
 
 **Test case:** `delete(space) delete(space) delete(a) delete(b)
 delete(\n)` → should become `delete(a, col+2) delete(b, col+2)
-delete(\n) delete(space, col 1) delete(space, col 1)`.
+delete(space, col 1) delete(space, col 1) delete(\n)`. (The `\n` is
+LAST, not in the middle of the segment.)
 
-**Result:** PASS. The layer correctly moves whitespace deletes to
-the end and bumps content cols.
+#### The bug (pre-Phase-2)
 
-**Caveat:** The test only covers the case where the segment STARTS
-with whitespace deletes. If whitespace deletes are interleaved with
+The C version searched for the trailing `\n` op using
+`ad_layer_is_line_op(&ops[j])`, which matches line-level op types
+(`keep_line`, `join_lines`, `split_line`, `delete_line`,
+`batch_insert`) but NOT a `delete \n` op (which has type `"delete"`
+and code 10, not a line-level type). As a result, the `\n` search
+returned -1, `content_end = i` (whole segment), and the `\n` op
+ended up inside the content run — producing output order
+`content → \n → indent` instead of the correct
+`content → indent → \n`.
+
+The Perl twin happened to use `$in[$j]{code} == 10` (the correct
+check) and so already produced the correct order. The two twins
+disagreed on every input that had a trailing `\n` op.
+
+#### Why the order matters
+
+If the `\n` delete is applied before the indent deletes, the line
+join happens while the deleted line's indentation is still in the
+buffer. The next line is then pulled up at the (now-to-be-deleted)
+indentation level, causing it to appear incorrectly indented during
+the animation. Applying the `\n` delete LAST — after the indent
+deletes — ensures the next line is pulled up at column 1 (no
+inherited indentation).
+
+#### Fix design (Phase 2)
+
+**C version:** Change the `\n`-op detection from
+`ad_layer_is_line_op(&ops[j])` to `ops[j].code == AD_LAYER_CHAR_NEWLINE`
+(matching the Perl twin). The rest of the algorithm is unchanged:
+emit content (col bumped) → indent (col 1) → `\n` op (last, original
+position).
+
+**Perl twin:** Already correct. But `parse_op` was extended to
+handle all line-op formats (`delete_line`, `insert_line`,
+`split_line`, `join_lines`, `keep_line`, `batch_insert`) and a
+catch-all for unknown op types — this was the same pre-existing
+parse_op bug fixed in `ad_layer_overwrite.pl` during Phase 1, applied
+here for the same reason (C/Perl parity on real examples).
+
+**Contract test (`tests/test_layer_contracts.pl` Case 3):** Asserts
+the exact delete-code order `[97, 98, 32, 32, 10]` — content 'a',
+content 'b', space, space, `\n`. The previous test only checked that
+the first delete was content and that the content col was bumped — it
+did not assert the position of `\n` relative to the indent deletes,
+which is why the bug went undetected.
+
+Added Case 3b: TAB indentation (codes 9 instead of 32). Verifies the
+layer treats tabs as leading-whitespace exactly like spaces, with the
+same content-bump and the same `content → indent → \n` order.
+
+Added Case 3c: segment with NO trailing `\n` op (content deletes
+only). The layer should still move the indent to the end; there's
+just no `\n` to emit. Order: `content → indent`.
+
+#### Acceptance criteria
+
+- `make test-layer-contracts`: 0 failures (Case 3 order assertions
+  now enforced; previously the order was not checked).
+- `make test-minimal`: 27/27 pass (no regression).
+- `make test-property`: 50/50 pass (no regression).
+- `make test-property-reversed`: 100/100 pass (no regression).
+- `make test-reversed`: 68/68 corpus cases pass (no regression).
+- `make test-examples`: 36/36 examples pass (no regression).
+- C/Perl parity on `tests/test_indent_last.pl`: PASS (was failing
+  pre-Phase-2 due to the Perl `parse_op` line-op bug; now both twins
+  produce byte-identical output).
+
+#### Risk
+
+LOW. The change is a one-line check substitution (line 62 of the C
+version) plus the Perl `parse_op`/`write_op` line-op handling
+extension. The test suite catches regressions. The `hello → greet`
+case in §4.2 (Option C, Phase 1 of this work) is unaffected — it
+doesn't go through `ad_layer_indent_last`.
+
+#### Caveat (carried forward from Phase 1)
+
+The test only covers the case where the segment STARTS with
+whitespace deletes. If whitespace deletes are interleaved with
 content deletes (e.g., `delete(space) delete(a) delete(space)
 delete(b)`), the layer may not fire correctly. This is a gap in test
-coverage, not necessarily a bug.
-
-**No fix needed now.** Add a test case for interleaved whitespace
-in Phase 6.
+coverage, not necessarily a bug. Add a test case for interleaved
+whitespace in a later phase.
 
 ---
 

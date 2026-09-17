@@ -271,7 +271,12 @@ print "\n=== ad_layer_indent_last ===\n";
 {
     # Input: 2 leading whitespace deletes + content deletes + \n op.
     # Without layer: ws_del ws_del content_del content_del \n_del
-    # With layer:    content_del content_del (col bumped +2) ws_del ws_del \n_del
+    # With layer (correct order): content_del content_del (col bumped
+    #   +2) ws_del ws_del \n_del  -- i.e. \n is LAST, after the indent
+    #   deletes. Putting \n before the indent deletes (the previous
+    #   behaviour) would join the line with the next line while the
+    #   indent is still in the buffer, causing the next line to appear
+    #   incorrectly indented during the animation.
     my $input = join("\n",
         "# raw diff v2",
         "HUNK\t1\t1\t1\t0\t0",
@@ -306,6 +311,95 @@ print "\n=== ad_layer_indent_last ===\n";
         ok "content delete 'a' col bumped from 3 to 5 (+n_indent)";
     } else {
         bad "content delete col not bumped correctly";
+    }
+    # The \n delete op (code 10) must be the LAST delete in the segment,
+    # AFTER the indent deletes. Extract the op order from the output
+    # (skipping the HUNK header) and verify it.
+    my @del_codes;
+    for my $l (split /\n/, $out) {
+        next if $l =~ /^#/ || $l =~ /^HUNK/ || $l =~ /^$/;
+        if ($l =~ /^delete\t\d+\t\d+\t(\d+)\t/) {
+            push @del_codes, $1;
+        }
+    }
+    # Expected order: 97 (a), 98 (b), 32 (space), 32 (space), 10 (\n).
+    my @expected = (97, 98, 32, 32, 10);
+    if (@del_codes == @expected
+        && join(",", @del_codes) eq join(",", @expected)) {
+        ok "delete order is content, indent, \\n (\\n is LAST)";
+    } else {
+        bad "delete order wrong: got [" . join(",", @del_codes)
+            . "] expected [" . join(",", @expected) . "]";
+    }
+
+    # Case 3b: TAB indentation (code 9). The layer must treat tabs the
+    # same as spaces — they are leading-whitespace too. This guards
+    # against a regression where only space (code 32) is detected.
+    my $input_tab = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "delete\t1\t1\t9\t\\t",
+        "delete\t1\t2\t9\t\\t",
+        "delete\t1\t3\t97\ta",
+        "delete\t1\t4\t98\tb",
+        "delete\t1\t5\t10\t\\n",
+        "HUNK_END",
+        ""
+    );
+    my $out_tab = run_layer("./bin/ad_layer_indent_last", $input_tab);
+    ok "indent_last runs on tab indentation" if $out_tab;
+    # First delete should be the content 'a' at col 5 (bumped +2 for the
+    # 2 tab indent deletes).
+    if ($out_tab =~ /^delete\t1\t5\t97/m) {
+        ok "tab case: content 'a' col bumped from 3 to 5 (+n_indent)";
+    } else {
+        bad "tab case: content 'a' col not bumped correctly";
+    }
+    # Order must be content, indent (tabs), \n — \n last.
+    my @tab_del_codes;
+    for my $l (split /\n/, $out_tab) {
+        next if $l =~ /^#/ || $l =~ /^HUNK/ || $l =~ /^$/;
+        if ($l =~ /^delete\t\d+\t\d+\t(\d+)\t/) {
+            push @tab_del_codes, $1;
+        }
+    }
+    my @tab_expected = (97, 98, 9, 9, 10);
+    if (@tab_del_codes == @tab_expected
+        && join(",", @tab_del_codes) eq join(",", @tab_expected)) {
+        ok "tab case: delete order is content, indent (\\t), \\n (\\n is LAST)";
+    } else {
+        bad "tab case: delete order wrong: got [" . join(",", @tab_del_codes)
+            . "] expected [" . join(",", @tab_expected) . "]";
+    }
+
+    # Case 3c: no \n op at end (segment ends with content deletes, no
+    # line terminator). The layer should still move indent to the end;
+    # there's just no \n to emit. Order: content, indent.
+    my $input_nonl = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "delete\t1\t1\t32\tspace",
+        "delete\t1\t2\t32\tspace",
+        "delete\t1\t3\t97\ta",
+        "delete\t1\t4\t98\tb",
+        "HUNK_END",
+        ""
+    );
+    my $out_nonl = run_layer("./bin/ad_layer_indent_last", $input_nonl);
+    my @nonl_del_codes;
+    for my $l (split /\n/, $out_nonl) {
+        next if $l =~ /^#/ || $l =~ /^HUNK/ || $l =~ /^$/;
+        if ($l =~ /^delete\t\d+\t\d+\t(\d+)\t/) {
+            push @nonl_del_codes, $1;
+        }
+    }
+    my @nonl_expected = (97, 98, 32, 32);
+    if (@nonl_del_codes == @nonl_expected
+        && join(",", @nonl_del_codes) eq join(",", @nonl_expected)) {
+        ok "no-\\n case: order is content, indent (no \\n to emit)";
+    } else {
+        bad "no-\\n case: order wrong: got [" . join(",", @nonl_del_codes)
+            . "] expected [" . join(",", @nonl_expected) . "]";
     }
 }
 

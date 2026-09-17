@@ -1,14 +1,22 @@
 #!/usr/bin/env perl
 # ad_layer_indent_last.pl — Perl implementation of the indent-last layer.
 #
-# Moves leading whitespace DELETE ops to the END of a line segment, so the
-# viewer first sees the content disappear and then the indentation collapse.
-# Adjusts content ops' col by +n_indent (the indent is still in the buffer
-# when content runs first). Indent deletes are placed at col 1.
+# For each line segment that starts with leading whitespace deletes
+# (space OR tab), moves those whitespace deletes to AFTER the content
+# deletes. The trailing \n char op (if any) is moved to the very end
+# (after the indent deletes) so the join doesn't pull the next line up
+# at the now-deleted indentation level. Content op cols are bumped by
+# +n_indent (the indent is still in the buffer when content runs
+# first). Indent deletes are placed at col 1.
 #
-# This is the Perl twin of animator/c/ad_layer_indent_last.c. Both produce
-# byte-identical output for the same input — see test_indent_last.pl and
-# animator/tests/test_layers_discovery.pl for the parity assertion.
+# Output order per segment: content (col +n_indent) → indent (col 1)
+# → \n op (original position). This is "Option C-correct" per
+# docs/design/LAYER_ANALYSIS_AND_FIX_PLAN.md §4.3 (Phase 2 fix).
+#
+# This is the Perl twin of layers/c/ad_layer_indent_last.c. Both
+# produce byte-identical output for the same input — see
+# test_indent_last.pl and tests/test_layers_discovery.pl for the
+# parity assertion.
 #
 # Protocol (the ad_vim layer plugin contract — see FLEXIBILITY.md):
 #   * Reads V2 TSV from stdin: HUNK header, op lines, HUNK_END.
@@ -58,14 +66,79 @@ sub debug_dump {
 sub parse_op {
     my ($line) = @_;
     chomp $line;
-    my @f = split /\t/, $line;
-    return undef unless @f >= 4;
-    return {
-        type => $f[0],
-        line => $f[1] + 0,
-        col  => $f[2] + 0,
-        code => $f[3] + 0,
-    };
+    my @f = split /\t/, $line, -1;  # keep trailing empty fields
+
+    # Standard 4-field format: type\tline\tcol\tcode (optionally \tchar_repr)
+    if (@f >= 4
+        && $f[0] ne 'insert_line' && $f[0] ne 'batch_insert'
+        && $f[0] ne 'delete_line' && $f[0] ne 'keep_line'
+        && $f[0] ne 'join_lines'  && $f[0] ne 'split_line') {
+        return {
+            type => $f[0],
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => $f[3] + 0,
+        };
+    }
+
+    # insert_line format: insert_line\t<line>\t<text>
+    if (@f >= 3 && $f[0] eq 'insert_line') {
+        return {
+            type => 'insert_line',
+            line => $f[1] + 0,
+            col  => 0,
+            code => 0,
+            text => $f[2],
+        };
+    }
+
+    # batch_insert format: batch_insert\t<line>\t<col>\t<codes>
+    if (@f >= 4 && $f[0] eq 'batch_insert') {
+        return {
+            type => 'batch_insert',
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => 0,
+            text => $f[3],
+        };
+    }
+
+    # split_line format: split_line\t<line>\t<col>
+    if (@f >= 3 && $f[0] eq 'split_line') {
+        return {
+            type => 'split_line',
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => 0,
+        };
+    }
+
+    # keep_line / join_lines / delete_line format: <type>\t<line>
+    if (@f >= 2
+        && ($f[0] eq 'keep_line' || $f[0] eq 'join_lines'
+            || $f[0] eq 'delete_line')) {
+        return {
+            type => $f[0],
+            line => $f[1] + 0,
+            col  => 0,
+            code => 0,
+        };
+    }
+
+    # Catch-all: store the raw line for verbatim pass-through of unknown
+    # op types (delay, snapshot, highlight, dim, fold, sign, marker, etc.).
+    if (@f >= 1) {
+        return {
+            type => $f[0],
+            line => $f[1] ? ($f[1] + 0) : 0,
+            col  => $f[2] ? ($f[2] + 0) : 0,
+            code => $f[3] ? ($f[3] + 0) : 0,
+            text => $line,   # raw line for verbatim output
+            raw  => 1,
+        };
+    }
+
+    return undef;
 }
 
 # Pretty representation of a char code (cosmetic 5th field).
@@ -81,9 +154,27 @@ sub char_repr {
 
 sub write_op {
     my ($op) = @_;
-    printf "%s\t%d\t%d\t%d\t%s\n",
-        $op->{type}, $op->{line}, $op->{col}, $op->{code},
-        char_repr($op->{code});
+    if ($op->{type} eq 'keep_line') {
+        printf "keep_line\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'join_lines') {
+        printf "join_lines\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'split_line') {
+        printf "split_line\t%d\t%d\n", $op->{line}, $op->{col};
+    } elsif ($op->{type} eq 'insert_line') {
+        printf "insert_line\t%d\t%s\n", $op->{line}, $op->{text} // '';
+    } elsif ($op->{type} eq 'delete_line') {
+        printf "delete_line\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'batch_insert') {
+        printf "batch_insert\t%d\t%d\t%s\n",
+            $op->{line}, $op->{col}, $op->{text} // '';
+    } elsif ($op->{raw}) {
+        # Catch-all: pass through the raw line for unknown op types.
+        printf "%s\n", $op->{text};
+    } else {
+        printf "%s\t%d\t%d\t%d\t%s\n",
+            $op->{type}, $op->{line}, $op->{col}, $op->{code},
+            char_repr($op->{code});
+    }
 }
 
 sub is_debug_op {
