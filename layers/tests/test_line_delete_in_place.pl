@@ -119,18 +119,62 @@ sub simulate_animator {
         my $cmd = $parts[0];
         next if $cmd eq 'HUNK' || $cmd eq 'HUNK_END' || $cmd eq 'delay';
 
-        if (($cmd eq 'keep' || $cmd eq 'delete' || $cmd eq 'insert') && @parts >= 4) {
+        if (($cmd eq 'keep' || $cmd eq 'delete' || $cmd eq 'insert'
+             || $cmd eq 'overwrite_insert') && @parts >= 4) {
             my ($line_num, $col_num, $code) = ($parts[1], $parts[2], $parts[3]);
             if ($cmd eq 'keep') {
                 $set_cursor->($line_num, $col_num);
                 $keep_char->($code);
             } elsif ($cmd eq 'delete') {
-                # C animator honors op positions for ALL deletes (including \n)
                 $set_cursor->($line_num, $col_num);
                 $delete_char->($code);
-            } else {
+            } elsif ($cmd eq 'insert') {
                 $set_cursor->($line_num, $col_num);
                 $insert_char->($code);
+            } elsif ($cmd eq 'overwrite_insert') {
+                $set_cursor->($line_num, $col_num);
+                $delete_char->($code);
+                $insert_char->($code);
+            }
+        } elsif ($cmd eq 'keep_line' && @parts >= 2) {
+            $set_cursor->($parts[1], 1);
+        } elsif ($cmd eq 'join_lines' && @parts >= 2) {
+            $set_cursor->($parts[1], 1);
+            if ($cur_l < @buffer) {
+                $buffer[$cur_l - 1] = $buffer[$cur_l - 1] . $buffer[$cur_l];
+                splice @buffer, $cur_l, 1;
+            } elsif (@buffer >= 1) {
+                pop @buffer;
+                push @buffer, "" if @buffer == 0;
+            }
+        } elsif ($cmd eq 'delete_line' && @parts >= 2) {
+            $set_cursor->($parts[1], 1);
+            if ($cur_l >= 1 && $cur_l <= @buffer) {
+                splice @buffer, $cur_l - 1, 1;
+                push @buffer, "" if @buffer == 0;
+            }
+            $cur_c = 1;
+        } elsif ($cmd eq 'split_line' && @parts >= 3) {
+            $set_cursor->($parts[1], $parts[2]);
+            my $line = $buffer[$cur_l - 1];
+            my $before = substr($line, 0, $cur_c - 1);
+            my $after = substr($line, $cur_c - 1);
+            $buffer[$cur_l - 1] = $before;
+            splice @buffer, $cur_l, 0, $after;
+            $cur_l++;
+            $cur_c = 1;
+        } elsif ($cmd eq 'insert_line' && @parts >= 3) {
+            my ($line_num, $text) = ($parts[1], $parts[2]);
+            my $idx = $line_num - 1;
+            $idx = 0 if $idx < 0;
+            $idx = scalar(@buffer) if $idx > scalar(@buffer);
+            splice @buffer, $idx, 0, $text;
+            $set_cursor->($line_num, 1);
+        } elsif ($cmd eq 'batch_insert' && @parts >= 4) {
+            $set_cursor->($parts[1], $parts[2]);
+            my @codes = split /,/, $parts[3];
+            for my $c (@codes) {
+                $insert_char->(int($c));
             }
         }
     }

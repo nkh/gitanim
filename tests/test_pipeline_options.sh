@@ -31,7 +31,7 @@ test_option() {
     local newfile="${4:-/tmp/po_new.txt}"
     local out="/tmp/po_${name}_out.txt"
     
-    if bash "$ROOT/animator/ad_pipeline" --no-display --speed 1000 \
+    if bash "$ROOT/pipeline/ad_pipeline" --no-display --speed 1000 \
         $option --snapshot "$out" "$oldfile" "$newfile" 2>/dev/null; true; then
         if diff -q "$newfile" "$out" >/dev/null 2>&1; then
             ok "$name"

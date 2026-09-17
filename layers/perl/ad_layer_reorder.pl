@@ -55,14 +55,78 @@ sub debug_log {
 sub parse_op {
     my ($line) = @_;
     chomp $line;
-    my @f = split /\t/, $line;
-    return undef unless @f >= 4;
-    return {
-        type => $f[0],
-        line => $f[1] + 0,
-        col  => $f[2] + 0,
-        code => $f[3] + 0,
-    };
+    my @f = split /\t/, $line, -1;  # keep trailing empty fields
+
+    # Standard 4-field format: type\tline\tcol\tcode (optionally \tchar_repr)
+    if (@f >= 4
+        && $f[0] ne 'insert_line' && $f[0] ne 'batch_insert'
+        && $f[0] ne 'delete_line' && $f[0] ne 'keep_line'
+        && $f[0] ne 'join_lines'  && $f[0] ne 'split_line') {
+        return {
+            type => $f[0],
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => $f[3] + 0,
+        };
+    }
+
+    # insert_line format: insert_line\t<line>\t<text>
+    if (@f >= 3 && $f[0] eq 'insert_line') {
+        return {
+            type => 'insert_line',
+            line => $f[1] + 0,
+            col  => 0,
+            code => 0,
+            text => $f[2],
+        };
+    }
+
+    # batch_insert format: batch_insert\t<line>\t<col>\t<codes>
+    if (@f >= 4 && $f[0] eq 'batch_insert') {
+        return {
+            type => 'batch_insert',
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => 0,
+            text => $f[3],
+        };
+    }
+
+    # split_line format: split_line\t<line>\t<col>
+    if (@f >= 3 && $f[0] eq 'split_line') {
+        return {
+            type => 'split_line',
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => 0,
+        };
+    }
+
+    # keep_line / join_lines / delete_line format: <type>\t<line>
+    if (@f >= 2
+        && ($f[0] eq 'keep_line' || $f[0] eq 'join_lines'
+            || $f[0] eq 'delete_line')) {
+        return {
+            type => $f[0],
+            line => $f[1] + 0,
+            col  => 0,
+            code => 0,
+        };
+    }
+
+    # Catch-all: store the raw line for verbatim pass-through.
+    if (@f >= 1) {
+        return {
+            type => $f[0],
+            line => $f[1] ? ($f[1] + 0) : 0,
+            col  => $f[2] ? ($f[2] + 0) : 0,
+            code => $f[3] ? ($f[3] + 0) : 0,
+            text => $line,   # raw line for verbatim output
+            raw  => 1,
+        };
+    }
+
+    return undef;
 }
 
 sub char_repr {
@@ -77,14 +141,40 @@ sub char_repr {
 
 sub write_op {
     my ($op) = @_;
-    printf "%s\t%d\t%d\t%d\t%s\n",
-        $op->{type}, $op->{line}, $op->{col}, $op->{code},
-        char_repr($op->{code});
+    if ($op->{type} eq 'keep_line') {
+        printf "keep_line\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'join_lines') {
+        printf "join_lines\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'split_line') {
+        printf "split_line\t%d\t%d\n", $op->{line}, $op->{col};
+    } elsif ($op->{type} eq 'insert_line') {
+        printf "insert_line\t%d\t%s\n", $op->{line}, $op->{text} // '';
+    } elsif ($op->{type} eq 'delete_line') {
+        printf "delete_line\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'batch_insert') {
+        printf "batch_insert\t%d\t%d\t%s\n",
+            $op->{line}, $op->{col}, $op->{text} // '';
+    } elsif ($op->{raw}) {
+        printf "%s\n", $op->{text};
+    } else {
+        printf "%s\t%d\t%d\t%d\t%s\n",
+            $op->{type}, $op->{line}, $op->{col}, $op->{code},
+            char_repr($op->{code});
+    }
 }
 
 sub is_debug_op {
     my ($op) = @_;
     return defined $op && $op->{type} eq 'debug';
+}
+
+sub is_line_op {
+    my ($op) = @_;
+    return defined $op && (
+        $op->{type} eq 'keep_line' || $op->{type} eq 'join_lines' ||
+        $op->{type} eq 'split_line' || $op->{type} eq 'delete_line' ||
+        $op->{type} eq 'batch_insert'
+    );
 }
 
 # --- Layer transform -----------------------------------------------------
@@ -94,39 +184,41 @@ sub transform_hunk {
     my @in = @$ops;
     my $n = scalar @in;
 
-    # Apply cross-hunk line_offset to all ops.
-    for my $op (@in) {
-        $op->{line} += $line_offset;
-    }
+    # NOTE: The C version does NOT apply line_offset to ops. It just
+    # updates line_offset at the end (split_line - join_lines count).
+    # The Perl twin must match — do NOT adjust op lines here.
 
-    # Per-segment 4-sweep: segments are bounded by keeps and \n ops.
-    # Within each segment, emit non-\n deletes, then non-\n inserts,
-    # then debug ops. Boundaries (keeps, \n ops) are emitted in place.
-    # NEVER touches a 'delete \n' op — doesn't reorder it, doesn't recompute
-    # its position.
+    # Per-segment 4-sweep: segments are bounded by keeps, \n ops, and
+    # line ops (keep_line, join_lines, split_line, delete_line,
+    # batch_insert). Within each segment, emit non-\n deletes, then
+    # non-\n inserts, then debug ops. Boundaries are emitted in place.
+    # NEVER touches a 'delete \n' op — doesn't reorder it, doesn't
+    # recompute its position.
     my @out;
     my $buf_start = 0;
     for (my $i = 0; $i <= $n; $i++) {
         my $is_flush = ($i == $n) ? 1 : 0;
         if (!$is_flush && !is_debug_op($in[$i])) {
-            if ($in[$i]{type} eq 'keep' || $in[$i]{code} == 10) {
+            if ($in[$i]{type} eq 'keep' || $in[$i]{code} == 10
+                || is_line_op($in[$i])) {
                 $is_flush = 1;
             }
         }
         next unless $is_flush;
 
-        # Sweep 1: non-newline deletes.
+        # Sweep 1: non-newline, non-line-op deletes.
         for (my $j = $buf_start; $j < $i; $j++) {
             next if is_debug_op($in[$j]);
-            if ($in[$j]{type} eq 'delete' && $in[$j]{code} != 10) {
+            if ($in[$j]{type} eq 'delete' && $in[$j]{code} != 10
+                && !is_line_op($in[$j])) {
                 push @out, $in[$j];
             }
         }
-        # Sweep 2: non-newline inserts/overwrite_inserts.
+        # Sweep 2: non-newline, non-line-op inserts/overwrite_inserts.
         for (my $j = $buf_start; $j < $i; $j++) {
             next if is_debug_op($in[$j]);
             if (($in[$j]{type} eq 'insert' || $in[$j]{type} eq 'overwrite_insert')
-                && $in[$j]{code} != 10) {
+                && $in[$j]{code} != 10 && !is_line_op($in[$j])) {
                 push @out, $in[$j];
             }
         }
@@ -134,55 +226,25 @@ sub transform_hunk {
         for (my $j = $buf_start; $j < $i; $j++) {
             push @out, $in[$j] if is_debug_op($in[$j]);
         }
-        # Emit the boundary op itself (keep or \n) in place.
+        # Emit the boundary op itself (keep, \n, or line op) in place.
         if ($i < $n) {
             push @out, $in[$i];
         }
         $buf_start = $i + 1;
     }
 
-    # Set positions on the output.
-    # Walk forward, assigning (line, col) based on execution order.
-    # Track line_shift from \n deletes (-) and \n inserts (+).
-    my $cl = @out > 0 ? $out[0]{line} : 1;
-    my $cc = 1;
-    my $line_shift = 0;
-    for my $op (@out) {
-        next if is_debug_op($op);
-        if ($op->{code} != 10) {
-            # Non-\n op: assign (current_line, current_col)
-            $op->{line} = $cl;
-            $op->{col}  = $cc;
-            if ($op->{type} eq 'keep'
-                || $op->{type} eq 'insert'
-                || $op->{type} eq 'overwrite_insert') {
-                $cc++;
-            }
-        } else {
-            # \n op: assign current line/col
-            $op->{line} = $cl;
-            $op->{col}  = $cc;
-            if ($op->{type} eq 'delete') {
-                # \n delete: join — DON'T advance.
-                $line_shift--;
-            } else {
-                # \n keep or insert: advance to next line
-                $cl++;
-                $cc = 1;
-                if ($op->{type} eq 'insert'
-                    || $op->{type} eq 'overwrite_insert') {
-                    $line_shift++;
-                }
-            }
-        }
-    }
+    # Position-walk REMOVED — the C version does NOT recompute positions
+    # (it preserves the diff engine's original positions). The Perl
+    # twin must match. Only the 4-sweep reorder is performed; positions
+    # are left as-is from the input.
 
-    # Compute line_offset delta.
+    # Compute line_offset delta: net split_line - join_lines from output.
+    # (Matches the C version's line_offset update.)
     my $ni = 0;
     my $nd = 0;
     for my $op (@out) {
-        if ($op->{type} eq 'insert' && $op->{code} == 10) { $ni++; }
-        if ($op->{type} eq 'delete' && $op->{code} == 10) { $nd++; }
+        if ($op->{type} eq 'split_line') { $ni++; }
+        if ($op->{type} eq 'join_lines')  { $nd++; }
     }
 
     return (\@out, $ni - $nd);

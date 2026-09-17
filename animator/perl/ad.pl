@@ -233,6 +233,76 @@ while (my $line = <STDIN>) {
         set_cursor($op_line + 0, $op_col + 0);
         insert_char($code);
         render();
+    } elsif ($cmd eq 'overwrite_insert' && @parts >= 3) {
+        # overwrite_insert\t<line>\t<col>\t<code>
+        # Delete the char at cursor first, then insert the new char.
+        # (Mirrors the C animator exactly.)
+        my ($op_line, $op_col, $code) = @parts;
+        $code = int($code);
+        set_cursor($op_line + 0, $op_col + 0);
+        delete_char($code);
+        insert_char($code);
+        render();
+    } elsif ($cmd eq 'batch_insert' && @parts >= 3) {
+        # batch_insert\t<line>\t<col>\t<code1>,<code2>,...
+        my ($op_line, $op_col, $codes_str) = @parts;
+        set_cursor($op_line + 0, $op_col + 0);
+        my @codes = split /,/, $codes_str;
+        for my $c (@codes) {
+            insert_char(int($c));
+        }
+        render();
+    } elsif ($cmd eq 'keep_line' && @parts >= 1) {
+        # keep_line\t<L> — advance to next line (no buffer change)
+        my $op_line = $parts[0] + 0;
+        set_cursor($op_line, 1);
+        render();
+    } elsif ($cmd eq 'join_lines' && @parts >= 1) {
+        # join_lines\t<L> — join line L with L+1
+        my $op_line = $parts[0] + 0;
+        set_cursor($op_line, 1);
+        if ($cursor_l < $#lines) {
+            $lines[$cursor_l] = $lines[$cursor_l] . $lines[$cursor_l + 1];
+            splice(@lines, $cursor_l + 1, 1);
+        } elsif (@lines >= 1) {
+            # Last line: no L+1 to join with. Remove the line.
+            pop @lines;
+            push @lines, "" if @lines == 0;  # keep one empty line
+        }
+        render();
+    } elsif ($cmd eq 'delete_line' && @parts >= 1) {
+        # delete_line\t<L> — delete the entire line L
+        my $op_line = $parts[0] + 0;
+        set_cursor($op_line, 1);
+        if ($cursor_l >= 0 && $cursor_l <= $#lines) {
+            splice(@lines, $cursor_l, 1);
+            push @lines, "" if @lines == 0;  # keep one empty line
+        }
+        $cursor_c = 1;
+        render();
+    } elsif ($cmd eq 'split_line' && @parts >= 2) {
+        # split_line\t<L>\t<col> — split line L at col C
+        my ($op_line, $op_col) = @parts;
+        set_cursor($op_line + 0, $op_col + 0);
+        my $line = $lines[$cursor_l];
+        my $before = substr($line, 0, $cursor_c);
+        my $after = substr($line, $cursor_c);
+        $lines[$cursor_l] = $before;
+        splice(@lines, $cursor_l + 1, 0, $after);
+        $cursor_l++;
+        $cursor_c = 0;
+        render();
+    } elsif ($cmd eq 'insert_line' && @parts >= 2) {
+        # insert_line\t<L>\t<text> — insert a new line at L with text
+        my ($op_line, $text) = @parts;
+        my $L = $op_line + 0;
+        # Insert the new line at position L (0-indexed: L-1 in array)
+        my $idx = $L - 1;
+        $idx = 0 if $idx < 0;
+        $idx = scalar(@lines) if $idx > scalar(@lines);
+        splice(@lines, $idx, 0, $text);
+        set_cursor($L, 1);
+        render();
     } elsif ($cmd eq 'delay' && @parts >= 2) {
         # delay\t<ms>\t<type>
         my $ms = int($parts[0]);

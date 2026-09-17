@@ -138,13 +138,17 @@ _run_pipeline() {
     fi
 
     # Check 4: within each change region, deletes before inserts
-    # A "region" is bounded by keeps, \n ops (code 10), AND HUNK/HUNK_END
-    # (different hunks are always independent regions)
+    # A "region" is bounded by keeps, \n ops (code 10), line ops
+    # (keep_line, join_lines, split_line, delete_line, insert_line,
+    # batch_insert), AND HUNK/HUNK_END (different hunks are always
+    # independent regions).
     local ordering_ok=1
     local seen_insert_in_region=0
     while IFS=$'\t' read -r type line col code rest; do
-        if [[ "$type" == "keep" || "$code" == "10" || "$type" == "HUNK" || "$type" == "HUNK_END" ]]; then
-            # Keep, \n, or hunk boundary: region boundary, reset
+        if [[ "$type" == "keep" || "$code" == "10" || "$type" == "HUNK" || "$type" == "HUNK_END" \
+           || "$type" == "keep_line" || "$type" == "join_lines" || "$type" == "split_line" \
+           || "$type" == "delete_line" || "$type" == "insert_line" || "$type" == "batch_insert" ]]; then
+            # Keep, \n, line op, or hunk boundary: region boundary, reset
             seen_insert_in_region=0
         elif [[ "$type" == "delete" ]]; then
             if [[ $seen_insert_in_region -eq 1 ]]; then

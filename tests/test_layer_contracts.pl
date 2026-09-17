@@ -408,8 +408,9 @@ print "\n=== ad_layer_indent_last ===\n";
 # ====================================================================
 print "\n=== ad_layer_line_delete_in_place ===\n";
 {
-    # Input: delete(line1 content) + join_lines + delete(line2 content) + join_lines
-    # Layer should reorder to: delete(line1) + delete(line2 at L+1) + join + join
+    # Case 4a: 2-line deletion.
+    # Input: delete(L1) + join + delete(L2) + join
+    # Output: delete(L1) + delete(L2 at L+1) + join + join
     my $input = join("\n",
         "# raw diff v2",
         "HUNK\t1\t2\t0\t0\t0",
@@ -429,9 +430,134 @@ print "\n=== ad_layer_line_delete_in_place ===\n";
     my $first_join = first_pos($out, "join_lines\t");
     my $last_content_del = last_match_pos($out, qr/^delete\t/m);
     if ($first_join >= 0 && $last_content_del >= 0 && $last_content_del < $first_join) {
-        ok "all content deletes come before all join_lines (batch mode)";
+        ok "2-line: all content deletes come before all join_lines (batch mode)";
     } else {
-        bad "content deletes not before joins: last_del=$last_content_del first_join=$first_join";
+        bad "2-line: content deletes not before joins: last_del=$last_content_del first_join=$first_join";
+    }
+    # Verify content is at the right lines: L1 content at line 1, L2 at line 2.
+    if ($out =~ /^delete\t1\t1\t97/m && $out =~ /^delete\t2\t1\t99/m) {
+        ok "2-line: L1 content at line 1, L2 content at line 2";
+    } else {
+        bad "2-line: content lines not correct";
+    }
+
+    # Case 4b: 3-line deletion (the known failure case pre-Phase-2).
+    # Input: delete(L1) + join + delete(L2) + join + delete(L3) + join
+    # Output: delete(L1) + delete(L2 at 2) + delete(L3 at 3) + join + join + join
+    my $input_3 = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t3\t0\t0\t0",
+        "delete\t1\t1\t97\ta",
+        "delete\t1\t2\t98\tb",
+        "join_lines\t1",
+        "delete\t1\t1\t99\tc",
+        "delete\t1\t2\t100\td",
+        "join_lines\t1",
+        "delete\t1\t1\t101\te",
+        "delete\t1\t2\t102\tf",
+        "join_lines\t1",
+        "HUNK_END",
+        ""
+    );
+    my $out_3 = run_layer("./bin/ad_layer_line_delete_in_place", $input_3);
+    ok "3-line: layer runs" if $out_3;
+    # All content deletes before all joins.
+    my $first_join_3 = first_pos($out_3, "join_lines\t");
+    my $last_del_3 = last_match_pos($out_3, qr/^delete\t/m);
+    if ($first_join_3 >= 0 && $last_del_3 >= 0 && $last_del_3 < $first_join_3) {
+        ok "3-line: all content deletes before all join_lines";
+    } else {
+        bad "3-line: content deletes not before joins";
+    }
+    # Content at lines 1, 2, 3.
+    if ($out_3 =~ /^delete\t1\t1\t97/m
+        && $out_3 =~ /^delete\t2\t1\t99/m
+        && $out_3 =~ /^delete\t3\t1\t101/m) {
+        ok "3-line: content at lines 1, 2, 3 (sliding window)";
+    } else {
+        bad "3-line: content lines not correct (sliding window failed)";
+    }
+    # Exactly 3 joins, all at the end.
+    my $n_joins_3 = count_ops($out_3, "join_lines");
+    if ($n_joins_3 == 3) {
+        ok "3-line: exactly 3 join_lines ops";
+    } else {
+        bad "3-line: expected 3 joins, got $n_joins_3";
+    }
+
+    # Case 4c: 5-line deletion (stress test the sliding window).
+    my $input_5 = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t5\t0\t0\t0",
+        "delete\t1\t1\t97\ta",
+        "delete\t1\t2\t98\tb",
+        "join_lines\t1",
+        "delete\t1\t1\t99\tc",
+        "delete\t1\t2\t100\td",
+        "join_lines\t1",
+        "delete\t1\t1\t101\te",
+        "delete\t1\t2\t102\tf",
+        "join_lines\t1",
+        "delete\t1\t1\t103\tg",
+        "delete\t1\t2\t104\th",
+        "join_lines\t1",
+        "delete\t1\t1\t105\ti",
+        "delete\t1\t2\t106\tj",
+        "join_lines\t1",
+        "HUNK_END",
+        ""
+    );
+    my $out_5 = run_layer("./bin/ad_layer_line_delete_in_place", $input_5);
+    ok "5-line: layer runs" if $out_5;
+    # Content at lines 1, 2, 3, 4, 5.
+    my $lines_ok = 1;
+    for my $ln (1..5) {
+        my $code = 96 + $ln * 2 - 1;  # 97, 99, 101, 103, 105
+        if ($out_5 !~ /^delete\t$ln\t1\t$code/m) {
+            $lines_ok = 0;
+            bad "5-line: content at line $ln not correct (expected code $code)";
+            last;
+        }
+    }
+    ok "5-line: content at lines 1-5 (sliding window handles N=5)" if $lines_ok;
+    my $n_joins_5 = count_ops($out_5, "join_lines");
+    if ($n_joins_5 == 5) {
+        ok "5-line: exactly 5 join_lines ops";
+    } else {
+        bad "5-line: expected 5 joins, got $n_joins_5";
+    }
+    # All content before all joins.
+    my $first_join_5 = first_pos($out_5, "join_lines\t");
+    my $last_del_5 = last_match_pos($out_5, qr/^delete\t/m);
+    if ($first_join_5 >= 0 && $last_del_5 >= 0 && $last_del_5 < $first_join_5) {
+        ok "5-line: all content deletes before all join_lines";
+    } else {
+        bad "5-line: content deletes not before joins";
+    }
+
+    # Case 4d: partial content (col > 1) should NOT match.
+    # If the first delete after a join is at col > 1, the layer should
+    # leave it unchanged (not move it before the join).
+    my $input_partial = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "keep\t1\t1\t97\ta",
+        "join_lines\t1",
+        "delete\t1\t2\t98\tb",
+        "keep\t1\t3\t99\tc",
+        "HUNK_END",
+        ""
+    );
+    my $out_partial = run_layer("./bin/ad_layer_line_delete_in_place", $input_partial);
+    # The delete should still be AFTER the join (not moved).
+    my $join_pos = first_pos($out_partial, "join_lines\t");
+    # Use regex for delete (first_pos does literal search which doesn't
+    # handle the ^ anchor — use last_match_pos with qr/^delete\t/ instead).
+    my $del_pos = last_match_pos($out_partial, qr/^delete\t/m);
+    if ($join_pos >= 0 && $del_pos >= 0 && $join_pos < $del_pos) {
+        ok "partial content (col > 1): delete stays after join (not moved)";
+    } else {
+        bad "partial content: delete moved or order wrong (join=$join_pos del=$del_pos)";
     }
 }
 

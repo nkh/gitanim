@@ -11,14 +11,29 @@
  *
  * --mode batch (default):
  *   Delete ALL content first, THEN join all empty lines.
- *   delete(line1) -> delete(line2 at L+1) -> join -> join -> ...
- *   Advantage: fewer visual jumps — all deletions happen in place.
+ *   delete(line1) -> delete(line2 at L+1) -> delete(line3 at L+2) ->
+ *   ... -> join -> join -> ...
+ *   The content deletes for line N are emitted at line L+N-1 (their
+ *   original pre-join position). All joins are deferred to the end
+ *   of the block so the user sees content shrink-to-empty in place
+ *   first, then lines collapse upward.
  *
  * --mode interleaved:
  *   Delete each line's content, then immediately join the empty line.
  *   delete(line1) -> join -> delete(line2 at L+1) -> join -> ...
  *   Advantage: more incremental — each line disappears completely
  *   before the next is touched.
+ *
+ * Sliding-window algorithm (Phase 2 fix, handles arbitrary N lines):
+ *   Walk the ops. When a `join_lines(L)` is followed by content
+ *   deletes at col 1, start a block. Within the block, a 2-line
+ *   window [join + delete@col1+] is matched repeatedly. Each match:
+ *     - Emits the content deletes at L + 1 + offset (offset = number
+ *       of content batches already emitted in this block).
+ *     - Defers the join to a pending list.
+ *     - Advances offset by 1.
+ *   When the block ends (no more join+delete pattern, or a trailing
+ *   join with no content), all pending joins are emitted at the end.
  *
  * Only matches when content deletes are at col 1 (full line deletion).
  * Partial content at col > 1 is left unchanged.
@@ -32,148 +47,94 @@ static int ldi_mode = 0;  /* 0=batch, 1=interleaved */
 
 static int layer_line_delete_in_place(Op *ops, int n_ops, Op *out, int out_cap, int *line_offset) {
     (void)line_offset;
-
-    Op *work = (Op *)malloc(n_ops * sizeof(Op));
-    if (!work && n_ops > 0) { fprintf(stderr, "out of memory\n"); return 0; }
-    if (n_ops > 0) memcpy(work, ops, n_ops * sizeof(Op));
-    int n_work = n_ops;
-
     int n_out = 0;
     int i = 0;
 
-    while (i < n_work) {
-        /* Pattern 1 (original): join_lines(L) + delete@col1+ + join_lines(L)
-         * Pattern 2 (NEW): DELETE(L, col)+ + JOIN_LINES(L) + DELETE(L, col)+
-         *   The deletes AFTER the join are on joined content (from line L+1).
-         *   Move them to BEFORE the join, with line changed to L+1.
-         *   Rule: line MUST NOT BE JOINED to delete the joined part. */
+    while (i < n_ops) {
+        /* Check: is work[i] a join_lines followed by content deletes?
+         * This is the start of a potential multi-line block. */
+        if (strcmp(ops[i].type, "join_lines") == 0
+            && i + 1 < n_ops
+            && strcmp(ops[i + 1].type, "delete") == 0
+            && !ad_layer_is_line_op(&ops[i + 1])
+            && ops[i + 1].col == 1) {
 
-        /* Check Pattern 2: any JOIN_LINES followed by DELETE ops */
-        if (strcmp(work[i].type, "join_lines") == 0
-            && i + 1 < n_work
-            && strcmp(work[i + 1].type, "delete") == 0
-            && !ad_layer_is_line_op(&work[i + 1])) {
+            /* ── Sliding-window block ──
+             * Collect content deletes and joins. Emit content first,
+             * defer joins to the end of the block. */
+            int line_off = 0;  /* number of content batches emitted so far */
 
-            int join_line = work[i].line;
+            /* Collect joins in a local array (max reasonable block size). */
+            Op pending_joins[4096];
+            int n_pending = 0;
 
-            /* Scan forward for all DELETE ops after the join */
-            int de = i + 1;
-            while (de < n_work
-                   && strcmp(work[de].type, "delete") == 0
-                   && !ad_layer_is_line_op(&work[de]))
-                de++;
-            int del_count = de - (i + 1);
+            int j = i;
+            while (j < n_ops && strcmp(ops[j].type, "join_lines") == 0) {
+                int join_line = ops[j].line;
 
-            if (del_count > 0 && ldi_mode == 0) {
-                debug_log("Pattern 2: JOIN_LINES(%d) + %d DELETEs, join_point=%d\n", join_line, del_count, work[i+1].col);
-                /* The col of post-join deletes is relative to the JOINED
-                 * line (line L content + line L+1 content). On the original
-                 * line L+1, the col is: joined_col - (join_point - 1).
-                 * Where join_point = col of first post-join op (the col
-                 * where joined content starts). */
-                int join_point = work[i + 1].col;
-                /* Emit the DELETE ops with line = join_line + 1, col adjusted */
-                for (int k = i + 1; k < de && n_out < out_cap; k++) {
-                    Op tmp = work[k];
-                    tmp.line = join_line + 1;
-                    tmp.col = tmp.col - (join_point - 1);
-                    if (tmp.col < 1) tmp.col = 1;
-                    out[n_out++] = tmp;
-                }
-                /* Emit the JOIN_LINES (after the deletes) */
-                if (n_out < out_cap)
-                    out[n_out++] = work[i];
-
-                i = de;  /* skip past the moved deletes */
-                continue;
-            }
-            /* Interleaved mode or no deletes after join — fall through */
-        }
-
-        /* Check Pattern 1: join_lines(L) + delete@col1+ + join_lines(L) */
-        if (i + 2 < n_work
-            && strcmp(work[i].type, "join_lines") == 0) {
-
-            /* Scan forward for content deletes */
-            int ce = i + 1;
-            while (ce < n_work
-                   && strcmp(work[ce].type, "delete") == 0
-                   && !ad_layer_is_line_op(&work[ce]))
-                ce++;
-
-            /* Check: trailing join_lines? */
-            if (ce > i + 1  /* at least one content delete */
-                && ce < n_work
-                && strcmp(work[ce].type, "join_lines") == 0) {
-
-                /* Only reorder if content deletes start at col 1 */
-                int content_col = work[i + 1].col;
-                int joiner_line_dbg = work[i].line;
-                int content_count_dbg = ce - (i + 1);
-                debug_log("Pattern 1: JOIN_LINES(%d) + %d DELETEs at col %d\n", joiner_line_dbg, content_count_dbg, content_col);
-                if (content_col != 1) {
-                    /* Partial content — don't reorder */
-                    if (n_out < out_cap)
-                        out[n_out++] = work[i];
-                    i++;
-                    continue;
+                    /* Scan content deletes after this join. The FIRST delete
+                 * must be at col 1 (full-line deletion, not partial).
+                 * Subsequent deletes can be at any col (they're the rest
+                 * of the line's content). */
+                int ce = j + 1;
+                if (ce < n_ops
+                    && strcmp(ops[ce].type, "delete") == 0
+                    && !ad_layer_is_line_op(&ops[ce])
+                    && ops[ce].col == 1) {
+                    ce++;
+                    while (ce < n_ops
+                           && strcmp(ops[ce].type, "delete") == 0
+                           && !ad_layer_is_line_op(&ops[ce]))
+                        ce++;
                 }
 
-                int joiner_line = work[i].line;
-                int content_count = ce - (i + 1);
-
-                if (ldi_mode == 0) {
-                    /* ── Batch mode ──
-                     * Emit content deletes at line+1, then join at line+1.
-                     * The joiner stays for re-iteration (may match again).
-                     * Result: all content deleted first, then all joins. */
-                    debug_log("Pattern 1 reorder: %d deletes line %d->%d, join line %d->%d\n", content_count, joiner_line, joiner_line+1, work[ce].line, joiner_line+1);
-                    for (int k = i + 1; k < ce && n_out < out_cap; k++) {
-                        Op tmp = work[k];
-                        tmp.line = joiner_line + 1;
+                if (ce > j + 1) {
+                    /* Content deletes found (first at col 1).
+                     * Emit at join_line + 1 + line_off. */
+                    for (int k = j + 1; k < ce && n_out < out_cap; k++) {
+                        Op tmp = ops[k];
+                        tmp.line = join_line + 1 + line_off;
                         out[n_out++] = tmp;
                     }
-                    if (n_out < out_cap) {
-                        Op tmp = work[ce];
-                        tmp.line = joiner_line + 1;
-                        out[n_out++] = tmp;
-                    }
-
-                    /* Remove content + 2nd join from work, keep joiner */
-                    int removed = content_count + 1;
-                    int src = ce + 1;
-                    int dst = i + 1;
-                    int to_move = n_work - src;
-                    if (to_move > 0)
-                        memmove(&work[dst], &work[src], to_move * sizeof(Op));
-                    n_work -= removed;
-
-                    continue;  /* re-iterate at joiner */
-
+                    /* Save the join for deferred emission. */
+                    if (n_pending < 4096)
+                        pending_joins[n_pending++] = ops[j];
+                    line_off++;
+                    j = ce;  /* advance past content deletes */
                 } else {
-                    /* ── Interleaved mode ──
-                     * Don't reorder — emit as-is. This is algorithm B:
-                     * delete content -> join -> delete next content -> join.
-                     * The join happens after each line's content is deleted,
-                     * so the join only moves an empty line. The next line's
-                     * content is then at the current line and gets deleted
-                     * there. This is what the diff engine already produces. */
-                    if (n_out < out_cap)
-                        out[n_out++] = work[i];
-                    i++;
-                    continue;
+                    /* No content deletes after this join — trailing join.
+                     * Save it and end the block. */
+                    if (n_pending < 4096)
+                        pending_joins[n_pending++] = ops[j];
+                    j++;
+                    break;  /* end of block */
                 }
             }
+
+            /* Emit all pending joins (at their original lines). */
+            for (int k = 0; k < n_pending && n_out < out_cap; k++)
+                out[n_out++] = pending_joins[k];
+
+            i = j;
+            continue;
         }
 
         /* No match — emit unchanged */
         if (n_out < out_cap)
-            out[n_out++] = work[i];
+            out[n_out++] = ops[i];
         i++;
     }
 
-    free(work);
     return n_out;
+}
+
+/* Interleaved mode pass-through: emit ops unchanged. */
+static int layer_passthrough(Op *ops, int n_ops, Op *out, int out_cap, int *line_offset) {
+    (void)line_offset;
+    int n = (n_ops < out_cap) ? n_ops : out_cap;
+    for (int i = 0; i < n; i++)
+        out[i] = ops[i];
+    return n;
 }
 
 int main(int argc, char **argv) {
@@ -199,12 +160,16 @@ int main(int argc, char **argv) {
                 "  --mode batch        Delete all content first, then join all (default)\n"
                 "  --mode interleaved  Delete each line then immediately join\n"
                 "  --help, -h          Show this help\n\n"
-                "Pattern: join_lines(L) + delete(content at col 1) + join_lines(L)\n"
+                "Pattern: join_lines(L) + delete(content at col 1) + join_lines(L) + ...\n"
+                "Handles arbitrary N-line deletions via a sliding 2-line window.\n"
                 "Only matches full-line deletions (col 1). Partial content at col > 1\n"
                 "is left unchanged.\n");
             return 0;
         }
     }
+
+    if (ldi_mode == 1)
+        return ad_layer_run(layer_passthrough);
 
     return ad_layer_run(layer_line_delete_in_place);
 }

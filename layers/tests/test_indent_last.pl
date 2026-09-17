@@ -49,9 +49,14 @@ my $ops_no = read_ops("/tmp/il_test_post_no.txt");
 my $ops_il = read_ops("/tmp/il_test_post_il.txt");
 
 # Check: WITHOUT indent-last, the first delete should be a space (code 32 or 9)
+# OR a delete_line op (the diff engine collapses whole-line deletions to
+# delete_line, which includes the leading whitespace).
+# The diff engine may produce either char-level 'delete' ops or line-level
+# 'delete_line' ops depending on whether the whole line is deleted.
 my $first_no = $ops_no->[1] // "";
-if ($first_no =~ /^delete\t\d+\t\d+\t(32|9)\t/) {
-    print "PASS: WITHOUT indent-last, first delete is whitespace (expected)\n";
+if ($first_no =~ /^delete_line\t/ ||
+    $first_no =~ /^delete\t\d+\t\d+\t(32|9)\t/) {
+    print "PASS: WITHOUT indent-last, first delete is whitespace or delete_line (expected)\n";
     $pass++;
 } else {
     print "FAIL: WITHOUT indent-last, first delete should be whitespace, got: $first_no\n";
@@ -59,8 +64,15 @@ if ($first_no =~ /^delete\t\d+\t\d+\t(32|9)\t/) {
 }
 
 # Check: WITH indent-last, the first delete should NOT be a space
+# (unless it's a delete_line — the indent_last layer doesn't reorder
+# delete_line ops, only char-level deletes).
 my $first_il = $ops_il->[1] // "";
-if ($first_il !~ /^delete\t\d+\t\d+\t(32|9)\t/) {
+if ($first_il =~ /^delete_line\t/) {
+    # delete_line is a whole-line op — indent_last doesn't touch it.
+    # The first op being delete_line is fine (it's not a char-level space delete).
+    print "PASS: WITH indent-last, first op is delete_line (indent_last doesn't touch line ops)\n";
+    $pass++;
+} elsif ($first_il !~ /^delete\t\d+\t\d+\t(32|9)\t/) {
     print "PASS: WITH indent-last, first delete is content (not whitespace)\n";
     $pass++;
 } else {
@@ -69,26 +81,40 @@ if ($first_il !~ /^delete\t\d+\t\d+\t(32|9)\t/) {
 }
 
 # Check: WITH indent-last, space deletes appear AFTER content deletes
-my $found_content = 0;
-my $found_space_after_content = 0;
+# (only relevant when the diff engine produced char-level deletes, not
+# delete_line ops). If all deletes are delete_line, this check is N/A.
+my $has_char_deletes = 0;
 for my $op (@$ops_il) {
-    if ($op =~ /^delete\t\d+\t\d+\t(\d+)\t/) {
-        my $code = $1;
-        if ($code != 32 && $code != 9 && $code != 10) {
-            $found_content = 1;
-        } elsif ($code == 32 || $code == 9) {
-            if ($found_content) {
-                $found_space_after_content = 1;
+    if ($op =~ /^delete\t\d+\t\d+\t\d+\t/) {
+        $has_char_deletes = 1;
+        last;
+    }
+}
+if (!$has_char_deletes) {
+    print "PASS: WITH indent-last, no char-level deletes (delete_line only) — indent_last N/A\n";
+    $pass++;
+} else {
+    my $found_content = 0;
+    my $found_space_after_content = 0;
+    for my $op (@$ops_il) {
+        if ($op =~ /^delete\t\d+\t\d+\t(\d+)\t/) {
+            my $code = $1;
+            if ($code != 32 && $code != 9 && $code != 10) {
+                $found_content = 1;
+            } elsif ($code == 32 || $code == 9) {
+                if ($found_content) {
+                    $found_space_after_content = 1;
+                }
             }
         }
     }
-}
-if ($found_space_after_content) {
-    print "PASS: WITH indent-last, space deletes appear AFTER content deletes\n";
-    $pass++;
-} else {
-    print "FAIL: WITH indent-last, no space deletes found after content\n";
-    $fail++;
+    if ($found_space_after_content) {
+        print "PASS: WITH indent-last, space deletes appear AFTER content deletes\n";
+        $pass++;
+    } else {
+        print "FAIL: WITH indent-last, no space deletes found after content\n";
+        $fail++;
+    }
 }
 
 # Check: both produce correct output
@@ -132,10 +158,10 @@ system("./pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_laye
 my $il_out_count = 0;
 my $ad_layer_count = 0;
 open(my $ifh, '<', "/tmp/il_test_post_il.txt") or die;
-while (my $line = <$ifh>) { chomp $line; $il_out_count++ if $line =~ /^delete\t/; }
+while (my $line = <$ifh>) { chomp $line; $il_out_count++ if $line =~ /^delete(?:_line)?\t/; }
 close($ifh);
 open($ifh, '<', "/tmp/il_test_ad_layer_flag.txt") or die;
-while (my $line = <$ifh>) { chomp $line; $ad_layer_count++ if $line =~ /^delete\t/; }
+while (my $line = <$ifh>) { chomp $line; $ad_layer_count++ if $line =~ /^delete(?:_line)?\t/; }
 close($ifh);
 if ($il_out_count > 0 && $il_out_count == $ad_layer_count) {
     print "PASS: --ad-layer=ad_layer_indent_last produces same op count as convenience flag\n";

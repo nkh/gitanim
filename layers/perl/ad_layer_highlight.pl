@@ -157,9 +157,6 @@ for my $line (@lines) {
     if ($line eq 'HUNK_END') {
         $in_hunk = 0;
         $hunk_end_line = $last_changed_line;
-    }
-
-    last if $line eq 'EOF';
 
         # Highlight hunk
         if ($highlight_mode eq 'hunk' && $hunk_start_line > 0 && $hunk_end_line > 0) {
@@ -174,6 +171,8 @@ for my $line (@lines) {
         print "$line\n";
         next;
     }
+
+    last if $line eq 'EOF';
 
     # For change ops: track hunk state
     if (is_change_op($line) && !is_delay_op($line)) {

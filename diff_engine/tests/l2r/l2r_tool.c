@@ -1,4 +1,3 @@
-#define MAX_LINE AD_LAYER_MAX_LINE
 /* l2r_tool.c — Standalone left_to_right transform (NOT integrated).
  *
  * Reads v2 TSV ops from stdin, applies the NEW left_to_right algorithm,
@@ -21,9 +20,14 @@
 #define MAX_LINE 1048576
 
 typedef struct {
-    char type[8];   /* keep, delete, insert */
+    char type[16];  /* keep, delete, insert, overwrite_insert, delete_line,
+                       insert_line, keep_line, join_lines, split_line,
+                       batch_insert, or any other type (stored as raw) */
     int code;
-    /* line/col from input — ignored, we recompute */
+    int line;       /* original line (for line ops) */
+    int col;        /* original col (for line ops) */
+    char *raw;      /* raw line for pass-through (NULL for standard ops) */
+    /* line/col from input — ignored for standard ops, we recompute */
 } Op;
 
 static Op *ops = NULL;
@@ -110,6 +114,10 @@ void read_input(void) {
             }
             continue;
         }
+        /* Save a copy of the raw line BEFORE tokenizing (the tokenizer
+         * modifies the line in-place, replacing tabs with NUL). */
+        char *raw_copy = strdup(line);
+
         /* TSV tokenize */
         char *toks[8];
         int ntok = 0;
@@ -141,32 +149,86 @@ void read_input(void) {
             continue;
         }
         if ((strcmp(toks[0], "keep") == 0 || strcmp(toks[0], "delete") == 0 ||
-             strcmp(toks[0], "insert") == 0) && ntok >= 4) {
+             strcmp(toks[0], "insert") == 0 || strcmp(toks[0], "overwrite_insert") == 0)
+            && ntok >= 4) {
             ensure_ops(n_ops + 1);
-            strncpy(ops[n_ops].type, toks[0], 7);
-            ops[n_ops].type[7] = 0;
+            strncpy(ops[n_ops].type, toks[0], 15);
+            ops[n_ops].type[15] = 0;
             ops[n_ops].code = atoi(toks[3]);
+            ops[n_ops].line = 0;
+            ops[n_ops].col = 0;
+            ops[n_ops].raw = NULL;
+            n_ops++;
+            if (current_hunk >= 0) hunks[current_hunk].op_count++;
+        } else if (strcmp(toks[0], "delete_line") == 0 ||
+                   strcmp(toks[0], "keep_line") == 0 ||
+                   strcmp(toks[0], "join_lines") == 0) {
+            /* Line ops with format: <type>\t<line> */
+            ensure_ops(n_ops + 1);
+            strncpy(ops[n_ops].type, toks[0], 15);
+            ops[n_ops].type[15] = 0;
+            ops[n_ops].code = 0;
+            ops[n_ops].line = (ntok >= 2) ? atoi(toks[1]) : 0;
+            ops[n_ops].col = 0;
+            ops[n_ops].raw = raw_copy;
+            n_ops++;
+            if (current_hunk >= 0) hunks[current_hunk].op_count++;
+        } else if (strcmp(toks[0], "split_line") == 0) {
+            /* split_line\t<line>\t<col> */
+            ensure_ops(n_ops + 1);
+            strncpy(ops[n_ops].type, toks[0], 15);
+            ops[n_ops].type[15] = 0;
+            ops[n_ops].code = 0;
+            ops[n_ops].line = (ntok >= 2) ? atoi(toks[1]) : 0;
+            ops[n_ops].col = (ntok >= 3) ? atoi(toks[2]) : 0;
+            ops[n_ops].raw = raw_copy;
+            n_ops++;
+            if (current_hunk >= 0) hunks[current_hunk].op_count++;
+        } else if (strcmp(toks[0], "insert_line") == 0 ||
+                   strcmp(toks[0], "batch_insert") == 0) {
+            /* insert_line\t<line>\t<text>  or  batch_insert\t<line>\t<col>\t<codes> */
+            ensure_ops(n_ops + 1);
+            strncpy(ops[n_ops].type, toks[0], 15);
+            ops[n_ops].type[15] = 0;
+            ops[n_ops].code = 0;
+            ops[n_ops].line = (ntok >= 2) ? atoi(toks[1]) : 0;
+            ops[n_ops].col = (ntok >= 3) ? atoi(toks[2]) : 0;
+            ops[n_ops].raw = raw_copy;
             n_ops++;
             if (current_hunk >= 0) hunks[current_hunk].op_count++;
         }
+        /* Unknown op types are silently dropped (shouldn't happen in
+         * well-formed input from ad_compute). */
     }
 }
 
 /* NEW left_to_right: within each change region (consecutive non-keep,
- * non-newline ops), emit all deletes first, then all inserts.
- * Keeps and \n ops stay in place (they are line boundaries). */
+ * non-newline, non-line-op ops), emit all deletes first, then all inserts.
+ * Keeps, \n ops, and line ops stay in place (they are line boundaries). */
+static int is_line_op_type(const char *type) {
+    return strcmp(type, "keep_line") == 0 ||
+           strcmp(type, "join_lines") == 0 ||
+           strcmp(type, "split_line") == 0 ||
+           strcmp(type, "delete_line") == 0 ||
+           strcmp(type, "batch_insert") == 0 ||
+           strcmp(type, "insert_line") == 0;
+}
+
 void apply_l2r(Op *in, int count, Op *out) {
     int n_out = 0;
     int i = 0;
     while (i < count) {
-        if (strcmp(in[i].type, "keep") == 0 || in[i].code == 10) {
-            /* Keep or \n: stays in place (line boundary) */
+        if (strcmp(in[i].type, "keep") == 0 || in[i].code == 10
+            || is_line_op_type(in[i].type)) {
+            /* Keep, \n, or line op: stays in place (boundary) */
             out[n_out++] = in[i];
             i++;
         } else {
-            /* Start of change region: collect consecutive non-keep, non-\n ops */
+            /* Start of change region: collect consecutive non-keep, non-\n,
+             * non-line-op ops */
             int region_start = i;
-            while (i < count && strcmp(in[i].type, "keep") != 0 && in[i].code != 10)
+            while (i < count && strcmp(in[i].type, "keep") != 0
+                   && in[i].code != 10 && !is_line_op_type(in[i].type))
                 i++;
             int region_end = i;
             /* Emit all deletes first */
@@ -174,9 +236,10 @@ void apply_l2r(Op *in, int count, Op *out) {
                 if (strcmp(in[j].type, "delete") == 0)
                     out[n_out++] = in[j];
             }
-            /* Then all inserts */
+            /* Then all inserts/overwrite_inserts */
             for (int j = region_start; j < region_end; j++) {
-                if (strcmp(in[j].type, "insert") == 0)
+                if (strcmp(in[j].type, "insert") == 0 ||
+                    strcmp(in[j].type, "overwrite_insert") == 0)
                     out[n_out++] = in[j];
             }
         }
@@ -209,13 +272,37 @@ void write_output(void) {
         int cur_line = hunks[h].target;
         int cur_col = 1;
         for (int i = 0; i < count; i++) {
+            if (out[i].raw) {
+                /* Line op: write the raw line verbatim (don't recompute
+                 * positions — line ops manage their own positioning).
+                 * But update cur_line/cur_col so subsequent standard ops
+                 * get the right position. */
+                printf("%s\n", out[i].raw);
+                if (strcmp(out[i].type, "keep_line") == 0) {
+                    cur_line++;
+                    cur_col = 1;
+                } else if (strcmp(out[i].type, "split_line") == 0) {
+                    cur_line++;
+                    cur_col = 1;
+                } else if (strcmp(out[i].type, "insert_line") == 0) {
+                    cur_line++;
+                    cur_col = 1;
+                }
+                /* join_lines: cursor stays on the joined line.
+                 * delete_line: cursor stays (line removed, lines shift up).
+                 * batch_insert: col advances by the number of inserted chars
+                 *   (not tracked here — batch_insert is rare in l2r tests). */
+                continue;
+            }
             printf("%s\t%d\t%d\t%d\t%s\n", out[i].type, cur_line, cur_col,
                    out[i].code, char_repr(out[i].code));
             if (out[i].code == 10) {
                 cur_line++;
                 cur_col = 1;
             } else {
-                if (strcmp(out[i].type, "keep") == 0 || strcmp(out[i].type, "insert") == 0)
+                if (strcmp(out[i].type, "keep") == 0 ||
+                    strcmp(out[i].type, "insert") == 0 ||
+                    strcmp(out[i].type, "overwrite_insert") == 0)
                     cur_col++;
                 /* delete: col stays */
             }

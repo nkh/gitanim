@@ -397,30 +397,65 @@ whitespace in a later phase.
 
 ---
 
-### 4.4 `ad_layer_line_delete_in_place` — WORKS for tested case
+### 4.4 `ad_layer_line_delete_in_place` — FIXED (Phase 2, handles arbitrary N lines)
 
-**Contract:** When the diff engine produces `delete(line1 chars) +
-join_lines + delete(line2 chars) + join_lines`, reorder to
-`delete(line1) + delete(line2 at L+1) + join + join` so content
-disappears in place before lines join.
+**Contract:** When the diff engine deletes N consecutive lines, it
+produces `delete(L1) + join_lines + delete(L2) + join_lines + ... +
+delete(LN) + join_lines`. The layer reorders to `delete(L1) +
+delete(L2 at L+1) + delete(L3 at L+2) + ... + delete(LN at L+N-1) +
+join + join + ... + join` so all content disappears in place before
+lines join. Handles arbitrary N, not just 2.
 
 **Source:** `layers/c/ad_layer_line_delete_in_place.c`, function
-`layer_line_delete_in_place`, lines 33-177. Two modes: `batch`
-(default) and `interleaved`.
+`layer_line_delete_in_place`.
 
-**Test case:** 2-line deletion with `join_lines` between them.
-Assert all content deletes come before all `join_lines`.
+#### The bug (pre-Phase-2)
 
-**Result:** PASS in batch mode.
+The C version only handled the 2-line case. For 3+ line deletions, the
+3rd line's content was moved to line 2 (should be line 3), and joins
+were interleaved with content deletes instead of all at the end.
+The corpus analysis flagged this: `block_delete` (5.6% of corpus)
+showed 0 ops in the output.
 
-**Known limitation (from corpus analysis):** For `block_delete`
-(5.6% of corpus), the audit showed 0 ops in the output — suggesting
-the layer only handles the 2-line case and breaks on 3+ line
-deletions. This needs a separate test case.
+#### Fix design (Phase 2 — sliding window)
 
-**Fix needed in Phase 5:** Add a test case for 3+ line deletion
-and verify the layer handles it. If it doesn't, generalize the
-pattern matching to handle arbitrary-length runs.
+Rewritten with a sliding 2-line window algorithm:
+1. Walk the ops. When a `join_lines(L)` is followed by content deletes
+   (first at col 1), start a block.
+2. Within the block, match `join + delete+` repeatedly (the 2-line
+   window). Each match:
+   - Emits content deletes at `L + 1 + line_off` (offset = batches
+     already emitted).
+   - Defers the join to a pending list.
+   - Advances `line_off` by 1.
+3. When the block ends (no more join+delete pattern, or a trailing
+   join with no content), emit all pending joins at the end.
+
+This handles arbitrary N because the window slides by 1 line per
+match (the joiner's line conceptually advances by 1 each iteration,
+tracked via the `line_off` counter). All content deletes are emitted
+first (at their correct pre-join lines), then all joins at the end.
+
+**Perl twin:** Mirrored the same sliding-window algorithm. Also
+fixed `parse_op`/`write_op` to handle all line-op formats and a
+catch-all for unknown op types (same fix as overwrite/indent_last
+Perl twins).
+
+**Contract test:** Updated Case 4a (2-line) with line-number
+assertions. Added Case 4b (3-line), 4c (5-line stress test), and
+4d (partial content at col > 1 — should NOT match).
+
+#### Acceptance criteria
+
+- `make test-layer-contracts`: 0 failures (Cases 4a-4d all pass).
+- `make test-minimal`: 27/27 pass (no regression).
+- `make test-property`: 50/50 pass (no regression).
+- `make test-property-reversed`: 100/100 pass (no regression).
+- `make test-reversed`: 68/68 pass (no regression).
+- `make test-examples`: 36/36 pass (no regression).
+- C/Perl parity: byte-identical on all test cases.
+- `test_line_delete_in_place.pl` end-state simulation: 15/15 pass
+  (was 0/15 pre-Phase-2 — the simulation didn't handle line ops).
 
 ---
 
