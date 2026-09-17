@@ -233,6 +233,60 @@ removing the guard, or just remove it and see what breaks?
 **Q2:** Option A (remove guard), Option B (relax guard), or Option
 C (generalize to runs)? I recommend A first, then C if needed.
 
+#### Phase 2 (Option C) — IMPLEMENTED 2026-09-17
+
+Phase 1 shipped Option A and confirmed it left middle-of-run deletes
+unmerged (the `'llo' → 'et'` case produced 2 standalone deletes +
+2 overwrite_inserts). Phase 2 generalizes the merge to runs as
+described above.
+
+**Code changes:**
+
+- `layers/c/ad_layer_overwrite.c` — rewritten. The merge now scans a
+  maximal run of N non-line-op deletes at `(L, C)`, then a maximal run
+  of M non-line-op inserts starting at `(L, C)` and advancing by 1
+  col each. Emits `min(N, M)` overwrite_inserts using the first
+  `min(N, M)` insert codes, then `|N - M|` leftover deletes or inserts
+  from the tail of whichever run was longer. A position-walk pass
+  after the merge recomputes `(line, col)` so the leftover ops land at
+  the correct cursor position (the walk skips line ops and `\n` ops,
+  matching the Perl twin).
+
+- `layers/perl/ad_layer_overwrite.pl` — rewritten to mirror the C
+  version. `parse_op` was also fixed to handle all line-op formats
+  (`keep_line`, `join_lines`, `split_line`, `delete_line`,
+  `insert_line`, `batch_insert`) and a catch-all for unknown op
+  types (previously the Perl parse_op only handled the standard
+  4-field format and silently dropped every line op, which broke
+  C/Perl parity on every real example).
+
+- `tests/test_layer_contracts.pl` — Case 2a assertions updated to
+  the Option C contract (3 overwrite_inserts, 1 leftover delete,
+  1 leftover insert for the `hello → greet` input). Added three new
+  cases:
+    - 2c: pure 3D + 2I at one position (the `'llo' → 'et'` shape).
+    - 2d: 2D + 3I (M > N — leftover insert).
+    - 2e: 3 deletes with no following inserts (no merge).
+
+**Test results:**
+
+- `make test-layer-contracts`: 35 pass / 0 fail (up from 28/1).
+- `make test-layer-overwrite`: 5 pass / 0 fail — C/Perl parity now
+  verified on 19/19 real examples (up from 0/19; the pre-existing
+  parity failure was the parse_op bug fixed in this phase).
+- `make test-minimal`: 27/27 pass (no regression).
+- `make test-property`: 50/50 pass (no regression).
+- `make test-property-reversed`: 100/100 pass (no regression).
+- `make test-reversed`: 68/68 corpus cases pass (no regression).
+- `make test-examples`: 36/36 examples pass (no regression).
+- `make test-fuzz`: 60/60 pass (no regression).
+
+Pre-existing failures NOT caused by Option C (verified by running
+the same tests on the pre-Option-C HEAD): `ad_layer_highlight` parity,
+`ad_layer_indent_last` parity, `ad_layer_reorder` parity, l2r
+algorithm tests, `test_all_animators` whole-line insert/delete Perl
+cases. None of these touch `ad_layer_overwrite`.
+
 ---
 
 ### 4.3 `ad_layer_indent_last` — WORKS (after test fix)

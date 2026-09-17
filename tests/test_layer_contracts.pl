@@ -134,17 +134,29 @@ print "\n=== ad_layer_overwrite ===\n";
     my $out = run_layer("./bin/ad_layer_overwrite", $input);
     my $n_ow = count_ops($out, "overwrite_insert");
     my $n_del = count_ops($out, "delete");
+    my $n_ins = count_ops($out, "insert");
 
     ok "overwrite runs on hello->greet pattern" if $out;
-    if ($n_del == 0) {
-        ok "all 4 deletes absorbed into overwrite_insert (0 standalone deletes)";
+    # Option C contract (docs/design/LAYER_ANALYSIS_AND_FIX_PLAN.md §4.2):
+    #   Run 1: 1 delete + 2 inserts at (1, 5)  -> min(1,2)=1 overwrite_insert
+    #                                            + 1 leftover insert
+    #   Run 2: 3 deletes + 2 inserts at (1, 8)  -> min(3,2)=2 overwrite_inserts
+    #                                            + 1 leftover delete
+    #   Totals: 3 overwrite_inserts, 1 leftover delete, 1 leftover insert.
+    if ($n_ow == 3) {
+        ok "exactly 3 overwrite_insert ops produced (run-level merge: min(N,M) per run)";
     } else {
-        bad "expected 0 standalone deletes (got $n_del) - overwrite layer did not fire on multi-delete run";
+        bad "expected 3 overwrite_insert ops (Option C run-level merge), got $n_ow";
     }
-    if ($n_ow >= 2) {
-        ok ">=2 overwrite_insert ops produced (one per delete+insert run)";
+    if ($n_del == 1) {
+        ok "exactly 1 leftover delete (|3-2|=1 from the 'llo' run)";
     } else {
-        bad "expected >=2 overwrite_insert ops, got $n_ow - only single-pair merges detected";
+        bad "expected 1 leftover delete (Option C), got $n_del";
+    }
+    if ($n_ins == 1) {
+        ok "exactly 1 leftover insert (|1-2|=1 from the 'h' run)";
+    } else {
+        bad "expected 1 leftover insert (Option C), got $n_ins";
     }
 
     # Case 2b: 1 delete + 1 insert, no follow-up. The simplest case.
@@ -165,6 +177,90 @@ print "\n=== ad_layer_overwrite ===\n";
         ok "simple 1:1 merge: 1 overwrite_insert, 0 deletes";
     } else {
         bad "simple 1:1 merge failed: ow=$n_ow_b del=$n_del_b";
+    }
+
+    # Case 2c: pure 3D + 2I at the same position. Verifies the exact
+    # Option C contract: min(N,M) overwrite_inserts + |N-M| leftovers.
+    # From the analysis doc: "llo -> et" (3 deletes + 2 inserts ->
+    # 2 overwrite_inserts + 1 leftover delete).
+    my $input_c = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "keep\t1\t1\t97\tx",
+        "delete\t1\t2\t108\tl",
+        "delete\t1\t2\t108\tl",
+        "delete\t1\t2\t111\to",
+        "insert\t1\t2\t101\te",
+        "insert\t1\t3\t116\tt",
+        "keep\t1\t4\t33\t!",
+        "HUNK_END",
+        ""
+    );
+    my $out_c = run_layer("./bin/ad_layer_overwrite", $input_c);
+    my $n_ow_c  = count_ops($out_c, "overwrite_insert");
+    my $n_del_c = count_ops($out_c, "delete");
+    my $n_ins_c = count_ops($out_c, "insert");
+    if ($n_ow_c == 2) {
+        ok "3D+2I run: min(3,2)=2 overwrite_inserts";
+    } else {
+        bad "3D+2I run: expected 2 overwrite_inserts, got $n_ow_c";
+    }
+    if ($n_del_c == 1) {
+        ok "3D+2I run: |3-2|=1 leftover delete (the unpaired 'o')";
+    } else {
+        bad "3D+2I run: expected 1 leftover delete, got $n_del_c";
+    }
+    if ($n_ins_c == 0) {
+        ok "3D+2I run: 0 leftover inserts (M<=N)";
+    } else {
+        bad "3D+2I run: expected 0 leftover inserts, got $n_ins_c";
+    }
+
+    # Case 2d: 2D + 3I at the same position — the M > N case.
+    # Expect 2 overwrite_inserts + 1 leftover insert.
+    my $input_d = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "keep\t1\t1\t97\tx",
+        "delete\t1\t2\t108\tl",
+        "delete\t1\t2\t108\tl",
+        "insert\t1\t2\t101\te",
+        "insert\t1\t3\t116\tt",
+        "insert\t1\t4\t33\t!",
+        "keep\t1\t5\t46\t.",
+        "HUNK_END",
+        ""
+    );
+    my $out_d = run_layer("./bin/ad_layer_overwrite", $input_d);
+    my $n_ow_d  = count_ops($out_d, "overwrite_insert");
+    my $n_del_d = count_ops($out_d, "delete");
+    my $n_ins_d = count_ops($out_d, "insert");
+    if ($n_ow_d == 2 && $n_del_d == 0 && $n_ins_d == 1) {
+        ok "2D+3I run: 2 overwrite_inserts + 1 leftover insert (M>N)";
+    } else {
+        bad "2D+3I run: ow=$n_ow_d del=$n_del_d ins=$n_ins_d (expected 2,0,1)";
+    }
+
+    # Case 2e: 3 deletes with NO following inserts. Should pass all
+    # 3 deletes through unchanged (no merge happens).
+    my $input_e = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "keep\t1\t1\t97\tx",
+        "delete\t1\t2\t108\tl",
+        "delete\t1\t2\t108\tl",
+        "delete\t1\t2\t111\to",
+        "keep\t1\t2\t33\t!",
+        "HUNK_END",
+        ""
+    );
+    my $out_e = run_layer("./bin/ad_layer_overwrite", $input_e);
+    my $n_ow_e  = count_ops($out_e, "overwrite_insert");
+    my $n_del_e = count_ops($out_e, "delete");
+    if ($n_ow_e == 0 && $n_del_e == 3) {
+        ok "delete-only run: 0 overwrite_inserts, 3 deletes passed through";
+    } else {
+        bad "delete-only run: ow=$n_ow_e del=$n_del_e (expected 0,3)";
     }
 }
 
