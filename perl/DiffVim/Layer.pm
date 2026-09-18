@@ -24,14 +24,79 @@ our @EXPORT_OK = qw(parse_op write_op char_repr is_debug_op debug_log run_layer)
 sub parse_op {
     my ($line) = @_;
     chomp $line;
-    my @f = split /\t/, $line;
-    return undef unless @f >= 4;
-    return {
-        type => $f[0],
-        line => $f[1] + 0,
-        col  => $f[2] + 0,
-        code => $f[3] + 0,
-    };
+    my @f = split /\t/, $line, -1;  # keep trailing empty fields
+
+    # Standard 4-field format: type\tline\tcol\tcode (optionally \tchar_repr)
+    if (@f >= 4
+        && $f[0] ne 'insert_line' && $f[0] ne 'batch_insert'
+        && $f[0] ne 'delete_line' && $f[0] ne 'keep_line'
+        && $f[0] ne 'join_lines'  && $f[0] ne 'split_line') {
+        return {
+            type => $f[0],
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => $f[3] + 0,
+        };
+    }
+
+    # insert_line format: insert_line\t<line>\t<text>
+    if (@f >= 3 && $f[0] eq 'insert_line') {
+        return {
+            type => 'insert_line',
+            line => $f[1] + 0,
+            col  => 0,
+            code => 0,
+            text => $f[2],
+        };
+    }
+
+    # batch_insert format: batch_insert\t<line>\t<col>\t<codes>
+    if (@f >= 4 && $f[0] eq 'batch_insert') {
+        return {
+            type => 'batch_insert',
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => 0,
+            text => $f[3],
+        };
+    }
+
+    # split_line format: split_line\t<line>\t<col>
+    if (@f >= 3 && $f[0] eq 'split_line') {
+        return {
+            type => 'split_line',
+            line => $f[1] + 0,
+            col  => $f[2] + 0,
+            code => 0,
+        };
+    }
+
+    # keep_line / join_lines / delete_line format: <type>\t<line>
+    if (@f >= 2
+        && ($f[0] eq 'keep_line' || $f[0] eq 'join_lines'
+            || $f[0] eq 'delete_line')) {
+        return {
+            type => $f[0],
+            line => $f[1] + 0,
+            col  => 0,
+            code => 0,
+        };
+    }
+
+    # Catch-all: store the raw line for verbatim pass-through of unknown
+    # op types (delay, snapshot, highlight, dim, fold, sign, marker, etc.).
+    if (@f >= 1) {
+        return {
+            type => $f[0],
+            line => $f[1] ? ($f[1] + 0) : 0,
+            col  => $f[2] ? ($f[2] + 0) : 0,
+            code => $f[3] ? ($f[3] + 0) : 0,
+            text => $line,   # raw line for verbatim output
+            raw  => 1,
+        };
+    }
+
+    return undef;
 }
 
 # ── Pretty representation of a char code ───────────────────────────────
@@ -48,9 +113,26 @@ sub char_repr {
 # ── Write an Op as V2 TSV ──────────────────────────────────────────────
 sub write_op {
     my ($op) = @_;
-    printf "%s\t%d\t%d\t%d\t%s\n",
-        $op->{type}, $op->{line}, $op->{col}, $op->{code},
-        char_repr($op->{code});
+    if ($op->{type} eq 'keep_line') {
+        printf "keep_line\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'join_lines') {
+        printf "join_lines\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'split_line') {
+        printf "split_line\t%d\t%d\n", $op->{line}, $op->{col};
+    } elsif ($op->{type} eq 'insert_line') {
+        printf "insert_line\t%d\t%s\n", $op->{line}, $op->{text} // '';
+    } elsif ($op->{type} eq 'delete_line') {
+        printf "delete_line\t%d\n", $op->{line};
+    } elsif ($op->{type} eq 'batch_insert') {
+        printf "batch_insert\t%d\t%d\t%s\n",
+            $op->{line}, $op->{col}, $op->{text} // '';
+    } elsif ($op->{raw}) {
+        printf "%s\n", $op->{text};
+    } else {
+        printf "%s\t%d\t%d\t%d\t%s\n",
+            $op->{type}, $op->{line}, $op->{col}, $op->{code},
+            char_repr($op->{code});
+    }
 }
 
 # ── Check if an op is a debug op ───────────────────────────────────────

@@ -1,16 +1,26 @@
 /* ad_layer_line_replace.c — Replace char ops with line-level ops.
  *
- * For ANY line that has at least one delete or insert op, collapse all
- * its char ops into:
+ * For ANY line that has at least one delete or insert op AND no
+ * line-structure ops (split_line, join_lines), collapse all its char
+ * ops into:
  *   delete_line\t<L>
  *   insert_line\t<L>\t<final_text>
  *   delay\t<line_delay_ms>\tline   (if --line-delay-ms > 0)
  *
- * The <final_text> is the line's content AFTER applying all ops (keeps,
- * deletes, inserts) to the original line. Even a single-char change
- * produces a delete_line + insert_line.
+ * The <final_text> is the line's content AFTER applying all char ops
+ * (keeps, deletes, inserts) to the original line. Even a single-char
+ * change produces a delete_line + insert_line.
  *
  * Lines with only keeps (no changes) are passed through as char ops.
+ *
+ * Lines that contain line-structure ops (split_line, join_lines,
+ * insert_line, delete_line) are NOT collapsed — the line_replace
+ * contract is "replace char ops with delete_line+insert_line", and
+ * a line that already has line-structure ops is already at the
+ * line level. Collapsing such a line would lose the split/join
+ * semantics (e.g., a split_line creates a NEW line; collapsing the
+ * original line into delete_line+insert_line would lose the new
+ * line's content).
  *
  * The layer groups ops by line number (not by \n boundaries) to handle
  * the diff engine's interleaved op layout correctly.
@@ -30,6 +40,7 @@ static int line_delay_ms = 0;
 typedef struct {
     int has_change;       /* has any delete or insert */
     int has_keep;         /* has any keep */
+    int has_line_struct;  /* has split_line or join_lines (don't collapse) */
     int line_num;         /* the line number (1-indexed) */
     char *final_text;     /* final line text after applying all ops */
     int text_len;         /* length of final_text */
@@ -74,6 +85,20 @@ static int layer_line_replace(Op *ops, int n_ops, Op *out, int out_cap,
         if (strncmp(ops[i].type, "HUNK", 4) == 0) continue;
 
         if (ad_layer_is_line_op(&ops[i])) {
+            /* Mark the current virtual_line as having a line-structure op.
+             * split_line and join_lines change the line structure — a line
+             * with these ops must NOT be collapsed (collapsing would lose
+             * the split/join semantics). insert_line and delete_line are
+             * already line-level, so collapsing would be redundant or
+             * harmful. keep_line is a boundary but doesn't change structure. */
+            if (virtual_line > 0 && virtual_line < MAX_LINES) {
+                if (strcmp(ops[i].type, "split_line") == 0 ||
+                    strcmp(ops[i].type, "join_lines") == 0 ||
+                    strcmp(ops[i].type, "insert_line") == 0 ||
+                    strcmp(ops[i].type, "delete_line") == 0) {
+                    lines[virtual_line].has_line_struct = 1;
+                }
+            }
             if (strcmp(ops[i].type, "delete") != 0) {
                 virtual_line++;
                 if (virtual_line >= MAX_LINES) virtual_line = MAX_LINES - 1;
@@ -133,13 +158,18 @@ static int layer_line_replace(Op *ops, int n_ops, Op *out, int out_cap,
             if (virtual_line == -1 && ops[i].line > 0)
                 virtual_line = ops[i].line;
             int ln = virtual_line;
+            /* Don't skip (collapse) a line that has line-structure ops —
+             * those lines are passed through with their ops intact. */
             if (strcmp(ops[i].type, "delete") == 0) {
-                if (ln > 0 && ln < MAX_LINES && lines[ln].has_change)
+                if (ln > 0 && ln < MAX_LINES && lines[ln].has_change
+                    && !lines[ln].has_line_struct)
                     skip = 1;
             } else {
-                if (ln > 0 && ln < MAX_LINES && lines[ln].has_change)
+                if (ln > 0 && ln < MAX_LINES && lines[ln].has_change
+                    && !lines[ln].has_line_struct)
                     skip = 1;
-                if (!skip && ln + 1 < MAX_LINES && lines[ln + 1].has_change)
+                if (!skip && ln + 1 < MAX_LINES && lines[ln + 1].has_change
+                    && !lines[ln + 1].has_line_struct)
                     skip = 1;
                 virtual_line++;
                 if (virtual_line >= MAX_LINES) virtual_line = MAX_LINES - 1;
@@ -154,7 +184,12 @@ static int layer_line_replace(Op *ops, int n_ops, Op *out, int out_cap,
         if (virtual_line == -1 && ops[i].line > 0)
             virtual_line = ops[i].line;
         int ln = virtual_line;
-        if (ln <= 0 || ln >= MAX_LINES || !lines[ln].has_change) {
+        /* Skip collapsing if: line out of range, no changes, OR has
+         * line-structure ops (split_line/join_lines/etc. — those lines
+         * must keep their char ops because the structure ops depend on
+         * the buffer state). */
+        if (ln <= 0 || ln >= MAX_LINES || !lines[ln].has_change
+            || lines[ln].has_line_struct) {
             if (out_count < out_cap)
                 out[out_count++] = ops[i];
             i++;

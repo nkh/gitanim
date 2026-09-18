@@ -633,7 +633,7 @@ print "\n=== ad_layer_join_insert_in_place ===\n";
 # ====================================================================
 print "\n=== ad_layer_batch_whitespace ===\n";
 {
-    # Input: 4 consecutive space inserts followed by content.
+    # Case 7a: 4 consecutive space inserts followed by content.
     # Layer should batch the 4 spaces into a single batch_insert op.
     my $input = join("\n",
         "# raw diff v2",
@@ -661,6 +661,64 @@ print "\n=== ad_layer_batch_whitespace ===\n";
     } else {
         bad "$n_space_ins standalone space inserts remain (expected 0)";
     }
+
+    # Case 7b: Phase 2 generalization — non-whitespace runs.
+    # 3 consecutive 'a' (97) inserts + 1 'b' (98) insert should ALL be
+    # batched into a single batch_insert (any consecutive insert run
+    # is batched, not just whitespace).
+    my $input_b = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "insert\t1\t1\t97\ta",
+        "insert\t1\t2\t97\ta",
+        "insert\t1\t3\t97\ta",
+        "insert\t1\t4\t98\tb",
+        "HUNK_END",
+        ""
+    );
+    my $out_b = run_layer("./bin/ad_layer_batch_whitespace", $input_b);
+    ok "non-whitespace case runs" if $out_b;
+    my $n_batch_b = count_ops($out_b, "batch_insert");
+    my $n_ins_b = count_ops($out_b, "insert");
+    if ($n_batch_b == 1) {
+        ok "exactly 1 batch_insert for 4-char run (any chars, not just whitespace)";
+    } else {
+        bad "expected 1 batch_insert, got $n_batch_b";
+    }
+    if ($n_ins_b == 0) {
+        ok "all standalone inserts absorbed (0 remain)";
+    } else {
+        bad "$n_ins_b standalone inserts remain (expected 0)";
+    }
+    # Verify the batch contains all 4 codes in order: 97,97,97,98.
+    if ($out_b =~ /^batch_insert\t1\t1\t97,97,97,98$/m) {
+        ok "batch_insert contains the 4 codes in order: 97,97,97,98";
+    } else {
+        bad "batch_insert codes not 97,97,97,98";
+    }
+
+    # Case 7c: mixed runs — separate batches for separate run groups.
+    # 2 spaces + 1 keep + 2 'a's should produce 2 batch_inserts.
+    my $input_c = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t1\t0\t0",
+        "insert\t1\t1\t32\tspace",
+        "insert\t1\t2\t32\tspace",
+        "keep\t1\t3\t120\tx",
+        "insert\t1\t4\t97\ta",
+        "insert\t1\t5\t97\ta",
+        "HUNK_END",
+        ""
+    );
+    my $out_c = run_layer("./bin/ad_layer_batch_whitespace", $input_c);
+    my $n_batch_c = count_ops($out_c, "batch_insert");
+    my $n_ins_c = count_ops($out_c, "insert");
+    my $n_keep_c = count_ops($out_c, "keep");
+    if ($n_batch_c == 2 && $n_ins_c == 0 && $n_keep_c == 1) {
+        ok "2 separate runs batched into 2 batch_inserts; keep passes through";
+    } else {
+        bad "mixed runs: batch=$n_batch_c insert=$n_ins_c keep=$n_keep_c (expected 2,0,1)";
+    }
 }
 
 # ====================================================================
@@ -668,7 +726,7 @@ print "\n=== ad_layer_batch_whitespace ===\n";
 # ====================================================================
 print "\n=== ad_layer_skip_indent ===\n";
 {
-    # Input: indent-only hunk (all deletes/inserts are whitespace or \n).
+    # Case 8a: whole-hunk whitespace (all deletes/inserts are whitespace).
     # Layer should wrap with delay markers for instant application.
     my $input = join("\n",
         "# raw diff v2",
@@ -688,14 +746,14 @@ print "\n=== ad_layer_skip_indent ===\n";
     # The layer emits delay markers: "delay\t-1\t0\t0" (start) and
     # "delay\t-1\t1\t<N>" (end).
     if ($out =~ /^delay\t-1\t0\t/m) {
-        ok "indent_skip_start marker emitted (delay -1 0 0)";
+        ok "whole-hunk-ws: indent_skip_start marker emitted (delay -1 0 0)";
     } else {
-        bad "no indent_skip_start marker found";
+        bad "whole-hunk-ws: no indent_skip_start marker found";
     }
     if ($out =~ /^delay\t-1\t1\t/m) {
-        ok "indent_skip_end marker emitted (delay -1 1 <pause_ms>)";
+        ok "whole-hunk-ws: indent_skip_end marker emitted (delay -1 1 <pause_ms>)";
     } else {
-        bad "no indent_skip_end marker found";
+        bad "whole-hunk-ws: no indent_skip_end marker found";
     }
 
     # Case 8b: non-indent hunk (content change) - should NOT wrap.
@@ -712,6 +770,74 @@ print "\n=== ad_layer_skip_indent ===\n";
         bad "indent_skip marker emitted on a non-indent hunk (false positive)";
     } else {
         ok "no skip marker on content-change hunk";
+    }
+
+    # Case 8c: Phase 2 per-LINE detection.
+    # A mixed hunk with content change on line 1 AND whitespace-only
+    # deletes on line 2. Line 2 should be wrapped (per-line), line 1
+    # should NOT be wrapped. This is the case the user highlighted:
+    # "a hunk with deletion or insertion of non whitespace characters
+    # where a line has just whitespace characters deleted would also
+    # trigger this layer".
+    my $input_c = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t2\t1\t0\t0",
+        "delete\t1\t1\t97\ta",
+        "insert\t1\t1\t98\tb",
+        "keep_line\t1",
+        "delete\t2\t1\t32\tspace",
+        "delete\t2\t2\t32\tspace",
+        "HUNK_END",
+        ""
+    );
+    my $out_c = run_layer("./bin/ad_layer_skip_indent", $input_c);
+    ok "per-line case runs" if $out_c;
+    # Count skip markers — should be exactly 2 (start + end for line 2).
+    my $n_start_c = () = ($out_c =~ /^delay\t-1\t0\t/mg);
+    my $n_end_c   = () = ($out_c =~ /^delay\t-1\t1\t/mg);
+    if ($n_start_c == 1 && $n_end_c == 1) {
+        ok "per-line: exactly 1 skip region (line 2 only, line 1 NOT wrapped)";
+    } else {
+        bad "per-line: expected 1 start + 1 end marker, got $n_start_c/$n_end_c";
+    }
+    # The content change (a→b) should come BEFORE the skip markers
+    # (line 1 emitted first, then line 2 wrapped).
+    my $content_pos = index($out_c, "delete\t1\t1\t97");
+    my $skip_start_pos = index($out_c, "delay\t-1\t0\t");
+    if ($content_pos >= 0 && $skip_start_pos >= 0 && $content_pos < $skip_start_pos) {
+        ok "per-line: content change (line 1) emitted before skip region (line 2)";
+    } else {
+        bad "per-line: order wrong (content=$content_pos skip=$skip_start_pos)";
+    }
+    # The whitespace deletes (line 2) should be INSIDE the skip markers.
+    my $ws_del_pos = index($out_c, "delete\t2\t1\t32");
+    my $skip_end_pos = index($out_c, "delay\t-1\t1\t");
+    if ($ws_del_pos > $skip_start_pos && $ws_del_pos < $skip_end_pos) {
+        ok "per-line: whitespace deletes (line 2) inside skip region";
+    } else {
+        bad "per-line: whitespace deletes not inside skip region";
+    }
+
+    # Case 8d: hunk with TWO whitespace-only lines, both should be wrapped.
+    my $input_d = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t3\t1\t0\t0",
+        "delete\t1\t1\t32\tspace",
+        "delete\t1\t2\t32\tspace",
+        "keep_line\t1",
+        "delete\t2\t1\t9\t\\t",
+        "keep_line\t2",
+        "delete\t3\t1\t32\tspace",
+        "HUNK_END",
+        ""
+    );
+    my $out_d = run_layer("./bin/ad_layer_skip_indent", $input_d);
+    my $n_start_d = () = ($out_d =~ /^delay\t-1\t0\t/mg);
+    my $n_end_d   = () = ($out_d =~ /^delay\t-1\t1\t/mg);
+    if ($n_start_d == 3 && $n_end_d == 3) {
+        ok "3 whitespace-only lines each get their own skip region (3 starts + 3 ends)";
+    } else {
+        bad "3-ws-lines: expected 3/3 markers, got $n_start_d/$n_end_d";
     }
 }
 
@@ -754,6 +880,99 @@ print "\n=== ad_layer_line_replace ===\n";
         ok "insert_line text is 'aBc' (final line content)";
     } else {
         bad "insert_line text not 'aBc'";
+    }
+
+    # Case 9b: line with inserts + split_line — should NOT be collapsed.
+    # This is the bug the user's analysis flagged: a line with inserts
+    # followed by a split_line would be collapsed into delete_line +
+    # insert_line, losing the split (and the content that goes to the
+    # new line created by the split). The fix: lines with line-structure
+    # ops (split_line, join_lines) are NOT collapsed — they pass through
+    # with their char ops intact.
+    my $input_b = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t0\t1\t0\t0",
+        "insert\t1\t1\t32\tspace",
+        "insert\t1\t2\t32\tspace",
+        "insert\t1\t3\t97\ta",
+        "insert\t1\t4\t98\tb",
+        "insert\t1\t5\t99\tc",
+        "split_line\t1\t6",
+        "HUNK_END",
+        ""
+    );
+    my $out_b = run_layer("./bin/ad_layer_line_replace", $input_b);
+    ok "split_line case runs" if $out_b;
+    my $n_dl_b = count_ops($out_b, "delete_line");
+    my $n_il_b = count_ops($out_b, "insert_line");
+    my $n_ins_b = count_ops($out_b, "insert");
+    my $n_split_b = count_ops($out_b, "split_line");
+    # Should NOT collapse — line has a split_line.
+    if ($n_dl_b == 0 && $n_il_b == 0) {
+        ok "split_line: line NOT collapsed (no delete_line/insert_line emitted)";
+    } else {
+        bad "split_line: expected 0 delete_line + 0 insert_line, got dl=$n_dl_b il=$n_il_b";
+    }
+    # The char ops should pass through unchanged.
+    if ($n_ins_b == 5) {
+        ok "split_line: 5 char inserts pass through unchanged";
+    } else {
+        bad "split_line: expected 5 inserts, got $n_ins_b";
+    }
+    # The split_line should pass through unchanged.
+    if ($n_split_b == 1) {
+        ok "split_line: split_line op passes through unchanged";
+    } else {
+        bad "split_line: expected 1 split_line, got $n_split_b";
+    }
+
+    # Case 9c: line with deletes + join_lines — should NOT be collapsed.
+    my $input_c = join("\n",
+        "# raw diff v2",
+        "HUNK\t1\t1\t0\t0\t0",
+        "delete\t1\t1\t97\ta",
+        "delete\t1\t2\t98\tb",
+        "join_lines\t1",
+        "HUNK_END",
+        ""
+    );
+    my $out_c = run_layer("./bin/ad_layer_line_replace", $input_c);
+    ok "join_lines case runs" if $out_c;
+    my $n_dl_c = count_ops($out_c, "delete_line");
+    my $n_il_c = count_ops($out_c, "insert_line");
+    my $n_del_c = count_ops($out_c, "delete");
+    my $n_join_c = count_ops($out_c, "join_lines");
+    if ($n_dl_c == 0 && $n_il_c == 0) {
+        ok "join_lines: line NOT collapsed (no delete_line/insert_line emitted)";
+    } else {
+        bad "join_lines: expected 0 delete_line + 0 insert_line, got dl=$n_dl_c il=$n_il_c";
+    }
+    if ($n_del_c == 2 && $n_join_c == 1) {
+        ok "join_lines: 2 char deletes + 1 join_lines pass through unchanged";
+    } else {
+        bad "join_lines: expected 2 deletes + 1 join, got del=$n_del_c join=$n_join_c";
+    }
+
+    # Case 9d: integration test — run line_replace on real ad_compute output.
+    # This is the test the user's analysis asked for: verify the snapshot
+    # matches after running line_replace through the full pipeline.
+    my $tmp_old = "/tmp/lr_contract_old.txt";
+    my $tmp_new = "/tmp/lr_contract_new.txt";
+    my $tmp_raw = "/tmp/lr_contract_raw.txt";
+    my $tmp_post = "/tmp/lr_contract_post.txt";
+    my $tmp_timed = "/tmp/lr_contract_timed.txt";
+    my $tmp_out = "/tmp/lr_contract_out.txt";
+    # Multi-hunk test: line deletion + insert with split.
+    open(my $fh, '>', $tmp_old) or die; print $fh "def foo():\n    print(\"hello\")\n    return None\n\ndef bar():\n    pass\n"; close($fh);
+    open($fh, '>', $tmp_new) or die; print $fh "def bar():\n    print(\"world\")\n    pass\n"; close($fh);
+    system("./bin/ad_compute '$tmp_old' '$tmp_new' '$tmp_raw' 2>/dev/null");
+    system("pipeline/ad_postprocess --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_replace < '$tmp_raw' > '$tmp_post' 2>/dev/null");
+    system("./bin/ad_layer_pace < '$tmp_post' > '$tmp_timed' 2>/dev/null");
+    system("./bin/ad --no-display --speed 1000 --snapshot '$tmp_out' '$tmp_old' < '$tmp_timed' 2>/dev/null");
+    if (system("diff -q '$tmp_new' '$tmp_out' >/dev/null 2>&1") == 0) {
+        ok "integration: multi-hunk snapshot matches new file (line_replace + split_line)";
+    } else {
+        bad "integration: multi-hunk snapshot mismatch (line_replace + split_line)";
     }
 }
 

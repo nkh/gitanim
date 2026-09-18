@@ -1,17 +1,23 @@
-/* ad_layer_batch_whitespace.c — Batch consecutive whitespace insert ops.
+/* ad_layer_batch_whitespace.c — Batch consecutive insert ops.
  *
- * Replaces runs of consecutive whitespace inserts (tab=9, space=32)
- * with a single batch_insert op:
+ * Replaces runs of consecutive insert ops (at the same line, advancing
+ * col by 1 each) with a single batch_insert op:
  *   batch_insert\t<line>\t<col>\t<code1>,<code2>,...
  *
- * All other lines are passed through unchanged.
+ * Phase 2 generalization: previously only whitespace inserts (space=32,
+ * tab=9) were batched. Now ANY consecutive insert run is batched —
+ * whitespace, letters, digits, punctuation, anything. This reduces
+ * the op-stream length for any multi-char insertion (the animator's
+ * batch_insert handler inserts all chars in one tick, which is both
+ * faster to animate and easier to read).
+ *
+ * All other lines (keeps, deletes, line ops, non-insert ops) are
+ * passed through unchanged.
+ *
+ * Build: make layers
+ * Usage:  ad_layer_batch_whitespace < ops.tsv
  */
 #include "ad_layer_common.h"
-
-#define WS_TAB   9
-#define WS_SPACE 32
-
-static int is_ws(int code) { return code == WS_TAB || code == WS_SPACE; }
 
 int main(int argc, char **argv) {
     __argc = argc; __argv = argv;
@@ -19,10 +25,14 @@ int main(int argc, char **argv) {
         if (strcmp(argv[i], "--debug") == 0) { ad_layer_debug = 1; continue; }
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             fprintf(stderr,
-                "ad_layer_batch_whitespace — batch whitespace insert ops\n\n"
+                "ad_layer_batch_whitespace — batch consecutive insert ops\n\n"
                 "Usage: ad_layer_batch_whitespace < ops.tsv\n\n"
-                "Replaces runs of consecutive whitespace inserts (tab=9,\n"
-                "space=32) with a single batch_insert op.\n");
+                "Replaces runs of consecutive insert ops (at the same\n"
+                "line, advancing col by 1 each) with a single batch_insert\n"
+                "op: batch_insert\\t<line>\\t<col>\\t<code1>,<code2>,...\n\n"
+                "Any consecutive insert run is batched — whitespace, letters,\n"
+                "digits, punctuation, anything. (Phase 2 generalization:\n"
+                "previously only space=32 and tab=9 were batched.)\n");
             fprintf(stderr, "  --debug              Log batching to stderr.\n");
             return 0;
         }
@@ -51,22 +61,25 @@ int main(int argc, char **argv) {
             int i = 0;
             while (i < n_hunk) {
                 int ln = 0, col = 0, code = 0;
-                if (sscanf(hunk_lines[i], "insert\t%d\t%d\t%d", &ln, &col, &code) >= 3
-                    && is_ws(code)) {
+                /* Detect start of a consecutive insert run (any code). */
+                if (sscanf(hunk_lines[i], "insert\t%d\t%d\t%d", &ln, &col, &code) >= 3) {
                     int start = i;
                     int exp_col = col;
+                    int run_ln = ln;
                     while (i < n_hunk) {
                         int ln2 = 0, col2 = 0, code2 = 0;
                         if (sscanf(hunk_lines[i], "insert\t%d\t%d\t%d", &ln2, &col2, &code2) >= 3
-                            && ln2 == ln && col2 == exp_col && is_ws(code2)) {
+                            && ln2 == run_ln && col2 == exp_col) {
                             exp_col++;
                             i++;
                         } else break;
                     }
                     int count = i - start;
                     if (count >= 2) {
-                        debug_log("Batching: line %d, %d whitespace inserts at col %d\n", ln, count, col);
-                        printf("batch_insert\t%d\t%d\t", ln, col);
+                        /* Batch the run: emit a single batch_insert op. */
+                        debug_log("Batching: line %d, %d inserts at col %d\n",
+                                  run_ln, count, col);
+                        printf("batch_insert\t%d\t%d\t", run_ln, col);
                         for (int k = start; k < i; k++) {
                             int c = 0;
                             sscanf(hunk_lines[k], "insert\t%d\t%d\t%d", &ln, &col, &c);

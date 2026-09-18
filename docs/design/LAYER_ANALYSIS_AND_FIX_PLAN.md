@@ -498,71 +498,101 @@ on-screen concatenation).
 
 ---
 
-### 4.7 `ad_layer_batch_whitespace` — WORKS
+### 4.7 `ad_layer_batch_whitespace` — FIXED (Phase 2, batches ANY character)
 
-**Contract:** Replace runs of consecutive whitespace inserts
-(space=32, tab=9) with a single `batch_insert` op.
+**Contract:** Replace runs of consecutive insert ops (at the same line,
+advancing col by 1 each) with a single `batch_insert` op. Any
+consecutive insert run is batched — whitespace, letters, digits,
+punctuation, anything. (Phase 2 generalization: previously only
+space=32 and tab=9 were batched.)
 
-**Source:** `layers/c/ad_layer_batch_whitespace.c`, custom `main`
-(lines 16-102).
+**Source:** `layers/c/ad_layer_batch_whitespace.c`, custom `main`.
+Perl twin: `layers/perl/ad_layer_batch_whitespace.pl`.
 
-**Test case:** 4 consecutive space inserts + 1 content insert.
-Assert 1 `batch_insert` produced, 0 standalone space inserts
-remain.
+**Test cases:** Case 7a (4 space inserts → 1 batch), Case 7b
+(3 'a' + 1 'b' → 1 batch with `97,97,97,98`), Case 7c (mixed runs
+with keep boundaries → 2 batches).
 
-**Result:** PASS.
+**Result:** 8/8 PASS. C/Perl parity verified.
 
-**No fix needed.** Optional enhancement: add `ad_layer_batch_insert`
-for non-whitespace runs (Phase 9, opt-in).
+**Phase 2 change:** The `is_ws(code)` check was removed — now ANY
+consecutive insert run (same line, advancing col) is batched. This
+reduces the op-stream length for any multi-char insertion (the
+animator's batch_insert handler inserts all chars in one tick, which
+is both faster to animate and easier to read).
 
 ---
 
-### 4.8 `ad_layer_skip_indent` — WORKS
+### 4.8 `ad_layer_skip_indent` — FIXED (Phase 2, per-LINE detection)
 
-**Contract:** Detect indent-only hunks (all deletes/inserts are
-whitespace or \n) and wrap with delay markers so the pace layer
-applies them instantly.
+**Contract:** Detect LINES where all delete/insert/overwrite_insert
+ops are whitespace (space=32, tab=9) or newline (code=10), and wrap
+EACH such line with delay markers so the pace layer applies it
+instantly. Other lines in the same hunk animate normally.
+
+**Phase 2 change:** The detection was per-HUNK (the entire hunk had
+to be whitespace-only to trigger). Now it's per-LINE — a hunk with
+non-whitespace changes on one line AND whitespace-only deletes on
+another line will wrap ONLY the whitespace-only line.
 
 **Source:** `layers/c/ad_layer_skip_indent.c`, function
-`layer_skip_indent`, lines 47-133.
+`layer_skip_indent`. Perl twin: `layers/perl/ad_layer_skip_indent.pl`
+(uses shared `DiffVim::Layer` module whose `parse_op`/`write_op`
+were also fixed to handle all line-op formats).
 
-**Marker format:** `delay\t-1\t0\t0` (start) and `delay\t-1\t1\t<N>`
-(end, where N is pause-after-ms).
+**Line boundaries:** A LINE is a maximal run of ops between line
+boundaries. Line boundaries are line ops (keep_line, join_lines,
+split_line, delete_line, insert_line, batch_insert) and \n char ops
+(code 10). The boundary op is included in the line.
 
-**Test case:** Indent-only hunk (4 space deletes + 4 space inserts).
-Assert both markers emitted. Also test negative case: content-change
-hunk should NOT get markers.
+**Marker format:** `delay\t-1\t0\t0` (start) and
+`delay\t-1\t1\t<N>` (end, where N is pause-after-ms).
 
-**Result:** PASS.
+**Test cases:** Case 8a (whole-hunk whitespace → 1 skip region),
+Case 8b (content-only hunk → no markers), Case 8c (mixed hunk:
+content on line 1 + whitespace deletes on line 2 → only line 2
+wrapped), Case 8d (3 whitespace-only lines → 3 skip regions).
 
-**No fix needed.** Optional: generalize to `skip_noise` for any
-whitespace-only hunk (Phase 9).
+**Result:** 9/9 PASS. C/Perl parity verified.
 
 ---
 
-### 4.9 `ad_layer_line_replace` — WORKS for tested case
+### 4.9 `ad_layer_line_replace` — FIXED (Phase 2, skips line-structure ops)
 
-**Contract:** For ANY line with at least one delete or insert,
-collapse all its char ops into `delete_line + insert_line <final_text>`.
+**Contract:** For ANY line that has at least one delete or insert op
+AND NO line-structure ops (split_line, join_lines, insert_line,
+delete_line), collapse all its char ops into
+`delete_line + insert_line <final_text>`.
+
+**Phase 2 fix:** Lines that contain line-structure ops (split_line,
+join_lines, etc.) are NOT collapsed. Previously, a line with
+`insert + split_line` would be collapsed into
+`delete_line + insert_line "inserted text"`, which LOST the
+split_line semantics — the new line created by the split would be
+empty (because the inserted text was only the pre-split content).
+Now such lines pass through with their char ops intact, and the
+split_line creates the new line correctly.
+
+**Root cause of the integration failure (from the audit):**
+`line_replace` works in isolation (the contract test passes), but
+when fed real `ad_compute` output that contains `split_line` ops
+(e.g., multi-hunk diffs where lines are inserted and then split),
+the snapshot didn't match. The layer was collapsing lines it
+shouldn't have.
 
 **Source:** `layers/c/ad_layer_line_replace.c`, function
-`layer_line_replace`, lines 63-209.
+`layer_line_replace`. Added `has_line_struct` field to `LineInfo`
+to track lines with structure ops; both Pass 1 (detection) and
+Pass 2 (emission) check this field.
 
-**Test case:** Single line with `keep(a) delete(b) insert(B)
-keep(c)`. Assert 1 `delete_line` + 1 `insert_line` with text "aBc",
-0 char-level ops.
+**Test cases:** Case 9a (simple single-line replace → collapsed),
+Case 9b (inserts + split_line → NOT collapsed, char ops pass
+through), Case 9c (deletes + join_lines → NOT collapsed), Case 9d
+(integration test: multi-hunk diff with split_line through the
+full pipeline → snapshot matches).
 
-**Result:** PASS.
-
-**Known issue (from earlier audit):** When run through the full
-pipeline, `line_replace` produces 0 ops for some categories and the
-snapshot doesn't match. This suggests the layer works in isolation
-but breaks when fed real `ad_compute` output. Needs a separate
-integration test.
-
-**Fix needed in Phase 2:** Add an integration test that runs
-`line_replace` on real `ad_compute` output from `01_simple_replace`
-and verifies the snapshot matches.
+**Result:** 11/11 PASS (was 4/4 — added 7 new assertions including
+the integration test).
 
 ---
 
