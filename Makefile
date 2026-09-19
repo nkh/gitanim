@@ -348,7 +348,7 @@ EX_CHECK = if [ ! -f /tmp/$@_out.txt ]; then \
 # HEADLESS mode: add --no-display --speed 1000 for non-interactive verification.
 EX_FLAGS = $$(if [ "$$HEADLESS" = "1" ]; then echo "--no-display --speed 1000 --snapshot /tmp/$@_out.txt"; fi)
 
-.PHONY: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15 examples
+.PHONY: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15 ex16 examples
 
 ex1:
 	@echo "=== ex1: default pipeline, small Python ==="
@@ -485,9 +485,18 @@ ex15:
 	$(EX_VIM) --word-diff --ad-layer=ad_layer_reorder --overwrite --indent-last --line-delete-in-place --delete-pacing word --pacing gaussian --distance-speed adaptive $(EX_FLAGS) "$$old" "$$new"; \
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
-examples: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15
-	@if [ "$$HEADLESS" = "1" ]; then echo "=== All 15 examples passed (headless) ==="; \
-	else echo "=== All 15 examples animated in vim ==="; fi
+ex16:
+	@echo "=== ex16: wordwise animation (word-diff + word pacing) ==="
+	@ex_dir=03_json_config; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_VIM) --word-diff --insert-pacing word --delete-pacing word $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --word-diff --insert-pacing word --delete-pacing word $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
+
+examples: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15 ex16
+	@if [ "$$HEADLESS" = "1" ]; then echo "=== All 16 examples passed (headless) ==="; \
+	else echo "=== All 16 examples animated in vim ==="; fi
 
 
 # --- Debugging -------------------------------------------------------------
@@ -567,7 +576,7 @@ help:
 	@echo "  make test-property  Run property-based tests"
 	@echo "  make test-examples  Run all examples through pipeline"
 	@echo "  make test-fuzz      Run fuzz tests"
-	@echo "  make ex1..ex15      Animate example N in vim (see docs/EXAMPLES_TO_RUN.md)"
+	@echo "  make ex1..ex16      Animate example N in vim (see docs/EXAMPLES_TO_RUN.md)"
 	@echo "  make examples       Animate all 15 examples in vim"
 	@echo "  make examples HEADLESS=1  Verify all 15 examples headless"
 	@echo "  make clean          Remove bin/ directory"

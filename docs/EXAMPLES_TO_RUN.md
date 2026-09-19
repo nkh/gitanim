@@ -246,6 +246,28 @@ file (~1000+ lines) with every option layered on:
 Expect: a long animation that showcases every option. Good for a
 "full demo" run.
 
+### ex16 — Wordwise animation (word-diff + word pacing)
+
+```
+make ex16
+```
+**Files:** `tests/examples/03_json_config/{old.json,new.json}`
+**Options:** `--word-diff --insert-pacing word --delete-pacing word`
+**What it shows:** True word-level animation — words appear and
+disappear as atomic units, not character-by-character. Three options
+combine:
+- `--word-diff` makes the diff engine treat whitespace-delimited
+  words as atomic units (the op stream has whole-word deletes/inserts)
+- `--insert-pacing word` makes the pace layer batch short words
+  (≤8 chars) so they type instantly in one tick
+- `--delete-pacing word` makes deletes happen word-by-word
+
+Contrast with ex3 (which uses `--word-diff` alone — the diff is
+word-level but the animation is still char-by-char). ex16 adds the
+word pacing so the animation itself is word-by-word. Expect: whole
+words appear and vanish in one shot, like watching someone paste
+words rather than type letters.
+
 ## Summary table
 
 | # | Example | Key options | What it demonstrates |
@@ -265,3 +287,4 @@ Expect: a long animation that showcases every option. Good for a
 | 13 | 23_perl | cursor-glide | smooth cursor between hunks |
 | 14 | 21_haskell | distance-speed adaptive | fast long jumps |
 | 15 | 42_large_huge_python | everything | kitchen-sink combo |
+| 16 | 03_json_config | word-diff + word pacing | wordwise animation |
