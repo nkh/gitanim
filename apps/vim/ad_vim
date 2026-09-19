@@ -467,6 +467,10 @@ while [[ $# -gt 0 ]]; do
                     exit 1 ;;
             esac
             ;;
+        --gaussian-jitter-pct)
+            GAUSSIAN_JITTER_PCT="$2"; shift 2
+            GAUSSIAN_JITTER=1
+            ;;
         --sign-column)      SIGN_COLUMN=1; shift ;;
         --delete-pacing)
             DELETE_PACING="$2"; shift 2

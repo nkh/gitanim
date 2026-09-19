@@ -785,14 +785,21 @@ static void handle_insert(char *line) {
         /* Word pacing: type words instantly, pause after each word.
          * A "word" is a run of non-whitespace chars. When we hit
          * a whitespace char or end of inserts, pause. */
-        /* Count \n inserts for changed_lines before the word-pacing
-         * return skips the check below. */
+        /* split_line and overwrite_insert are not char inserts —
+         * passthrough and advance i. (Without this, split_line
+         * enters the word-collect loop below, which immediately
+         * breaks with count=0, returns without advancing i, and
+         * the main loop reprocesses the same split_line forever.) */
         if (strcmp(toks[0], "split_line") == 0) {
+            passthrough(line);
             changed_lines++;
             if (pause_after_lines > 0 && changed_lines % pause_after_lines == 0
                 && n_lines > pause_after_threshold) {
                 emit_paced_delay(pause_after_ms, "pause_after");
             }
+            if (nt >= 2) current_line = atoi(toks[1]);
+            i++;
+            return;
         }
         /* Collect consecutive insert chars on same line */
         int start_line = (nt >= 2) ? atoi(toks[1]) : 0;
@@ -805,7 +812,7 @@ static void handle_insert(char *line) {
             int in2 = ad_layer_parse_tsv(ibuf2, it2, AD_LAYER_MAX_TOKENS);
             (void)in2;
             int il2 = (in2 >= 2) ? atoi(it2[1]) : 0;
-            if (strcmp(it2[0], "insert") != 0 || strcmp(it2[0], "split_line") == 0 || il2 != start_line)
+            if (strcmp(it2[0], "insert") != 0 || il2 != start_line)
                 break;
             i++;
         }

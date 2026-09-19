@@ -327,13 +327,18 @@ test-fuzz:
 # With HEADLESS=1, it runs headless and verifies the snapshot.
 #
 # Usage:
-#   make ex1           # open vim, animate the diff
+#   make ex1             # open vim, animate at default speed (1.0)
+#   make ex1 SPEED=0.3   # slow down to 30% speed (3.3x slower)
 #   make ex1 HEADLESS=1  # headless, verify snapshot matches new file
-#   make examples HEADLESS=1  # run all 15 headless, verify all match
+#   make examples HEADLESS=1  # run all 16 headless, verify all match
+#
+# SPEED variable: passed to ad_vim --speed. 1.0=default, 0.3=slow,
+# 0.1=very slow, 2.0=fast. Default is 1.0 if not set.
 #
 # See docs/EXAMPLES_TO_RUN.md for what each example demonstrates.
 
 EX_VIM = apps/vim/ad_vim
+EX_SPEED = $$(if [ -n "$$SPEED" ]; then echo "--speed $$SPEED"; else echo "--speed 1.0"; fi)
 EX_CHECK = if [ ! -f /tmp/$@_out.txt ]; then \
            echo "  $@: no snapshot (interactive mode — use HEADLESS=1 to verify)"; \
            else \
@@ -345,14 +350,14 @@ EX_CHECK = if [ ! -f /tmp/$@_out.txt ]; then \
            fi; \
            fi
 
-# HEADLESS mode: add --no-display --speed 1000 for non-interactive verification.
-EX_FLAGS = $$(if [ "$$HEADLESS" = "1" ]; then echo "--no-display --speed 1000 --snapshot /tmp/$@_out.txt"; fi)
+# HEADLESS mode: add --no-display --speed 1000 --snapshot for non-interactive verification.
+EX_FLAGS = $$(if [ "$$HEADLESS" = "1" ]; then echo "--no-display --speed 1000 --snapshot /tmp/$@_out.txt"; else echo "$(EX_SPEED)"; fi)
 
 .PHONY: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15 ex16 examples
 
 ex1:
-	@echo "=== ex1: default pipeline, small Python ==="
-	@ex_dir=01_small_python; \
+	@echo "=== ex1: default pipeline, large Python ==="
+	@ex_dir=33_large_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) $(EX_FLAGS) $$old $$new"; \
@@ -361,7 +366,7 @@ ex1:
 
 ex2:
 	@echo "=== ex2: large Python with word-diff ==="
-	@ex_dir=02_large_python; \
+	@ex_dir=33_large_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --word-diff $(EX_FLAGS) $$old $$new"; \
@@ -369,8 +374,8 @@ ex2:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex3:
-	@echo "=== ex3: JSON config with word-diff ==="
-	@ex_dir=03_json_config; \
+	@echo "=== ex3: large Go config with word-diff ==="
+	@ex_dir=37_large_go; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --word-diff $(EX_FLAGS) $$old $$new"; \
@@ -378,8 +383,8 @@ ex3:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex4:
-	@echo "=== ex4: shell script with overwrite layer ==="
-	@ex_dir=04_shell_script; \
+	@echo "=== ex4: large Rust with overwrite layer ==="
+	@ex_dir=36_large_rust; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --overwrite $(EX_FLAGS) $$old $$new"; \
@@ -387,8 +392,8 @@ ex4:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex5:
-	@echo "=== ex5: Go code with indent-last ==="
-	@ex_dir=05_go_code; \
+	@echo "=== ex5: large Python with indent-last ==="
+	@ex_dir=33_large_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --indent-last $(EX_FLAGS) $$old $$new"; \
@@ -396,8 +401,8 @@ ex5:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex6:
-	@echo "=== ex6: TypeScript with line_delete_in_place ==="
-	@ex_dir=06_typescript; \
+	@echo "=== ex6: large Java with line_delete_in_place ==="
+	@ex_dir=38_large_java; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --line-delete-in-place $(EX_FLAGS) $$old $$new"; \
@@ -405,8 +410,8 @@ ex6:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex7:
-	@echo "=== ex7: Rust with overwrite + indent-last (combined layers) ==="
-	@ex_dir=08_rust_code; \
+	@echo "=== ex7: large Rust with overwrite + indent-last (combined layers) ==="
+	@ex_dir=36_large_rust; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --overwrite --indent-last $(EX_FLAGS) $$old $$new"; \
@@ -414,8 +419,8 @@ ex7:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex8:
-	@echo "=== ex8: C code with line_replace (collapse whole lines) ==="
-	@ex_dir=09_c_code; \
+	@echo "=== ex8: large Python with line_replace (full-line replacement) ==="
+	@ex_dir=33_large_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_replace $(EX_FLAGS) $$old $$new"; \
@@ -423,8 +428,8 @@ ex8:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex9:
-	@echo "=== ex9: Java with word delete-pacing ==="
-	@ex_dir=13_java; \
+	@echo "=== ex9: large Java with word delete-pacing ==="
+	@ex_dir=38_large_java; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --delete-pacing word $(EX_FLAGS) $$old $$new"; \
@@ -432,8 +437,8 @@ ex9:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex10:
-	@echo "=== ex10: Kotlin with char delete-pacing (contrast with ex9) ==="
-	@ex_dir=14_kotlin; \
+	@echo "=== ex10: large Java with char delete-pacing (contrast with ex9) ==="
+	@ex_dir=38_large_java; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --delete-pacing char $(EX_FLAGS) $$old $$new"; \
@@ -441,8 +446,8 @@ ex10:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex11:
-	@echo "=== ex11: Ruby with flash delete-pacing (highlight-then-delete) ==="
-	@ex_dir=16_ruby; \
+	@echo "=== ex11: large Ruby with flash delete-pacing (highlight-then-delete) ==="
+	@ex_dir=41_large_ruby; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --delete-pacing flash --flash-pause-ms 400 --flash-highlight-ms 300 $(EX_FLAGS) $$old $$new"; \
@@ -450,17 +455,17 @@ ex11:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex12:
-	@echo "=== ex12: Swift with gaussian pacing (natural jitter) ==="
-	@ex_dir=15_swift; \
+	@echo "=== ex12: large C# with gaussian pacing (natural jitter) ==="
+	@ex_dir=40_large_csharp; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_VIM) --pacing gaussian --gaussian-jitter-pct 20 $(EX_FLAGS) $$old $$new"; \
-	$(EX_VIM) --pacing gaussian --gaussian-jitter-pct 20 $(EX_FLAGS) "$$old" "$$new"; \
+	echo "  $(EX_VIM) --pacing gaussian $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --pacing gaussian $(EX_FLAGS) "$$old" "$$new"; \
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex13:
-	@echo "=== ex13: Perl with cursor-glide (smooth cursor between hunks) ==="
-	@ex_dir=23_perl; \
+	@echo "=== ex13: large Perl with cursor-glide (smooth cursor between hunks) ==="
+	@ex_dir=35_large_perl; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --cursor-glide-ms 200 --cursor-glide-show-intermediate 1 $(EX_FLAGS) $$old $$new"; \
@@ -468,8 +473,8 @@ ex13:
 	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex14:
-	@echo "=== ex14: Haskell with distance-speed (adaptive long jumps) ==="
-	@ex_dir=21_haskell; \
+	@echo "=== ex14: huge Python with distance-speed (adaptive long jumps) ==="
+	@ex_dir=42_large_huge_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3.0 $(EX_FLAGS) $$old $$new"; \
@@ -487,7 +492,7 @@ ex15:
 
 ex16:
 	@echo "=== ex16: wordwise animation (word-diff + word pacing) ==="
-	@ex_dir=03_json_config; \
+	@ex_dir=33_large_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
 	echo "  $(EX_VIM) --word-diff --insert-pacing word --delete-pacing word $(EX_FLAGS) $$old $$new"; \
