@@ -334,11 +334,15 @@ test-fuzz:
 # See docs/EXAMPLES_TO_RUN.md for what each example demonstrates.
 
 EX_VIM = apps/vim/ad_vim
-EX_CHECK = new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+EX_CHECK = if [ ! -f /tmp/$@_out.txt ]; then \
+           echo "  $@: no snapshot (interactive mode — use HEADLESS=1 to verify)"; \
+           else \
+           new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
            if diff -q "$$new" /tmp/$@_out.txt >/dev/null 2>&1; then \
                echo "  $@: snapshot matches new file"; \
            else \
                echo "  $@: MISMATCH (snapshot != new file)"; \
+           fi; \
            fi
 
 # HEADLESS mode: add --no-display --speed 1000 for non-interactive verification.

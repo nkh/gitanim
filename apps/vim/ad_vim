@@ -2277,6 +2277,14 @@ function! s:TimedTick(timer) abort
         " the result — but with terminal settings restored.
         if s:no_display
             quit!
+        else
+            " Show feedback in the status line so the user knows the
+            " animation is done. Without this, the animation finishes
+            " silently and the user doesn't know whether it's still
+            " running or done.
+            echohl Question
+            echo "Animation complete — press :q to quit (or :w to save)"
+            echohl None
         endif
         return
     endif
