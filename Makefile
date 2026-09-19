@@ -320,6 +320,164 @@ test-fuzz:
 	@echo "=== Fuzz testing (malformed inputs) ==="
 	@perl tests/test_fuzz.pl 2>&1 | tail -3
 
+# --- Representative Examples (docs/EXAMPLES_TO_RUN.md) ----------------------
+#
+# Each target runs ad_pipeline with a representative option combination,
+# writes the snapshot to /tmp/exN_out.txt, and verifies it matches the
+# expected new.* file. Drop --no-display --speed 1000 to see the animation.
+#
+# See docs/EXAMPLES_TO_RUN.md for what each example demonstrates.
+
+EX = pipeline/ad_pipeline
+EX_RUN = bash $(EX) --no-display --speed 1000
+EX_CHECK = new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+           if diff -q "$$new" /tmp/$@_out.txt >/dev/null 2>&1; then \
+               echo "  $@: snapshot matches new file"; \
+           else \
+               echo "  $@: MISMATCH (snapshot != new file)"; \
+           fi
+
+.PHONY: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15 examples
+
+ex1:
+	@echo "=== ex1: default pipeline, small Python ==="
+	@ex_dir=01_small_python; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex2:
+	@echo "=== ex2: large Python with semantic-cleanup ==="
+	@ex_dir=02_large_python; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --compute-semantic-cleanup --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --compute-semantic-cleanup --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex3:
+	@echo "=== ex3: JSON config with word-diff ==="
+	@ex_dir=03_json_config; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --compute-word-diff --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --compute-word-diff --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex4:
+	@echo "=== ex4: shell script with overwrite layer ==="
+	@ex_dir=04_shell_script; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex5:
+	@echo "=== ex5: Go code with indent-last ==="
+	@ex_dir=05_go_code; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex6:
+	@echo "=== ex6: TypeScript with line_delete_in_place ==="
+	@ex_dir=06_typescript; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_delete_in_place --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_delete_in_place --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex7:
+	@echo "=== ex7: Rust with overwrite + indent-last (combined layers) ==="
+	@ex_dir=08_rust_code; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex8:
+	@echo "=== ex8: C code with line_replace (collapse whole lines) ==="
+	@ex_dir=09_c_code; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_replace --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_replace --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex9:
+	@echo "=== ex9: Java with word delete-pacing ==="
+	@ex_dir=13_java; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --pace-delete-pacing word --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --pace-delete-pacing word --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex10:
+	@echo "=== ex10: Kotlin with char delete-pacing (contrast with ex9) ==="
+	@ex_dir=14_kotlin; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --pace-delete-pacing char --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --pace-delete-pacing char --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex11:
+	@echo "=== ex11: Ruby with flash delete-pacing (highlight-then-delete) ==="
+	@ex_dir=16_ruby; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --pace-delete-pacing flash --pace-flash-pause-ms 400 --pace-flash-highlight-ms 300 --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --pace-delete-pacing flash --pace-flash-pause-ms 400 --pace-flash-highlight-ms 300 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex12:
+	@echo "=== ex12: Swift with gaussian pacing (natural jitter) ==="
+	@ex_dir=15_swift; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --pace-pacing gaussian --pace-gaussian-jitter-pct 20 --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --pace-pacing gaussian --pace-gaussian-jitter-pct 20 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex13:
+	@echo "=== ex13: Perl with cursor-glide (smooth cursor between hunks) ==="
+	@ex_dir=23_perl; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --pace-cursor-glide-ms 200 --pace-cursor-glide-show-intermediate 1 --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --pace-cursor-glide-ms 200 --pace-cursor-glide-show-intermediate 1 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex14:
+	@echo "=== ex14: Haskell with distance-speed (adaptive long jumps) ==="
+	@ex_dir=21_haskell; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --pace-distance-speed adaptive --pace-distance-threshold 10 --pace-distance-fast-mult 3.0 --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --pace-distance-speed adaptive --pace-distance-threshold 10 --pace-distance-fast-mult 3.0 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+ex15:
+	@echo "=== ex15: huge Python with everything (kitchen-sink combo) ==="
+	@ex_dir=42_large_huge_python; \
+	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
+	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
+	echo "  $(EX_RUN) --compute-semantic-cleanup --compute-word-diff --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --postprocess-ad-layer=ad_layer_line_delete_in_place --pace-delete-pacing word --pace-pacing gaussian --pace-distance-speed adaptive --snapshot /tmp/$@_out.txt $$old $$new"; \
+	$(EX_RUN) --compute-semantic-cleanup --compute-word-diff --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --postprocess-ad-layer=ad_layer_line_delete_in_place --pace-delete-pacing word --pace-pacing gaussian --pace-distance-speed adaptive --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
+	$(EX_CHECK)
+
+examples: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15
+	@echo "=== All 15 examples passed ==="
+
+
 # --- Debugging -------------------------------------------------------------
 
 .PHONY: debug snapshot

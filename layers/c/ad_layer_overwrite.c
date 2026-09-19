@@ -116,15 +116,37 @@ static int layer_overwrite(Op *ops, int n_ops, Op *out, int out_cap, int *line_o
      *     for keep / insert / overwrite_insert.
      *   - \n op: KEEP original position; reset (current_line, current_col)
      *     to (original_line + 1, 1) for the next iteration.
-     *   - line op (delete_line, insert_line, etc.): KEEP original position
-     *     — line ops manage their own positioning and act as run boundaries.
+     *   - line op: KEEP original position but UPDATE current_line/
+     *     current_col so subsequent non-line ops get the right position:
+     *     keep_line L, split_line L C, insert_line L → line L+1, col 1
+     *     join_lines L → stays on line L (content joined, col unchanged)
+     *     delete_line L → stays (line removed, lines shift up)
+     *     batch_insert L C → col advances (rare, approximated)
      */
     if (out_count > 0) {
         int current_line = out[0].line;
         int current_col = 1;
         for (int j = 0; j < out_count; j++) {
             if (ad_layer_is_debug_op(&out[j])) continue;
-            if (ad_layer_is_line_op(&out[j])) continue;
+            if (ad_layer_is_line_op(&out[j])) {
+                /* Update cursor for subsequent ops but don't touch
+                 * the line op's own position. */
+                if (strcmp(out[j].type, "keep_line") == 0
+                    || strcmp(out[j].type, "split_line") == 0
+                    || strcmp(out[j].type, "insert_line") == 0) {
+                    current_line = out[j].line + 1;
+                    current_col = 1;
+                } else if (strcmp(out[j].type, "join_lines") == 0) {
+                    /* Join: cursor stays on the joined line. */
+                    current_line = out[j].line;
+                    /* col stays — content is appended at current col. */
+                } else if (strcmp(out[j].type, "delete_line") == 0) {
+                    /* Delete: cursor stays (lines shift up). */
+                    /* current_line stays. */
+                }
+                /* batch_insert: col advances — approximated, not exact. */
+                continue;
+            }
 
             int is_newline_op = (out[j].code == AD_LAYER_CHAR_NEWLINE);
 

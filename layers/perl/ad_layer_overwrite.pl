@@ -254,15 +254,33 @@ sub transform_hunk {
     # Set positions on the output.
     # For non-\n ops: assign (current_line, current_col).
     # For \n ops: KEEP original position (never touch a 'delete \n' op).
-    # For line ops (delete_line, insert_line, etc.): KEEP original position
-    # — they have their own position semantics and act as run boundaries.
+    # For line ops: KEEP original position but UPDATE current_line/
+    # current_col so subsequent non-line ops get the right position:
+    #   keep_line L, split_line L C, insert_line L → line L+1, col 1
+    #   join_lines L → stays on line L (content joined, col unchanged)
+    #   delete_line L → stays (line removed, lines shift up)
+    #   batch_insert L C → col advances (rare, approximated)
     my $cl = @out > 0 ? $out[0]{line} : 1;
     my $cc = 1;
     for my $op (@out) {
         next if is_debug_op($op);
         if (is_line_op($op)) {
-            # Line op: pass through with original position. Don't touch
-            # the cursor (line ops manage their own positioning).
+            # Line op: keep original position but update cursor for
+            # subsequent non-line ops.
+            if ($op->{type} eq 'keep_line'
+                || $op->{type} eq 'split_line'
+                || $op->{type} eq 'insert_line') {
+                $cl = $op->{line} + 1;
+                $cc = 1;
+            } elsif ($op->{type} eq 'join_lines') {
+                # Join: cursor stays on the joined line.
+                $cl = $op->{line};
+                # col stays — content is appended at current col.
+            } elsif ($op->{type} eq 'delete_line') {
+                # Delete: cursor stays (lines shift up).
+                # $cl stays.
+            }
+            # batch_insert: col advances — approximated, not exact.
             next;
         }
         if ($op->{code} != 10) {
