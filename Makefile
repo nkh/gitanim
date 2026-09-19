@@ -322,20 +322,27 @@ test-fuzz:
 
 # --- Representative Examples (docs/EXAMPLES_TO_RUN.md) ----------------------
 #
-# Each target runs ad_pipeline with a representative option combination,
-# writes the snapshot to /tmp/exN_out.txt, and verifies it matches the
-# expected new.* file. Drop --no-display --speed 1000 to see the animation.
+# Each target runs ad_vim (vim-based animator) with a representative
+# option combination. By default, vim opens and animates the diff.
+# With HEADLESS=1, it runs headless and verifies the snapshot.
+#
+# Usage:
+#   make ex1           # open vim, animate the diff
+#   make ex1 HEADLESS=1  # headless, verify snapshot matches new file
+#   make examples HEADLESS=1  # run all 15 headless, verify all match
 #
 # See docs/EXAMPLES_TO_RUN.md for what each example demonstrates.
 
-EX = pipeline/ad_pipeline
-EX_RUN = bash $(EX) --no-display --speed 1000
+EX_VIM = apps/vim/ad_vim
 EX_CHECK = new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
            if diff -q "$$new" /tmp/$@_out.txt >/dev/null 2>&1; then \
                echo "  $@: snapshot matches new file"; \
            else \
                echo "  $@: MISMATCH (snapshot != new file)"; \
            fi
+
+# HEADLESS mode: add --no-display --speed 1000 for non-interactive verification.
+EX_FLAGS = $$(if [ "$$HEADLESS" = "1" ]; then echo "--no-display --speed 1000 --snapshot /tmp/$@_out.txt"; fi)
 
 .PHONY: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15 examples
 
@@ -344,138 +351,139 @@ ex1:
 	@ex_dir=01_small_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex2:
-	@echo "=== ex2: large Python with semantic-cleanup ==="
+	@echo "=== ex2: large Python with word-diff ==="
 	@ex_dir=02_large_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --compute-semantic-cleanup --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --compute-semantic-cleanup --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --word-diff $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --word-diff $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex3:
 	@echo "=== ex3: JSON config with word-diff ==="
 	@ex_dir=03_json_config; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --compute-word-diff --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --compute-word-diff --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --word-diff $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --word-diff $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex4:
 	@echo "=== ex4: shell script with overwrite layer ==="
 	@ex_dir=04_shell_script; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --overwrite $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --ad-layer=ad_layer_reorder --overwrite $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex5:
 	@echo "=== ex5: Go code with indent-last ==="
 	@ex_dir=05_go_code; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --indent-last $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --ad-layer=ad_layer_reorder --indent-last $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex6:
 	@echo "=== ex6: TypeScript with line_delete_in_place ==="
 	@ex_dir=06_typescript; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_delete_in_place --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_delete_in_place --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --line-delete-in-place $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --ad-layer=ad_layer_reorder --line-delete-in-place $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex7:
 	@echo "=== ex7: Rust with overwrite + indent-last (combined layers) ==="
 	@ex_dir=08_rust_code; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --overwrite --indent-last $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --ad-layer=ad_layer_reorder --overwrite --indent-last $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex8:
 	@echo "=== ex8: C code with line_replace (collapse whole lines) ==="
 	@ex_dir=09_c_code; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_replace --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_line_replace --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_replace $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --ad-layer=ad_layer_reorder --ad-layer=ad_layer_line_replace $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex9:
 	@echo "=== ex9: Java with word delete-pacing ==="
 	@ex_dir=13_java; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --pace-delete-pacing word --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --pace-delete-pacing word --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --delete-pacing word $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --delete-pacing word $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex10:
 	@echo "=== ex10: Kotlin with char delete-pacing (contrast with ex9) ==="
 	@ex_dir=14_kotlin; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --pace-delete-pacing char --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --pace-delete-pacing char --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --delete-pacing char $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --delete-pacing char $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex11:
 	@echo "=== ex11: Ruby with flash delete-pacing (highlight-then-delete) ==="
 	@ex_dir=16_ruby; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --pace-delete-pacing flash --pace-flash-pause-ms 400 --pace-flash-highlight-ms 300 --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --pace-delete-pacing flash --pace-flash-pause-ms 400 --pace-flash-highlight-ms 300 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --delete-pacing flash --flash-pause-ms 400 --flash-highlight-ms 300 $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --delete-pacing flash --flash-pause-ms 400 --flash-highlight-ms 300 $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex12:
 	@echo "=== ex12: Swift with gaussian pacing (natural jitter) ==="
 	@ex_dir=15_swift; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --pace-pacing gaussian --pace-gaussian-jitter-pct 20 --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --pace-pacing gaussian --pace-gaussian-jitter-pct 20 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --pacing gaussian --gaussian-jitter-pct 20 $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --pacing gaussian --gaussian-jitter-pct 20 $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex13:
 	@echo "=== ex13: Perl with cursor-glide (smooth cursor between hunks) ==="
 	@ex_dir=23_perl; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --pace-cursor-glide-ms 200 --pace-cursor-glide-show-intermediate 1 --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --pace-cursor-glide-ms 200 --pace-cursor-glide-show-intermediate 1 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --cursor-glide-ms 200 --cursor-glide-show-intermediate 1 $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --cursor-glide-ms 200 --cursor-glide-show-intermediate 1 $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex14:
 	@echo "=== ex14: Haskell with distance-speed (adaptive long jumps) ==="
 	@ex_dir=21_haskell; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --pace-distance-speed adaptive --pace-distance-threshold 10 --pace-distance-fast-mult 3.0 --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --pace-distance-speed adaptive --pace-distance-threshold 10 --pace-distance-fast-mult 3.0 --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3.0 $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --distance-speed adaptive --distance-threshold 10 --distance-fast-mult 3.0 $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 ex15:
 	@echo "=== ex15: huge Python with everything (kitchen-sink combo) ==="
 	@ex_dir=42_large_huge_python; \
 	old=$$(ls tests/examples/$$ex_dir/old.* | head -1); \
 	new=$$(ls tests/examples/$$ex_dir/new.* | head -1); \
-	echo "  $(EX_RUN) --compute-semantic-cleanup --compute-word-diff --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --postprocess-ad-layer=ad_layer_line_delete_in_place --pace-delete-pacing word --pace-pacing gaussian --pace-distance-speed adaptive --snapshot /tmp/$@_out.txt $$old $$new"; \
-	$(EX_RUN) --compute-semantic-cleanup --compute-word-diff --postprocess-ad-layer=ad_layer_reorder --postprocess-ad-layer=ad_layer_overwrite --postprocess-ad-layer=ad_layer_indent_last --postprocess-ad-layer=ad_layer_line_delete_in_place --pace-delete-pacing word --pace-pacing gaussian --pace-distance-speed adaptive --snapshot /tmp/$@_out.txt "$$old" "$$new" 2>/dev/null; \
-	$(EX_CHECK)
+	echo "  $(EX_VIM) --word-diff --ad-layer=ad_layer_reorder --overwrite --indent-last --line-delete-in-place --delete-pacing word --pacing gaussian --distance-speed adaptive $(EX_FLAGS) $$old $$new"; \
+	$(EX_VIM) --word-diff --ad-layer=ad_layer_reorder --overwrite --indent-last --line-delete-in-place --delete-pacing word --pacing gaussian --distance-speed adaptive $(EX_FLAGS) "$$old" "$$new"; \
+	[ -z "$$HEADLESS" ] || $(EX_CHECK)
 
 examples: ex1 ex2 ex3 ex4 ex5 ex6 ex7 ex8 ex9 ex10 ex11 ex12 ex13 ex14 ex15
-	@echo "=== All 15 examples passed ==="
+	@if [ "$$HEADLESS" = "1" ]; then echo "=== All 15 examples passed (headless) ==="; \
+	else echo "=== All 15 examples animated in vim ==="; fi
 
 
 # --- Debugging -------------------------------------------------------------
@@ -555,6 +563,9 @@ help:
 	@echo "  make test-property  Run property-based tests"
 	@echo "  make test-examples  Run all examples through pipeline"
 	@echo "  make test-fuzz      Run fuzz tests"
+	@echo "  make ex1..ex15      Animate example N in vim (see docs/EXAMPLES_TO_RUN.md)"
+	@echo "  make examples       Animate all 15 examples in vim"
+	@echo "  make examples HEADLESS=1  Verify all 15 examples headless"
 	@echo "  make clean          Remove bin/ directory"
 	@echo "  make check          Check if binaries are up to date"
 	@echo "  make help           Show this help"
