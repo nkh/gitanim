@@ -2285,9 +2285,63 @@ function! s:TimedTick(timer) abort
     let s:timed_timer = timer_start(l:delay, function('s:TimedTick'))
 endfunction
 
+function! s:RestoreTerminal() abort
+    " Restore terminal state that was changed in StartTimedAnimation.
+    " This is called from VimLeavePre (guaranteed to run on ANY exit,
+    " including :q, Ctrl-C, errors, and kill signals vim handles).
+    if exists('s:save_guicursor')
+        let &guicursor = s:save_guicursor
+    endif
+    if exists('s:save_t_EI')
+        let &t_EI = s:save_t_EI
+    endif
+    if exists('s:save_t_BE')
+        let &t_BE = s:save_t_BE
+    endif
+    " Send the reset-cursor escape sequence directly to the terminal.
+    " ESC[0 q resets the cursor shape to the terminal's default (block).
+    " This is needed because the terminal emulator remembers the last
+    " cursor shape escape it received — even after vim exits and a new
+    " vim starts, the terminal is still in "bar cursor" mode if the
+    " previous run was interrupted before restoring.
+    if !exists('s:terminal_reset_sent')
+        let s:terminal_reset_sent = 1
+        " Only send if we actually changed t_EI (i.e., animation started)
+        if exists('s:save_t_EI')
+            call s:SendRawEscape("\<Esc>[0 q")
+        endif
+    endif
+endfunction
+
+" Send a raw escape sequence directly to the terminal (bypassing vim's
+" option system). This ensures the terminal receives the sequence even
+" if vim's t_EI is not currently set to it.
+function! s:SendRawEscape(seq) abort
+    " Use term_sendcode() in nvim, or printf to stdout in vim.
+    " In vim, we can use :normal or execute to output raw bytes.
+    " The most reliable way: write to /dev/tty.
+    let l:cmd = 'printf ' . shellescape(a:seq) . ' > /dev/tty 2>/dev/null'
+    call system(l:cmd)
+endfunction
+
+" Guarantee terminal restoration on ANY exit path:
+" - :q / :qa / :q!
+" - error exit (echoerr, exception)
+" - VimLeave (normal exit)
+" - signals that vim handles (SIGINT, SIGTERM)
+" VimLeavePre runs before vim closes, while stdout is still connected
+" to the terminal — so escape sequences sent here reach the terminal.
+autocmd VimLeavePre * call s:RestoreTerminal()
+
 function! s:StartTimedAnimation() abort
     " Apply theme before starting
     call s:ApplyTheme()
+
+    " Reset cursor to default BEFORE saving — in case a previous run
+    " left the terminal in "bar cursor" mode. ESC[0 q resets to block.
+    " This fixes the "error persists after vim restart" case: the
+    " terminal emulator remembers the cursor shape across vim sessions.
+    call s:SendRawEscape("\<Esc>[0 q")
 
     " Use a thin vertical bar cursor during animation (like insert mode)
     " instead of the default block cursor in normal mode. Save the user's
