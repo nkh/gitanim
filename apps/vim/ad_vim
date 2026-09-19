@@ -2258,6 +2258,26 @@ function! s:TimedTick(timer) abort
         if !get(g:diffvim, 'keep_dirty', 0)
             setlocal nomodified
         endif
+        " Restore terminal state (cursor shape, t_EI, t_BE) that was
+        " changed in StartTimedAnimation. Without this, the terminal is
+        " left with a bar cursor and broken bracketed-paste after the
+        " animation finishes — the user's next vim session inherits the
+        " broken terminal state.
+        if exists('s:save_guicursor')
+            let &guicursor = s:save_guicursor
+        endif
+        if exists('s:save_t_EI')
+            let &t_EI = s:save_t_EI
+        endif
+        if exists('s:save_t_BE')
+            let &t_BE = s:save_t_BE
+        endif
+        " In headless mode (--no-display), auto-quit after animation.
+        " In interactive mode, leave vim open so the user can inspect
+        " the result — but with terminal settings restored.
+        if s:no_display
+            quit!
+        endif
         return
     endif
 
@@ -2411,9 +2431,21 @@ ${VIM_RUNTIME:+let &runtimepath = '$VIM_RUNTIME'}
 syntax enable
 MINIRC
 
-    VIM_ARGS=(--not-a-term -f -n -u "$MINI_VIMRC" -U NONE)
+    # --not-a-term only for headless mode. In interactive mode, vim
+    # needs a real terminal for proper cursor/keyboard handling and
+    # screen restoration on exit. Using --not-a-term interactively
+    # leaves the terminal in a broken state after vim exits.
+    if [[ "${NO_DISPLAY:-0}" -eq 1 ]]; then
+        VIM_ARGS=(--not-a-term -f -n -u "$MINI_VIMRC" -U NONE)
+    else
+        VIM_ARGS=(-f -n -u "$MINI_VIMRC" -U NONE)
+    fi
 else
-    VIM_ARGS=(--not-a-term -f -n -U NONE)
+    if [[ "${NO_DISPLAY:-0}" -eq 1 ]]; then
+        VIM_ARGS=(--not-a-term -f -n -U NONE)
+    else
+        VIM_ARGS=(-f -n -U NONE)
+    fi
 fi
 
 # Check if stdin is a TTY. If yes, let vim read from the real terminal
